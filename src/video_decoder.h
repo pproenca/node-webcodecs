@@ -14,7 +14,11 @@ extern "C" {
 
 #include <napi.h>
 
+#include <memory>
 #include <string>
+
+// Forward declaration
+class AsyncDecodeWorker;
 
 class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
  public:
@@ -52,10 +56,19 @@ class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
   Napi::FunctionReference output_callback_;
   Napi::FunctionReference error_callback_;
 
+  // Async worker for non-blocking decode.
+  std::unique_ptr<AsyncDecodeWorker> async_worker_;
+  Napi::ThreadSafeFunction output_tsfn_;
+  Napi::ThreadSafeFunction error_tsfn_;
+  bool async_mode_ = false;
+
   // State.
   std::string state_;
   int coded_width_;
   int coded_height_;
+
+  // Friend declaration
+  friend class AsyncDecodeWorker;
 };
 
 #endif  // SRC_VIDEO_DECODER_H_
