@@ -14,6 +14,7 @@ Napi::Object EncodedVideoChunk::Init(Napi::Env env, Napi::Object exports) {
         InstanceAccessor("duration", &EncodedVideoChunk::GetDuration, nullptr),
         InstanceAccessor("byteLength", &EncodedVideoChunk::GetByteLength, nullptr),
         InstanceMethod("copyTo", &EncodedVideoChunk::CopyTo),
+        InstanceMethod("close", &EncodedVideoChunk::Close),
     });
 
     constructor = Napi::Persistent(func);
@@ -38,7 +39,7 @@ Napi::Object EncodedVideoChunk::CreateInstance(Napi::Env env,
 }
 
 EncodedVideoChunk::EncodedVideoChunk(const Napi::CallbackInfo& info)
-    : Napi::ObjectWrap<EncodedVideoChunk>(info), duration_(0) {
+    : Napi::ObjectWrap<EncodedVideoChunk>(info), hasDuration_(false), duration_(0), closed_(false) {
     Napi::Env env = info.Env();
 
     if (info.Length() < 1 || !info[0].IsObject()) {
@@ -65,6 +66,7 @@ EncodedVideoChunk::EncodedVideoChunk(const Napi::CallbackInfo& info)
     // Optional: duration
     if (init.Has("duration") && init.Get("duration").IsNumber()) {
         duration_ = init.Get("duration").As<Napi::Number>().Int64Value();
+        hasDuration_ = true;
     }
 
     // Required: data
@@ -101,7 +103,7 @@ Napi::Value EncodedVideoChunk::GetTimestamp(const Napi::CallbackInfo& info) {
 }
 
 Napi::Value EncodedVideoChunk::GetDuration(const Napi::CallbackInfo& info) {
-    if (duration_ == 0) {
+    if (!hasDuration_) {
         return info.Env().Null();
     }
     return Napi::Number::New(info.Env(), duration_);
@@ -144,4 +146,11 @@ void EncodedVideoChunk::CopyTo(const Napi::CallbackInfo& info) {
     }
 
     std::memcpy(destData, data_.data(), data_.size());
+}
+
+void EncodedVideoChunk::Close(const Napi::CallbackInfo& info) {
+    if (!closed_) {
+        data_.clear();
+        closed_ = true;
+    }
 }

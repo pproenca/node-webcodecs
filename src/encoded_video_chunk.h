@@ -23,13 +23,16 @@ public:
 
     // Methods
     void CopyTo(const Napi::CallbackInfo& info);
+    void Close(const Napi::CallbackInfo& info);
 
 private:
     static Napi::FunctionReference constructor;
     std::string type_;
     int64_t timestamp_;
+    bool hasDuration_;
     int64_t duration_;
     std::vector<uint8_t> data_;
+    bool closed_;
 };
 
 #endif
