@@ -1,7 +1,6 @@
 import type {
     VideoEncoderConfig,
     VideoEncoderInit,
-    EncodedVideoChunk,
     VideoFrameInit,
     CodecState
 } from './types';
@@ -53,14 +52,12 @@ export class VideoEncoder {
     constructor(init: VideoEncoderInit) {
         this._native = new native.VideoEncoder({
             output: (chunk: any, metadata: any) => {
-                // Wrap native chunk with byteLength getter
-                const wrappedChunk: EncodedVideoChunk = {
+                const wrappedChunk = new EncodedVideoChunk({
                     type: chunk.type,
                     timestamp: chunk.timestamp,
                     duration: chunk.duration,
-                    data: chunk.data,
-                    get byteLength() { return this.data.length; }
-                };
+                    data: chunk.data
+                });
                 init.output(wrappedChunk, metadata);
             },
             error: init.error
@@ -88,11 +85,28 @@ export class VideoEncoder {
     }
 }
 
+export class EncodedVideoChunk {
+    readonly type: 'key' | 'delta';
+    readonly timestamp: number;
+    readonly duration?: number;
+    readonly data: Buffer;
+
+    constructor(init: { type: 'key' | 'delta'; timestamp: number; duration?: number; data: Buffer }) {
+        this.type = init.type;
+        this.timestamp = init.timestamp;
+        this.duration = init.duration;
+        this.data = init.data;
+    }
+
+    get byteLength(): number {
+        return this.data.length;
+    }
+}
+
 // Re-export types
 export type {
     VideoEncoderConfig,
     VideoEncoderInit,
-    EncodedVideoChunk,
     VideoFrameInit,
     CodecState
 } from './types';
