@@ -7,6 +7,11 @@
 
 #include <utility>
 
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libswscale/swscale.h>
+}
+
 #include "src/video_decoder.h"
 #include "src/video_frame.h"
 
@@ -21,6 +26,24 @@ AsyncDecodeWorker::AsyncDecodeWorker(VideoDecoder* decoder,
 
 AsyncDecodeWorker::~AsyncDecodeWorker() {
   Stop();
+  if (frame_) {
+    av_frame_free(&frame_);
+  }
+  if (packet_) {
+    av_packet_free(&packet_);
+  }
+  // Note: codec_context_ and sws_context_ are owned by VideoDecoder
+  // They are cleaned up there, not here
+}
+
+void AsyncDecodeWorker::SetCodecContext(AVCodecContext* ctx, SwsContext* sws,
+                                        int width, int height) {
+  codec_context_ = ctx;
+  sws_context_ = sws;
+  output_width_ = width;
+  output_height_ = height;
+  frame_ = av_frame_alloc();
+  packet_ = av_packet_alloc();
 }
 
 void AsyncDecodeWorker::Start() {
@@ -98,15 +121,62 @@ void AsyncDecodeWorker::WorkerThread() {
 }
 
 void AsyncDecodeWorker::ProcessPacket(const DecodeTask& task) {
-  // This will be called from worker thread
-  // Actual FFmpeg decoding happens here
-  // Results are posted back via ThreadSafeFunction
+  if (!codec_context_ || !packet_ || !frame_) {
+    return;
+  }
 
-  // Note: Implementation delegates to VideoDecoder's internal methods
-  // which need to be made thread-safe
+  // Set up packet from task data
+  av_packet_unref(packet_);
+  packet_->data = const_cast<uint8_t*>(task.data.data());
+  packet_->size = static_cast<int>(task.data.size());
+  packet_->pts = task.timestamp;
+
+  int ret = avcodec_send_packet(codec_context_, packet_);
+  if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
+    // Post error to main thread
+    std::string error_msg = "Decode error: " + std::to_string(ret);
+    error_tsfn_.NonBlockingCall(
+        new std::string(error_msg),
+        [](Napi::Env env, Napi::Function fn, std::string* msg) {
+          fn.Call({Napi::Error::New(env, *msg).Value()});
+          delete msg;
+        });
+    return;
+  }
+
+  while (avcodec_receive_frame(codec_context_, frame_) == 0) {
+    EmitFrame(frame_);
+    av_frame_unref(frame_);
+  }
 }
 
 void AsyncDecodeWorker::EmitFrame(AVFrame* frame) {
-  // Convert to RGBA and emit via ThreadSafeFunction
-  // This is called from worker thread
+  if (!sws_context_) {
+    return;
+  }
+
+  // Convert YUV to RGBA
+  size_t rgba_size = output_width_ * output_height_ * 4;
+  auto* rgba_data = new std::vector<uint8_t>(rgba_size);
+
+  uint8_t* dst_data[1] = {rgba_data->data()};
+  int dst_linesize[1] = {output_width_ * 4};
+
+  sws_scale(sws_context_, frame->data, frame->linesize, 0,
+            frame->height, dst_data, dst_linesize);
+
+  int64_t timestamp = frame->pts;
+  int width = output_width_;
+  int height = output_height_;
+
+  output_tsfn_.NonBlockingCall(
+      rgba_data,
+      [width, height, timestamp](Napi::Env env, Napi::Function fn,
+                                  std::vector<uint8_t>* data) {
+        Napi::Object frame_obj = VideoFrame::CreateInstance(
+            env, data->data(), data->size(),
+            width, height, timestamp, "RGBA");
+        fn.Call({frame_obj});
+        delete data;
+      });
 }

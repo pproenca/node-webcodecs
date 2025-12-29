@@ -49,6 +49,8 @@ class AsyncDecodeWorker {
   void Stop();
   void Enqueue(DecodeTask task);
   void Flush();
+  void SetCodecContext(AVCodecContext* ctx, SwsContext* sws,
+                       int width, int height);
   bool IsRunning() const { return running_.load(); }
   size_t QueueSize() const;
 
@@ -71,6 +73,10 @@ class AsyncDecodeWorker {
   // FFmpeg contexts (owned by VideoDecoder, just references here)
   AVCodecContext* codec_context_;
   SwsContext* sws_context_;
+  AVFrame* frame_;
+  AVPacket* packet_;
+  int output_width_;
+  int output_height_;
 };
 
 #endif  // SRC_ASYNC_DECODE_WORKER_H_
