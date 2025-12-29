@@ -7,4 +7,6 @@ coverage/
 output.h264
 *.mp4
 .claude/
+.serena/
+docs/plans/
 examples/.demo-assets/

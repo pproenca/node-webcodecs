@@ -1,8 +1,8 @@
 // Copyright 2024 The node-webcodecs Authors
 // SPDX-License-Identifier: MIT
 
-#include "video_filter.h"
-#include "video_frame.h"
+#include "src/video_filter.h"
+#include "src/video_frame.h"
 
 #include <algorithm>
 #include <cstdio>
