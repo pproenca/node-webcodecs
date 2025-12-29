@@ -13,6 +13,7 @@ Napi::Object InitEncodedAudioChunk(Napi::Env env, Napi::Object exports);
 Napi::Object InitAudioEncoder(Napi::Env env, Napi::Object exports);
 Napi::Object InitAudioDecoder(Napi::Env env, Napi::Object exports);
 Napi::Object InitVideoFilter(Napi::Env env, Napi::Object exports);
+Napi::Object InitDemuxer(Napi::Env env, Napi::Object exports);
 
 Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
   InitVideoEncoder(env, exports);
@@ -24,6 +25,7 @@ Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
   InitAudioEncoder(env, exports);
   InitAudioDecoder(env, exports);
   InitVideoFilter(env, exports);
+  InitDemuxer(env, exports);
   return exports;
 }
 
