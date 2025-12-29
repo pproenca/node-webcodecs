@@ -18,6 +18,15 @@ pkg_check_modules(SWSCALE REQUIRED libswscale)
 # Include cmake-js headers
 include_directories(${CMAKE_JS_INC})
 
+# Include node-addon-api headers
+execute_process(COMMAND node -p "require('node-addon-api').include"
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE NODE_ADDON_API_DIR
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+string(REPLACE "\"" "" NODE_ADDON_API_DIR ${NODE_ADDON_API_DIR})
+include_directories(${NODE_ADDON_API_DIR})
+
 # Source files
 file(GLOB SOURCE_FILES
     "src/*.cpp"
