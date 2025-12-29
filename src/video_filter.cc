@@ -193,6 +193,11 @@ std::string VideoFilter::BuildFilterString(
 // based on blur regions. See BuildFilterString() for filter construction.
 
 AVFrame* VideoFilter::ProcessFrame(AVFrame* input) {
+  // Safety check: filter contexts must be valid
+  if (!buffersrc_ctx_ || !buffersink_ctx_) {
+    return nullptr;
+  }
+
   // This processes a YUV frame through the filter graph
   // Returns filtered frame (caller does NOT own - internal buffer)
   int ret = av_buffersrc_add_frame_flags(buffersrc_ctx_, input,
