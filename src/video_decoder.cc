@@ -4,6 +4,7 @@
 #include "src/video_decoder.h"
 
 #include <cstring>
+#include <memory>
 #include <string>
 #include <vector>
 

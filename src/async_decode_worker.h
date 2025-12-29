@@ -6,6 +6,12 @@
 #ifndef SRC_ASYNC_DECODE_WORKER_H_
 #define SRC_ASYNC_DECODE_WORKER_H_
 
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libavutil/imgutils.h>
+#include <libswscale/swscale.h>
+}
+
 #include <napi.h>
 
 #include <atomic>
@@ -14,12 +20,6 @@
 #include <queue>
 #include <thread>
 #include <vector>
-
-extern "C" {
-#include <libavcodec/avcodec.h>
-#include <libavutil/imgutils.h>
-#include <libswscale/swscale.h>
-}
 
 class VideoDecoder;
 

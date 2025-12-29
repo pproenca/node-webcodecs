@@ -3,10 +3,12 @@
 //
 // AsyncDecodeWorker implementation for non-blocking video decoding.
 
-#include "async_decode_worker.h"
+#include "src/async_decode_worker.h"
 
-#include "video_decoder.h"
-#include "video_frame.h"
+#include <utility>
+
+#include "src/video_decoder.h"
+#include "src/video_frame.h"
 
 AsyncDecodeWorker::AsyncDecodeWorker(VideoDecoder* decoder,
                                      Napi::ThreadSafeFunction output_tsfn,
