@@ -17,9 +17,7 @@ import type {
     AudioDecoderInit,
     EncodedAudioChunkInit,
     BlurRegion,
-    VideoFilterConfig,
-    DemuxerInit,
-    TrackInfo
+    VideoFilterConfig
 } from './types';
 
 // Load native addon
@@ -86,7 +84,7 @@ export class VideoFrame {
 
     allocationSize(options?: { format?: VideoPixelFormat }): number {
         if (this._closed) {
-            throw new TypeError('VideoFrame is closed');
+            throw new DOMException('VideoFrame is closed', 'InvalidStateError');
         }
         return this._native.allocationSize(options || {});
     }
@@ -534,8 +532,9 @@ export class VideoFilter {
         if (this._native.state === 'closed') {
             throw new DOMException('VideoFilter is closed', 'InvalidStateError');
         }
-        const nativeResult = this._native.applyBlur(frame._nativeFrame, regions, strength);
-        // Wrap the native frame as a VideoFrame
+        // Pass the native VideoFrame object to applyBlur
+        const nativeResult = this._native.applyBlur((frame as any)._native, regions, strength);
+        // Wrap the returned native frame as a VideoFrame
         const wrapper = Object.create(VideoFrame.prototype);
         wrapper._native = nativeResult;
         wrapper._closed = false;
@@ -544,49 +543,6 @@ export class VideoFilter {
 
     close(): void {
         this._native.close();
-    }
-}
-
-export class Demuxer {
-    private _native: any;
-
-    constructor(init: DemuxerInit) {
-        this._native = new native.Demuxer({
-            onTrack: init.onTrack,
-            onChunk: (chunk: any, trackIndex: number) => {
-                if (init.onChunk) {
-                    // Wrap raw chunk in EncodedVideoChunk for consistency
-                    const wrappedChunk = new EncodedVideoChunk({
-                        type: chunk.type,
-                        timestamp: chunk.timestamp,
-                        duration: chunk.duration,
-                        data: chunk.data
-                    });
-                    init.onChunk(wrappedChunk, trackIndex);
-                }
-            },
-            onError: init.onError
-        });
-    }
-
-    async open(path: string): Promise<void> {
-        return this._native.open(path);
-    }
-
-    async demux(): Promise<void> {
-        return this._native.demux();
-    }
-
-    close(): void {
-        this._native.close();
-    }
-
-    getVideoTrack(): TrackInfo | null {
-        return this._native.getVideoTrack();
-    }
-
-    getAudioTrack(): TrackInfo | null {
-        return this._native.getAudioTrack();
     }
 }
 
@@ -611,7 +567,5 @@ export type {
     AudioDecoderInit,
     EncodedAudioChunkInit,
     BlurRegion,
-    VideoFilterConfig,
-    DemuxerInit,
-    TrackInfo
+    VideoFilterConfig
 } from './types';

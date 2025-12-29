@@ -26,7 +26,6 @@ pkg_check_modules(AVCODEC REQUIRED libavcodec)
 pkg_check_modules(AVUTIL REQUIRED libavutil)
 pkg_check_modules(SWSCALE REQUIRED libswscale)
 pkg_check_modules(SWRESAMPLE REQUIRED libswresample)
-pkg_check_modules(AVFORMAT REQUIRED libavformat)
 pkg_check_modules(AVFILTER REQUIRED libavfilter)
 
 # Include cmake-js headers
@@ -63,7 +62,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${AVUTIL_INCLUDE_DIRS}
     ${SWSCALE_INCLUDE_DIRS}
     ${SWRESAMPLE_INCLUDE_DIRS}
-    ${AVFORMAT_INCLUDE_DIRS}
     ${AVFILTER_INCLUDE_DIRS}
 )
 
@@ -74,7 +72,6 @@ target_link_libraries(${PROJECT_NAME}
     ${AVUTIL_LIBRARIES}
     ${SWSCALE_LIBRARIES}
     ${SWRESAMPLE_LIBRARIES}
-    ${AVFORMAT_LIBRARIES}
     ${AVFILTER_LIBRARIES}
 )
 
@@ -84,6 +81,5 @@ target_link_directories(${PROJECT_NAME} PRIVATE
     ${AVUTIL_LIBRARY_DIRS}
     ${SWSCALE_LIBRARY_DIRS}
     ${SWRESAMPLE_LIBRARY_DIRS}
-    ${AVFORMAT_LIBRARY_DIRS}
     ${AVFILTER_LIBRARY_DIRS}
 )

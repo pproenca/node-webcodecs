@@ -7,3 +7,4 @@ coverage/
 output.h264
 *.mp4
 .claude/
+examples/.demo-assets/

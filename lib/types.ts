@@ -1,5 +1,3 @@
-export type VideoPixelFormat = 'RGBA' | 'I420' | 'NV12';
-
 export interface VideoEncoderConfig {
     codec: string;
     width: number;
@@ -34,11 +32,11 @@ export interface EncodedVideoChunkMetadata {
 }
 
 export interface VideoFrameInit {
-    format?: VideoPixelFormat;
     codedWidth: number;
     codedHeight: number;
     timestamp: number;
     duration?: number;
+    format?: 'RGBA' | 'BGRA' | 'I420' | 'NV12';
 }
 
 export interface VideoEncoderEncodeOptions {
@@ -52,9 +50,12 @@ export interface PlaneLayout {
     stride: number;
 }
 
+export type VideoPixelFormat = 'RGBA' | 'BGRA' | 'I420' | 'NV12';
+
 export interface VideoFrameCopyToOptions {
-    format?: VideoPixelFormat;
     rect?: { x: number; y: number; width: number; height: number };
+    layout?: PlaneLayout[];
+    format?: VideoPixelFormat;
 }
 
 export interface VideoColorSpaceInit {
@@ -144,22 +145,4 @@ export interface BlurRegion {
 export interface VideoFilterConfig {
     width: number;
     height: number;
-}
-
-// Demuxer types
-export interface DemuxerInit {
-    onTrack?: (track: TrackInfo) => void;
-    onChunk?: (chunk: any, trackIndex: number) => void;
-    onError?: (error: Error) => void;
-}
-
-export interface TrackInfo {
-    index: number;
-    type: 'video' | 'audio';
-    codec: string;
-    width?: number;
-    height?: number;
-    sampleRate?: number;
-    channels?: number;
-    extradata?: Uint8Array;
 }

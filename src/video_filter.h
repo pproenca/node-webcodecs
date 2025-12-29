@@ -40,7 +40,6 @@ class VideoFilter : public Napi::ObjectWrap<VideoFilter> {
 
   // Internal helpers.
   void Cleanup();
-  bool InitFilterGraph(int blur_strength);
   AVFrame* ProcessFrame(AVFrame* input);
   std::string BuildFilterString(
       const std::vector<std::tuple<int, int, int, int>>& regions,
