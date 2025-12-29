@@ -10,6 +10,7 @@ Napi::Object InitVideoFrame(Napi::Env env, Napi::Object exports);
 Napi::Object InitEncodedVideoChunk(Napi::Env env, Napi::Object exports);
 Napi::Object InitAudioData(Napi::Env env, Napi::Object exports);
 Napi::Object InitEncodedAudioChunk(Napi::Env env, Napi::Object exports);
+Napi::Object InitAudioEncoder(Napi::Env env, Napi::Object exports);
 
 Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
   InitVideoEncoder(env, exports);
@@ -18,6 +19,7 @@ Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
   InitEncodedVideoChunk(env, exports);
   InitAudioData(env, exports);
   InitEncodedAudioChunk(env, exports);
+  InitAudioEncoder(env, exports);
   return exports;
 }
 

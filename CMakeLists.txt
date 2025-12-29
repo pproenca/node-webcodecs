@@ -14,6 +14,7 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(AVCODEC REQUIRED libavcodec)
 pkg_check_modules(AVUTIL REQUIRED libavutil)
 pkg_check_modules(SWSCALE REQUIRED libswscale)
+pkg_check_modules(SWRESAMPLE REQUIRED libswresample)
 
 # Include cmake-js headers
 include_directories(${CMAKE_JS_INC})
@@ -47,6 +48,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${AVCODEC_INCLUDE_DIRS}
     ${AVUTIL_INCLUDE_DIRS}
     ${SWSCALE_INCLUDE_DIRS}
+    ${SWRESAMPLE_INCLUDE_DIRS}
 )
 
 # Link libraries
@@ -55,6 +57,7 @@ target_link_libraries(${PROJECT_NAME}
     ${AVCODEC_LIBRARIES}
     ${AVUTIL_LIBRARIES}
     ${SWSCALE_LIBRARIES}
+    ${SWRESAMPLE_LIBRARIES}
 )
 
 # Link directories for FFmpeg
@@ -62,4 +65,5 @@ target_link_directories(${PROJECT_NAME} PRIVATE
     ${AVCODEC_LIBRARY_DIRS}
     ${AVUTIL_LIBRARY_DIRS}
     ${SWSCALE_LIBRARY_DIRS}
+    ${SWRESAMPLE_LIBRARY_DIRS}
 )
