@@ -76,3 +76,41 @@ export interface VideoDecoderInit {
     output: (frame: any) => void;
     error: (error: Error) => void;
 }
+
+// Audio types
+export type AudioSampleFormat = 'u8' | 's16' | 's32' | 'f32' | 'u8-planar' | 's16-planar' | 's32-planar' | 'f32-planar';
+
+export interface AudioDataInit {
+    format: AudioSampleFormat;
+    sampleRate: number;
+    numberOfFrames: number;
+    numberOfChannels: number;
+    timestamp: number;
+    data: ArrayBuffer | ArrayBufferView;
+    transfer?: ArrayBuffer[];
+}
+
+export interface AudioEncoderConfig {
+    codec: string;
+    sampleRate: number;
+    numberOfChannels: number;
+    bitrate?: number;
+    bitrateMode?: 'constant' | 'variable';
+}
+
+export interface AudioEncoderInit {
+    output: (chunk: any, metadata?: any) => void;
+    error: (error: Error) => void;
+}
+
+export interface AudioDecoderConfig {
+    codec: string;
+    sampleRate: number;
+    numberOfChannels: number;
+    description?: ArrayBuffer | ArrayBufferView;
+}
+
+export interface AudioDecoderInit {
+    output: (data: any) => void;
+    error: (error: Error) => void;
+}

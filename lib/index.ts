@@ -6,7 +6,13 @@ import type {
     VideoFrameInit,
     CodecState,
     PlaneLayout,
-    VideoFrameCopyToOptions
+    VideoFrameCopyToOptions,
+    AudioSampleFormat,
+    AudioDataInit,
+    AudioEncoderConfig,
+    AudioEncoderInit,
+    AudioDecoderConfig,
+    AudioDecoderInit
 } from './types';
 
 // Load native addon
@@ -275,6 +281,198 @@ export class VideoDecoder {
     }
 }
 
+export class AudioData {
+    private _native: any;
+    private _closed: boolean = false;
+
+    constructor(init: AudioDataInit) {
+        this._native = new native.AudioData(init);
+    }
+
+    get format(): AudioSampleFormat {
+        return this._native.format;
+    }
+
+    get sampleRate(): number {
+        return this._native.sampleRate;
+    }
+
+    get numberOfFrames(): number {
+        return this._native.numberOfFrames;
+    }
+
+    get numberOfChannels(): number {
+        return this._native.numberOfChannels;
+    }
+
+    get duration(): number {
+        return this._native.duration;
+    }
+
+    get timestamp(): number {
+        return this._native.timestamp;
+    }
+
+    allocationSize(options?: any): number {
+        return this._native.allocationSize(options);
+    }
+
+    copyTo(destination: ArrayBuffer | ArrayBufferView, options?: any): void {
+        this._native.copyTo(destination, options);
+    }
+
+    clone(): AudioData {
+        const wrapper = Object.create(AudioData.prototype);
+        wrapper._native = this._native.clone();
+        wrapper._closed = false;
+        return wrapper;
+    }
+
+    close(): void {
+        if (!this._closed) {
+            this._native.close();
+            this._closed = true;
+        }
+    }
+}
+
+export class EncodedAudioChunk {
+    private _native: any;
+
+    constructor(init: { type: string; timestamp: number; duration?: number; data: ArrayBuffer | ArrayBufferView }) {
+        this._native = new native.EncodedAudioChunk(init);
+    }
+
+    get type(): string {
+        return this._native.type;
+    }
+
+    get timestamp(): number {
+        return this._native.timestamp;
+    }
+
+    get duration(): number | null {
+        return this._native.duration;
+    }
+
+    get byteLength(): number {
+        return this._native.byteLength;
+    }
+
+    copyTo(destination: ArrayBuffer | ArrayBufferView): void {
+        this._native.copyTo(destination);
+    }
+}
+
+export class AudioEncoder {
+    private _native: any;
+
+    constructor(init: AudioEncoderInit) {
+        this._native = new native.AudioEncoder({
+            output: (chunk: any, metadata?: any) => {
+                const wrapper = Object.create(EncodedAudioChunk.prototype);
+                wrapper._native = chunk;
+                init.output(wrapper, metadata);
+            },
+            error: init.error
+        });
+    }
+
+    get state(): CodecState {
+        return this._native.state;
+    }
+
+    get encodeQueueSize(): number {
+        return this._native.encodeQueueSize;
+    }
+
+    configure(config: AudioEncoderConfig): void {
+        this._native.configure(config);
+    }
+
+    encode(data: AudioData): void {
+        if ((data as any)._native) {
+            this._native.encode((data as any)._native);
+        } else {
+            this._native.encode(data);
+        }
+    }
+
+    async flush(): Promise<void> {
+        return this._native.flush();
+    }
+
+    reset(): void {
+        this._native.reset();
+    }
+
+    close(): void {
+        this._native.close();
+    }
+
+    static async isConfigSupported(config: AudioEncoderConfig): Promise<{
+        supported: boolean;
+        config: AudioEncoderConfig;
+    }> {
+        return native.AudioEncoder.isConfigSupported(config);
+    }
+}
+
+export class AudioDecoder {
+    private _native: any;
+
+    constructor(init: AudioDecoderInit) {
+        this._native = new native.AudioDecoder({
+            output: (data: any) => {
+                const wrapper = Object.create(AudioData.prototype);
+                wrapper._native = data;
+                wrapper._closed = false;
+                init.output(wrapper);
+            },
+            error: init.error
+        });
+    }
+
+    get state(): CodecState {
+        return this._native.state;
+    }
+
+    get decodeQueueSize(): number {
+        return this._native.decodeQueueSize;
+    }
+
+    configure(config: AudioDecoderConfig): void {
+        this._native.configure(config);
+    }
+
+    decode(chunk: EncodedAudioChunk): void {
+        if ((chunk as any)._native) {
+            this._native.decode((chunk as any)._native);
+        } else {
+            this._native.decode(chunk);
+        }
+    }
+
+    async flush(): Promise<void> {
+        return this._native.flush();
+    }
+
+    reset(): void {
+        this._native.reset();
+    }
+
+    close(): void {
+        this._native.close();
+    }
+
+    static async isConfigSupported(config: AudioDecoderConfig): Promise<{
+        supported: boolean;
+        config: AudioDecoderConfig;
+    }> {
+        return native.AudioDecoder.isConfigSupported(config);
+    }
+}
+
 // Re-export types
 export type {
     VideoEncoderConfig,
@@ -285,5 +483,11 @@ export type {
     VideoFrameInit,
     CodecState,
     PlaneLayout,
-    VideoFrameCopyToOptions
+    VideoFrameCopyToOptions,
+    AudioSampleFormat,
+    AudioDataInit,
+    AudioEncoderConfig,
+    AudioEncoderInit,
+    AudioDecoderConfig,
+    AudioDecoderInit
 } from './types';
