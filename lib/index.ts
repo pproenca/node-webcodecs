@@ -432,11 +432,7 @@ export class AudioEncoder {
     }
 
     encode(data: AudioData): void {
-        if ((data as any)._native) {
-            this._native.encode((data as any)._native);
-        } else {
-            this._native.encode(data);
-        }
+        this._native.encode(data._nativeAudioData);
     }
 
     async flush(): Promise<void> {
