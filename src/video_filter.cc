@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "video_filter.h"
+#include "video_frame.h"
 
 #include <sstream>
 
@@ -364,24 +365,12 @@ Napi::Value VideoFilter::ApplyBlur(const Napi::CallbackInfo& info) {
   sws_scale(sws_yuv_to_rgba_, filtered->data, filtered->linesize,
             0, height_, dst_slices, dst_stride);
 
-  // Create new VideoFrame with blurred data
-  Napi::Object VideoFrameClass = env.Global()
-      .Get("require").As<Napi::Function>()
-      .Call({Napi::String::New(env, "../dist")}).As<Napi::Object>()
-      .Get("VideoFrame").As<Napi::Object>();
-
   // Get timestamp from original frame
   int64_t timestamp = frame_obj.Get("timestamp").As<Napi::Number>().Int64Value();
 
-  Napi::Object init = Napi::Object::New(env);
-  init.Set("codedWidth", width_);
-  init.Set("codedHeight", height_);
-  init.Set("timestamp", timestamp);
-
-  Napi::Function constructor = VideoFrameClass.As<Napi::Function>();
-  Napi::Object new_frame = constructor.New({output_buffer, init});
-
-  return new_frame;
+  // Create new VideoFrame with blurred data using VideoFrame::CreateInstance
+  return VideoFrame::CreateInstance(env, output_data, output_size,
+                                    width_, height_, timestamp, "RGBA");
 }
 
 Napi::Object InitVideoFilter(Napi::Env env, Napi::Object exports) {

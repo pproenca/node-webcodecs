@@ -50,9 +50,12 @@ export interface PlaneLayout {
     stride: number;
 }
 
+export type VideoPixelFormat = 'RGBA' | 'BGRA' | 'I420' | 'NV12';
+
 export interface VideoFrameCopyToOptions {
     rect?: { x: number; y: number; width: number; height: number };
     layout?: PlaneLayout[];
+    format?: VideoPixelFormat;
 }
 
 export interface VideoColorSpaceInit {
