@@ -145,3 +145,21 @@ export interface VideoFilterConfig {
     width: number;
     height: number;
 }
+
+// Demuxer types
+export interface DemuxerInit {
+    onTrack?: (track: TrackInfo) => void;
+    onChunk?: (chunk: any, trackIndex: number) => void;
+    onError?: (error: Error) => void;
+}
+
+export interface TrackInfo {
+    index: number;
+    type: 'video' | 'audio';
+    codec: string;
+    width?: number;
+    height?: number;
+    sampleRate?: number;
+    channels?: number;
+    extradata?: Uint8Array;
+}
