@@ -10,6 +10,7 @@ Napi::Object VideoEncoder::Init(Napi::Env env, Napi::Object exports) {
         InstanceMethod("configure", &VideoEncoder::Configure),
         InstanceMethod("encode", &VideoEncoder::Encode),
         InstanceMethod("flush", &VideoEncoder::Flush),
+        InstanceMethod("reset", &VideoEncoder::Reset),
         InstanceMethod("close", &VideoEncoder::Close),
         InstanceAccessor("state", &VideoEncoder::GetState, nullptr),
         InstanceAccessor("encodeQueueSize", &VideoEncoder::GetEncodeQueueSize, nullptr),
@@ -235,6 +236,31 @@ Napi::Value VideoEncoder::Flush(const Napi::CallbackInfo& info) {
 
     // Get remaining packets
     EmitChunks(env);
+
+    return env.Undefined();
+}
+
+Napi::Value VideoEncoder::Reset(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+
+    if (state_ == "closed") {
+        throw Napi::Error::New(env, "InvalidStateError: Cannot reset a closed encoder");
+    }
+
+    // Flush any pending frames (don't emit - discard)
+    if (codecContext_) {
+        avcodec_send_frame(codecContext_, nullptr);
+        while (avcodec_receive_packet(codecContext_, packet_) == 0) {
+            av_packet_unref(packet_);
+        }
+    }
+
+    // Clean up FFmpeg resources
+    Cleanup();
+
+    // Reset state
+    state_ = "unconfigured";
+    frameCount_ = 0;
 
     return env.Undefined();
 }

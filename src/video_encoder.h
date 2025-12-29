@@ -21,6 +21,7 @@ private:
     Napi::Value Configure(const Napi::CallbackInfo& info);
     Napi::Value Encode(const Napi::CallbackInfo& info);
     Napi::Value Flush(const Napi::CallbackInfo& info);
+    Napi::Value Reset(const Napi::CallbackInfo& info);
     void Close(const Napi::CallbackInfo& info);
     Napi::Value GetState(const Napi::CallbackInfo& info);
     Napi::Value GetEncodeQueueSize(const Napi::CallbackInfo& info);

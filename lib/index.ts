@@ -87,6 +87,10 @@ export class VideoEncoder {
         });
     }
 
+    reset(): void {
+        this._native.reset();
+    }
+
     close(): void {
         this._native.close();
     }
