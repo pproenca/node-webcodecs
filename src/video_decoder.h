@@ -36,6 +36,7 @@ private:
 
     // Internal helpers
     void Cleanup();
+    void EmitFrames(Napi::Env env);
 
     // FFmpeg state
     const AVCodec* codec_;

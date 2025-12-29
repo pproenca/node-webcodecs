@@ -1,7 +1,15 @@
-#ifndef ENCODED_VIDEO_CHUNK_H
-#define ENCODED_VIDEO_CHUNK_H
+// Copyright 2024 The node-webcodecs Authors
+// SPDX-License-Identifier: MIT
+//
+// EncodedVideoChunk represents an encoded video frame.
+
+#ifndef NODE_WEBCODECS_SRC_ENCODED_VIDEO_CHUNK_H_
+#define NODE_WEBCODECS_SRC_ENCODED_VIDEO_CHUNK_H_
 
 #include <napi.h>
+
+#include <cstdint>
+#include <string>
 #include <vector>
 
 class EncodedVideoChunk : public Napi::ObjectWrap<EncodedVideoChunk> {
@@ -25,6 +33,12 @@ public:
     void CopyTo(const Napi::CallbackInfo& info);
     void Close(const Napi::CallbackInfo& info);
 
+    // Internal accessors for VideoDecoder
+    const uint8_t* GetData() const { return data_.data(); }
+    size_t GetDataSize() const { return data_.size(); }
+    int64_t GetTimestampValue() const { return timestamp_; }
+    const std::string& GetTypeValue() const { return type_; }
+
 private:
     static Napi::FunctionReference constructor;
     std::string type_;
@@ -35,4 +49,4 @@ private:
     bool closed_;
 };
 
-#endif
+#endif  // NODE_WEBCODECS_SRC_ENCODED_VIDEO_CHUNK_H_

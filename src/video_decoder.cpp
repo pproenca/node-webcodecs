@@ -3,6 +3,7 @@
 
 #include "video_decoder.h"
 #include "video_frame.h"
+#include "encoded_video_chunk.h"
 
 Napi::Object InitVideoDecoder(Napi::Env env, Napi::Object exports) {
     return VideoDecoder::Init(env, exports);
@@ -205,7 +206,42 @@ Napi::Value VideoDecoder::Decode(const Napi::CallbackInfo& info) {
         throw Napi::Error::New(env, "InvalidStateError: Decoder not configured");
     }
 
-    // Stub implementation - will be fully implemented in Task 6
+    if (info.Length() < 1 || !info[0].IsObject()) {
+        throw Napi::Error::New(env, "decode requires EncodedVideoChunk");
+    }
+
+    // Get EncodedVideoChunk
+    EncodedVideoChunk* chunk = Napi::ObjectWrap<EncodedVideoChunk>::Unwrap(info[0].As<Napi::Object>());
+
+    // Get data from chunk
+    const uint8_t* data = chunk->GetData();
+    size_t dataSize = chunk->GetDataSize();
+    int64_t timestamp = chunk->GetTimestampValue();
+    bool isKeyFrame = (chunk->GetTypeValue() == "key");
+
+    // Setup packet
+    av_packet_unref(packet_);
+    packet_->data = const_cast<uint8_t*>(data);
+    packet_->size = static_cast<int>(dataSize);
+    packet_->pts = timestamp;
+    packet_->dts = timestamp;
+
+    if (isKeyFrame) {
+        packet_->flags |= AV_PKT_FLAG_KEY;
+    }
+
+    // Send packet to decoder
+    int ret = avcodec_send_packet(codecContext_, packet_);
+    if (ret < 0 && ret != AVERROR(EAGAIN)) {
+        char errbuf[256];
+        av_strerror(ret, errbuf, sizeof(errbuf));
+        errorCallback_.Call({ Napi::Error::New(env, std::string("Decode error: ") + errbuf).Value() });
+        return env.Undefined();
+    }
+
+    // Emit any available decoded frames
+    EmitFrames(env);
+
     return env.Undefined();
 }
 
@@ -219,8 +255,18 @@ Napi::Value VideoDecoder::Flush(const Napi::CallbackInfo& info) {
         return deferred.Promise();
     }
 
-    // Stub implementation - will be fully implemented in Task 6
-    // For now, return a resolved promise
+    // Send NULL packet to flush decoder
+    int ret = avcodec_send_packet(codecContext_, nullptr);
+    if (ret < 0 && ret != AVERROR_EOF) {
+        char errbuf[256];
+        av_strerror(ret, errbuf, sizeof(errbuf));
+        errorCallback_.Call({ Napi::Error::New(env, std::string("Flush error: ") + errbuf).Value() });
+    }
+
+    // Emit remaining decoded frames
+    EmitFrames(env);
+
+    // Return resolved promise
     Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
     deferred.Resolve(env.Undefined());
     return deferred.Promise();
@@ -337,4 +383,61 @@ Napi::Value VideoDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
     Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
     deferred.Resolve(result);
     return deferred.Promise();
+}
+
+void VideoDecoder::EmitFrames(Napi::Env env) {
+    while (true) {
+        int ret = avcodec_receive_frame(codecContext_, frame_);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+            break;
+        }
+        if (ret < 0) {
+            char errbuf[256];
+            av_strerror(ret, errbuf, sizeof(errbuf));
+            errorCallback_.Call({ Napi::Error::New(env, std::string("Decode receive error: ") + errbuf).Value() });
+            break;
+        }
+
+        // Initialize SwsContext if needed (convert from decoder's pixel format to RGBA)
+        if (!swsContext_) {
+            swsContext_ = sws_getContext(
+                frame_->width, frame_->height, static_cast<AVPixelFormat>(frame_->format),
+                frame_->width, frame_->height, AV_PIX_FMT_RGBA,
+                SWS_BILINEAR, nullptr, nullptr, nullptr
+            );
+            if (!swsContext_) {
+                errorCallback_.Call({ Napi::Error::New(env, "Could not create sws context").Value() });
+                av_frame_unref(frame_);
+                break;
+            }
+        }
+
+        // Allocate RGBA buffer
+        int rgbaSize = frame_->width * frame_->height * 4;
+        std::vector<uint8_t> rgbaData(rgbaSize);
+
+        // Setup output pointers
+        uint8_t* dstData[1] = { rgbaData.data() };
+        int dstLinesize[1] = { frame_->width * 4 };
+
+        // Convert to RGBA
+        sws_scale(swsContext_, frame_->data, frame_->linesize, 0, frame_->height,
+                  dstData, dstLinesize);
+
+        // Create VideoFrame
+        Napi::Object videoFrame = VideoFrame::CreateInstance(
+            env,
+            rgbaData.data(),
+            rgbaData.size(),
+            frame_->width,
+            frame_->height,
+            frame_->pts,
+            "RGBA"
+        );
+
+        // Call output callback
+        outputCallback_.Call({ videoFrame });
+
+        av_frame_unref(frame_);
+    }
 }

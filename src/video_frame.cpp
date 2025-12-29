@@ -1,6 +1,9 @@
+// Copyright 2024 The node-webcodecs Authors
+// SPDX-License-Identifier: MIT
+
 #include "video_frame.h"
 
-// Static constructor reference for clone()
+// Static constructor reference for clone().
 Napi::FunctionReference VideoFrame::constructor;
 
 Napi::Object InitVideoFrame(Napi::Env env, Napi::Object exports) {
@@ -114,6 +117,27 @@ Napi::Value VideoFrame::Clone(const Napi::CallbackInfo& info) {
     Napi::Buffer<uint8_t> dataBuffer = Napi::Buffer<uint8_t>::Copy(
         env, data_.data(), data_.size()
     );
+
+    // Create new VideoFrame instance
+    return constructor.New({ dataBuffer, init });
+}
+
+Napi::Object VideoFrame::CreateInstance(Napi::Env env,
+                                        const uint8_t* data,
+                                        size_t dataSize,
+                                        int width,
+                                        int height,
+                                        int64_t timestamp,
+                                        const std::string& format) {
+    // Create init object with properties
+    Napi::Object init = Napi::Object::New(env);
+    init.Set("codedWidth", width);
+    init.Set("codedHeight", height);
+    init.Set("timestamp", Napi::Number::New(env, timestamp));
+    init.Set("format", format);
+
+    // Copy data to buffer
+    Napi::Buffer<uint8_t> dataBuffer = Napi::Buffer<uint8_t>::Copy(env, data, dataSize);
 
     // Create new VideoFrame instance
     return constructor.New({ dataBuffer, init });

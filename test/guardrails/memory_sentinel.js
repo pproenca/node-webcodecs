@@ -12,7 +12,7 @@ async function run() {
 
     const encoder = new VideoEncoder({
         output: (chunk) => {
-            // Release chunk data
+            if (chunk.close) chunk.close();
         },
         error: (e) => { throw e; }
     });
@@ -34,7 +34,7 @@ async function run() {
         if (i % 1000 === 0 && global.gc) {
             global.gc();
             const currentMB = (process.memoryUsage().rss - startRSS) / 1024 / 1024;
-            console.log(`  Frame ${i}: +${currentMB.toFixed(1)} MB`);
+            console.log(`  Frame ${i}: +${currentMB.toFixed(2)} MB`);
         }
     }
 

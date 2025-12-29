@@ -1,12 +1,27 @@
-#ifndef VIDEO_FRAME_H
-#define VIDEO_FRAME_H
+// Copyright 2024 The node-webcodecs Authors
+// SPDX-License-Identifier: MIT
+//
+// VideoFrame represents a single frame of video data.
+
+#ifndef NODE_WEBCODECS_SRC_VIDEO_FRAME_H_
+#define NODE_WEBCODECS_SRC_VIDEO_FRAME_H_
 
 #include <napi.h>
+
+#include <cstdint>
+#include <string>
 #include <vector>
 
 class VideoFrame : public Napi::ObjectWrap<VideoFrame> {
 public:
     static Napi::Object Init(Napi::Env env, Napi::Object exports);
+    static Napi::Object CreateInstance(Napi::Env env,
+                                       const uint8_t* data,
+                                       size_t dataSize,
+                                       int width,
+                                       int height,
+                                       int64_t timestamp,
+                                       const std::string& format);
     VideoFrame(const Napi::CallbackInfo& info);
     ~VideoFrame();
 
@@ -40,4 +55,4 @@ private:
     bool closed_;
 };
 
-#endif
+#endif  // NODE_WEBCODECS_SRC_VIDEO_FRAME_H_
