@@ -2,7 +2,9 @@ import type {
     VideoEncoderConfig,
     VideoEncoderInit,
     VideoFrameInit,
-    CodecState
+    CodecState,
+    PlaneLayout,
+    VideoFrameCopyToOptions
 } from './types';
 
 // Load native addon
@@ -39,6 +41,42 @@ export class VideoFrame {
         }
     }
 
+    async copyTo(destination: ArrayBuffer | Uint8Array, options?: VideoFrameCopyToOptions): Promise<PlaneLayout[]> {
+        if (this._closed) {
+            throw new DOMException('VideoFrame is closed', 'InvalidStateError');
+        }
+
+        // For RGBA format, single plane
+        const bytesPerRow = this.codedWidth * 4;
+        const totalBytes = bytesPerRow * this.codedHeight;
+
+        const data = this._native.getData();
+
+        if (destination instanceof ArrayBuffer) {
+            if (destination.byteLength < totalBytes) {
+                throw new TypeError('Destination buffer too small');
+            }
+            const view = new Uint8Array(destination);
+            view.set(data);
+        } else if (destination instanceof Uint8Array) {
+            if (destination.byteLength < totalBytes) {
+                throw new TypeError('Destination buffer too small');
+            }
+            destination.set(data);
+        } else {
+            throw new TypeError('Destination must be ArrayBuffer or Uint8Array');
+        }
+
+        return [{ offset: 0, stride: bytesPerRow }];
+    }
+
+    allocationSize(options?: VideoFrameCopyToOptions): number {
+        if (this._closed) {
+            throw new DOMException('VideoFrame is closed', 'InvalidStateError');
+        }
+        return this.codedWidth * this.codedHeight * 4; // RGBA
+    }
+
     // Internal access for native binding
     get _nativeFrame(): any {
         return this._native;
@@ -48,6 +86,7 @@ export class VideoFrame {
 export class VideoEncoder {
     private _native: any;
     private _state: CodecState = 'unconfigured';
+    private _ondequeue: (() => void) | null = null;
 
     constructor(init: VideoEncoderInit) {
         this._native = new native.VideoEncoder({
@@ -70,6 +109,25 @@ export class VideoEncoder {
 
     get encodeQueueSize(): number {
         return this._native.encodeQueueSize;
+    }
+
+    get ondequeue(): (() => void) | null {
+        return this._ondequeue;
+    }
+
+    set ondequeue(handler: (() => void) | null) {
+        this._ondequeue = handler;
+    }
+
+    // Internal: triggers dequeue event with proper microtask timing
+    _triggerDequeue(): void {
+        if (this._ondequeue) {
+            queueMicrotask(() => {
+                if (this._ondequeue) {
+                    this._ondequeue();
+                }
+            });
+        }
     }
 
     configure(config: VideoEncoderConfig): void {

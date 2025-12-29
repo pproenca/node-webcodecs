@@ -10,7 +10,9 @@ const tests = [
     '06_bitrate_control.js',
     '07_concurrency.js',
     '08_force_keyframe.js',
-    '09_robustness.js'
+    '09_robustness.js',
+    '10_encoder_reset.js',
+    '11_config_supported.js'
 ];
 
 let passed = 0;

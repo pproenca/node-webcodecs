@@ -6,6 +6,7 @@ export interface VideoEncoderConfig {
     framerate?: number;
     hardwareAcceleration?: 'no-preference' | 'prefer-hardware' | 'prefer-software';
     latencyMode?: 'quality' | 'realtime';
+    bitrateMode?: 'constant' | 'variable' | 'quantizer';
 }
 
 export interface VideoEncoderInit {
@@ -43,3 +44,13 @@ export interface VideoEncoderEncodeOptions {
 }
 
 export type CodecState = 'unconfigured' | 'configured' | 'closed';
+
+export interface PlaneLayout {
+    offset: number;
+    stride: number;
+}
+
+export interface VideoFrameCopyToOptions {
+    rect?: { x: number; y: number; width: number; height: number };
+    layout?: PlaneLayout[];
+}
