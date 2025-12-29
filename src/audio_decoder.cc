@@ -1,17 +1,18 @@
 // Copyright 2025 node-webcodecs contributors. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-#include "audio_decoder.h"
-
-#include <cstring>
-#include <vector>
-
-#include "audio_data.h"
-#include "encoded_audio_chunk.h"
+#include "src/audio_decoder.h"
 
 extern "C" {
 #include <libavutil/opt.h>
 }
+
+#include <cstring>
+#include <string>
+#include <vector>
+
+#include "src/audio_data.h"
+#include "src/encoded_audio_chunk.h"
 
 namespace {
 

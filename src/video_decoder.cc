@@ -1,13 +1,14 @@
 // Copyright 2024 The node-webcodecs Authors
 // SPDX-License-Identifier: MIT
 
-#include "video_decoder.h"
+#include "src/video_decoder.h"
 
 #include <cstring>
+#include <string>
 #include <vector>
 
-#include "encoded_video_chunk.h"
-#include "video_frame.h"
+#include "src/encoded_video_chunk.h"
+#include "src/video_frame.h"
 
 namespace {
 

@@ -1,27 +1,30 @@
 // Copyright 2025 node-webcodecs contributors. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-#include "encoded_audio_chunk.h"
+#include "src/encoded_audio_chunk.h"
 
 #include <cstring>
+#include <string>
 
 Napi::FunctionReference EncodedAudioChunk::constructor_;
 
-Napi::Object InitEncodedAudioChunk(Napi::Env env, Napi::Object exports)
-{
+Napi::Object InitEncodedAudioChunk(Napi::Env env, Napi::Object exports) {
   return EncodedAudioChunk::Init(env, exports);
 }
 
-Napi::Object EncodedAudioChunk::Init(Napi::Env env, Napi::Object exports)
-{
-  Napi::Function func = DefineClass(env, "EncodedAudioChunk", {
-      InstanceAccessor("type", &EncodedAudioChunk::GetType, nullptr),
-      InstanceAccessor("timestamp", &EncodedAudioChunk::GetTimestamp, nullptr),
-      InstanceAccessor("duration", &EncodedAudioChunk::GetDuration, nullptr),
-      InstanceAccessor("byteLength", &EncodedAudioChunk::GetByteLength,
-                       nullptr),
-      InstanceMethod("copyTo", &EncodedAudioChunk::CopyTo),
-  });
+Napi::Object EncodedAudioChunk::Init(Napi::Env env, Napi::Object exports) {
+  Napi::Function func = DefineClass(
+      env, "EncodedAudioChunk",
+      {
+          InstanceAccessor("type", &EncodedAudioChunk::GetType, nullptr),
+          InstanceAccessor("timestamp", &EncodedAudioChunk::GetTimestamp,
+                           nullptr),
+          InstanceAccessor("duration", &EncodedAudioChunk::GetDuration,
+                           nullptr),
+          InstanceAccessor("byteLength", &EncodedAudioChunk::GetByteLength,
+                           nullptr),
+          InstanceMethod("copyTo", &EncodedAudioChunk::CopyTo),
+      });
 
   constructor_ = Napi::Persistent(func);
   constructor_.SuppressDestruct();
@@ -30,13 +33,9 @@ Napi::Object EncodedAudioChunk::Init(Napi::Env env, Napi::Object exports)
   return exports;
 }
 
-Napi::Object EncodedAudioChunk::CreateInstance(Napi::Env env,
-                                               const std::string& type,
-                                               int64_t timestamp,
-                                               int64_t duration,
-                                               const uint8_t* data,
-                                               size_t size)
-{
+Napi::Object EncodedAudioChunk::CreateInstance(
+    Napi::Env env, const std::string& type, int64_t timestamp, int64_t duration,
+    const uint8_t* data, size_t size) {
   Napi::Object init = Napi::Object::New(env);
   init.Set("type", type);
   init.Set("timestamp", Napi::Number::New(env, static_cast<double>(timestamp)));
@@ -46,10 +45,7 @@ Napi::Object EncodedAudioChunk::CreateInstance(Napi::Env env,
 }
 
 EncodedAudioChunk::EncodedAudioChunk(const Napi::CallbackInfo& info)
-    : Napi::ObjectWrap<EncodedAudioChunk>(info),
-      timestamp_(0),
-      duration_(0)
-{
+    : Napi::ObjectWrap<EncodedAudioChunk>(info), timestamp_(0), duration_(0) {
   Napi::Env env = info.Env();
 
   if (info.Length() < 1 || !info[0].IsObject()) {
@@ -115,31 +111,26 @@ EncodedAudioChunk::EncodedAudioChunk(const Napi::CallbackInfo& info)
   }
 }
 
-Napi::Value EncodedAudioChunk::GetType(const Napi::CallbackInfo& info)
-{
+Napi::Value EncodedAudioChunk::GetType(const Napi::CallbackInfo& info) {
   return Napi::String::New(info.Env(), type_);
 }
 
-Napi::Value EncodedAudioChunk::GetTimestamp(const Napi::CallbackInfo& info)
-{
+Napi::Value EncodedAudioChunk::GetTimestamp(const Napi::CallbackInfo& info) {
   return Napi::Number::New(info.Env(), static_cast<double>(timestamp_));
 }
 
-Napi::Value EncodedAudioChunk::GetDuration(const Napi::CallbackInfo& info)
-{
+Napi::Value EncodedAudioChunk::GetDuration(const Napi::CallbackInfo& info) {
   if (duration_ == 0) {
     return info.Env().Null();
   }
   return Napi::Number::New(info.Env(), static_cast<double>(duration_));
 }
 
-Napi::Value EncodedAudioChunk::GetByteLength(const Napi::CallbackInfo& info)
-{
+Napi::Value EncodedAudioChunk::GetByteLength(const Napi::CallbackInfo& info) {
   return Napi::Number::New(info.Env(), static_cast<double>(data_.size()));
 }
 
-void EncodedAudioChunk::CopyTo(const Napi::CallbackInfo& info)
-{
+void EncodedAudioChunk::CopyTo(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
   if (info.Length() < 1) {

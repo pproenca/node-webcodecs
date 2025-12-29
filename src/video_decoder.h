@@ -3,18 +3,18 @@
 //
 // VideoDecoder implementation wrapping FFmpeg decoders.
 
-#ifndef NODE_WEBCODECS_SRC_VIDEO_DECODER_H_
-#define NODE_WEBCODECS_SRC_VIDEO_DECODER_H_
-
-#include <napi.h>
-
-#include <string>
+#ifndef SRC_VIDEO_DECODER_H_
+#define SRC_VIDEO_DECODER_H_
 
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavutil/imgutils.h>
 #include <libswscale/swscale.h>
 }
+
+#include <napi.h>
+
+#include <string>
 
 class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
  public:
@@ -58,4 +58,4 @@ class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
   int coded_height_;
 };
 
-#endif  // NODE_WEBCODECS_SRC_VIDEO_DECODER_H_
+#endif  // SRC_VIDEO_DECODER_H_

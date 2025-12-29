@@ -1,7 +1,9 @@
 // Copyright 2024 The node-webcodecs Authors
 // SPDX-License-Identifier: MIT
 
-#include "video_frame.h"
+#include "src/video_frame.h"
+
+#include <string>
 
 // Static constructor reference for clone().
 Napi::FunctionReference VideoFrame::constructor;

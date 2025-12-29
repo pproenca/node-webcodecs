@@ -1,18 +1,18 @@
 // Copyright 2025 node-webcodecs contributors. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-#ifndef NODE_WEBCODECS_SRC_AUDIO_DECODER_H_
-#define NODE_WEBCODECS_SRC_AUDIO_DECODER_H_
-
-#include <napi.h>
-
-#include <cstdint>
-#include <string>
+#ifndef SRC_AUDIO_DECODER_H_
+#define SRC_AUDIO_DECODER_H_
 
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libswresample/swresample.h>
 }
+
+#include <napi.h>
+
+#include <cstdint>
+#include <string>
 
 class AudioDecoder : public Napi::ObjectWrap<AudioDecoder> {
  public:
@@ -58,4 +58,4 @@ class AudioDecoder : public Napi::ObjectWrap<AudioDecoder> {
   uint32_t number_of_channels_;
 };
 
-#endif  // NODE_WEBCODECS_SRC_AUDIO_DECODER_H_
+#endif  // SRC_AUDIO_DECODER_H_

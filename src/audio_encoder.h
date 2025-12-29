@@ -1,19 +1,19 @@
 // Copyright 2025 node-webcodecs contributors. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-#ifndef NODE_WEBCODECS_SRC_AUDIO_ENCODER_H_
-#define NODE_WEBCODECS_SRC_AUDIO_ENCODER_H_
-
-#include <cstdint>
-#include <string>
-
-#include <napi.h>
+#ifndef SRC_AUDIO_ENCODER_H_
+#define SRC_AUDIO_ENCODER_H_
 
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavutil/opt.h>
 #include <libswresample/swresample.h>
 }
+
+#include <napi.h>
+
+#include <cstdint>
+#include <string>
 
 class AudioEncoder : public Napi::ObjectWrap<AudioEncoder> {
  public:
@@ -61,4 +61,4 @@ class AudioEncoder : public Napi::ObjectWrap<AudioEncoder> {
   int frame_count_;
 };
 
-#endif  // NODE_WEBCODECS_SRC_AUDIO_ENCODER_H_
+#endif  // SRC_AUDIO_ENCODER_H_

@@ -3,8 +3,8 @@
 //
 // EncodedVideoChunk represents an encoded video frame.
 
-#ifndef NODE_WEBCODECS_SRC_ENCODED_VIDEO_CHUNK_H_
-#define NODE_WEBCODECS_SRC_ENCODED_VIDEO_CHUNK_H_
+#ifndef SRC_ENCODED_VIDEO_CHUNK_H_
+#define SRC_ENCODED_VIDEO_CHUNK_H_
 
 #include <napi.h>
 
@@ -50,4 +50,4 @@ class EncodedVideoChunk : public Napi::ObjectWrap<EncodedVideoChunk> {
   bool closed_;
 };
 
-#endif  // NODE_WEBCODECS_SRC_ENCODED_VIDEO_CHUNK_H_
+#endif  // SRC_ENCODED_VIDEO_CHUNK_H_

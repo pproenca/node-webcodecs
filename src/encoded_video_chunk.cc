@@ -1,9 +1,10 @@
 // Copyright 2024 The node-webcodecs Authors
 // SPDX-License-Identifier: MIT
 
-#include "encoded_video_chunk.h"
+#include "src/encoded_video_chunk.h"
 
 #include <cstring>
+#include <string>
 
 Napi::FunctionReference EncodedVideoChunk::constructor;
 
@@ -33,12 +34,9 @@ Napi::Object EncodedVideoChunk::Init(Napi::Env env, Napi::Object exports) {
   return exports;
 }
 
-Napi::Object EncodedVideoChunk::CreateInstance(Napi::Env env,
-                                               const std::string& type,
-                                               int64_t timestamp,
-                                               int64_t duration,
-                                               const uint8_t* data,
-                                               size_t size) {
+Napi::Object EncodedVideoChunk::CreateInstance(
+    Napi::Env env, const std::string& type, int64_t timestamp, int64_t duration,
+    const uint8_t* data, size_t size) {
   Napi::Object init = Napi::Object::New(env);
   init.Set("type", type);
   init.Set("timestamp", Napi::Number::New(env, timestamp));

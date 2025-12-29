@@ -1,25 +1,23 @@
 // Copyright 2025 node-webcodecs contributors. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-#ifndef NODE_WEBCODECS_SRC_AUDIO_DATA_H_
-#define NODE_WEBCODECS_SRC_AUDIO_DATA_H_
+#ifndef SRC_AUDIO_DATA_H_
+#define SRC_AUDIO_DATA_H_
+
+#include <napi.h>
 
 #include <cstdint>
 #include <string>
 #include <vector>
 
-#include <napi.h>
-
 class AudioData : public Napi::ObjectWrap<AudioData> {
  public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
-  static Napi::Object CreateInstance(Napi::Env env,
-                                     const std::string& format,
+  static Napi::Object CreateInstance(Napi::Env env, const std::string& format,
                                      uint32_t sample_rate,
                                      uint32_t number_of_frames,
                                      uint32_t number_of_channels,
-                                     int64_t timestamp,
-                                     const uint8_t* data,
+                                     int64_t timestamp, const uint8_t* data,
                                      size_t data_size);
   explicit AudioData(const Napi::CallbackInfo& info);
 
@@ -61,4 +59,4 @@ class AudioData : public Napi::ObjectWrap<AudioData> {
   bool closed_;
 };
 
-#endif  // NODE_WEBCODECS_SRC_AUDIO_DATA_H_
+#endif  // SRC_AUDIO_DATA_H_

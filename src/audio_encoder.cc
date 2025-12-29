@@ -1,29 +1,32 @@
 // Copyright 2025 node-webcodecs contributors. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-#include "audio_encoder.h"
+#include "src/audio_encoder.h"
 
-#include "audio_data.h"
-#include "encoded_audio_chunk.h"
+#include <string>
+#include <vector>
 
-Napi::Object InitAudioEncoder(Napi::Env env, Napi::Object exports)
-{
+#include "src/audio_data.h"
+#include "src/encoded_audio_chunk.h"
+
+Napi::Object InitAudioEncoder(Napi::Env env, Napi::Object exports) {
   return AudioEncoder::Init(env, exports);
 }
 
-Napi::Object AudioEncoder::Init(Napi::Env env, Napi::Object exports)
-{
-  Napi::Function func = DefineClass(env, "AudioEncoder", {
-      InstanceMethod("configure", &AudioEncoder::Configure),
-      InstanceMethod("encode", &AudioEncoder::Encode),
-      InstanceMethod("flush", &AudioEncoder::Flush),
-      InstanceMethod("reset", &AudioEncoder::Reset),
-      InstanceMethod("close", &AudioEncoder::Close),
-      InstanceAccessor("state", &AudioEncoder::GetState, nullptr),
-      InstanceAccessor("encodeQueueSize", &AudioEncoder::GetEncodeQueueSize,
-                       nullptr),
-      StaticMethod("isConfigSupported", &AudioEncoder::IsConfigSupported),
-  });
+Napi::Object AudioEncoder::Init(Napi::Env env, Napi::Object exports) {
+  Napi::Function func = DefineClass(
+      env, "AudioEncoder",
+      {
+          InstanceMethod("configure", &AudioEncoder::Configure),
+          InstanceMethod("encode", &AudioEncoder::Encode),
+          InstanceMethod("flush", &AudioEncoder::Flush),
+          InstanceMethod("reset", &AudioEncoder::Reset),
+          InstanceMethod("close", &AudioEncoder::Close),
+          InstanceAccessor("state", &AudioEncoder::GetState, nullptr),
+          InstanceAccessor("encodeQueueSize", &AudioEncoder::GetEncodeQueueSize,
+                           nullptr),
+          StaticMethod("isConfigSupported", &AudioEncoder::IsConfigSupported),
+      });
 
   exports.Set("AudioEncoder", func);
   return exports;
@@ -40,8 +43,7 @@ AudioEncoder::AudioEncoder(const Napi::CallbackInfo& info)
       sample_rate_(0),
       number_of_channels_(0),
       timestamp_(0),
-      frame_count_(0)
-{
+      frame_count_(0) {
   Napi::Env env = info.Env();
 
   if (info.Length() < 1 || !info[0].IsObject()) {
@@ -67,13 +69,9 @@ AudioEncoder::AudioEncoder(const Napi::CallbackInfo& info)
   error_callback_ = Napi::Persistent(init.Get("error").As<Napi::Function>());
 }
 
-AudioEncoder::~AudioEncoder()
-{
-  Cleanup();
-}
+AudioEncoder::~AudioEncoder() { Cleanup(); }
 
-void AudioEncoder::Cleanup()
-{
+void AudioEncoder::Cleanup() {
   if (frame_) {
     av_frame_free(&frame_);
     frame_ = nullptr;
@@ -93,8 +91,7 @@ void AudioEncoder::Cleanup()
   codec_ = nullptr;
 }
 
-Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info)
-{
+Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
   if (state_ == "closed") {
@@ -240,8 +237,8 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info)
   av_opt_set_int(swr_context_, "in_sample_rate", sample_rate_, 0);
   av_opt_set_sample_fmt(swr_context_, "in_sample_fmt", AV_SAMPLE_FMT_FLT, 0);
 
-  av_opt_set_chlayout(swr_context_, "out_chlayout",
-                      &codec_context_->ch_layout, 0);
+  av_opt_set_chlayout(swr_context_, "out_chlayout", &codec_context_->ch_layout,
+                      0);
   av_opt_set_int(swr_context_, "out_sample_rate", sample_rate_, 0);
   av_opt_set_sample_fmt(swr_context_, "out_sample_fmt",
                         codec_context_->sample_fmt, 0);
@@ -262,24 +259,20 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info)
   return env.Undefined();
 }
 
-Napi::Value AudioEncoder::GetState(const Napi::CallbackInfo& info)
-{
+Napi::Value AudioEncoder::GetState(const Napi::CallbackInfo& info) {
   return Napi::String::New(info.Env(), state_);
 }
 
-Napi::Value AudioEncoder::GetEncodeQueueSize(const Napi::CallbackInfo& info)
-{
+Napi::Value AudioEncoder::GetEncodeQueueSize(const Napi::CallbackInfo& info) {
   return Napi::Number::New(info.Env(), 0);
 }
 
-void AudioEncoder::Close(const Napi::CallbackInfo& info)
-{
+void AudioEncoder::Close(const Napi::CallbackInfo& info) {
   Cleanup();
   state_ = "closed";
 }
 
-Napi::Value AudioEncoder::Reset(const Napi::CallbackInfo& info)
-{
+Napi::Value AudioEncoder::Reset(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
   if (state_ == "closed") {
@@ -295,8 +288,7 @@ Napi::Value AudioEncoder::Reset(const Napi::CallbackInfo& info)
   return env.Undefined();
 }
 
-Napi::Value AudioEncoder::Encode(const Napi::CallbackInfo& info)
-{
+Napi::Value AudioEncoder::Encode(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
   if (state_ != "configured") {
@@ -393,8 +385,8 @@ Napi::Value AudioEncoder::Encode(const Napi::CallbackInfo& info)
 
     // Convert samples using resampler.
     const uint8_t* in_data[] = {input_ptr};
-    ret = swr_convert(swr_context_, frame_->data, frame_size,
-                      in_data, samples_to_convert);
+    ret = swr_convert(swr_context_, frame_->data, frame_size, in_data,
+                      samples_to_convert);
 
     if (ret < 0) {
       char errbuf[256];
@@ -413,7 +405,8 @@ Napi::Value AudioEncoder::Encode(const Napi::CallbackInfo& info)
       char errbuf[256];
       av_strerror(ret, errbuf, sizeof(errbuf));
       error_callback_.Call(
-          {Napi::Error::New(env, std::string("Encode error: ") + errbuf).Value()});
+          {Napi::Error::New(env, std::string("Encode error: ") + errbuf)
+               .Value()});
       return env.Undefined();
     }
 
@@ -432,8 +425,7 @@ Napi::Value AudioEncoder::Encode(const Napi::CallbackInfo& info)
   return env.Undefined();
 }
 
-Napi::Value AudioEncoder::Flush(const Napi::CallbackInfo& info)
-{
+Napi::Value AudioEncoder::Flush(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
   if (state_ == "configured") {
@@ -449,8 +441,7 @@ Napi::Value AudioEncoder::Flush(const Napi::CallbackInfo& info)
   return deferred.Promise();
 }
 
-void AudioEncoder::EmitChunks(Napi::Env env)
-{
+void AudioEncoder::EmitChunks(Napi::Env env) {
   while (true) {
     int ret = avcodec_receive_packet(codec_context_, packet_);
     if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
@@ -459,8 +450,9 @@ void AudioEncoder::EmitChunks(Napi::Env env)
     if (ret < 0) {
       char errbuf[256];
       av_strerror(ret, errbuf, sizeof(errbuf));
-      error_callback_.Call({Napi::Error::New(
-          env, std::string("Receive packet error: ") + errbuf).Value()});
+      error_callback_.Call(
+          {Napi::Error::New(env, std::string("Receive packet error: ") + errbuf)
+               .Value()});
       break;
     }
 
@@ -475,10 +467,7 @@ void AudioEncoder::EmitChunks(Napi::Env env)
     Napi::Object chunk = EncodedAudioChunk::CreateInstance(
         env,
         "key",  // Audio chunks are typically all key frames.
-        packet_->pts,
-        duration,
-        packet_->data,
-        packet_->size);
+        packet_->pts, duration, packet_->data, packet_->size);
 
     // Call output callback.
     output_callback_.Call({chunk});
@@ -487,14 +476,12 @@ void AudioEncoder::EmitChunks(Napi::Env env)
   }
 }
 
-Napi::Value AudioEncoder::IsConfigSupported(const Napi::CallbackInfo& info)
-{
+Napi::Value AudioEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
   if (info.Length() < 1 || !info[0].IsObject()) {
     Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
-    deferred.Reject(
-        Napi::Error::New(env, "config must be an object").Value());
+    deferred.Reject(Napi::Error::New(env, "config must be an object").Value());
     return deferred.Promise();
   }
 

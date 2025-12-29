@@ -3,13 +3,8 @@
 //
 // VideoEncoder implementation wrapping FFmpeg libx264.
 
-#ifndef NODE_WEBCODECS_SRC_VIDEO_ENCODER_H_
-#define NODE_WEBCODECS_SRC_VIDEO_ENCODER_H_
-
-#include <napi.h>
-
-#include <cstdint>
-#include <string>
+#ifndef SRC_VIDEO_ENCODER_H_
+#define SRC_VIDEO_ENCODER_H_
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -17,6 +12,11 @@ extern "C" {
 #include <libavutil/opt.h>
 #include <libswscale/swscale.h>
 }
+
+#include <napi.h>
+
+#include <cstdint>
+#include <string>
 
 class VideoEncoder : public Napi::ObjectWrap<VideoEncoder> {
  public:
@@ -62,4 +62,4 @@ class VideoEncoder : public Napi::ObjectWrap<VideoEncoder> {
   int encode_queue_size_;
 };
 
-#endif  // NODE_WEBCODECS_SRC_VIDEO_ENCODER_H_
+#endif  // SRC_VIDEO_ENCODER_H_

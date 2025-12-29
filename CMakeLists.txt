@@ -56,6 +56,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 
 # Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_SOURCE_DIR}
     ${AVCODEC_INCLUDE_DIRS}
     ${AVUTIL_INCLUDE_DIRS}
     ${SWSCALE_INCLUDE_DIRS}

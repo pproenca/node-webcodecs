@@ -1,24 +1,21 @@
 // Copyright 2025 node-webcodecs contributors. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-#ifndef NODE_WEBCODECS_SRC_ENCODED_AUDIO_CHUNK_H_
-#define NODE_WEBCODECS_SRC_ENCODED_AUDIO_CHUNK_H_
+#ifndef SRC_ENCODED_AUDIO_CHUNK_H_
+#define SRC_ENCODED_AUDIO_CHUNK_H_
+
+#include <napi.h>
 
 #include <cstdint>
 #include <string>
 #include <vector>
 
-#include <napi.h>
-
 class EncodedAudioChunk : public Napi::ObjectWrap<EncodedAudioChunk> {
  public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
-  static Napi::Object CreateInstance(Napi::Env env,
-                                     const std::string& type,
-                                     int64_t timestamp,
-                                     int64_t duration,
-                                     const uint8_t* data,
-                                     size_t size);
+  static Napi::Object CreateInstance(Napi::Env env, const std::string& type,
+                                     int64_t timestamp, int64_t duration,
+                                     const uint8_t* data, size_t size);
   explicit EncodedAudioChunk(const Napi::CallbackInfo& info);
 
   // Prevent copy and assignment.
@@ -46,4 +43,4 @@ class EncodedAudioChunk : public Napi::ObjectWrap<EncodedAudioChunk> {
   std::vector<uint8_t> data_;
 };
 
-#endif  // NODE_WEBCODECS_SRC_ENCODED_AUDIO_CHUNK_H_
+#endif  // SRC_ENCODED_AUDIO_CHUNK_H_
