@@ -8,9 +8,15 @@
     "build:native": "cmake-js compile",
     "build:ts": "tsc",
     "build": "npm run build:native && npm run build:ts",
+    "build:coverage": "cmake-js compile -- -DENABLE_COVERAGE=ON",
     "test": "node test/suite.js",
+    "test:contracts": "node test/contracts/run_contracts.js",
     "test:guardrails": "node test/guardrails/run_all.js",
-    "clean": "rm -rf build dist"
+    "test:all": "npm test && npm run test:contracts && npm run test:guardrails",
+    "test:coverage:js": "c8 npm test",
+    "test:coverage:cpp": "npm run build:coverage && npm test && lcov --capture --directory build --output-file coverage/cpp.info --no-external && genhtml coverage/cpp.info --output-directory coverage/cpp",
+    "coverage": "npm run test:coverage:js && c8 report --reporter=html",
+    "clean": "rm -rf build dist coverage"
   },
   "keywords": ["webcodecs", "video", "encoder", "ffmpeg", "nodejs"],
   "license": "MIT",
@@ -18,9 +24,10 @@
     "node-addon-api": "^7.0.0"
   },
   "devDependencies": {
+    "@types/node": "^20.0.0",
+    "c8": "^10.1.2",
     "cmake-js": "^7.3.0",
-    "typescript": "^5.3.0",
-    "@types/node": "^20.0.0"
+    "typescript": "^5.3.0"
   },
   "engines": {
     "node": ">=18.0.0"
