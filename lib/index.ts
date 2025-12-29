@@ -403,6 +403,10 @@ export class EncodedAudioChunk {
     copyTo(destination: ArrayBuffer | ArrayBufferView): void {
         this._native.copyTo(destination);
     }
+
+    get _nativeChunk(): any {
+        return this._native;
+    }
 }
 
 export class AudioEncoder {
@@ -483,11 +487,7 @@ export class AudioDecoder {
     }
 
     decode(chunk: EncodedAudioChunk): void {
-        if ((chunk as any)._native) {
-            this._native.decode((chunk as any)._native);
-        } else {
-            this._native.decode(chunk);
-        }
+        this._native.decode(chunk._nativeChunk);
     }
 
     async flush(): Promise<void> {
