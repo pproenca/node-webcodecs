@@ -177,8 +177,13 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info)
     codec_context_->bit_rate = 128000;
   }
 
-  // Set sample format - AAC/Opus typically use fltp (float planar).
-  codec_context_->sample_fmt = AV_SAMPLE_FMT_FLTP;
+  // Set sample format based on codec.
+  // Opus uses non-planar float (flt), AAC uses planar float (fltp).
+  if (codec_id == AV_CODEC_ID_OPUS) {
+    codec_context_->sample_fmt = AV_SAMPLE_FMT_FLT;
+  } else {
+    codec_context_->sample_fmt = AV_SAMPLE_FMT_FLTP;
+  }
 
   // Time base.
   codec_context_->time_base = AVRational{1, static_cast<int>(sample_rate_)};
@@ -362,41 +367,65 @@ Napi::Value AudioEncoder::Encode(const Napi::CallbackInfo& info)
     return env.Undefined();
   }
 
-  // Make frame writable.
-  int ret = av_frame_make_writable(frame_);
-  if (ret < 0) {
-    Napi::Error::New(env, "Could not make frame writable")
-        .ThrowAsJavaScriptException();
-    return env.Undefined();
+  // Calculate bytes per sample for interleaved f32 input.
+  size_t bytes_per_sample = sizeof(float) * number_of_channels_;
+  int frame_size = codec_context_->frame_size;
+
+  // Process input samples in frame-sized chunks.
+  uint32_t samples_remaining = number_of_frames;
+  const uint8_t* input_ptr = sample_data;
+  int64_t current_pts = timestamp;
+
+  while (samples_remaining > 0) {
+    // Make frame writable.
+    int ret = av_frame_make_writable(frame_);
+    if (ret < 0) {
+      Napi::Error::New(env, "Could not make frame writable")
+          .ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+
+    // Determine how many samples to convert in this iteration.
+    int samples_to_convert = samples_remaining;
+    if (samples_to_convert > frame_size) {
+      samples_to_convert = frame_size;
+    }
+
+    // Convert samples using resampler.
+    const uint8_t* in_data[] = {input_ptr};
+    ret = swr_convert(swr_context_, frame_->data, frame_size,
+                      in_data, samples_to_convert);
+
+    if (ret < 0) {
+      char errbuf[256];
+      av_strerror(ret, errbuf, sizeof(errbuf));
+      Napi::Error::New(env, std::string("Resample error: ") + errbuf)
+          .ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+
+    // Update frame pts based on samples processed.
+    frame_->pts = current_pts;
+
+    // Send frame to encoder.
+    ret = avcodec_send_frame(codec_context_, frame_);
+    if (ret < 0 && ret != AVERROR(EAGAIN)) {
+      char errbuf[256];
+      av_strerror(ret, errbuf, sizeof(errbuf));
+      error_callback_.Call(
+          {Napi::Error::New(env, std::string("Encode error: ") + errbuf).Value()});
+      return env.Undefined();
+    }
+
+    // Emit any ready chunks.
+    EmitChunks(env);
+
+    // Move to next chunk.
+    input_ptr += samples_to_convert * bytes_per_sample;
+    samples_remaining -= samples_to_convert;
+    current_pts += static_cast<int64_t>(samples_to_convert) * 1000000 /
+                   sample_rate_;  // pts in microseconds
   }
-
-  // Convert samples using resampler.
-  const uint8_t* in_data[] = {sample_data};
-  ret = swr_convert(swr_context_, frame_->data, frame_->nb_samples,
-                    in_data, number_of_frames);
-
-  if (ret < 0) {
-    char errbuf[256];
-    av_strerror(ret, errbuf, sizeof(errbuf));
-    Napi::Error::New(env, std::string("Resample error: ") + errbuf)
-        .ThrowAsJavaScriptException();
-    return env.Undefined();
-  }
-
-  frame_->pts = timestamp;
-
-  // Send frame to encoder.
-  ret = avcodec_send_frame(codec_context_, frame_);
-  if (ret < 0 && ret != AVERROR(EAGAIN)) {
-    char errbuf[256];
-    av_strerror(ret, errbuf, sizeof(errbuf));
-    error_callback_.Call(
-        {Napi::Error::New(env, std::string("Encode error: ") + errbuf).Value()});
-    return env.Undefined();
-  }
-
-  // Emit any ready chunks.
-  EmitChunks(env);
 
   frame_count_++;
 
