@@ -1,0 +1,27 @@
+{
+  "name": "node-webcodecs",
+  "version": "0.1.0",
+  "description": "WebCodecs API implementation for Node.js using FFmpeg",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build:native": "cmake-js compile",
+    "build:ts": "tsc",
+    "build": "npm run build:native && npm run build:ts",
+    "test": "node test/suite.js",
+    "clean": "rm -rf build dist"
+  },
+  "keywords": ["webcodecs", "video", "encoder", "ffmpeg", "nodejs"],
+  "license": "MIT",
+  "dependencies": {
+    "node-addon-api": "^7.0.0"
+  },
+  "devDependencies": {
+    "cmake-js": "^7.3.0",
+    "typescript": "^5.3.0",
+    "@types/node": "^20.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

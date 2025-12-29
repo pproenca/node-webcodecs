@@ -1,0 +1,7 @@
+node_modules/
+build/
+dist/
+*.node
+.DS_Store
+output.h264
+*.mp4
