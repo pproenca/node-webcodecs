@@ -80,8 +80,11 @@ export class VideoEncoder {
         this._native.encode(frame._nativeFrame);
     }
 
-    flush(): void {
-        this._native.flush();
+    flush(): Promise<void> {
+        return new Promise((resolve) => {
+            this._native.flush();
+            resolve();
+        });
     }
 
     close(): void {
