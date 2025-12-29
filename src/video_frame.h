@@ -12,6 +12,18 @@
 #include <string>
 #include <vector>
 
+enum class PixelFormat {
+  RGBA,
+  I420,    // YUV420p planar
+  NV12,    // YUV420 semi-planar
+  UNKNOWN
+};
+
+PixelFormat ParsePixelFormat(const std::string& format_str);
+std::string PixelFormatToString(PixelFormat format);
+size_t CalculateAllocationSize(PixelFormat format, uint32_t width,
+                                uint32_t height);
+
 class VideoFrame : public Napi::ObjectWrap<VideoFrame> {
  public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
@@ -47,12 +59,14 @@ class VideoFrame : public Napi::ObjectWrap<VideoFrame> {
   void Close(const Napi::CallbackInfo& info);
   Napi::Value GetDataBuffer(const Napi::CallbackInfo& info);
   Napi::Value Clone(const Napi::CallbackInfo& info);
+  Napi::Value AllocationSize(const Napi::CallbackInfo& info);
+  Napi::Value CopyTo(const Napi::CallbackInfo& info);
 
   std::vector<uint8_t> data_;
   int coded_width_;
   int coded_height_;
   int64_t timestamp_;
-  std::string format_;
+  PixelFormat format_;
   bool closed_;
 };
 

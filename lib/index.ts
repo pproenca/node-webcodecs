@@ -56,35 +56,34 @@ export class VideoFrame {
             throw new DOMException('VideoFrame is closed', 'InvalidStateError');
         }
 
-        // For RGBA format, single plane
-        const bytesPerRow = this.codedWidth * 4;
-        const totalBytes = bytesPerRow * this.codedHeight;
-
-        const data = this._native.getData();
-
+        // Convert ArrayBuffer to Buffer for native layer
+        let destBuffer: Buffer;
         if (destination instanceof ArrayBuffer) {
-            if (destination.byteLength < totalBytes) {
-                throw new TypeError('Destination buffer too small');
-            }
-            const view = new Uint8Array(destination);
-            view.set(data);
+            destBuffer = Buffer.from(destination);
         } else if (destination instanceof Uint8Array) {
-            if (destination.byteLength < totalBytes) {
-                throw new TypeError('Destination buffer too small');
-            }
-            destination.set(data);
+            destBuffer = Buffer.from(destination.buffer, destination.byteOffset, destination.byteLength);
         } else {
             throw new TypeError('Destination must be ArrayBuffer or Uint8Array');
         }
 
-        return [{ offset: 0, stride: bytesPerRow }];
+        // Call native copyTo
+        const layout = this._native.copyTo(destBuffer, options || {});
+
+        // Copy back to original if it was an ArrayBuffer
+        if (destination instanceof ArrayBuffer) {
+            new Uint8Array(destination).set(destBuffer);
+        } else if (destination instanceof Uint8Array) {
+            destination.set(destBuffer);
+        }
+
+        return layout;
     }
 
     allocationSize(options?: VideoFrameCopyToOptions): number {
         if (this._closed) {
             throw new DOMException('VideoFrame is closed', 'InvalidStateError');
         }
-        return this.codedWidth * this.codedHeight * 4; // RGBA
+        return this._native.allocationSize(options || {});
     }
 
     clone(): VideoFrame {
