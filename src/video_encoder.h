@@ -2,6 +2,13 @@
 #define VIDEO_ENCODER_H
 
 #include <napi.h>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <queue>
+#include <atomic>
+#include <vector>
+#include <utility>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -47,7 +54,51 @@ private:
     int width_;
     int height_;
     int64_t frameCount_;
-    int encodeQueueSize_;
+
+    // Threading
+    std::thread encoderThread_;
+    std::mutex queueMutex_;
+    std::condition_variable queueCondition_;
+    std::atomic<bool> threadRunning_{false};
+
+    // Request types
+    struct EncodeRequest {
+        std::vector<uint8_t> frameData;
+        int width;
+        int height;
+        int64_t timestamp;
+        bool forceKeyFrame;
+    };
+
+    struct FlushSentinel {
+        uint32_t resetCount;
+    };
+
+    std::queue<EncodeRequest> encodeQueue_;
+    std::queue<FlushSentinel> flushQueue_;
+
+    // Thread-safe callbacks
+    Napi::ThreadSafeFunction outputTsfn_;
+    Napi::ThreadSafeFunction dequeueTsfn_;
+
+    // Dequeue event coalescing
+    std::atomic<bool> dequeueEventScheduled_{false};
+
+    // Flush promise tracking
+    std::mutex flushMutex_;
+    std::vector<std::pair<uint32_t, Napi::Promise::Deferred>> pendingFlushPromises_;
+    std::atomic<uint32_t> resetCount_{0};
+
+    // Atomic encodeQueueSize for thread safety
+    std::atomic<int> encodeQueueSize_{0};
+
+    // Thread functions
+    void EncoderThreadFunc();
+    void ScheduleDequeueEvent();
+    void ProcessEncodeRequest(const EncodeRequest& request);
+    void StartThread(Napi::Env env);
+    void StopThread();
+    void EmitChunksThreadSafe();
 };
 
 #endif
