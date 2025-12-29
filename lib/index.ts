@@ -532,8 +532,9 @@ export class VideoFilter {
         if (this._native.state === 'closed') {
             throw new DOMException('VideoFilter is closed', 'InvalidStateError');
         }
-        const nativeResult = this._native.applyBlur(frame._nativeFrame, regions, strength);
-        // Wrap the native frame as a VideoFrame
+        // Pass the native VideoFrame object to applyBlur
+        const nativeResult = this._native.applyBlur((frame as any)._native, regions, strength);
+        // Wrap the returned native frame as a VideoFrame
         const wrapper = Object.create(VideoFrame.prototype);
         wrapper._native = nativeResult;
         wrapper._closed = false;

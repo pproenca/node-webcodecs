@@ -223,9 +223,16 @@ Napi::Value VideoFilter::ApplyBlur(const Napi::CallbackInfo& info) {
     return env.Undefined();
   }
 
-  // Get frame data from VideoFrame object
-  Napi::Object frame_obj = info[0].As<Napi::Object>();
-  if (!frame_obj.Has("getData")) {
+  // Get native VideoFrame object
+  if (!info[0].IsObject()) {
+    Napi::TypeError::New(env, "frame must be a VideoFrame object")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  VideoFrame* video_frame =
+      Napi::ObjectWrap<VideoFrame>::Unwrap(info[0].As<Napi::Object>());
+  if (!video_frame) {
     Napi::TypeError::New(env, "Invalid VideoFrame object")
         .ThrowAsJavaScriptException();
     return env.Undefined();
@@ -251,17 +258,19 @@ Napi::Value VideoFilter::ApplyBlur(const Napi::CallbackInfo& info) {
     blur_strength = std::max(1, std::min(100, blur_strength));
   }
 
-  // If no regions, return cloned frame unchanged
+  // If no regions, create a clone of the original frame
   if (regions.empty()) {
-    Napi::Function clone_fn = frame_obj.Get("clone").As<Napi::Function>();
-    return clone_fn.Call(frame_obj, {});
+    return VideoFrame::CreateInstance(env, video_frame->GetData(),
+                                      video_frame->GetDataSize(),
+                                      video_frame->GetWidth(),
+                                      video_frame->GetHeight(),
+                                      video_frame->GetTimestampValue(),
+                                      "RGBA");
   }
 
   // Get RGBA data from frame
-  Napi::Function get_data = frame_obj.Get("getData").As<Napi::Function>();
-  Napi::Buffer<uint8_t> rgba_buffer =
-      get_data.Call(frame_obj, {}).As<Napi::Buffer<uint8_t>>();
-  uint8_t* rgba_data = rgba_buffer.Data();
+  uint8_t* rgba_data = video_frame->GetData();
+  int64_t timestamp = video_frame->GetTimestampValue();
 
   // Build and initialize filter graph for these regions
   std::string filter_str = BuildFilterString(regions, blur_strength);
@@ -364,9 +373,6 @@ Napi::Value VideoFilter::ApplyBlur(const Napi::CallbackInfo& info) {
 
   sws_scale(sws_yuv_to_rgba_, filtered->data, filtered->linesize,
             0, height_, dst_slices, dst_stride);
-
-  // Get timestamp from original frame
-  int64_t timestamp = frame_obj.Get("timestamp").As<Napi::Number>().Int64Value();
 
   // Create new VideoFrame with blurred data using VideoFrame::CreateInstance
   return VideoFrame::CreateInstance(env, output_data, output_size,
