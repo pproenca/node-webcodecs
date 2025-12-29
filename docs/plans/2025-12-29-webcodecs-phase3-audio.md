@@ -13,11 +13,18 @@
 - Types: `CamelCase`, Members: `trailing_underscore_`, Constants: `kCamelCase`
 - 2-space indentation, 80 char line limit
 - Function braces on new line, other braces on same line
-- Include guards: `PROJECT_PATH_FILE_H_` format
+- Include guards: `NODE_WEBCODECS_SRC_FILE_H_` format
 - Explicit constructors, proper include order
 - Use `ThrowAsJavaScriptException()` instead of `throw`
 
-> **Note:** Task 1 (AudioData) provides the Google Style reference implementation. Tasks 2-7 contain example code that must be converted to Google Style following the patterns in Task 1 when implemented.
+**IMPORTANT - Google Style Enforcement:**
+- Tasks 1-2 provide **complete Google Style compliant code** - copy exactly
+- Tasks 3-7 provide **algorithmic reference** - implementation MUST convert to Google Style:
+  - Change `.cpp` → `.cc` in filenames and git commands
+  - Change `throw Napi::Error::New(...)` → `Napi::Error::New(...).ThrowAsJavaScriptException(); return;`
+  - Change `codecContext_` → `codec_context_`, `sampleRate_` → `sample_rate_`, etc.
+  - Use 2-space indentation
+  - Function opening braces on new line
 
 ---
 
@@ -895,11 +902,13 @@ Create: `src/audio_encoder.h`
 // Copyright 2025 node-webcodecs contributors. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-#ifndef AUDIO_ENCODER_H
-#define AUDIO_ENCODER_H
+#ifndef NODE_WEBCODECS_SRC_AUDIO_ENCODER_H_
+#define NODE_WEBCODECS_SRC_AUDIO_ENCODER_H_
+
+#include <cstdint>
+#include <string>
 
 #include <napi.h>
-#include <string>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -908,48 +917,52 @@ extern "C" {
 }
 
 class AudioEncoder : public Napi::ObjectWrap<AudioEncoder> {
-public:
-    static Napi::Object Init(Napi::Env env, Napi::Object exports);
-    AudioEncoder(const Napi::CallbackInfo& info);
-    ~AudioEncoder();
+ public:
+  static Napi::Object Init(Napi::Env env, Napi::Object exports);
+  explicit AudioEncoder(const Napi::CallbackInfo& info);
+  ~AudioEncoder() override;
 
-private:
-    // WebCodecs API methods
-    Napi::Value Configure(const Napi::CallbackInfo& info);
-    Napi::Value Encode(const Napi::CallbackInfo& info);
-    Napi::Value Flush(const Napi::CallbackInfo& info);
-    Napi::Value Reset(const Napi::CallbackInfo& info);
-    void Close(const Napi::CallbackInfo& info);
-    Napi::Value GetState(const Napi::CallbackInfo& info);
-    Napi::Value GetEncodeQueueSize(const Napi::CallbackInfo& info);
+  // Prevent copy and assignment.
+  AudioEncoder(const AudioEncoder&) = delete;
+  AudioEncoder& operator=(const AudioEncoder&) = delete;
 
-    // Static methods
-    static Napi::Value IsConfigSupported(const Napi::CallbackInfo& info);
+ private:
+  // WebCodecs API methods.
+  Napi::Value Configure(const Napi::CallbackInfo& info);
+  Napi::Value Encode(const Napi::CallbackInfo& info);
+  Napi::Value Flush(const Napi::CallbackInfo& info);
+  Napi::Value Reset(const Napi::CallbackInfo& info);
+  void Close(const Napi::CallbackInfo& info);
+  Napi::Value GetState(const Napi::CallbackInfo& info);
+  Napi::Value GetEncodeQueueSize(const Napi::CallbackInfo& info);
 
-    // Internal helpers
-    void Cleanup();
-    void EmitChunks(Napi::Env env);
+  // Static methods.
+  static Napi::Value IsConfigSupported(const Napi::CallbackInfo& info);
 
-    // FFmpeg state
-    const AVCodec* codec_;
-    AVCodecContext* codecContext_;
-    SwrContext* swrContext_;
-    AVFrame* frame_;
-    AVPacket* packet_;
+  // Internal helpers.
+  void Cleanup();
+  void EmitChunks(Napi::Env env);
 
-    // Callbacks
-    Napi::FunctionReference outputCallback_;
-    Napi::FunctionReference errorCallback_;
+  // FFmpeg state.
+  const AVCodec* codec_;
+  AVCodecContext* codec_context_;
+  SwrContext* swr_context_;
+  AVFrame* frame_;
+  AVPacket* packet_;
 
-    // State
-    std::string state_;
-    uint32_t sampleRate_;
-    uint32_t numberOfChannels_;
-    int64_t timestamp_;
-    int frameCount_;
+  // Callbacks.
+  Napi::FunctionReference output_callback_;
+  Napi::FunctionReference error_callback_;
+
+  // State.
+  std::string state_;
+  uint32_t sample_rate_;
+  uint32_t number_of_channels_;
+  int64_t timestamp_;
+  int frame_count_;
 };
 
-#endif
+#endif  // NODE_WEBCODECS_SRC_AUDIO_ENCODER_H_
 ```
 
 **Step 5: Implement audio_encoder.cpp (configure, close, state)**
