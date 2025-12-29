@@ -52,6 +52,8 @@ class AsyncEncodeWorker {
   void Flush();
   bool IsRunning() const { return running_.load(); }
   size_t QueueSize() const;
+  void SetCodecContext(AVCodecContext* ctx, SwsContext* sws,
+                       int width, int height);
 
  private:
   void WorkerThread();
@@ -72,6 +74,10 @@ class AsyncEncodeWorker {
   // FFmpeg contexts (owned by VideoEncoder, just references here)
   AVCodecContext* codec_context_;
   SwsContext* sws_context_;
+  AVFrame* frame_;
+  AVPacket* packet_;
+  int width_;
+  int height_;
 };
 
 #endif  // SRC_ASYNC_ENCODE_WORKER_H_

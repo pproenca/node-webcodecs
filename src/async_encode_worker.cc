@@ -19,8 +19,30 @@ AsyncEncodeWorker::AsyncEncodeWorker(VideoEncoder* encoder,
       codec_context_(nullptr),
       sws_context_(nullptr) {}
 
+void AsyncEncodeWorker::SetCodecContext(AVCodecContext* ctx, SwsContext* sws,
+                                        int width, int height) {
+  codec_context_ = ctx;
+  sws_context_ = sws;
+  width_ = width;
+  height_ = height;
+  frame_ = av_frame_alloc();
+  if (frame_) {
+    frame_->format = AV_PIX_FMT_YUV420P;
+    frame_->width = width;
+    frame_->height = height;
+    av_frame_get_buffer(frame_, 32);
+  }
+  packet_ = av_packet_alloc();
+}
+
 AsyncEncodeWorker::~AsyncEncodeWorker() {
   Stop();
+  if (frame_) {
+    av_frame_free(&frame_);
+  }
+  if (packet_) {
+    av_packet_free(&packet_);
+  }
 }
 
 void AsyncEncodeWorker::Start() {
@@ -98,15 +120,60 @@ void AsyncEncodeWorker::WorkerThread() {
 }
 
 void AsyncEncodeWorker::ProcessFrame(const EncodeTask& task) {
-  // This will be called from worker thread
-  // Actual FFmpeg encoding happens here
-  // Results are posted back via ThreadSafeFunction
+  if (!codec_context_ || !sws_context_ || !frame_ || !packet_) {
+    return;
+  }
 
-  // Note: Implementation delegates to VideoEncoder's internal methods
-  // which need to be made thread-safe
+  // Convert RGBA to YUV420P
+  const uint8_t* src_data[1] = {task.rgba_data.data()};
+  int src_linesize[1] = {width_ * 4};
+
+  sws_scale(sws_context_, src_data, src_linesize, 0, height_,
+            frame_->data, frame_->linesize);
+
+  frame_->pts = task.timestamp;
+
+  int ret = avcodec_send_frame(codec_context_, frame_);
+  if (ret < 0 && ret != AVERROR(EAGAIN)) {
+    std::string error_msg = "Encode error: " + std::to_string(ret);
+    error_tsfn_.NonBlockingCall(
+        new std::string(error_msg),
+        [](Napi::Env env, Napi::Function fn, std::string* msg) {
+          fn.Call({Napi::Error::New(env, *msg).Value()});
+          delete msg;
+        });
+    return;
+  }
+
+  while (avcodec_receive_packet(codec_context_, packet_) == 0) {
+    EmitChunk(packet_);
+    av_packet_unref(packet_);
+  }
 }
 
-void AsyncEncodeWorker::EmitChunk(AVPacket* packet) {
-  // Convert to EncodedVideoChunk and emit via ThreadSafeFunction
-  // This is called from worker thread
+void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
+  // Copy packet data for thread-safe transfer
+  auto* chunk_data = new std::vector<uint8_t>(pkt->data, pkt->data + pkt->size);
+  int64_t pts = pkt->pts;
+  int64_t duration = pkt->duration;
+  bool is_key = (pkt->flags & AV_PKT_FLAG_KEY) != 0;
+
+  output_tsfn_.NonBlockingCall(
+      chunk_data,
+      [pts, duration, is_key](Napi::Env env, Napi::Function fn,
+                               std::vector<uint8_t>* data) {
+        Napi::Object init = Napi::Object::New(env);
+        init.Set("type", is_key ? "key" : "delta");
+        init.Set("timestamp", static_cast<double>(pts));
+        init.Set("duration", static_cast<double>(duration));
+        init.Set("data", Napi::Buffer<uint8_t>::Copy(env, data->data(), data->size()));
+
+        // Create EncodedVideoChunk via its constructor
+        Napi::Function constructor = env.Global()
+            .Get("EncodedVideoChunk").As<Napi::Function>();
+        Napi::Object chunk = constructor.New({init});
+
+        fn.Call({chunk});
+        delete data;
+      });
 }
