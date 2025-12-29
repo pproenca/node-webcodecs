@@ -9,6 +9,7 @@
     "build:ts": "tsc",
     "build": "npm run build:native && npm run build:ts",
     "test": "node test/suite.js",
+    "test:guardrails": "node test/guardrails/run_all.js",
     "clean": "rm -rf build dist"
   },
   "keywords": ["webcodecs", "video", "encoder", "ffmpeg", "nodejs"],
