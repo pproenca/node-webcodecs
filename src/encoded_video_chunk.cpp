@@ -154,7 +154,9 @@ void EncodedVideoChunk::CopyTo(const Napi::CallbackInfo& info) {
 
 void EncodedVideoChunk::Close(const Napi::CallbackInfo& info) {
     if (!closed_) {
+        // clear() + shrink_to_fit() actually releases memory
         data_.clear();
+        data_.shrink_to_fit();
         closed_ = true;
     }
 }

@@ -55,6 +55,7 @@ VideoFrame::VideoFrame(const Napi::CallbackInfo& info)
 
 VideoFrame::~VideoFrame() {
     data_.clear();
+    data_.shrink_to_fit();
 }
 
 Napi::Value VideoFrame::GetCodedWidth(const Napi::CallbackInfo& info) {
@@ -87,7 +88,10 @@ Napi::Value VideoFrame::GetFormat(const Napi::CallbackInfo& info) {
 
 void VideoFrame::Close(const Napi::CallbackInfo& info) {
     if (!closed_) {
+        // clear() + shrink_to_fit() actually releases memory
+        // (clear() alone keeps capacity allocated)
         data_.clear();
+        data_.shrink_to_fit();
         closed_ = true;
     }
 }
