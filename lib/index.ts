@@ -119,6 +119,23 @@ export class EncodedVideoChunk {
     get byteLength(): number {
         return this.data.length;
     }
+
+    copyTo(destination: ArrayBuffer | Uint8Array): void {
+        if (destination instanceof ArrayBuffer) {
+            const view = new Uint8Array(destination);
+            if (view.byteLength < this.data.length) {
+                throw new TypeError('Destination buffer too small');
+            }
+            view.set(this.data);
+        } else if (destination instanceof Uint8Array) {
+            if (destination.byteLength < this.data.length) {
+                throw new TypeError('Destination buffer too small');
+            }
+            destination.set(this.data);
+        } else {
+            throw new TypeError('Destination must be ArrayBuffer or Uint8Array');
+        }
+    }
 }
 
 // Re-export types
