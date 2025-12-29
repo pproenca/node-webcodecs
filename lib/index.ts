@@ -201,5 +201,7 @@ export type {
     VideoEncoderConfig,
     VideoEncoderInit,
     VideoFrameInit,
-    CodecState
+    CodecState,
+    PlaneLayout,
+    VideoFrameCopyToOptions
 } from './types';
