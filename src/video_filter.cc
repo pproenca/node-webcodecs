@@ -4,7 +4,11 @@
 #include "video_filter.h"
 #include "video_frame.h"
 
+#include <algorithm>
+#include <cstdio>
 #include <sstream>
+#include <string>
+#include <vector>
 
 Napi::Object VideoFilter::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "VideoFilter", {
@@ -185,11 +189,8 @@ std::string VideoFilter::BuildFilterString(
   return oss.str();
 }
 
-bool VideoFilter::InitFilterGraph(int blur_strength) {
-  // This is called per-frame with dynamic regions, but we initialize
-  // a simple passthrough graph here. Actual filtering happens in ProcessFrame.
-  return true;
-}
+// InitFilterGraph not needed - filter graph is built dynamically per-frame
+// based on blur regions. See BuildFilterString() for filter construction.
 
 AVFrame* VideoFilter::ProcessFrame(AVFrame* input) {
   // This processes a YUV frame through the filter graph
@@ -365,7 +366,8 @@ Napi::Value VideoFilter::ApplyBlur(const Napi::CallbackInfo& info) {
 
   // Convert YUV420P back to RGBA
   size_t output_size = width_ * height_ * 4;
-  Napi::Buffer<uint8_t> output_buffer = Napi::Buffer<uint8_t>::New(env, output_size);
+  Napi::Buffer<uint8_t> output_buffer =
+      Napi::Buffer<uint8_t>::New(env, output_size);
   uint8_t* output_data = output_buffer.Data();
 
   uint8_t* dst_slices[1] = { output_data };

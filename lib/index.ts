@@ -84,7 +84,7 @@ export class VideoFrame {
 
     allocationSize(options?: { format?: VideoPixelFormat }): number {
         if (this._closed) {
-            throw new TypeError('VideoFrame is closed');
+            throw new DOMException('VideoFrame is closed', 'InvalidStateError');
         }
         return this._native.allocationSize(options || {});
     }
