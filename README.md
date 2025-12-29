@@ -64,14 +64,37 @@ encoder.close();
 
 - `new VideoEncoder({ output, error })` - Create encoder with callbacks
 - `configure(config)` - Configure codec settings
-- `encode(frame)` - Encode a VideoFrame
-- `flush()` - Flush remaining frames
+- `encode(frame, options?)` - Encode a VideoFrame (options: `{ keyFrame: boolean }`)
+- `flush()` - Flush remaining frames (returns Promise)
+- `reset()` - Reset to unconfigured state
 - `close()` - Close encoder and free resources
+- `static isConfigSupported(config)` - Check if configuration is supported
+
+### VideoDecoder
+
+- `new VideoDecoder({ output, error })` - Create decoder with callbacks
+- `configure(config)` - Configure codec settings (codec, codedWidth, codedHeight)
+- `decode(chunk)` - Decode an EncodedVideoChunk
+- `flush()` - Flush remaining frames (returns Promise)
+- `reset()` - Reset to unconfigured state
+- `close()` - Close decoder and free resources
+- `static isConfigSupported(config)` - Check if configuration is supported
+
+### EncodedVideoChunk
+
+- `new EncodedVideoChunk({ type, timestamp, data })` - Create chunk from encoded data
+- `type` - 'key' or 'delta'
+- `timestamp` - Presentation timestamp in microseconds
+- `byteLength` - Size of encoded data
+- `copyTo(destination)` - Copy data to ArrayBuffer or TypedArray
 
 ### VideoFrame
 
 - `new VideoFrame(buffer, { codedWidth, codedHeight, timestamp })` - Create frame from RGBA buffer
 - `codedWidth`, `codedHeight`, `timestamp`, `format` - Properties
+- `clone()` - Create a copy of the frame
+- `allocationSize()` - Get size needed for copyTo buffer
+- `copyTo(destination)` - Copy pixel data to ArrayBuffer or TypedArray
 - `close()` - Free resources
 
 ## Examples
@@ -92,9 +115,9 @@ npm test              # Run tests
 
 ## Known Limitations
 
-- Currently only supports H.264 encoding
-- Input format is RGBA only
-- Synchronous encoding (no AsyncWorker yet)
+- Currently only supports H.264 encoding and decoding
+- Input format is RGBA only (output from decoder is also RGBA)
+- Synchronous encoding/decoding (no AsyncWorker yet)
 - Audio not yet implemented
 
 ## License
