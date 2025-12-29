@@ -130,3 +130,16 @@ export interface EncodedAudioChunkInit {
 }
 
 export type BufferSource = ArrayBuffer | ArrayBufferView;
+
+// VideoFilter types
+export interface BlurRegion {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+
+export interface VideoFilterConfig {
+    width: number;
+    height: number;
+}
