@@ -17,7 +17,9 @@ import type {
     AudioDecoderInit,
     EncodedAudioChunkInit,
     BlurRegion,
-    VideoFilterConfig
+    VideoFilterConfig,
+    DemuxerInit,
+    TrackInfo
 } from './types';
 
 // Load native addon
@@ -546,6 +548,49 @@ export class VideoFilter {
     }
 }
 
+export class Demuxer {
+    private _native: any;
+
+    constructor(init: DemuxerInit) {
+        this._native = new native.Demuxer({
+            onTrack: init.onTrack,
+            onChunk: (chunk: any, trackIndex: number) => {
+                if (init.onChunk) {
+                    // Wrap raw chunk in EncodedVideoChunk for consistency
+                    const wrappedChunk = new EncodedVideoChunk({
+                        type: chunk.type,
+                        timestamp: chunk.timestamp,
+                        duration: chunk.duration,
+                        data: chunk.data
+                    });
+                    init.onChunk(wrappedChunk, trackIndex);
+                }
+            },
+            onError: init.onError
+        });
+    }
+
+    async open(path: string): Promise<void> {
+        return this._native.open(path);
+    }
+
+    async demux(): Promise<void> {
+        return this._native.demux();
+    }
+
+    close(): void {
+        this._native.close();
+    }
+
+    getVideoTrack(): TrackInfo | null {
+        return this._native.getVideoTrack();
+    }
+
+    getAudioTrack(): TrackInfo | null {
+        return this._native.getAudioTrack();
+    }
+}
+
 // Re-export types
 export type {
     VideoEncoderConfig,
@@ -567,5 +612,7 @@ export type {
     AudioDecoderInit,
     EncodedAudioChunkInit,
     BlurRegion,
-    VideoFilterConfig
+    VideoFilterConfig,
+    DemuxerInit,
+    TrackInfo
 } from './types';
