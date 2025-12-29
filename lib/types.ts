@@ -1,3 +1,5 @@
+export type VideoPixelFormat = 'RGBA' | 'I420' | 'NV12';
+
 export interface VideoEncoderConfig {
     codec: string;
     width: number;
@@ -32,11 +34,11 @@ export interface EncodedVideoChunkMetadata {
 }
 
 export interface VideoFrameInit {
+    format?: VideoPixelFormat;
     codedWidth: number;
     codedHeight: number;
     timestamp: number;
     duration?: number;
-    format?: 'RGBA' | 'BGRA' | 'I420' | 'NV12';
 }
 
 export interface VideoEncoderEncodeOptions {
@@ -51,8 +53,8 @@ export interface PlaneLayout {
 }
 
 export interface VideoFrameCopyToOptions {
+    format?: VideoPixelFormat;
     rect?: { x: number; y: number; width: number; height: number };
-    layout?: PlaneLayout[];
 }
 
 export interface VideoColorSpaceInit {

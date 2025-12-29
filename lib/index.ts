@@ -7,6 +7,7 @@ import type {
     CodecState,
     PlaneLayout,
     VideoFrameCopyToOptions,
+    VideoPixelFormat,
     AudioSampleFormat,
     AudioDataInit,
     AudioDataCopyToOptions,
@@ -79,9 +80,9 @@ export class VideoFrame {
         return layout;
     }
 
-    allocationSize(options?: VideoFrameCopyToOptions): number {
+    allocationSize(options?: { format?: VideoPixelFormat }): number {
         if (this._closed) {
-            throw new DOMException('VideoFrame is closed', 'InvalidStateError');
+            throw new TypeError('VideoFrame is closed');
         }
         return this._native.allocationSize(options || {});
     }
@@ -520,6 +521,7 @@ export type {
     CodecState,
     PlaneLayout,
     VideoFrameCopyToOptions,
+    VideoPixelFormat,
     AudioSampleFormat,
     AudioDataInit,
     AudioDataCopyToOptions,
