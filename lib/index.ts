@@ -77,6 +77,18 @@ export class VideoFrame {
         return this.codedWidth * this.codedHeight * 4; // RGBA
     }
 
+    clone(): VideoFrame {
+        if (this._closed) {
+            throw new DOMException('VideoFrame is closed', 'InvalidStateError');
+        }
+        const clonedNative = this._native.clone();
+        // Wrap the cloned native frame
+        const wrapper = Object.create(VideoFrame.prototype);
+        wrapper._native = clonedNative;
+        wrapper._closed = false;
+        return wrapper;
+    }
+
     // Internal access for native binding
     get _nativeFrame(): any {
         return this._native;

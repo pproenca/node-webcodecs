@@ -19,12 +19,17 @@ public:
     // Methods
     void Close(const Napi::CallbackInfo& info);
     Napi::Value GetDataBuffer(const Napi::CallbackInfo& info);
+    Napi::Value Clone(const Napi::CallbackInfo& info);
+
+    // Static constructor reference for clone()
+    static Napi::FunctionReference constructor;
 
     // Internal accessors for VideoEncoder
     uint8_t* GetData() { return data_.data(); }
     size_t GetDataSize() { return data_.size(); }
     int GetWidth() { return codedWidth_; }
     int GetHeight() { return codedHeight_; }
+    int64_t GetTimestampValue() { return timestamp_; }
 
 private:
     std::vector<uint8_t> data_;

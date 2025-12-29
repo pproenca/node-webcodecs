@@ -1,5 +1,8 @@
 #include "video_frame.h"
 
+// Static constructor reference for clone()
+Napi::FunctionReference VideoFrame::constructor;
+
 Napi::Object InitVideoFrame(Napi::Env env, Napi::Object exports) {
     return VideoFrame::Init(env, exports);
 }
@@ -12,11 +15,11 @@ Napi::Object VideoFrame::Init(Napi::Env env, Napi::Object exports) {
         InstanceAccessor("format", &VideoFrame::GetFormat, nullptr),
         InstanceMethod("close", &VideoFrame::Close),
         InstanceMethod("getData", &VideoFrame::GetDataBuffer),
+        InstanceMethod("clone", &VideoFrame::Clone),
     });
 
-    Napi::FunctionReference* constructor = new Napi::FunctionReference();
-    *constructor = Napi::Persistent(func);
-    env.SetInstanceData(constructor);
+    constructor = Napi::Persistent(func);
+    constructor.SuppressDestruct();
 
     exports.Set("VideoFrame", func);
     return exports;
@@ -91,4 +94,27 @@ Napi::Value VideoFrame::GetDataBuffer(const Napi::CallbackInfo& info) {
         throw Napi::Error::New(info.Env(), "VideoFrame is closed");
     }
     return Napi::Buffer<uint8_t>::Copy(info.Env(), data_.data(), data_.size());
+}
+
+Napi::Value VideoFrame::Clone(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+
+    if (closed_) {
+        throw Napi::Error::New(env, "InvalidStateError: Cannot clone a closed VideoFrame");
+    }
+
+    // Create init object with current properties
+    Napi::Object init = Napi::Object::New(env);
+    init.Set("codedWidth", codedWidth_);
+    init.Set("codedHeight", codedHeight_);
+    init.Set("timestamp", Napi::Number::New(env, timestamp_));
+    init.Set("format", format_);
+
+    // Copy data to new buffer
+    Napi::Buffer<uint8_t> dataBuffer = Napi::Buffer<uint8_t>::Copy(
+        env, data_.data(), data_.size()
+    );
+
+    // Create new VideoFrame instance
+    return constructor.New({ dataBuffer, init });
 }

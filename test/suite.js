@@ -15,7 +15,8 @@ const tests = [
     '11_config_supported.js',
     '12_chunk_copyto.js',
     '13_frame_copyto.js',
-    '14_ondequeue.js'
+    '14_ondequeue.js',
+    '15_frame_clone.js'
 ];
 
 let passed = 0;
