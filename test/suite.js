@@ -13,7 +13,9 @@ const tests = [
     '09_robustness.js',
     '10_encoder_reset.js',
     '11_config_supported.js',
-    '12_chunk_copyto.js'
+    '12_chunk_copyto.js',
+    '13_frame_copyto.js',
+    '14_ondequeue.js'
 ];
 
 let passed = 0;
