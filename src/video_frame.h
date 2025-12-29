@@ -18,6 +18,7 @@ public:
 
     // Methods
     void Close(const Napi::CallbackInfo& info);
+    Napi::Value GetDataBuffer(const Napi::CallbackInfo& info);
 
     // Internal accessors for VideoEncoder
     uint8_t* GetData() { return data_.data(); }

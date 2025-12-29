@@ -11,6 +11,7 @@ Napi::Object VideoFrame::Init(Napi::Env env, Napi::Object exports) {
         InstanceAccessor("timestamp", &VideoFrame::GetTimestamp, nullptr),
         InstanceAccessor("format", &VideoFrame::GetFormat, nullptr),
         InstanceMethod("close", &VideoFrame::Close),
+        InstanceMethod("getData", &VideoFrame::GetDataBuffer),
     });
 
     Napi::FunctionReference* constructor = new Napi::FunctionReference();
@@ -83,4 +84,11 @@ void VideoFrame::Close(const Napi::CallbackInfo& info) {
         data_.clear();
         closed_ = true;
     }
+}
+
+Napi::Value VideoFrame::GetDataBuffer(const Napi::CallbackInfo& info) {
+    if (closed_) {
+        throw Napi::Error::New(info.Env(), "VideoFrame is closed");
+    }
+    return Napi::Buffer<uint8_t>::Copy(info.Env(), data_.data(), data_.size());
 }
