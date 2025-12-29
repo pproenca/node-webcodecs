@@ -19,7 +19,13 @@ const tests = [
     '15_frame_clone.js',
     '16_decoder_basic.js',
     '17_decoder_decode.js',
-    '18_decoder_typescript.js'
+    '18_decoder_typescript.js',
+    '19_audio_data.js',
+    '20_encoded_audio_chunk.js',
+    '21_audio_encoder_basic.js',
+    '22_audio_encoder_encode.js',
+    '23_audio_decoder.js',
+    '24_audio_typescript.js'
 ];
 
 let passed = 0;
