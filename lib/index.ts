@@ -68,6 +68,10 @@ export class VideoEncoder {
         return this._native.state;
     }
 
+    get encodeQueueSize(): number {
+        return this._native.encodeQueueSize;
+    }
+
     configure(config: VideoEncoderConfig): void {
         this._native.configure(config);
     }

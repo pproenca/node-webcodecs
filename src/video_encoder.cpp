@@ -12,6 +12,7 @@ Napi::Object VideoEncoder::Init(Napi::Env env, Napi::Object exports) {
         InstanceMethod("flush", &VideoEncoder::Flush),
         InstanceMethod("close", &VideoEncoder::Close),
         InstanceAccessor("state", &VideoEncoder::GetState, nullptr),
+        InstanceAccessor("encodeQueueSize", &VideoEncoder::GetEncodeQueueSize, nullptr),
     });
 
     exports.Set("VideoEncoder", func);
@@ -28,7 +29,8 @@ VideoEncoder::VideoEncoder(const Napi::CallbackInfo& info)
       state_("unconfigured"),
       width_(0),
       height_(0),
-      frameCount_(0) {
+      frameCount_(0),
+      encodeQueueSize_(0) {
 
     Napi::Env env = info.Env();
 
@@ -153,6 +155,10 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
 
 Napi::Value VideoEncoder::GetState(const Napi::CallbackInfo& info) {
     return Napi::String::New(info.Env(), state_);
+}
+
+Napi::Value VideoEncoder::GetEncodeQueueSize(const Napi::CallbackInfo& info) {
+    return Napi::Number::New(info.Env(), encodeQueueSize_);
 }
 
 Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {

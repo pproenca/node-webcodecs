@@ -23,6 +23,7 @@ private:
     Napi::Value Flush(const Napi::CallbackInfo& info);
     void Close(const Napi::CallbackInfo& info);
     Napi::Value GetState(const Napi::CallbackInfo& info);
+    Napi::Value GetEncodeQueueSize(const Napi::CallbackInfo& info);
 
     // Internal helpers
     void Cleanup();
@@ -44,6 +45,7 @@ private:
     int width_;
     int height_;
     int64_t frameCount_;
+    int encodeQueueSize_;
 };
 
 #endif
