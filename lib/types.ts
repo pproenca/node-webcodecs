@@ -38,4 +38,8 @@ export interface VideoFrameInit {
     format?: 'RGBA' | 'BGRA' | 'I420' | 'NV12';
 }
 
+export interface VideoEncoderEncodeOptions {
+    keyFrame?: boolean;
+}
+
 export type CodecState = 'unconfigured' | 'configured' | 'closed';

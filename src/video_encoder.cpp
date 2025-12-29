@@ -175,6 +175,15 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
     // Get VideoFrame
     VideoFrame* videoFrame = Napi::ObjectWrap<VideoFrame>::Unwrap(info[0].As<Napi::Object>());
 
+    // Check for keyFrame option
+    bool forceKeyFrame = false;
+    if (info.Length() >= 2 && info[1].IsObject()) {
+        Napi::Object options = info[1].As<Napi::Object>();
+        if (options.Has("keyFrame") && options.Get("keyFrame").IsBoolean()) {
+            forceKeyFrame = options.Get("keyFrame").As<Napi::Boolean>().Value();
+        }
+    }
+
     // Convert RGBA to YUV420P
     const uint8_t* srcData[] = { videoFrame->GetData() };
     int srcLinesize[] = { videoFrame->GetWidth() * 4 };
@@ -183,6 +192,13 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
               frame_->data, frame_->linesize);
 
     frame_->pts = frameCount_++;
+
+    // Set picture type for keyframe forcing
+    if (forceKeyFrame) {
+        frame_->pict_type = AV_PICTURE_TYPE_I;
+    } else {
+        frame_->pict_type = AV_PICTURE_TYPE_NONE;
+    }
 
     // Send frame to encoder
     int ret = avcodec_send_frame(codecContext_, frame_);

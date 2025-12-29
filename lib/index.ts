@@ -76,8 +76,8 @@ export class VideoEncoder {
         this._native.configure(config);
     }
 
-    encode(frame: VideoFrame): void {
-        this._native.encode(frame._nativeFrame);
+    encode(frame: VideoFrame, options?: { keyFrame?: boolean }): void {
+        this._native.encode(frame._nativeFrame, options || {});
     }
 
     flush(): Promise<void> {
