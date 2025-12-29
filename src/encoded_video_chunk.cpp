@@ -1,4 +1,8 @@
+// Copyright 2024 The node-webcodecs Authors
+// SPDX-License-Identifier: MIT
+
 #include "encoded_video_chunk.h"
+
 #include <cstring>
 
 Napi::FunctionReference EncodedVideoChunk::constructor;

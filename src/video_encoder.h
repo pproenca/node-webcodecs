@@ -1,12 +1,19 @@
-#ifndef VIDEO_ENCODER_H
-#define VIDEO_ENCODER_H
+// Copyright 2024 The node-webcodecs Authors
+// SPDX-License-Identifier: MIT
+//
+// VideoEncoder implementation wrapping FFmpeg libx264.
+
+#ifndef NODE_WEBCODECS_SRC_VIDEO_ENCODER_H_
+#define NODE_WEBCODECS_SRC_VIDEO_ENCODER_H_
 
 #include <napi.h>
 
+#include <string>
+
 extern "C" {
 #include <libavcodec/avcodec.h>
-#include <libavutil/opt.h>
 #include <libavutil/imgutils.h>
+#include <libavutil/opt.h>
 #include <libswscale/swscale.h>
 }
 
@@ -50,4 +57,4 @@ private:
     int encodeQueueSize_;
 };
 
-#endif
+#endif  // NODE_WEBCODECS_SRC_VIDEO_ENCODER_H_

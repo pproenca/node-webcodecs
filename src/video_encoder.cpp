@@ -1,5 +1,24 @@
+// Copyright 2024 The node-webcodecs Authors
+// SPDX-License-Identifier: MIT
+
 #include "video_encoder.h"
+
+#include <string>
+
 #include "video_frame.h"
+
+namespace {
+
+// Encoder configuration constants.
+constexpr int kDefaultBitrate = 1000000;      // 1 Mbps
+constexpr int kDefaultFramerate = 30;         // 30 fps
+constexpr int kDefaultGopSize = 30;           // Keyframe interval
+constexpr int kDefaultMaxBFrames = 2;
+constexpr int kFrameBufferAlignment = 32;
+constexpr int kBytesPerPixelRgba = 4;
+constexpr int kMaxDimension = 16384;
+
+}  // namespace
 
 Napi::Object InitVideoEncoder(Napi::Env env, Napi::Object exports) {
     return VideoEncoder::Init(env, exports);
@@ -90,12 +109,12 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
     width_ = config.Get("width").As<Napi::Number>().Int32Value();
     height_ = config.Get("height").As<Napi::Number>().Int32Value();
 
-    int bitrate = 1000000; // Default 1Mbps
+    int bitrate = kDefaultBitrate;
     if (config.Has("bitrate")) {
         bitrate = config.Get("bitrate").As<Napi::Number>().Int32Value();
     }
 
-    int framerate = 30; // Default 30fps
+    int framerate = kDefaultFramerate;
     if (config.Has("framerate")) {
         framerate = config.Get("framerate").As<Napi::Number>().Int32Value();
     }
@@ -118,8 +137,8 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
     codecContext_->framerate = {framerate, 1};
     codecContext_->pix_fmt = AV_PIX_FMT_YUV420P;
     codecContext_->bit_rate = bitrate;
-    codecContext_->gop_size = 30; // Keyframe every 30 frames
-    codecContext_->max_b_frames = 2;
+    codecContext_->gop_size = kDefaultGopSize;
+    codecContext_->max_b_frames = kDefaultMaxBFrames;
 
     // H.264 specific options
     av_opt_set(codecContext_->priv_data, "preset", "fast", 0);
@@ -138,7 +157,7 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
     frame_->format = codecContext_->pix_fmt;
     frame_->width = width_;
     frame_->height = height_;
-    av_frame_get_buffer(frame_, 32);
+    av_frame_get_buffer(frame_, kFrameBufferAlignment);
 
     packet_ = av_packet_alloc();
 
@@ -177,8 +196,9 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
     // Get VideoFrame
     VideoFrame* videoFrame = Napi::ObjectWrap<VideoFrame>::Unwrap(info[0].As<Napi::Object>());
 
-    // Validate buffer size matches configured dimensions
-    size_t expectedSize = static_cast<size_t>(width_) * height_ * 4; // RGBA = 4 bytes per pixel
+    // Validate buffer size matches configured dimensions.
+    size_t expectedSize =
+        static_cast<size_t>(width_) * height_ * kBytesPerPixelRgba;
     size_t actualSize = videoFrame->GetDataSize();
     if (actualSize < expectedSize) {
         throw Napi::Error::New(env,
@@ -196,8 +216,8 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
     }
 
     // Convert RGBA to YUV420P
-    const uint8_t* srcData[] = { videoFrame->GetData() };
-    int srcLinesize[] = { videoFrame->GetWidth() * 4 };
+    const uint8_t* srcData[] = {videoFrame->GetData()};
+    int srcLinesize[] = {videoFrame->GetWidth() * kBytesPerPixelRgba};
 
     sws_scale(swsContext_, srcData, srcLinesize, 0, height_,
               frame_->data, frame_->linesize);
@@ -343,7 +363,7 @@ Napi::Value VideoEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
         supported = false;
     } else {
         int width = config.Get("width").As<Napi::Number>().Int32Value();
-        if (width <= 0 || width > 16384) {
+        if (width <= 0 || width > kMaxDimension) {
             supported = false;
         }
         normalizedConfig.Set("width", width);
@@ -354,7 +374,7 @@ Napi::Value VideoEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
         supported = false;
     } else {
         int height = config.Get("height").As<Napi::Number>().Int32Value();
-        if (height <= 0 || height > 16384) {
+        if (height <= 0 || height > kMaxDimension) {
             supported = false;
         }
         normalizedConfig.Set("height", height);
