@@ -54,3 +54,25 @@ export interface VideoFrameCopyToOptions {
     rect?: { x: number; y: number; width: number; height: number };
     layout?: PlaneLayout[];
 }
+
+export interface VideoColorSpaceInit {
+    primaries?: string;
+    transfer?: string;
+    matrix?: string;
+    fullRange?: boolean;
+}
+
+export interface VideoDecoderConfig {
+    codec: string;
+    codedWidth?: number;
+    codedHeight?: number;
+    description?: ArrayBuffer | ArrayBufferView;
+    colorSpace?: VideoColorSpaceInit;
+    hardwareAcceleration?: 'no-preference' | 'prefer-hardware' | 'prefer-software';
+    optimizeForLatency?: boolean;
+}
+
+export interface VideoDecoderInit {
+    output: (frame: any) => void;
+    error: (error: Error) => void;
+}

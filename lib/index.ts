@@ -1,6 +1,8 @@
 import type {
     VideoEncoderConfig,
     VideoEncoderInit,
+    VideoDecoderConfig,
+    VideoDecoderInit,
     VideoFrameInit,
     CodecState,
     PlaneLayout,
@@ -208,10 +210,78 @@ export class EncodedVideoChunk {
     }
 }
 
+export class VideoDecoder {
+    private _native: any;
+
+    constructor(init: VideoDecoderInit) {
+        this._native = new native.VideoDecoder({
+            output: (nativeFrame: any) => {
+                // Wrap the native frame as a VideoFrame
+                const wrapper = Object.create(VideoFrame.prototype);
+                wrapper._native = nativeFrame;
+                wrapper._closed = false;
+                init.output(wrapper);
+            },
+            error: init.error
+        });
+    }
+
+    get state(): CodecState {
+        return this._native.state;
+    }
+
+    get decodeQueueSize(): number {
+        return this._native.decodeQueueSize;
+    }
+
+    configure(config: VideoDecoderConfig): void {
+        this._native.configure(config);
+    }
+
+    decode(chunk: EncodedVideoChunk | any): void {
+        // Handle both wrapped EncodedVideoChunk and raw native chunks
+        if (chunk instanceof EncodedVideoChunk) {
+            // Create a native EncodedVideoChunk from our TypeScript wrapper
+            const nativeChunk = new native.EncodedVideoChunk({
+                type: chunk.type,
+                timestamp: chunk.timestamp,
+                duration: chunk.duration,
+                data: chunk.data
+            });
+            this._native.decode(nativeChunk);
+        } else {
+            // Assume it's already a native chunk
+            this._native.decode(chunk);
+        }
+    }
+
+    async flush(): Promise<void> {
+        return this._native.flush();
+    }
+
+    reset(): void {
+        this._native.reset();
+    }
+
+    close(): void {
+        this._native.close();
+    }
+
+    static async isConfigSupported(config: VideoDecoderConfig): Promise<{
+        supported: boolean;
+        config: VideoDecoderConfig;
+    }> {
+        return native.VideoDecoder.isConfigSupported(config);
+    }
+}
+
 // Re-export types
 export type {
     VideoEncoderConfig,
     VideoEncoderInit,
+    VideoDecoderConfig,
+    VideoDecoderInit,
+    VideoColorSpaceInit,
     VideoFrameInit,
     CodecState,
     PlaneLayout,

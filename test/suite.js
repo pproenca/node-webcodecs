@@ -17,7 +17,9 @@ const tests = [
     '13_frame_copyto.js',
     '14_ondequeue.js',
     '15_frame_clone.js',
-    '16_decoder_basic.js'
+    '16_decoder_basic.js',
+    '17_decoder_decode.js',
+    '18_decoder_typescript.js'
 ];
 
 let passed = 0;
