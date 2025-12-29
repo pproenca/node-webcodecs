@@ -51,18 +51,30 @@ VideoFrame::~VideoFrame() {
 }
 
 Napi::Value VideoFrame::GetCodedWidth(const Napi::CallbackInfo& info) {
+    if (closed_) {
+        throw Napi::Error::New(info.Env(), "VideoFrame is closed");
+    }
     return Napi::Number::New(info.Env(), codedWidth_);
 }
 
 Napi::Value VideoFrame::GetCodedHeight(const Napi::CallbackInfo& info) {
+    if (closed_) {
+        throw Napi::Error::New(info.Env(), "VideoFrame is closed");
+    }
     return Napi::Number::New(info.Env(), codedHeight_);
 }
 
 Napi::Value VideoFrame::GetTimestamp(const Napi::CallbackInfo& info) {
+    if (closed_) {
+        throw Napi::Error::New(info.Env(), "VideoFrame is closed");
+    }
     return Napi::Number::New(info.Env(), timestamp_);
 }
 
 Napi::Value VideoFrame::GetFormat(const Napi::CallbackInfo& info) {
+    if (closed_) {
+        throw Napi::Error::New(info.Env(), "VideoFrame is closed");
+    }
     return Napi::String::New(info.Env(), format_);
 }
 
