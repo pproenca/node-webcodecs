@@ -9,6 +9,7 @@ import type {
     VideoFrameCopyToOptions,
     AudioSampleFormat,
     AudioDataInit,
+    AudioDataCopyToOptions,
     AudioEncoderConfig,
     AudioEncoderInit,
     AudioDecoderConfig,
@@ -286,11 +287,26 @@ export class AudioData {
     private _closed: boolean = false;
 
     constructor(init: AudioDataInit) {
-        this._native = new native.AudioData(init);
+        let dataBuffer: Buffer;
+        if (init.data instanceof ArrayBuffer) {
+            dataBuffer = Buffer.from(init.data);
+        } else if (ArrayBuffer.isView(init.data)) {
+            dataBuffer = Buffer.from(init.data.buffer, init.data.byteOffset, init.data.byteLength);
+        } else {
+            throw new TypeError('data must be ArrayBuffer or ArrayBufferView');
+        }
+        this._native = new native.AudioData({
+            format: init.format,
+            sampleRate: init.sampleRate,
+            numberOfFrames: init.numberOfFrames,
+            numberOfChannels: init.numberOfChannels,
+            timestamp: init.timestamp,
+            data: dataBuffer
+        });
     }
 
-    get format(): AudioSampleFormat {
-        return this._native.format;
+    get format(): AudioSampleFormat | null {
+        return this._closed ? null : this._native.format;
     }
 
     get sampleRate(): number {
@@ -313,17 +329,37 @@ export class AudioData {
         return this._native.timestamp;
     }
 
-    allocationSize(options?: any): number {
-        return this._native.allocationSize(options);
+    allocationSize(options?: AudioDataCopyToOptions): number {
+        if (this._closed) {
+            throw new DOMException('AudioData is closed', 'InvalidStateError');
+        }
+        return this._native.allocationSize(options || {});
     }
 
-    copyTo(destination: ArrayBuffer | ArrayBufferView, options?: any): void {
-        this._native.copyTo(destination, options);
+    copyTo(destination: ArrayBuffer | ArrayBufferView, options?: AudioDataCopyToOptions): void {
+        if (this._closed) {
+            throw new DOMException('AudioData is closed', 'InvalidStateError');
+        }
+        let destBuffer: Buffer;
+        if (destination instanceof ArrayBuffer) {
+            destBuffer = Buffer.from(destination);
+        } else {
+            destBuffer = Buffer.from(destination.buffer, destination.byteOffset, destination.byteLength);
+        }
+        this._native.copyTo(destBuffer, options || {});
+        // Copy back to original if it was an ArrayBuffer
+        if (destination instanceof ArrayBuffer) {
+            new Uint8Array(destination).set(destBuffer);
+        }
     }
 
     clone(): AudioData {
+        if (this._closed) {
+            throw new DOMException('AudioData is closed', 'InvalidStateError');
+        }
+        const clonedNative = this._native.clone();
         const wrapper = Object.create(AudioData.prototype);
-        wrapper._native = this._native.clone();
+        wrapper._native = clonedNative;
         wrapper._closed = false;
         return wrapper;
     }
@@ -333,6 +369,10 @@ export class AudioData {
             this._native.close();
             this._closed = true;
         }
+    }
+
+    get _nativeAudioData(): any {
+        return this._native;
     }
 }
 
@@ -486,6 +526,7 @@ export type {
     VideoFrameCopyToOptions,
     AudioSampleFormat,
     AudioDataInit,
+    AudioDataCopyToOptions,
     AudioEncoderConfig,
     AudioEncoderInit,
     AudioDecoderConfig,

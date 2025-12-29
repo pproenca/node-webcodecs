@@ -114,3 +114,10 @@ export interface AudioDecoderInit {
     output: (data: any) => void;
     error: (error: Error) => void;
 }
+
+export interface AudioDataCopyToOptions {
+    planeIndex?: number;
+    frameOffset?: number;
+    frameCount?: number;
+    format?: AudioSampleFormat;
+}
