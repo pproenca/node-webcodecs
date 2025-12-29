@@ -175,6 +175,15 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
     // Get VideoFrame
     VideoFrame* videoFrame = Napi::ObjectWrap<VideoFrame>::Unwrap(info[0].As<Napi::Object>());
 
+    // Validate buffer size matches configured dimensions
+    size_t expectedSize = static_cast<size_t>(width_) * height_ * 4; // RGBA = 4 bytes per pixel
+    size_t actualSize = videoFrame->GetDataSize();
+    if (actualSize < expectedSize) {
+        throw Napi::Error::New(env,
+            "VideoFrame buffer too small: expected " + std::to_string(expectedSize) +
+            " bytes, got " + std::to_string(actualSize));
+    }
+
     // Check for keyFrame option
     bool forceKeyFrame = false;
     if (info.Length() >= 2 && info[1].IsObject()) {
