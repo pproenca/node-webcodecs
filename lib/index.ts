@@ -13,7 +13,8 @@ import type {
     AudioEncoderConfig,
     AudioEncoderInit,
     AudioDecoderConfig,
-    AudioDecoderInit
+    AudioDecoderInit,
+    EncodedAudioChunkInit
 } from './types';
 
 // Load native addon
@@ -379,11 +380,11 @@ export class AudioData {
 export class EncodedAudioChunk {
     private _native: any;
 
-    constructor(init: { type: string; timestamp: number; duration?: number; data: ArrayBuffer | ArrayBufferView }) {
+    constructor(init: EncodedAudioChunkInit) {
         this._native = new native.EncodedAudioChunk(init);
     }
 
-    get type(): string {
+    get type(): 'key' | 'delta' {
         return this._native.type;
     }
 
@@ -391,7 +392,7 @@ export class EncodedAudioChunk {
         return this._native.timestamp;
     }
 
-    get duration(): number | null {
+    get duration(): number | undefined {
         return this._native.duration;
     }
 
@@ -530,5 +531,6 @@ export type {
     AudioEncoderConfig,
     AudioEncoderInit,
     AudioDecoderConfig,
-    AudioDecoderInit
+    AudioDecoderInit,
+    EncodedAudioChunkInit
 } from './types';

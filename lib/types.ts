@@ -121,3 +121,12 @@ export interface AudioDataCopyToOptions {
     frameCount?: number;
     format?: AudioSampleFormat;
 }
+
+export interface EncodedAudioChunkInit {
+    type: 'key' | 'delta';
+    timestamp: number;
+    duration?: number;
+    data: BufferSource;
+}
+
+export type BufferSource = ArrayBuffer | ArrayBufferView;
