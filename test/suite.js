@@ -25,7 +25,8 @@ const tests = [
     '21_audio_encoder_basic.js',
     '22_audio_encoder_encode.js',
     '23_audio_decoder.js',
-    '24_audio_typescript.js'
+    '24_audio_typescript.js',
+    '28_audio_roundtrip.js'
 ];
 
 let passed = 0;
