@@ -10,11 +10,11 @@ Napi::Object InitVideoFrame(Napi::Env env, Napi::Object exports);
 Napi::Object InitEncodedVideoChunk(Napi::Env env, Napi::Object exports);
 
 Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
-    InitVideoEncoder(env, exports);
-    InitVideoDecoder(env, exports);
-    InitVideoFrame(env, exports);
-    InitEncodedVideoChunk(env, exports);
-    return exports;
+  InitVideoEncoder(env, exports);
+  InitVideoDecoder(env, exports);
+  InitVideoFrame(env, exports);
+  InitEncodedVideoChunk(env, exports);
+  return exports;
 }
 
 NODE_API_MODULE(node_webcodecs, InitAll)

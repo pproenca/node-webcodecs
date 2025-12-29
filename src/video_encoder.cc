@@ -1,0 +1,424 @@
+// Copyright 2024 The node-webcodecs Authors
+// SPDX-License-Identifier: MIT
+
+#include "video_encoder.h"
+
+#include <string>
+
+#include "video_frame.h"
+
+namespace {
+
+// Encoder configuration constants.
+constexpr int kDefaultBitrate = 1000000;  // 1 Mbps
+constexpr int kDefaultFramerate = 30;     // 30 fps
+constexpr int kDefaultGopSize = 30;       // Keyframe interval
+constexpr int kDefaultMaxBFrames = 2;
+constexpr int kFrameBufferAlignment = 32;
+constexpr int kBytesPerPixelRgba = 4;
+constexpr int kMaxDimension = 16384;
+
+}  // namespace
+
+Napi::Object InitVideoEncoder(Napi::Env env, Napi::Object exports) {
+  return VideoEncoder::Init(env, exports);
+}
+
+Napi::Object VideoEncoder::Init(Napi::Env env, Napi::Object exports) {
+  Napi::Function func = DefineClass(
+      env, "VideoEncoder",
+      {
+          InstanceMethod("configure", &VideoEncoder::Configure),
+          InstanceMethod("encode", &VideoEncoder::Encode),
+          InstanceMethod("flush", &VideoEncoder::Flush),
+          InstanceMethod("reset", &VideoEncoder::Reset),
+          InstanceMethod("close", &VideoEncoder::Close),
+          InstanceAccessor("state", &VideoEncoder::GetState, nullptr),
+          InstanceAccessor("encodeQueueSize", &VideoEncoder::GetEncodeQueueSize,
+                           nullptr),
+          StaticMethod("isConfigSupported", &VideoEncoder::IsConfigSupported),
+      });
+
+  exports.Set("VideoEncoder", func);
+  return exports;
+}
+
+VideoEncoder::VideoEncoder(const Napi::CallbackInfo& info)
+    : Napi::ObjectWrap<VideoEncoder>(info),
+      codec_(nullptr),
+      codec_context_(nullptr),
+      sws_context_(nullptr),
+      frame_(nullptr),
+      packet_(nullptr),
+      state_("unconfigured"),
+      width_(0),
+      height_(0),
+      frame_count_(0),
+      encode_queue_size_(0) {
+  Napi::Env env = info.Env();
+
+  if (info.Length() < 1 || !info[0].IsObject()) {
+    throw Napi::Error::New(
+        env,
+        "VideoEncoder requires init object with output and error "
+        "callbacks");
+  }
+
+  Napi::Object init = info[0].As<Napi::Object>();
+
+  if (!init.Has("output") || !init.Get("output").IsFunction()) {
+    throw Napi::Error::New(env, "init.output must be a function");
+  }
+  if (!init.Has("error") || !init.Get("error").IsFunction()) {
+    throw Napi::Error::New(env, "init.error must be a function");
+  }
+
+  output_callback_ = Napi::Persistent(init.Get("output").As<Napi::Function>());
+  error_callback_ = Napi::Persistent(init.Get("error").As<Napi::Function>());
+}
+
+VideoEncoder::~VideoEncoder() { Cleanup(); }
+
+void VideoEncoder::Cleanup() {
+  if (frame_) {
+    av_frame_free(&frame_);
+    frame_ = nullptr;
+  }
+  if (packet_) {
+    av_packet_free(&packet_);
+    packet_ = nullptr;
+  }
+  if (sws_context_) {
+    sws_freeContext(sws_context_);
+    sws_context_ = nullptr;
+  }
+  if (codec_context_) {
+    avcodec_free_context(&codec_context_);
+    codec_context_ = nullptr;
+  }
+  codec_ = nullptr;
+}
+
+Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+
+  if (info.Length() < 1 || !info[0].IsObject()) {
+    throw Napi::Error::New(env, "configure requires config object");
+  }
+
+  Napi::Object config = info[0].As<Napi::Object>();
+
+  // Parse config.
+  width_ = config.Get("width").As<Napi::Number>().Int32Value();
+  height_ = config.Get("height").As<Napi::Number>().Int32Value();
+
+  int bitrate = kDefaultBitrate;
+  if (config.Has("bitrate")) {
+    bitrate = config.Get("bitrate").As<Napi::Number>().Int32Value();
+  }
+
+  int framerate = kDefaultFramerate;
+  if (config.Has("framerate")) {
+    framerate = config.Get("framerate").As<Napi::Number>().Int32Value();
+  }
+
+  // Find H.264 encoder.
+  codec_ = avcodec_find_encoder(AV_CODEC_ID_H264);
+  if (!codec_) {
+    throw Napi::Error::New(env, "H.264 encoder not found");
+  }
+
+  codec_context_ = avcodec_alloc_context3(codec_);
+  if (!codec_context_) {
+    throw Napi::Error::New(env, "Could not allocate codec context");
+  }
+
+  // Configure encoder.
+  codec_context_->width = width_;
+  codec_context_->height = height_;
+  codec_context_->time_base = {1, framerate};
+  codec_context_->framerate = {framerate, 1};
+  codec_context_->pix_fmt = AV_PIX_FMT_YUV420P;
+  codec_context_->bit_rate = bitrate;
+  codec_context_->gop_size = kDefaultGopSize;
+  codec_context_->max_b_frames = kDefaultMaxBFrames;
+
+  // H.264 specific options.
+  av_opt_set(codec_context_->priv_data, "preset", "fast", 0);
+  av_opt_set(codec_context_->priv_data, "tune", "zerolatency", 0);
+
+  int ret = avcodec_open2(codec_context_, codec_, nullptr);
+  if (ret < 0) {
+    char errbuf[256];
+    av_strerror(ret, errbuf, sizeof(errbuf));
+    Cleanup();
+    throw Napi::Error::New(env, std::string("Could not open codec: ") + errbuf);
+  }
+
+  // Allocate frame and packet.
+  frame_ = av_frame_alloc();
+  frame_->format = codec_context_->pix_fmt;
+  frame_->width = width_;
+  frame_->height = height_;
+  av_frame_get_buffer(frame_, kFrameBufferAlignment);
+
+  packet_ = av_packet_alloc();
+
+  // Setup color converter (RGBA -> YUV420P).
+  sws_context_ = sws_getContext(width_, height_, AV_PIX_FMT_RGBA, width_,
+                                height_, AV_PIX_FMT_YUV420P, SWS_BILINEAR,
+                                nullptr, nullptr, nullptr);
+
+  state_ = "configured";
+  frame_count_ = 0;
+
+  return env.Undefined();
+}
+
+Napi::Value VideoEncoder::GetState(const Napi::CallbackInfo& info) {
+  return Napi::String::New(info.Env(), state_);
+}
+
+Napi::Value VideoEncoder::GetEncodeQueueSize(const Napi::CallbackInfo& info) {
+  return Napi::Number::New(info.Env(), encode_queue_size_);
+}
+
+Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+
+  if (state_ != "configured") {
+    throw Napi::Error::New(env, "Encoder not configured");
+  }
+
+  if (info.Length() < 1 || !info[0].IsObject()) {
+    throw Napi::Error::New(env, "encode requires VideoFrame");
+  }
+
+  // Get VideoFrame.
+  VideoFrame* video_frame =
+      Napi::ObjectWrap<VideoFrame>::Unwrap(info[0].As<Napi::Object>());
+
+  // Validate buffer size matches configured dimensions.
+  size_t expected_size =
+      static_cast<size_t>(width_) * height_ * kBytesPerPixelRgba;
+  size_t actual_size = video_frame->GetDataSize();
+  if (actual_size < expected_size) {
+    throw Napi::Error::New(env, "VideoFrame buffer too small: expected " +
+                                    std::to_string(expected_size) +
+                                    " bytes, got " +
+                                    std::to_string(actual_size));
+  }
+
+  // Check for keyFrame option.
+  bool force_key_frame = false;
+  if (info.Length() >= 2 && info[1].IsObject()) {
+    Napi::Object options = info[1].As<Napi::Object>();
+    if (options.Has("keyFrame") && options.Get("keyFrame").IsBoolean()) {
+      force_key_frame = options.Get("keyFrame").As<Napi::Boolean>().Value();
+    }
+  }
+
+  // Convert RGBA to YUV420P.
+  const uint8_t* src_data[] = {video_frame->GetData()};
+  int src_linesize[] = {video_frame->GetWidth() * kBytesPerPixelRgba};
+
+  sws_scale(sws_context_, src_data, src_linesize, 0, height_, frame_->data,
+            frame_->linesize);
+
+  frame_->pts = frame_count_++;
+
+  // Set picture type for keyframe forcing.
+  if (force_key_frame) {
+    frame_->pict_type = AV_PICTURE_TYPE_I;
+  } else {
+    frame_->pict_type = AV_PICTURE_TYPE_NONE;
+  }
+
+  // Send frame to encoder.
+  int ret = avcodec_send_frame(codec_context_, frame_);
+  if (ret < 0) {
+    char errbuf[256];
+    av_strerror(ret, errbuf, sizeof(errbuf));
+    throw Napi::Error::New(env, std::string("Error sending frame: ") + errbuf);
+  }
+
+  // Receive encoded packets.
+  EmitChunks(env);
+
+  return env.Undefined();
+}
+
+Napi::Value VideoEncoder::Flush(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+
+  if (state_ != "configured") {
+    return env.Undefined();
+  }
+
+  // Send NULL frame to flush encoder.
+  avcodec_send_frame(codec_context_, nullptr);
+
+  // Get remaining packets.
+  EmitChunks(env);
+
+  return env.Undefined();
+}
+
+Napi::Value VideoEncoder::Reset(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+
+  if (state_ == "closed") {
+    throw Napi::Error::New(env,
+                           "InvalidStateError: Cannot reset a closed encoder");
+  }
+
+  // Flush any pending frames (don't emit - discard).
+  if (codec_context_) {
+    avcodec_send_frame(codec_context_, nullptr);
+    while (avcodec_receive_packet(codec_context_, packet_) == 0) {
+      av_packet_unref(packet_);
+    }
+  }
+
+  // Clean up FFmpeg resources.
+  Cleanup();
+
+  // Reset state.
+  state_ = "unconfigured";
+  frame_count_ = 0;
+
+  return env.Undefined();
+}
+
+void VideoEncoder::Close(const Napi::CallbackInfo& info) {
+  Cleanup();
+  state_ = "closed";
+}
+
+void VideoEncoder::EmitChunks(Napi::Env env) {
+  while (true) {
+    int ret = avcodec_receive_packet(codec_context_, packet_);
+    if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+      break;
+    }
+    if (ret < 0) {
+      char errbuf[256];
+      av_strerror(ret, errbuf, sizeof(errbuf));
+      error_callback_.Call(
+          {Napi::Error::New(env, std::string("Encoding error: ") + errbuf)
+               .Value()});
+      break;
+    }
+
+    // Create EncodedVideoChunk-like object.
+    Napi::Object chunk = Napi::Object::New(env);
+    chunk.Set("type", (packet_->flags & AV_PKT_FLAG_KEY) ? "key" : "delta");
+    chunk.Set("timestamp", Napi::Number::New(env, packet_->pts));
+    chunk.Set("duration", Napi::Number::New(env, packet_->duration));
+    chunk.Set("data",
+              Napi::Buffer<uint8_t>::Copy(env, packet_->data, packet_->size));
+
+    // Call output callback.
+    output_callback_.Call({chunk, env.Null()});
+
+    av_packet_unref(packet_);
+  }
+}
+
+Napi::Value VideoEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+
+  if (info.Length() < 1 || !info[0].IsObject()) {
+    Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
+    deferred.Reject(Napi::Error::New(env, "config must be an object").Value());
+    return deferred.Promise();
+  }
+
+  Napi::Object config = info[0].As<Napi::Object>();
+  Napi::Object result = Napi::Object::New(env);
+  bool supported = true;
+
+  Napi::Object normalized_config = Napi::Object::New(env);
+
+  // Validate codec.
+  if (!config.Has("codec") || !config.Get("codec").IsString()) {
+    supported = false;
+  } else {
+    std::string codec = config.Get("codec").As<Napi::String>().Utf8Value();
+    normalized_config.Set("codec", codec);
+
+    // Check if codec is supported.
+    if (codec.find("avc1") == 0 || codec == "h264") {
+      const AVCodec* c = avcodec_find_encoder(AV_CODEC_ID_H264);
+      if (!c) {
+        supported = false;
+      }
+    } else if (codec == "vp8") {
+      const AVCodec* c = avcodec_find_encoder(AV_CODEC_ID_VP8);
+      if (!c) {
+        supported = false;
+      }
+    } else if (codec.find("vp09") == 0 || codec == "vp9") {
+      const AVCodec* c = avcodec_find_encoder(AV_CODEC_ID_VP9);
+      if (!c) {
+        supported = false;
+      }
+    } else if (codec.find("av01") == 0 || codec == "av1") {
+      const AVCodec* c = avcodec_find_encoder(AV_CODEC_ID_AV1);
+      if (!c) {
+        supported = false;
+      }
+    } else {
+      supported = false;
+    }
+  }
+
+  // Validate and copy width.
+  if (!config.Has("width") || !config.Get("width").IsNumber()) {
+    supported = false;
+  } else {
+    int width = config.Get("width").As<Napi::Number>().Int32Value();
+    if (width <= 0 || width > kMaxDimension) {
+      supported = false;
+    }
+    normalized_config.Set("width", width);
+  }
+
+  // Validate and copy height.
+  if (!config.Has("height") || !config.Get("height").IsNumber()) {
+    supported = false;
+  } else {
+    int height = config.Get("height").As<Napi::Number>().Int32Value();
+    if (height <= 0 || height > kMaxDimension) {
+      supported = false;
+    }
+    normalized_config.Set("height", height);
+  }
+
+  // Copy optional properties if present.
+  if (config.Has("bitrate") && config.Get("bitrate").IsNumber()) {
+    normalized_config.Set("bitrate", config.Get("bitrate"));
+  }
+  if (config.Has("framerate") && config.Get("framerate").IsNumber()) {
+    normalized_config.Set("framerate", config.Get("framerate"));
+  }
+  if (config.Has("hardwareAcceleration") &&
+      config.Get("hardwareAcceleration").IsString()) {
+    normalized_config.Set("hardwareAcceleration",
+                          config.Get("hardwareAcceleration"));
+  }
+  if (config.Has("latencyMode") && config.Get("latencyMode").IsString()) {
+    normalized_config.Set("latencyMode", config.Get("latencyMode"));
+  }
+  if (config.Has("bitrateMode") && config.Get("bitrateMode").IsString()) {
+    normalized_config.Set("bitrateMode", config.Get("bitrateMode"));
+  }
+
+  result.Set("supported", supported);
+  result.Set("config", normalized_config);
+
+  // Return resolved Promise.
+  Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
+  deferred.Resolve(result);
+  return deferred.Promise();
+}

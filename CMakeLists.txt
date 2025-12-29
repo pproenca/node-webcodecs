@@ -29,7 +29,7 @@ include_directories(${NODE_ADDON_API_DIR})
 
 # Source files
 file(GLOB SOURCE_FILES
-    "src/*.cpp"
+    "src/*.cc"
     "src/*.h"
 )
 

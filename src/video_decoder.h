@@ -7,6 +7,7 @@
 #define NODE_WEBCODECS_SRC_VIDEO_DECODER_H_
 
 #include <napi.h>
+
 #include <string>
 
 extern "C" {
@@ -16,43 +17,45 @@ extern "C" {
 }
 
 class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
-public:
-    static Napi::Object Init(Napi::Env env, Napi::Object exports);
-    VideoDecoder(const Napi::CallbackInfo& info);
-    ~VideoDecoder();
+ public:
+  static Napi::Object Init(Napi::Env env, Napi::Object exports);
+  static Napi::Value IsConfigSupported(const Napi::CallbackInfo& info);
+  explicit VideoDecoder(const Napi::CallbackInfo& info);
+  ~VideoDecoder();
 
-private:
-    // WebCodecs API methods
-    Napi::Value Configure(const Napi::CallbackInfo& info);
-    Napi::Value Decode(const Napi::CallbackInfo& info);
-    Napi::Value Flush(const Napi::CallbackInfo& info);
-    Napi::Value Reset(const Napi::CallbackInfo& info);
-    void Close(const Napi::CallbackInfo& info);
-    Napi::Value GetState(const Napi::CallbackInfo& info);
-    Napi::Value GetDecodeQueueSize(const Napi::CallbackInfo& info);
+  // Disallow copy and assign.
+  VideoDecoder(const VideoDecoder&) = delete;
+  VideoDecoder& operator=(const VideoDecoder&) = delete;
 
-    // Static methods
-    static Napi::Value IsConfigSupported(const Napi::CallbackInfo& info);
+ private:
+  // WebCodecs API methods.
+  Napi::Value Configure(const Napi::CallbackInfo& info);
+  Napi::Value Decode(const Napi::CallbackInfo& info);
+  Napi::Value Flush(const Napi::CallbackInfo& info);
+  Napi::Value Reset(const Napi::CallbackInfo& info);
+  void Close(const Napi::CallbackInfo& info);
+  Napi::Value GetState(const Napi::CallbackInfo& info);
+  Napi::Value GetDecodeQueueSize(const Napi::CallbackInfo& info);
 
-    // Internal helpers
-    void Cleanup();
-    void EmitFrames(Napi::Env env);
+  // Internal helpers.
+  void Cleanup();
+  void EmitFrames(Napi::Env env);
 
-    // FFmpeg state
-    const AVCodec* codec_;
-    AVCodecContext* codecContext_;
-    SwsContext* swsContext_;
-    AVFrame* frame_;
-    AVPacket* packet_;
+  // FFmpeg state.
+  const AVCodec* codec_;
+  AVCodecContext* codec_context_;
+  SwsContext* sws_context_;
+  AVFrame* frame_;
+  AVPacket* packet_;
 
-    // Callbacks
-    Napi::FunctionReference outputCallback_;
-    Napi::FunctionReference errorCallback_;
+  // Callbacks.
+  Napi::FunctionReference output_callback_;
+  Napi::FunctionReference error_callback_;
 
-    // State
-    std::string state_;
-    int codedWidth_;
-    int codedHeight_;
+  // State.
+  std::string state_;
+  int coded_width_;
+  int coded_height_;
 };
 
-#endif
+#endif  // NODE_WEBCODECS_SRC_VIDEO_DECODER_H_
