@@ -14,6 +14,7 @@ Napi::Object VideoEncoder::Init(Napi::Env env, Napi::Object exports) {
         InstanceMethod("close", &VideoEncoder::Close),
         InstanceAccessor("state", &VideoEncoder::GetState, nullptr),
         InstanceAccessor("encodeQueueSize", &VideoEncoder::GetEncodeQueueSize, nullptr),
+        StaticMethod("isConfigSupported", &VideoEncoder::IsConfigSupported),
     });
 
     exports.Set("VideoEncoder", func);
@@ -295,4 +296,92 @@ void VideoEncoder::EmitChunks(Napi::Env env) {
 
         av_packet_unref(packet_);
     }
+}
+
+Napi::Value VideoEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+
+    if (info.Length() < 1 || !info[0].IsObject()) {
+        Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
+        deferred.Reject(Napi::Error::New(env, "config must be an object").Value());
+        return deferred.Promise();
+    }
+
+    Napi::Object config = info[0].As<Napi::Object>();
+    Napi::Object result = Napi::Object::New(env);
+    bool supported = true;
+
+    Napi::Object normalizedConfig = Napi::Object::New(env);
+
+    // Validate codec
+    if (!config.Has("codec") || !config.Get("codec").IsString()) {
+        supported = false;
+    } else {
+        std::string codec = config.Get("codec").As<Napi::String>().Utf8Value();
+        normalizedConfig.Set("codec", codec);
+
+        // Check if codec is supported
+        if (codec.find("avc1") == 0 || codec == "h264") {
+            const AVCodec* c = avcodec_find_encoder(AV_CODEC_ID_H264);
+            if (!c) supported = false;
+        } else if (codec == "vp8") {
+            const AVCodec* c = avcodec_find_encoder(AV_CODEC_ID_VP8);
+            if (!c) supported = false;
+        } else if (codec.find("vp09") == 0 || codec == "vp9") {
+            const AVCodec* c = avcodec_find_encoder(AV_CODEC_ID_VP9);
+            if (!c) supported = false;
+        } else if (codec.find("av01") == 0 || codec == "av1") {
+            const AVCodec* c = avcodec_find_encoder(AV_CODEC_ID_AV1);
+            if (!c) supported = false;
+        } else {
+            supported = false;
+        }
+    }
+
+    // Validate and copy width
+    if (!config.Has("width") || !config.Get("width").IsNumber()) {
+        supported = false;
+    } else {
+        int width = config.Get("width").As<Napi::Number>().Int32Value();
+        if (width <= 0 || width > 16384) {
+            supported = false;
+        }
+        normalizedConfig.Set("width", width);
+    }
+
+    // Validate and copy height
+    if (!config.Has("height") || !config.Get("height").IsNumber()) {
+        supported = false;
+    } else {
+        int height = config.Get("height").As<Napi::Number>().Int32Value();
+        if (height <= 0 || height > 16384) {
+            supported = false;
+        }
+        normalizedConfig.Set("height", height);
+    }
+
+    // Copy optional properties if present
+    if (config.Has("bitrate") && config.Get("bitrate").IsNumber()) {
+        normalizedConfig.Set("bitrate", config.Get("bitrate"));
+    }
+    if (config.Has("framerate") && config.Get("framerate").IsNumber()) {
+        normalizedConfig.Set("framerate", config.Get("framerate"));
+    }
+    if (config.Has("hardwareAcceleration") && config.Get("hardwareAcceleration").IsString()) {
+        normalizedConfig.Set("hardwareAcceleration", config.Get("hardwareAcceleration"));
+    }
+    if (config.Has("latencyMode") && config.Get("latencyMode").IsString()) {
+        normalizedConfig.Set("latencyMode", config.Get("latencyMode"));
+    }
+    if (config.Has("bitrateMode") && config.Get("bitrateMode").IsString()) {
+        normalizedConfig.Set("bitrateMode", config.Get("bitrateMode"));
+    }
+
+    result.Set("supported", supported);
+    result.Set("config", normalizedConfig);
+
+    // Return resolved Promise
+    Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
+    deferred.Resolve(result);
+    return deferred.Promise();
 }

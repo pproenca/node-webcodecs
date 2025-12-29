@@ -13,6 +13,7 @@ extern "C" {
 class VideoEncoder : public Napi::ObjectWrap<VideoEncoder> {
 public:
     static Napi::Object Init(Napi::Env env, Napi::Object exports);
+    static Napi::Value IsConfigSupported(const Napi::CallbackInfo& info);
     VideoEncoder(const Napi::CallbackInfo& info);
     ~VideoEncoder();
 

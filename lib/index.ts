@@ -94,6 +94,13 @@ export class VideoEncoder {
     close(): void {
         this._native.close();
     }
+
+    static async isConfigSupported(config: VideoEncoderConfig): Promise<{
+        supported: boolean;
+        config: VideoEncoderConfig;
+    }> {
+        return native.VideoEncoder.isConfigSupported(config);
+    }
 }
 
 export class EncodedVideoChunk {
