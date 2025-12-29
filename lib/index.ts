@@ -15,7 +15,9 @@ import type {
     AudioEncoderInit,
     AudioDecoderConfig,
     AudioDecoderInit,
-    EncodedAudioChunkInit
+    EncodedAudioChunkInit,
+    BlurRegion,
+    VideoFilterConfig
 } from './types';
 
 // Load native addon
@@ -510,6 +512,39 @@ export class AudioDecoder {
     }
 }
 
+export class VideoFilter {
+    private _native: any;
+    private _state: CodecState = 'unconfigured';
+
+    constructor() {
+        this._native = new native.VideoFilter();
+    }
+
+    get state(): CodecState {
+        return this._native.state;
+    }
+
+    configure(config: VideoFilterConfig): void {
+        this._native.configure(config);
+    }
+
+    applyBlur(frame: VideoFrame, regions: BlurRegion[], strength: number = 20): VideoFrame {
+        if (this._native.state === 'closed') {
+            throw new DOMException('VideoFilter is closed', 'InvalidStateError');
+        }
+        const nativeResult = this._native.applyBlur(frame._nativeFrame, regions, strength);
+        // Wrap the native frame as a VideoFrame
+        const wrapper = Object.create(VideoFrame.prototype);
+        wrapper._native = nativeResult;
+        wrapper._closed = false;
+        return wrapper;
+    }
+
+    close(): void {
+        this._native.close();
+    }
+}
+
 // Re-export types
 export type {
     VideoEncoderConfig,
@@ -529,5 +564,7 @@ export type {
     AudioEncoderInit,
     AudioDecoderConfig,
     AudioDecoderInit,
-    EncodedAudioChunkInit
+    EncodedAudioChunkInit,
+    BlurRegion,
+    VideoFilterConfig
 } from './types';
