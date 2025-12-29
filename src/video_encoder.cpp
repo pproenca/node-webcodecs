@@ -155,13 +155,57 @@ Napi::Value VideoEncoder::GetState(const Napi::CallbackInfo& info) {
     return Napi::String::New(info.Env(), state_);
 }
 
-// Stub implementations for now
 Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
-    return info.Env().Undefined();
+    Napi::Env env = info.Env();
+
+    if (state_ != "configured") {
+        throw Napi::Error::New(env, "Encoder not configured");
+    }
+
+    if (info.Length() < 1 || !info[0].IsObject()) {
+        throw Napi::Error::New(env, "encode requires VideoFrame");
+    }
+
+    // Get VideoFrame
+    VideoFrame* videoFrame = Napi::ObjectWrap<VideoFrame>::Unwrap(info[0].As<Napi::Object>());
+
+    // Convert RGBA to YUV420P
+    const uint8_t* srcData[] = { videoFrame->GetData() };
+    int srcLinesize[] = { videoFrame->GetWidth() * 4 };
+
+    sws_scale(swsContext_, srcData, srcLinesize, 0, height_,
+              frame_->data, frame_->linesize);
+
+    frame_->pts = frameCount_++;
+
+    // Send frame to encoder
+    int ret = avcodec_send_frame(codecContext_, frame_);
+    if (ret < 0) {
+        char errbuf[256];
+        av_strerror(ret, errbuf, sizeof(errbuf));
+        throw Napi::Error::New(env, std::string("Error sending frame: ") + errbuf);
+    }
+
+    // Receive encoded packets
+    EmitChunks(env);
+
+    return env.Undefined();
 }
 
 Napi::Value VideoEncoder::Flush(const Napi::CallbackInfo& info) {
-    return info.Env().Undefined();
+    Napi::Env env = info.Env();
+
+    if (state_ != "configured") {
+        return env.Undefined();
+    }
+
+    // Send NULL frame to flush encoder
+    avcodec_send_frame(codecContext_, nullptr);
+
+    // Get remaining packets
+    EmitChunks(env);
+
+    return env.Undefined();
 }
 
 void VideoEncoder::Close(const Napi::CallbackInfo& info) {
@@ -170,5 +214,28 @@ void VideoEncoder::Close(const Napi::CallbackInfo& info) {
 }
 
 void VideoEncoder::EmitChunks(Napi::Env env) {
-    // Will be implemented in Task 6
+    while (true) {
+        int ret = avcodec_receive_packet(codecContext_, packet_);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+            break;
+        }
+        if (ret < 0) {
+            char errbuf[256];
+            av_strerror(ret, errbuf, sizeof(errbuf));
+            errorCallback_.Call({ Napi::Error::New(env, std::string("Encoding error: ") + errbuf).Value() });
+            break;
+        }
+
+        // Create EncodedVideoChunk-like object
+        Napi::Object chunk = Napi::Object::New(env);
+        chunk.Set("type", (packet_->flags & AV_PKT_FLAG_KEY) ? "key" : "delta");
+        chunk.Set("timestamp", Napi::Number::New(env, packet_->pts));
+        chunk.Set("duration", Napi::Number::New(env, packet_->duration));
+        chunk.Set("data", Napi::Buffer<uint8_t>::Copy(env, packet_->data, packet_->size));
+
+        // Call output callback
+        outputCallback_.Call({ chunk, env.Null() });
+
+        av_packet_unref(packet_);
+    }
 }
