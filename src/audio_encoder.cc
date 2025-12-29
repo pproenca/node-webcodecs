@@ -300,7 +300,106 @@ Napi::Value AudioEncoder::Encode(const Napi::CallbackInfo& info)
     return env.Undefined();
   }
 
-  // TODO: Implement in Task 4.
+  if (info.Length() < 1 || !info[0].IsObject()) {
+    Napi::Error::New(env, "encode requires AudioData")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  // Get AudioData from wrapper or native object.
+  Napi::Object audio_data_obj = info[0].As<Napi::Object>();
+
+  // Get properties from AudioData.
+  uint32_t number_of_frames = 0;
+  if (audio_data_obj.Has("numberOfFrames") &&
+      audio_data_obj.Get("numberOfFrames").IsNumber()) {
+    number_of_frames =
+        audio_data_obj.Get("numberOfFrames").As<Napi::Number>().Uint32Value();
+  }
+
+  int64_t timestamp = 0;
+  if (audio_data_obj.Has("timestamp") &&
+      audio_data_obj.Get("timestamp").IsNumber()) {
+    timestamp = audio_data_obj.Get("timestamp").As<Napi::Number>().Int64Value();
+  }
+
+  // Get sample data - try to unwrap as native AudioData first.
+  AudioData* native_audio_data = nullptr;
+  try {
+    native_audio_data = Napi::ObjectWrap<AudioData>::Unwrap(audio_data_obj);
+  } catch (...) {
+    // Not a native AudioData, might be wrapped.
+  }
+
+  const uint8_t* sample_data = nullptr;
+  size_t sample_data_size = 0;
+
+  if (native_audio_data && !native_audio_data->IsClosed()) {
+    const std::vector<uint8_t>& data = native_audio_data->GetData();
+    sample_data = data.data();
+    sample_data_size = data.size();
+  } else {
+    // Try to get data from a _native property (wrapped object).
+    if (audio_data_obj.Has("_native") &&
+        audio_data_obj.Get("_native").IsObject()) {
+      Napi::Object native_obj =
+          audio_data_obj.Get("_native").As<Napi::Object>();
+      try {
+        native_audio_data = Napi::ObjectWrap<AudioData>::Unwrap(native_obj);
+        if (native_audio_data && !native_audio_data->IsClosed()) {
+          const std::vector<uint8_t>& data = native_audio_data->GetData();
+          sample_data = data.data();
+          sample_data_size = data.size();
+        }
+      } catch (...) {
+      }
+    }
+  }
+
+  if (!sample_data || sample_data_size == 0) {
+    Napi::Error::New(env, "Could not get audio data")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  // Make frame writable.
+  int ret = av_frame_make_writable(frame_);
+  if (ret < 0) {
+    Napi::Error::New(env, "Could not make frame writable")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  // Convert samples using resampler.
+  const uint8_t* in_data[] = {sample_data};
+  ret = swr_convert(swr_context_, frame_->data, frame_->nb_samples,
+                    in_data, number_of_frames);
+
+  if (ret < 0) {
+    char errbuf[256];
+    av_strerror(ret, errbuf, sizeof(errbuf));
+    Napi::Error::New(env, std::string("Resample error: ") + errbuf)
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  frame_->pts = timestamp;
+
+  // Send frame to encoder.
+  ret = avcodec_send_frame(codec_context_, frame_);
+  if (ret < 0 && ret != AVERROR(EAGAIN)) {
+    char errbuf[256];
+    av_strerror(ret, errbuf, sizeof(errbuf));
+    error_callback_.Call(
+        {Napi::Error::New(env, std::string("Encode error: ") + errbuf).Value()});
+    return env.Undefined();
+  }
+
+  // Emit any ready chunks.
+  EmitChunks(env);
+
+  frame_count_++;
+
   return env.Undefined();
 }
 
@@ -308,7 +407,14 @@ Napi::Value AudioEncoder::Flush(const Napi::CallbackInfo& info)
 {
   Napi::Env env = info.Env();
 
-  // TODO: Implement in Task 4.
+  if (state_ == "configured") {
+    // Send NULL frame to flush encoder.
+    avcodec_send_frame(codec_context_, nullptr);
+
+    // Get remaining packets.
+    EmitChunks(env);
+  }
+
   Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
   deferred.Resolve(env.Undefined());
   return deferred.Promise();
@@ -316,7 +422,40 @@ Napi::Value AudioEncoder::Flush(const Napi::CallbackInfo& info)
 
 void AudioEncoder::EmitChunks(Napi::Env env)
 {
-  // TODO: Implement in Task 4.
+  while (true) {
+    int ret = avcodec_receive_packet(codec_context_, packet_);
+    if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+      break;
+    }
+    if (ret < 0) {
+      char errbuf[256];
+      av_strerror(ret, errbuf, sizeof(errbuf));
+      error_callback_.Call({Napi::Error::New(
+          env, std::string("Receive packet error: ") + errbuf).Value()});
+      break;
+    }
+
+    // Calculate duration in microseconds.
+    int64_t duration = 0;
+    if (codec_context_->frame_size > 0) {
+      duration = static_cast<int64_t>(codec_context_->frame_size) * 1000000 /
+                 sample_rate_;
+    }
+
+    // Create EncodedAudioChunk.
+    Napi::Object chunk = EncodedAudioChunk::CreateInstance(
+        env,
+        "key",  // Audio chunks are typically all key frames.
+        packet_->pts,
+        duration,
+        packet_->data,
+        packet_->size);
+
+    // Call output callback.
+    output_callback_.Call({chunk});
+
+    av_packet_unref(packet_);
+  }
 }
 
 Napi::Value AudioEncoder::IsConfigSupported(const Napi::CallbackInfo& info)
