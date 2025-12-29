@@ -12,7 +12,8 @@ const tests = [
     '08_force_keyframe.js',
     '09_robustness.js',
     '10_encoder_reset.js',
-    '11_config_supported.js'
+    '11_config_supported.js',
+    '12_chunk_copyto.js'
 ];
 
 let passed = 0;
