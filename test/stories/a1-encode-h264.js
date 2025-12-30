@@ -268,10 +268,10 @@ async function testScenario5_ChunkProperties() {
     'timestamp should be a number',
   );
   assert.ok(chunk.byteLength > 0, 'byteLength should be > 0');
-  assert.ok(
-    chunk.data instanceof Buffer || chunk.data instanceof Uint8Array,
-    'data should be a buffer',
-  );
+  // W3C spec: use copyTo() to access data, not .data property
+  const dataBuffer = new Uint8Array(chunk.byteLength);
+  chunk.copyTo(dataBuffer);
+  assert.ok(dataBuffer.length > 0, 'copyTo should return data');
 
   encoder.close();
   console.log(
@@ -334,7 +334,10 @@ async function testEndToEnd_WriteH264File() {
   const output = fs.createWriteStream(OUTPUT_FILE);
   let totalBytes = 0;
   for (const chunk of chunks) {
-    output.write(chunk.data);
+    // W3C spec: use copyTo() to access data
+    const data = new Uint8Array(chunk.byteLength);
+    chunk.copyTo(data);
+    output.write(Buffer.from(data));
     totalBytes += chunk.byteLength;
   }
   output.end();

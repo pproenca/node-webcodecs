@@ -34,6 +34,7 @@ import type {
   AudioEncoderInit,
   AudioDecoderConfig,
   AudioDecoderInit,
+  EncodedVideoChunkInit,
   EncodedAudioChunkInit,
   BlurRegion,
   VideoFilterConfig,
@@ -51,6 +52,7 @@ import type {
   NativeVideoEncoder,
   NativeVideoDecoder,
   NativeAudioData,
+  NativeEncodedVideoChunk,
   NativeEncodedAudioChunk,
   NativeAudioEncoder,
   NativeAudioDecoder,
@@ -364,7 +366,7 @@ export class VideoEncoder extends CodecBase {
       this._encodeQueueSize = Math.max(0, this._encodeQueueSize - 1);
 
       const wrappedChunk = new EncodedVideoChunk({
-        type: chunk.type,
+        type: chunk.type as 'key' | 'delta',
         timestamp: chunk.timestamp,
         duration: chunk.duration ?? undefined,
         data: chunk.data,
@@ -460,58 +462,68 @@ export class VideoEncoder extends CodecBase {
 }
 
 export class EncodedVideoChunk {
-  readonly type: 'key' | 'delta';
-  readonly timestamp: number;
-  readonly duration: number | null;
-  readonly data: Buffer;
+  /** @internal */
+  _native: NativeEncodedVideoChunk;
 
-  constructor(init: {
-    type: string;
-    timestamp: number;
-    duration?: number;
-    data: Buffer | Uint8Array | ArrayBuffer;
-  }) {
+  constructor(init: EncodedVideoChunkInit) {
     // W3C spec: type must be 'key' or 'delta'
     if (init.type !== 'key' && init.type !== 'delta') {
       throw new TypeError(`Invalid type: ${init.type}`);
     }
-    this.type = init.type as 'key' | 'delta';
-    this.timestamp = init.timestamp;
-    this.duration = init.duration ?? null;
-    // Convert to Buffer if needed
-    if (init.data instanceof Buffer) {
-      this.data = init.data;
-    } else if (init.data instanceof Uint8Array) {
-      this.data = Buffer.from(init.data);
-    } else if (init.data instanceof ArrayBuffer) {
-      this.data = Buffer.from(init.data);
+    // Convert BufferSource to Buffer for native
+    let dataBuffer: Buffer;
+    if (init.data instanceof ArrayBuffer) {
+      dataBuffer = Buffer.from(init.data);
+    } else if (ArrayBuffer.isView(init.data)) {
+      dataBuffer = Buffer.from(
+        init.data.buffer,
+        init.data.byteOffset,
+        init.data.byteLength,
+      );
     } else {
-      throw new TypeError('data must be Buffer, Uint8Array, or ArrayBuffer');
+      throw new TypeError('data must be ArrayBuffer or ArrayBufferView');
     }
+    this._native = new native.EncodedVideoChunk({
+      type: init.type,
+      timestamp: init.timestamp,
+      duration: init.duration,
+      data: dataBuffer,
+    });
+  }
+
+  get type(): 'key' | 'delta' {
+    return this._native.type as 'key' | 'delta';
+  }
+
+  get timestamp(): number {
+    return this._native.timestamp;
+  }
+
+  get duration(): number | null {
+    return this._native.duration;
   }
 
   get byteLength(): number {
-    return this.data.length;
+    return this._native.byteLength;
   }
 
   copyTo(destination: ArrayBuffer | ArrayBufferView): void {
-    let targetView: Uint8Array;
+    // Native layer accepts ArrayBuffer or Uint8Array
     if (destination instanceof ArrayBuffer) {
-      targetView = new Uint8Array(destination);
+      this._native.copyTo(destination);
+    } else if (destination instanceof Uint8Array) {
+      this._native.copyTo(destination);
     } else if (ArrayBuffer.isView(destination)) {
-      // Handle all ArrayBufferView types (Uint8Array, DataView, etc.)
-      targetView = new Uint8Array(
+      // Convert other ArrayBufferView types to Uint8Array
+      const view = new Uint8Array(
         destination.buffer,
         destination.byteOffset,
         destination.byteLength,
       );
+      this._native.copyTo(view);
     } else {
       throw new TypeError('Destination must be ArrayBuffer or ArrayBufferView');
     }
-    if (targetView.byteLength < this.data.length) {
-      throw new TypeError('Destination buffer too small');
-    }
-    targetView.set(this.data);
   }
 }
 
@@ -597,14 +609,8 @@ export class VideoDecoder extends CodecBase {
 
     ResourceManager.getInstance().recordActivity(this._resourceId);
     this._decodeQueueSize++;
-    // Create a native EncodedVideoChunk from our TypeScript wrapper
-    const nativeChunk = new native.EncodedVideoChunk({
-      type: chunk.type,
-      timestamp: chunk.timestamp,
-      duration: chunk.duration ?? undefined,
-      data: chunk.data,
-    });
-    this._native.decode(nativeChunk);
+    // Pass the native chunk directly (no data copy needed)
+    this._native.decode(chunk._native);
   }
 
   async flush(): Promise<void> {
@@ -1064,7 +1070,7 @@ export class Demuxer {
         if (init.onChunk) {
           // Wrap raw chunk in EncodedVideoChunk for consistency
           const wrappedChunk = new EncodedVideoChunk({
-            type: chunk.type,
+            type: chunk.type as 'key' | 'delta',
             timestamp: chunk.timestamp,
             duration: chunk.duration,
             data: chunk.data,
