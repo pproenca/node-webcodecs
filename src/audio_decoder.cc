@@ -12,6 +12,7 @@ extern "C" {
 }
 
 #include "src/audio_data.h"
+#include "src/common.h"
 #include "src/encoded_audio_chunk.h"
 
 namespace {
@@ -102,10 +103,8 @@ Napi::Value AudioDecoder::Configure(const Napi::CallbackInfo& info) {
   Napi::Object config = info[0].As<Napi::Object>();
 
   // Parse codec string.
-  std::string codec_str = "mp4a.40.2";  // Default to AAC-LC.
-  if (config.Has("codec") && config.Get("codec").IsString()) {
-    codec_str = config.Get("codec").As<Napi::String>().Utf8Value();
-  }
+  std::string codec_str =
+      webcodecs::AttrAsStr(config, "codec", "mp4a.40.2");  // Default to AAC-LC.
 
   // Determine codec ID.
   AVCodecID codec_id = AV_CODEC_ID_AAC;
@@ -146,19 +145,15 @@ Napi::Value AudioDecoder::Configure(const Napi::CallbackInfo& info) {
   }
 
   // Parse sample rate.
-  if (config.Has("sampleRate") && config.Get("sampleRate").IsNumber()) {
-    sample_rate_ = config.Get("sampleRate").As<Napi::Number>().Uint32Value();
-  } else {
+  sample_rate_ = webcodecs::AttrAsUint32(config, "sampleRate");
+  if (sample_rate_ == 0) {
     sample_rate_ = 48000;
   }
   codec_context_->sample_rate = sample_rate_;
 
   // Parse number of channels.
-  if (config.Has("numberOfChannels") &&
-      config.Get("numberOfChannels").IsNumber()) {
-    number_of_channels_ =
-        config.Get("numberOfChannels").As<Napi::Number>().Uint32Value();
-  } else {
+  number_of_channels_ = webcodecs::AttrAsUint32(config, "numberOfChannels");
+  if (number_of_channels_ == 0) {
     number_of_channels_ = 2;
   }
 
@@ -468,10 +463,10 @@ Napi::Value AudioDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   Napi::Object normalized_config = Napi::Object::New(env);
 
   // Check codec.
-  if (!config.Has("codec") || !config.Get("codec").IsString()) {
+  std::string codec = webcodecs::AttrAsStr(config, "codec");
+  if (codec.empty()) {
     supported = false;
   } else {
-    std::string codec = config.Get("codec").As<Napi::String>().Utf8Value();
     normalized_config.Set("codec", codec);
 
     if (codec == "opus") {
@@ -505,14 +500,13 @@ Napi::Value AudioDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   }
 
   // Copy other recognized properties.
-  if (config.Has("sampleRate") && config.Get("sampleRate").IsNumber()) {
+  if (webcodecs::HasAttr(config, "sampleRate")) {
     normalized_config.Set("sampleRate", config.Get("sampleRate"));
   }
-  if (config.Has("numberOfChannels") &&
-      config.Get("numberOfChannels").IsNumber()) {
+  if (webcodecs::HasAttr(config, "numberOfChannels")) {
     normalized_config.Set("numberOfChannels", config.Get("numberOfChannels"));
   }
-  if (config.Has("description")) {
+  if (webcodecs::HasAttr(config, "description")) {
     normalized_config.Set("description", config.Get("description"));
   }
 
