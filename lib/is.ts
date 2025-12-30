@@ -27,6 +27,7 @@ export function plainObject(val: unknown): val is Record<string, unknown> {
 /**
  * Is this value a function?
  */
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 export function fn(val: unknown): val is Function {
   return typeof val === 'function';
 }

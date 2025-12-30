@@ -98,7 +98,7 @@ function main() {
   if (platform() === 'win32') {
     if (!process.env.FFMPEG_PATH) {
       console.warn(
-        '⚠️  Windows: Set FFMPEG_PATH environment variable to FFmpeg location.'
+        '⚠️  Windows: Set FFMPEG_PATH environment variable to FFmpeg location.',
       );
       console.log(getInstallInstructions());
     } else {
@@ -131,11 +131,11 @@ function main() {
   if (version) {
     if (versionAtLeast(version, MIN_FFMPEG_VERSION)) {
       console.log(
-        `✓ FFmpeg version ${version} (>= ${MIN_FFMPEG_VERSION} required)`
+        `✓ FFmpeg version ${version} (>= ${MIN_FFMPEG_VERSION} required)`,
       );
     } else {
       console.warn(
-        `⚠️  FFmpeg version ${version} is older than recommended ${MIN_FFMPEG_VERSION}`
+        `⚠️  FFmpeg version ${version} is older than recommended ${MIN_FFMPEG_VERSION}`,
       );
     }
   }
