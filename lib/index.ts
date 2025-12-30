@@ -23,6 +23,7 @@ import type {
     TrackInfo,
     DOMRectReadOnly
 } from './types';
+import { ControlMessageQueue } from './control-message-queue';
 
 // Load native addon
 const native = require('../build/Release/node_webcodecs.node');
@@ -176,10 +177,18 @@ export class VideoEncoder {
     private _native: any;
     private _state: CodecState = 'unconfigured';
     private _ondequeue: (() => void) | null = null;
+    private _controlQueue: ControlMessageQueue;
+    private _encodeQueueSize: number = 0;
 
     constructor(init: VideoEncoderInit) {
+        this._controlQueue = new ControlMessageQueue();
+        this._controlQueue.setErrorHandler(init.error);
+
         this._native = new native.VideoEncoder({
             output: (chunk: any, metadata: any) => {
+                // Decrement queue size when output received
+                this._encodeQueueSize = Math.max(0, this._encodeQueueSize - 1);
+
                 const wrappedChunk = new EncodedVideoChunk({
                     type: chunk.type,
                     timestamp: chunk.timestamp,
@@ -187,6 +196,9 @@ export class VideoEncoder {
                     data: chunk.data
                 });
                 init.output(wrappedChunk, metadata);
+
+                // Fire ondequeue after output
+                this._triggerDequeue();
             },
             error: init.error
         });
@@ -197,7 +209,7 @@ export class VideoEncoder {
     }
 
     get encodeQueueSize(): number {
-        return this._native.encodeQueueSize;
+        return this._encodeQueueSize;
     }
 
     get codecSaturated(): boolean {
@@ -224,14 +236,28 @@ export class VideoEncoder {
     }
 
     configure(config: VideoEncoderConfig): void {
-        this._native.configure(config);
+        // Validate displayAspect pairing per W3C spec
+        if ((config.displayAspectWidth !== undefined) !==
+            (config.displayAspectHeight !== undefined)) {
+            throw new TypeError(
+                'displayAspectWidth and displayAspectHeight must both be present or both absent'
+            );
+        }
+
+        this._controlQueue.enqueue(() => {
+            this._native.configure(config);
+        });
     }
 
     encode(frame: VideoFrame, options?: { keyFrame?: boolean }): void {
-        this._native.encode(frame._nativeFrame, options || {});
+        this._encodeQueueSize++;
+        this._controlQueue.enqueue(() => {
+            this._native.encode(frame._nativeFrame, options || {});
+        });
     }
 
-    flush(): Promise<void> {
+    async flush(): Promise<void> {
+        await this._controlQueue.flush();
         return new Promise((resolve) => {
             this._native.flush();
             resolve();
@@ -239,10 +265,13 @@ export class VideoEncoder {
     }
 
     reset(): void {
+        this._controlQueue.clear();
+        this._encodeQueueSize = 0;
         this._native.reset();
     }
 
     close(): void {
+        this._controlQueue.clear();
         this._native.close();
     }
 
