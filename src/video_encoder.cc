@@ -48,10 +48,6 @@ Napi::Object VideoEncoder::Init(Napi::Env env, Napi::Object exports) {
 VideoEncoder::VideoEncoder(const Napi::CallbackInfo& info)
     : Napi::ObjectWrap<VideoEncoder>(info),
       codec_(nullptr),
-      codec_context_(nullptr),
-      sws_context_(nullptr),
-      frame_(nullptr),
-      packet_(nullptr),
       state_("unconfigured"),
       width_(0),
       height_(0),
@@ -90,22 +86,10 @@ VideoEncoder::VideoEncoder(const Napi::CallbackInfo& info)
 VideoEncoder::~VideoEncoder() { Cleanup(); }
 
 void VideoEncoder::Cleanup() {
-  if (frame_) {
-    av_frame_free(&frame_);
-    frame_ = nullptr;
-  }
-  if (packet_) {
-    av_packet_free(&packet_);
-    packet_ = nullptr;
-  }
-  if (sws_context_) {
-    sws_freeContext(sws_context_);
-    sws_context_ = nullptr;
-  }
-  if (codec_context_) {
-    avcodec_free_context(&codec_context_);
-    codec_context_ = nullptr;
-  }
+  frame_.reset();
+  packet_.reset();
+  sws_context_.reset();
+  codec_context_.reset();
   codec_ = nullptr;
 }
 
@@ -216,7 +200,7 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
     throw Napi::Error::New(env, "Encoder not found for codec: " + codec_str);
   }
 
-  codec_context_ = avcodec_alloc_context3(codec_);
+  codec_context_ = ffmpeg::make_codec_context(codec_);
   if (!codec_context_) {
     throw Napi::Error::New(env, "Could not allocate codec context");
   }
@@ -259,7 +243,7 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
     av_opt_set(codec_context_->priv_data, "x265-params", "bframes=0", 0);
   }
 
-  int ret = avcodec_open2(codec_context_, codec_, nullptr);
+  int ret = avcodec_open2(codec_context_.get(), codec_, nullptr);
   if (ret < 0) {
     char errbuf[256];
     av_strerror(ret, errbuf, sizeof(errbuf));
@@ -268,18 +252,18 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
   }
 
   // Allocate frame and packet.
-  frame_ = av_frame_alloc();
+  frame_ = ffmpeg::make_frame();
   frame_->format = codec_context_->pix_fmt;
   frame_->width = width_;
   frame_->height = height_;
-  av_frame_get_buffer(frame_, kFrameBufferAlignment);
+  av_frame_get_buffer(frame_.get(), kFrameBufferAlignment);
 
-  packet_ = av_packet_alloc();
+  packet_ = ffmpeg::make_packet();
 
   // Setup color converter (RGBA -> YUV420P).
-  sws_context_ = sws_getContext(width_, height_, AV_PIX_FMT_RGBA, width_,
-                                height_, AV_PIX_FMT_YUV420P, SWS_BILINEAR,
-                                nullptr, nullptr, nullptr);
+  sws_context_.reset(sws_getContext(width_, height_, AV_PIX_FMT_RGBA, width_,
+                                    height_, AV_PIX_FMT_YUV420P, SWS_BILINEAR,
+                                    nullptr, nullptr, nullptr));
 
   state_ = "configured";
   frame_count_ = 0;
@@ -406,8 +390,8 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
     const uint8_t* src_data[] = {video_frame->GetData()};
     int src_linesize[] = {video_frame->GetWidth() * kBytesPerPixelRgba};
 
-    sws_scale(sws_context_, src_data, src_linesize, 0, height_, frame_->data,
-              frame_->linesize);
+    sws_scale(sws_context_.get(), src_data, src_linesize, 0, height_,
+              frame_->data, frame_->linesize);
   }
 
   frame_->pts = frame_count_++;
@@ -435,7 +419,7 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
   codec_saturated_.store(saturated);
 
   // Send frame to encoder.
-  int ret = avcodec_send_frame(codec_context_, frame_);
+  int ret = avcodec_send_frame(codec_context_.get(), frame_.get());
   if (ret < 0) {
     encode_queue_size_--;
     bool saturated = encode_queue_size_ >= static_cast<int>(kMaxQueueSize);
@@ -459,7 +443,7 @@ Napi::Value VideoEncoder::Flush(const Napi::CallbackInfo& info) {
   }
 
   // Send NULL frame to flush encoder.
-  avcodec_send_frame(codec_context_, nullptr);
+  avcodec_send_frame(codec_context_.get(), nullptr);
 
   // Get remaining packets.
   EmitChunks(env);
@@ -481,9 +465,9 @@ Napi::Value VideoEncoder::Reset(const Napi::CallbackInfo& info) {
 
   // Flush any pending frames (don't emit - discard).
   if (codec_context_) {
-    avcodec_send_frame(codec_context_, nullptr);
-    while (avcodec_receive_packet(codec_context_, packet_) == 0) {
-      av_packet_unref(packet_);
+    avcodec_send_frame(codec_context_.get(), nullptr);
+    while (avcodec_receive_packet(codec_context_.get(), packet_.get()) == 0) {
+      av_packet_unref(packet_.get());
     }
   }
 
@@ -506,7 +490,7 @@ void VideoEncoder::Close(const Napi::CallbackInfo& info) {
 
 void VideoEncoder::EmitChunks(Napi::Env env) {
   while (true) {
-    int ret = avcodec_receive_packet(codec_context_, packet_);
+    int ret = avcodec_receive_packet(codec_context_.get(), packet_.get());
     if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
       break;
     }
@@ -580,7 +564,7 @@ void VideoEncoder::EmitChunks(Napi::Env env) {
     // Call output callback with metadata.
     output_callback_.Call({chunk, metadata});
 
-    av_packet_unref(packet_);
+    av_packet_unref(packet_.get());
 
     // Decrement queue after emitting chunk
     if (encode_queue_size_ > 0) {
