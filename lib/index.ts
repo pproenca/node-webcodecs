@@ -490,21 +490,26 @@ export class EncodedVideoChunk {
     return this.data.length;
   }
 
-  copyTo(destination: ArrayBuffer | Uint8Array): void {
+  copyTo(destination: ArrayBuffer | ArrayBufferView): void {
+    let targetView: Uint8Array;
     if (destination instanceof ArrayBuffer) {
-      const view = new Uint8Array(destination);
-      if (view.byteLength < this.data.length) {
-        throw new TypeError('Destination buffer too small');
-      }
-      view.set(this.data);
-    } else if (destination instanceof Uint8Array) {
-      if (destination.byteLength < this.data.length) {
-        throw new TypeError('Destination buffer too small');
-      }
-      destination.set(this.data);
+      targetView = new Uint8Array(destination);
+    } else if (ArrayBuffer.isView(destination)) {
+      // Handle all ArrayBufferView types (Uint8Array, DataView, etc.)
+      targetView = new Uint8Array(
+        destination.buffer,
+        destination.byteOffset,
+        destination.byteLength,
+      );
     } else {
-      throw new TypeError('Destination must be ArrayBuffer or Uint8Array');
+      throw new TypeError(
+        'Destination must be ArrayBuffer or ArrayBufferView',
+      );
     }
+    if (targetView.byteLength < this.data.length) {
+      throw new TypeError('Destination buffer too small');
+    }
+    targetView.set(this.data);
   }
 }
 
@@ -665,19 +670,19 @@ export class AudioData {
   }
 
   get sampleRate(): number {
-    return this._native.sampleRate;
+    return this._closed ? 0 : this._native.sampleRate;
   }
 
   get numberOfFrames(): number {
-    return this._native.numberOfFrames;
+    return this._closed ? 0 : this._native.numberOfFrames;
   }
 
   get numberOfChannels(): number {
-    return this._native.numberOfChannels;
+    return this._closed ? 0 : this._native.numberOfChannels;
   }
 
   get duration(): number {
-    return this._native.duration;
+    return this._closed ? 0 : this._native.duration;
   }
 
   get timestamp(): number {
