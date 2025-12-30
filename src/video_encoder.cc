@@ -685,6 +685,40 @@ Napi::Value VideoEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
     normalized_config.Set("colorSpace", cs_copy);
   }
 
+  // Copy avc-specific config if present (per W3C AVC codec registration).
+  if (config.Has("avc") && config.Get("avc").IsObject()) {
+    Napi::Object avc_config = config.Get("avc").As<Napi::Object>();
+    Napi::Object normalized_avc = Napi::Object::New(env);
+
+    if (avc_config.Has("format") && avc_config.Get("format").IsString()) {
+      std::string format =
+          avc_config.Get("format").As<Napi::String>().Utf8Value();
+      // Validate per W3C spec: "annexb" or "avc"
+      if (format == "annexb" || format == "avc") {
+        normalized_avc.Set("format", format);
+      }
+    }
+
+    normalized_config.Set("avc", normalized_avc);
+  }
+
+  // Copy hevc-specific config if present (per W3C HEVC codec registration).
+  if (config.Has("hevc") && config.Get("hevc").IsObject()) {
+    Napi::Object hevc_config = config.Get("hevc").As<Napi::Object>();
+    Napi::Object normalized_hevc = Napi::Object::New(env);
+
+    if (hevc_config.Has("format") && hevc_config.Get("format").IsString()) {
+      std::string format =
+          hevc_config.Get("format").As<Napi::String>().Utf8Value();
+      // Validate per W3C spec: "annexb" or "hevc"
+      if (format == "annexb" || format == "hevc") {
+        normalized_hevc.Set("format", format);
+      }
+    }
+
+    normalized_config.Set("hevc", normalized_hevc);
+  }
+
   result.Set("supported", supported);
   result.Set("config", normalized_config);
 

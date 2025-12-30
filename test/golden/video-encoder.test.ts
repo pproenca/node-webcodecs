@@ -102,6 +102,42 @@ describe('VideoEncoder', () => {
       expect(result.supported).toBe(true);
       expect(result.config.contentHint).toBe('motion');
     });
+
+    it('should echo avc.format = annexb in config', async () => {
+      const result = await VideoEncoder.isConfigSupported({
+        codec: 'avc1.42E01E',
+        width: 640,
+        height: 480,
+        avc: {format: 'annexb'},
+      });
+      expect(result.supported).toBe(true);
+      expect(result.config.avc).toBeDefined();
+      expect(result.config.avc?.format).toBe('annexb');
+    });
+
+    it('should echo avc.format = avc in config', async () => {
+      const result = await VideoEncoder.isConfigSupported({
+        codec: 'avc1.42E01E',
+        width: 640,
+        height: 480,
+        avc: {format: 'avc'},
+      });
+      expect(result.supported).toBe(true);
+      expect(result.config.avc?.format).toBe('avc');
+    });
+
+    it('should echo hevc.format in config when HEVC supported', async () => {
+      const result = await VideoEncoder.isConfigSupported({
+        codec: 'hvc1.1.6.L93.B0',
+        width: 640,
+        height: 480,
+        hevc: {format: 'annexb'},
+      });
+      // HEVC may not be available on all systems
+      if (result.supported) {
+        expect(result.config.hevc?.format).toBe('annexb');
+      }
+    });
   });
 
   describe('constructor', () => {
