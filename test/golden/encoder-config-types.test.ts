@@ -24,9 +24,9 @@ describe('Encoder Config Types', () => {
       expect(config.format).toBe('avc');
     });
 
-    it('should default format to avc when not specified', () => {
+    it('should allow format to be optional', () => {
       const config: AvcEncoderConfig = {};
-      expect(config.format).toBeUndefined();
+      expect(config.format).toBeUndefined(); // Runtime default is annexb for backwards compat
     });
   });
 
