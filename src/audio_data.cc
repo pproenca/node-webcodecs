@@ -250,8 +250,78 @@ Napi::Value AudioData::AllocationSize(const Napi::CallbackInfo& info) {
     return env.Undefined();
   }
 
-  // TODO(user): Handle options for partial copy or format conversion.
-  return Napi::Number::New(env, static_cast<double>(data_.size()));
+  // Parse options object (required per W3C spec).
+  if (info.Length() < 1 || !info[0].IsObject()) {
+    Napi::TypeError::New(env, "allocationSize requires options object")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  Napi::Object options = info[0].As<Napi::Object>();
+
+  // Required: planeIndex.
+  if (!options.Has("planeIndex") || !options.Get("planeIndex").IsNumber()) {
+    Napi::TypeError::New(env, "options.planeIndex is required")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  uint32_t plane_index =
+      options.Get("planeIndex").As<Napi::Number>().Uint32Value();
+
+  // Validate planeIndex.
+  bool is_planar = IsPlanar();
+  if (!is_planar && plane_index != 0) {
+    Napi::RangeError::New(env,
+                          "planeIndex must be 0 for interleaved formats")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+  if (is_planar && plane_index >= number_of_channels_) {
+    Napi::RangeError::New(env, "planeIndex out of range")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  // Optional: frameOffset (default 0).
+  uint32_t frame_offset = 0;
+  if (options.Has("frameOffset") && options.Get("frameOffset").IsNumber()) {
+    frame_offset = options.Get("frameOffset").As<Napi::Number>().Uint32Value();
+  }
+  if (frame_offset >= number_of_frames_) {
+    Napi::RangeError::New(env, "frameOffset out of range")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  // Optional: frameCount (default remaining frames).
+  uint32_t frame_count = number_of_frames_ - frame_offset;
+  if (options.Has("frameCount") && options.Get("frameCount").IsNumber()) {
+    frame_count = options.Get("frameCount").As<Napi::Number>().Uint32Value();
+    if (frame_offset + frame_count > number_of_frames_) {
+      frame_count = number_of_frames_ - frame_offset;
+    }
+  }
+
+  // Optional: format (default current format).
+  std::string target_format = format_;
+  if (options.Has("format") && options.Get("format").IsString()) {
+    target_format = options.Get("format").As<Napi::String>().Utf8Value();
+  }
+
+  // Calculate allocation size.
+  size_t bytes_per_sample = GetFormatBytesPerSample(target_format);
+  bool target_planar = IsPlanarFormat(target_format);
+
+  size_t size;
+  if (target_planar) {
+    // Planar output: single channel plane.
+    size = frame_count * bytes_per_sample;
+  } else {
+    // Interleaved output: all channels.
+    size = frame_count * number_of_channels_ * bytes_per_sample;
+  }
+
+  return Napi::Number::New(env, static_cast<double>(size));
 }
 
 void AudioData::CopyTo(const Napi::CallbackInfo& info) {
