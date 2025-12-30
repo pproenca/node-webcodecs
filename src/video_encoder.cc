@@ -513,6 +513,12 @@ Napi::Value VideoEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
       if (!c) {
         supported = false;
       }
+    } else if (codec.find("hev1") == 0 || codec.find("hvc1") == 0 ||
+               codec == "hevc") {
+      const AVCodec* c = avcodec_find_encoder(AV_CODEC_ID_HEVC);
+      if (!c) {
+        supported = false;
+      }
     } else {
       supported = false;
     }

@@ -686,7 +686,7 @@ export class AudioData {
   }
 
   get timestamp(): number {
-    return this._native.timestamp;
+    return this._closed ? 0 : this._native.timestamp;
   }
 
   allocationSize(options?: AudioDataCopyToOptions): number {
