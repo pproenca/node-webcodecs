@@ -8,6 +8,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "src/common.h"
+
 // Static constructor reference for clone().
 Napi::FunctionReference VideoFrame::constructor;
 
@@ -196,59 +198,34 @@ VideoFrame::VideoFrame(const Napi::CallbackInfo& info)
 
   // Get options.
   Napi::Object opts = info[1].As<Napi::Object>();
+  // Required parameters - keep direct access to preserve error-throwing behavior
   coded_width_ = opts.Get("codedWidth").As<Napi::Number>().Int32Value();
   coded_height_ = opts.Get("codedHeight").As<Napi::Number>().Int32Value();
   timestamp_ = opts.Get("timestamp").As<Napi::Number>().Int64Value();
 
   // Parse optional duration.
-  if (opts.Has("duration") && opts.Get("duration").IsNumber()) {
-    duration_ = opts.Get("duration").As<Napi::Number>().Int64Value();
+  if (webcodecs::HasAttr(opts, "duration")) {
+    duration_ = webcodecs::AttrAsInt64(opts, "duration");
     has_duration_ = true;
   }
 
   // displayWidth/displayHeight default to codedWidth/codedHeight per W3C spec
-  if (opts.Has("displayWidth")) {
-    display_width_ = opts.Get("displayWidth").As<Napi::Number>().Int32Value();
-  } else {
-    display_width_ = coded_width_;
-  }
-  if (opts.Has("displayHeight")) {
-    display_height_ = opts.Get("displayHeight").As<Napi::Number>().Int32Value();
-  } else {
-    display_height_ = coded_height_;
-  }
+  display_width_ = webcodecs::AttrAsInt32(opts, "displayWidth", coded_width_);
+  display_height_ = webcodecs::AttrAsInt32(opts, "displayHeight", coded_height_);
 
-  if (opts.Has("format")) {
-    std::string format_str = opts.Get("format").As<Napi::String>().Utf8Value();
-    format_ = ParsePixelFormat(format_str);
-  } else {
-    format_ = PixelFormat::RGBA;
-  }
+  std::string format_str = webcodecs::AttrAsStr(opts, "format", "RGBA");
+  format_ = ParsePixelFormat(format_str);
 
-  rotation_ = 0;
-  flip_ = false;
-  if (opts.Has("rotation")) {
-    rotation_ = opts.Get("rotation").As<Napi::Number>().Int32Value();
-  }
-  if (opts.Has("flip")) {
-    flip_ = opts.Get("flip").As<Napi::Boolean>().Value();
-  }
+  rotation_ = webcodecs::AttrAsInt32(opts, "rotation", 0);
+  flip_ = webcodecs::AttrAsBool(opts, "flip", false);
 
   // Parse visibleRect from options
   if (opts.Has("visibleRect") && opts.Get("visibleRect").IsObject()) {
     Napi::Object rect = opts.Get("visibleRect").As<Napi::Object>();
-    if (rect.Has("x")) {
-      visible_rect_.x = rect.Get("x").As<Napi::Number>().Int32Value();
-    }
-    if (rect.Has("y")) {
-      visible_rect_.y = rect.Get("y").As<Napi::Number>().Int32Value();
-    }
-    if (rect.Has("width")) {
-      visible_rect_.width = rect.Get("width").As<Napi::Number>().Int32Value();
-    }
-    if (rect.Has("height")) {
-      visible_rect_.height = rect.Get("height").As<Napi::Number>().Int32Value();
-    }
+    visible_rect_.x = webcodecs::AttrAsInt32(rect, "x", 0);
+    visible_rect_.y = webcodecs::AttrAsInt32(rect, "y", 0);
+    visible_rect_.width = webcodecs::AttrAsInt32(rect, "width", 0);
+    visible_rect_.height = webcodecs::AttrAsInt32(rect, "height", 0);
   }
 
   // Default visibleRect to full coded dimensions if not specified
@@ -274,18 +251,10 @@ VideoFrame::VideoFrame(const Napi::CallbackInfo& info)
     Napi::Object cs = opts.Get("colorSpace").As<Napi::Object>();
     has_color_space_ = true;
 
-    if (cs.Has("primaries") && cs.Get("primaries").IsString()) {
-      color_primaries_ = cs.Get("primaries").As<Napi::String>().Utf8Value();
-    }
-    if (cs.Has("transfer") && cs.Get("transfer").IsString()) {
-      color_transfer_ = cs.Get("transfer").As<Napi::String>().Utf8Value();
-    }
-    if (cs.Has("matrix") && cs.Get("matrix").IsString()) {
-      color_matrix_ = cs.Get("matrix").As<Napi::String>().Utf8Value();
-    }
-    if (cs.Has("fullRange") && cs.Get("fullRange").IsBoolean()) {
-      color_full_range_ = cs.Get("fullRange").As<Napi::Boolean>().Value();
-    }
+    color_primaries_ = webcodecs::AttrAsStr(cs, "primaries", "");
+    color_transfer_ = webcodecs::AttrAsStr(cs, "transfer", "");
+    color_matrix_ = webcodecs::AttrAsStr(cs, "matrix", "");
+    color_full_range_ = webcodecs::AttrAsBool(cs, "fullRange", false);
   }
 }
 
@@ -497,9 +466,8 @@ Napi::Value VideoFrame::AllocationSize(const Napi::CallbackInfo& info) {
   // Check if options object with format is provided
   if (info.Length() > 0 && info[0].IsObject()) {
     Napi::Object opts = info[0].As<Napi::Object>();
-    if (opts.Has("format")) {
-      std::string format_str =
-          opts.Get("format").As<Napi::String>().Utf8Value();
+    std::string format_str = webcodecs::AttrAsStr(opts, "format", "");
+    if (!format_str.empty()) {
       target_format = ParsePixelFormat(format_str);
     }
   }
@@ -649,9 +617,8 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
     Napi::Object opts = info[1].As<Napi::Object>();
 
     // Parse format option
-    if (opts.Has("format")) {
-      std::string format_str =
-          opts.Get("format").As<Napi::String>().Utf8Value();
+    std::string format_str = webcodecs::AttrAsStr(opts, "format", "");
+    if (!format_str.empty()) {
       target_format = ParsePixelFormat(format_str);
     }
 
@@ -659,19 +626,11 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
     if (opts.Has("rect") && opts.Get("rect").IsObject()) {
       Napi::Object rect = opts.Get("rect").As<Napi::Object>();
 
-      // Read rect properties with defaults
-      if (rect.Has("x")) {
-        copy_x = rect.Get("x").As<Napi::Number>().Int32Value();
-      }
-      if (rect.Has("y")) {
-        copy_y = rect.Get("y").As<Napi::Number>().Int32Value();
-      }
-      if (rect.Has("width")) {
-        copy_width = rect.Get("width").As<Napi::Number>().Int32Value();
-      }
-      if (rect.Has("height")) {
-        copy_height = rect.Get("height").As<Napi::Number>().Int32Value();
-      }
+      // Read rect properties with defaults from visible_rect
+      copy_x = webcodecs::AttrAsInt32(rect, "x", copy_x);
+      copy_y = webcodecs::AttrAsInt32(rect, "y", copy_y);
+      copy_width = webcodecs::AttrAsInt32(rect, "width", copy_width);
+      copy_height = webcodecs::AttrAsInt32(rect, "height", copy_height);
 
       // Validate rect bounds against coded dimensions
       if (copy_x < 0 || copy_y < 0 ||
@@ -690,16 +649,9 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
         Napi::Value elem = layout_arr.Get(i);
         if (elem.IsObject()) {
           Napi::Object plane_layout = elem.As<Napi::Object>();
-          size_t offset = 0;
-          int stride = 0;
-
-          if (plane_layout.Has("offset")) {
-            offset = static_cast<size_t>(
-                plane_layout.Get("offset").As<Napi::Number>().Int64Value());
-          }
-          if (plane_layout.Has("stride")) {
-            stride = plane_layout.Get("stride").As<Napi::Number>().Int32Value();
-          }
+          size_t offset = static_cast<size_t>(
+              webcodecs::AttrAsInt64(plane_layout, "offset", 0));
+          int stride = webcodecs::AttrAsInt32(plane_layout, "stride", 0);
 
           custom_offsets.push_back(offset);
           custom_strides.push_back(stride);
