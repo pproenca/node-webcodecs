@@ -543,6 +543,26 @@ Napi::Value VideoDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
     normalized_config.Set("codedHeight", coded_height);
   }
 
+  // Copy displayAspectWidth if present (per W3C spec).
+  if (config.Has("displayAspectWidth") &&
+      config.Get("displayAspectWidth").IsNumber()) {
+    int display_aspect_width =
+        config.Get("displayAspectWidth").As<Napi::Number>().Int32Value();
+    if (display_aspect_width > 0) {
+      normalized_config.Set("displayAspectWidth", display_aspect_width);
+    }
+  }
+
+  // Copy displayAspectHeight if present (per W3C spec).
+  if (config.Has("displayAspectHeight") &&
+      config.Get("displayAspectHeight").IsNumber()) {
+    int display_aspect_height =
+        config.Get("displayAspectHeight").As<Napi::Number>().Int32Value();
+    if (display_aspect_height > 0) {
+      normalized_config.Set("displayAspectHeight", display_aspect_height);
+    }
+  }
+
   // Copy optional properties if present.
   if (config.Has("description") && config.Get("description").IsTypedArray()) {
     normalized_config.Set("description", config.Get("description"));

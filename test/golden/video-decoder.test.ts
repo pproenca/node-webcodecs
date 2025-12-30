@@ -572,8 +572,19 @@ describe('VideoDecoder', () => {
         expect(result.config.codedHeight).toBe(1080);
       });
 
-      // W3C compliance gap: displayAspectWidth/displayAspectHeight not echoed
-      it.todo('should echo displayAspectWidth and displayAspectHeight (W3C compliance gap)');
+      it('should echo displayAspectWidth and displayAspectHeight', async () => {
+        const result = await VideoDecoder.isConfigSupported({
+          codec: 'avc1.42001e',
+          codedWidth: 1920,
+          codedHeight: 1080,
+          displayAspectWidth: 16,
+          displayAspectHeight: 9,
+        });
+
+        expect(result.supported).toBe(true);
+        expect(result.config.displayAspectWidth).toBe(16);
+        expect(result.config.displayAspectHeight).toBe(9);
+      });
 
       // W3C compliance gap: colorSpace not echoed
       it.todo('should echo colorSpace configuration (W3C compliance gap)');
