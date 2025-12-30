@@ -266,17 +266,15 @@ export class VideoEncoder {
             );
         }
 
-        this._controlQueue.enqueue(() => {
-            this._native.configure(config);
-        });
+        // Configure synchronously to set state immediately per W3C spec
+        this._native.configure(config);
     }
 
     encode(frame: VideoFrame, options?: { keyFrame?: boolean }): void {
         ResourceManager.getInstance().recordActivity(this._resourceId);
         this._encodeQueueSize++;
-        this._controlQueue.enqueue(() => {
-            this._native.encode(frame._nativeFrame, options || {});
-        });
+        // Call native encode directly - frame must be valid at call time
+        this._native.encode(frame._nativeFrame, options || {});
     }
 
     async flush(): Promise<void> {
@@ -419,22 +417,20 @@ export class VideoDecoder {
 
         ResourceManager.getInstance().recordActivity(this._resourceId);
         this._decodeQueueSize++;
-        this._controlQueue.enqueue(() => {
-            // Handle both wrapped EncodedVideoChunk and raw native chunks
-            if (chunk instanceof EncodedVideoChunk) {
-                // Create a native EncodedVideoChunk from our TypeScript wrapper
-                const nativeChunk = new native.EncodedVideoChunk({
-                    type: chunk.type,
-                    timestamp: chunk.timestamp,
-                    duration: chunk.duration,
-                    data: chunk.data
-                });
-                this._native.decode(nativeChunk);
-            } else {
-                // Assume it's already a native chunk
-                this._native.decode(chunk);
-            }
-        });
+        // Call native decode directly - chunk must be valid at call time
+        if (chunk instanceof EncodedVideoChunk) {
+            // Create a native EncodedVideoChunk from our TypeScript wrapper
+            const nativeChunk = new native.EncodedVideoChunk({
+                type: chunk.type,
+                timestamp: chunk.timestamp,
+                duration: chunk.duration,
+                data: chunk.data
+            });
+            this._native.decode(nativeChunk);
+        } else {
+            // Assume it's already a native chunk
+            this._native.decode(chunk);
+        }
     }
 
     async flush(): Promise<void> {
@@ -643,16 +639,14 @@ export class AudioEncoder {
     }
 
     configure(config: AudioEncoderConfig): void {
-        this._controlQueue.enqueue(() => {
-            this._native.configure(config);
-        });
+        // Configure synchronously to set state immediately per W3C spec
+        this._native.configure(config);
     }
 
     encode(data: AudioData): void {
         this._encodeQueueSize++;
-        this._controlQueue.enqueue(() => {
-            this._native.encode(data._nativeAudioData);
-        });
+        // Call native encode directly - data must be valid at call time
+        this._native.encode(data._nativeAudioData);
     }
 
     async flush(): Promise<void> {
@@ -751,9 +745,8 @@ export class AudioDecoder {
         this._needsKeyFrame = false;
 
         this._decodeQueueSize++;
-        this._controlQueue.enqueue(() => {
-            this._native.decode(chunk._nativeChunk);
-        });
+        // Call native decode directly - chunk must be valid at call time
+        this._native.decode(chunk._nativeChunk);
     }
 
     async flush(): Promise<void> {
