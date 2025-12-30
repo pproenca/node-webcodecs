@@ -475,6 +475,9 @@ export interface VideoEncoderConfig {
   bitrateMode?: VideoEncoderBitrateMode;
   latencyMode?: LatencyMode;
   contentHint?: string;
+  // Codec-specific configurations per W3C WebCodecs Codec Registry
+  avc?: AvcEncoderConfig;
+  hevc?: HevcEncoderConfig;
 }
 
 /**
@@ -502,6 +505,42 @@ export interface VideoEncoderEncodeOptionsForAvc {
 
 export interface VideoEncoderEncodeOptionsForHevc {
   quantizer?: number; // 0-51
+}
+
+// =============================================================================
+// CODEC-SPECIFIC ENCODER CONFIGURATIONS (W3C WebCodecs Codec Registry)
+// =============================================================================
+
+/**
+ * WebIDL:
+ * enum AvcBitstreamFormat { "annexb", "avc" };
+ */
+export type AvcBitstreamFormat = 'annexb' | 'avc';
+
+/**
+ * WebIDL:
+ * dictionary AvcEncoderConfig {
+ *   AvcBitstreamFormat format = "avc";
+ * };
+ */
+export interface AvcEncoderConfig {
+  format?: AvcBitstreamFormat;
+}
+
+/**
+ * WebIDL:
+ * enum HevcBitstreamFormat { "annexb", "hevc" };
+ */
+export type HevcBitstreamFormat = 'annexb' | 'hevc';
+
+/**
+ * WebIDL:
+ * dictionary HevcEncoderConfig {
+ *   HevcBitstreamFormat format = "hevc";
+ * };
+ */
+export interface HevcEncoderConfig {
+  format?: HevcBitstreamFormat;
 }
 
 /**
