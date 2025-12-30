@@ -24,6 +24,7 @@ import type {
     DOMRectReadOnly
 } from './types';
 import { ControlMessageQueue } from './control-message-queue';
+import { ResourceManager } from './resource-manager';
 
 // Load native addon
 const native = require('../build/Release/node_webcodecs.node');
@@ -194,10 +195,12 @@ export class VideoEncoder {
     private _ondequeue: (() => void) | null = null;
     private _controlQueue: ControlMessageQueue;
     private _encodeQueueSize: number = 0;
+    private _resourceId: symbol;
 
     constructor(init: VideoEncoderInit) {
         this._controlQueue = new ControlMessageQueue();
         this._controlQueue.setErrorHandler(init.error);
+        this._resourceId = ResourceManager.getInstance().register(this);
 
         this._native = new native.VideoEncoder({
             output: (chunk: any, metadata: any) => {
@@ -265,6 +268,7 @@ export class VideoEncoder {
     }
 
     encode(frame: VideoFrame, options?: { keyFrame?: boolean }): void {
+        ResourceManager.getInstance().recordActivity(this._resourceId);
         this._encodeQueueSize++;
         this._controlQueue.enqueue(() => {
             this._native.encode(frame._nativeFrame, options || {});
@@ -286,6 +290,7 @@ export class VideoEncoder {
     }
 
     close(): void {
+        ResourceManager.getInstance().unregister(this._resourceId);
         this._controlQueue.clear();
         this._native.close();
     }
@@ -340,11 +345,13 @@ export class VideoDecoder {
     private _decodeQueueSize: number = 0;
     private _needsKeyFrame: boolean = true;
     private _errorCallback: (error: DOMException) => void;
+    private _resourceId: symbol;
 
     constructor(init: VideoDecoderInit) {
         this._controlQueue = new ControlMessageQueue();
         this._errorCallback = init.error;
         this._controlQueue.setErrorHandler(init.error);
+        this._resourceId = ResourceManager.getInstance().register(this);
 
         this._native = new native.VideoDecoder({
             output: (nativeFrame: any) => {
@@ -406,6 +413,7 @@ export class VideoDecoder {
         }
         this._needsKeyFrame = false;
 
+        ResourceManager.getInstance().recordActivity(this._resourceId);
         this._decodeQueueSize++;
         this._controlQueue.enqueue(() => {
             // Handle both wrapped EncodedVideoChunk and raw native chunks
@@ -438,6 +446,7 @@ export class VideoDecoder {
     }
 
     close(): void {
+        ResourceManager.getInstance().unregister(this._resourceId);
         this._controlQueue.clear();
         this._native.close();
     }
@@ -870,3 +879,6 @@ export type {
     DemuxerInit,
     TrackInfo
 } from './types';
+
+// Re-export ResourceManager
+export { ResourceManager } from './resource-manager';
