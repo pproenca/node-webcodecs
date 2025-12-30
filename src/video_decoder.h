@@ -67,6 +67,10 @@ class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
   int coded_width_;
   int coded_height_;
 
+  // Rotation and flip config (per W3C spec).
+  int rotation_ = 0;      // 0, 90, 180, 270
+  bool flip_ = false;     // horizontal flip
+
   // Friend declaration
   friend class AsyncDecodeWorker;
 };
