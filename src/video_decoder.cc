@@ -3,6 +3,7 @@
 
 #include "src/video_decoder.h"
 
+#include <cmath>
 #include <cstring>
 #include <memory>
 #include <string>
@@ -132,22 +133,20 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
   }
   std::string codec_str = config.Get("codec").As<Napi::String>().Utf8Value();
 
-  // Parse dimensions.
-  if (!config.Has("codedWidth") || !config.Get("codedWidth").IsNumber()) {
-    throw Napi::Error::New(env, "config.codedWidth is required");
+  // Parse dimensions (optional per W3C spec - decoder can infer from bitstream).
+  coded_width_ = 0;
+  coded_height_ = 0;
+  if (config.Has("codedWidth") && config.Get("codedWidth").IsNumber()) {
+    coded_width_ = config.Get("codedWidth").As<Napi::Number>().Int32Value();
+    if (coded_width_ < 0 || coded_width_ > kMaxDimension) {
+      throw Napi::Error::New(env, "codedWidth must be between 0 and 16384");
+    }
   }
-  if (!config.Has("codedHeight") || !config.Get("codedHeight").IsNumber()) {
-    throw Napi::Error::New(env, "config.codedHeight is required");
-  }
-
-  coded_width_ = config.Get("codedWidth").As<Napi::Number>().Int32Value();
-  coded_height_ = config.Get("codedHeight").As<Napi::Number>().Int32Value();
-
-  if (coded_width_ <= 0 || coded_width_ > kMaxDimension) {
-    throw Napi::Error::New(env, "codedWidth must be between 1 and 16384");
-  }
-  if (coded_height_ <= 0 || coded_height_ > kMaxDimension) {
-    throw Napi::Error::New(env, "codedHeight must be between 1 and 16384");
+  if (config.Has("codedHeight") && config.Get("codedHeight").IsNumber()) {
+    coded_height_ = config.Get("codedHeight").As<Napi::Number>().Int32Value();
+    if (coded_height_ < 0 || coded_height_ > kMaxDimension) {
+      throw Napi::Error::New(env, "codedHeight must be between 0 and 16384");
+    }
   }
 
   // Determine codec ID from codec string.
@@ -179,9 +178,13 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
     throw Napi::Error::New(env, "Could not allocate codec context");
   }
 
-  // Configure decoder.
-  codec_context_->width = coded_width_;
-  codec_context_->height = coded_height_;
+  // Set dimensions only if provided (decoder will use bitstream dimensions otherwise).
+  if (coded_width_ > 0) {
+    codec_context_->width = coded_width_;
+  }
+  if (coded_height_ > 0) {
+    codec_context_->height = coded_height_;
+  }
 
   // Handle optional description (extradata / SPS+PPS for H.264).
   if (config.Has("description") && config.Get("description").IsTypedArray()) {
@@ -219,6 +222,67 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
   flip_ = false;
   if (config.Has("flip") && config.Get("flip").IsBoolean()) {
     flip_ = config.Get("flip").As<Napi::Boolean>().Value();
+  }
+
+  // Parse optional displayAspectWidth/displayAspectHeight (per W3C spec).
+  display_aspect_width_ = 0;
+  display_aspect_height_ = 0;
+  if (config.Has("displayAspectWidth") &&
+      config.Get("displayAspectWidth").IsNumber()) {
+    display_aspect_width_ =
+        config.Get("displayAspectWidth").As<Napi::Number>().Int32Value();
+  }
+  if (config.Has("displayAspectHeight") &&
+      config.Get("displayAspectHeight").IsNumber()) {
+    display_aspect_height_ =
+        config.Get("displayAspectHeight").As<Napi::Number>().Int32Value();
+  }
+
+  // Parse optional colorSpace (per W3C spec).
+  has_color_space_ = false;
+  color_primaries_.clear();
+  color_transfer_.clear();
+  color_matrix_.clear();
+  color_full_range_ = false;
+  if (config.Has("colorSpace") && config.Get("colorSpace").IsObject()) {
+    Napi::Object cs = config.Get("colorSpace").As<Napi::Object>();
+    has_color_space_ = true;
+
+    if (cs.Has("primaries") && cs.Get("primaries").IsString()) {
+      color_primaries_ = cs.Get("primaries").As<Napi::String>().Utf8Value();
+    }
+    if (cs.Has("transfer") && cs.Get("transfer").IsString()) {
+      color_transfer_ = cs.Get("transfer").As<Napi::String>().Utf8Value();
+    }
+    if (cs.Has("matrix") && cs.Get("matrix").IsString()) {
+      color_matrix_ = cs.Get("matrix").As<Napi::String>().Utf8Value();
+    }
+    if (cs.Has("fullRange") && cs.Get("fullRange").IsBoolean()) {
+      color_full_range_ = cs.Get("fullRange").As<Napi::Boolean>().Value();
+    }
+  }
+
+  // Parse optional optimizeForLatency (per W3C spec).
+  optimize_for_latency_ = false;
+  if (config.Has("optimizeForLatency") &&
+      config.Get("optimizeForLatency").IsBoolean()) {
+    optimize_for_latency_ =
+        config.Get("optimizeForLatency").As<Napi::Boolean>().Value();
+  }
+
+  // Parse optional hardwareAcceleration (per W3C spec).
+  // Note: This is a stub - FFmpeg uses software decoding.
+  hardware_acceleration_ = "no-preference";
+  if (config.Has("hardwareAcceleration") &&
+      config.Get("hardwareAcceleration").IsString()) {
+    hardware_acceleration_ =
+        config.Get("hardwareAcceleration").As<Napi::String>().Utf8Value();
+  }
+
+  // Apply low-latency flags if requested (before opening codec).
+  if (optimize_for_latency_) {
+    codec_context_->flags |= AV_CODEC_FLAG_LOW_DELAY;
+    codec_context_->flags2 |= AV_CODEC_FLAG2_FAST;
   }
 
   // Open codec.
@@ -450,19 +514,21 @@ Napi::Value VideoDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   }
 
   // Validate and copy codedWidth (optional for isConfigSupported per W3C spec).
+  // Note: 0 is valid (decoder infers from bitstream), consistent with configure().
   if (config.Has("codedWidth") && config.Get("codedWidth").IsNumber()) {
     int coded_width = config.Get("codedWidth").As<Napi::Number>().Int32Value();
-    if (coded_width <= 0 || coded_width > kMaxDimension) {
+    if (coded_width < 0 || coded_width > kMaxDimension) {
       supported = false;
     }
     normalized_config.Set("codedWidth", coded_width);
   }
 
   // Validate and copy codedHeight (optional per W3C spec).
+  // Note: 0 is valid (decoder infers from bitstream), consistent with configure().
   if (config.Has("codedHeight") && config.Get("codedHeight").IsNumber()) {
     int coded_height =
         config.Get("codedHeight").As<Napi::Number>().Int32Value();
-    if (coded_height <= 0 || coded_height > kMaxDimension) {
+    if (coded_height < 0 || coded_height > kMaxDimension) {
       supported = false;
     }
     normalized_config.Set("codedHeight", coded_height);
@@ -472,11 +538,17 @@ Napi::Value VideoDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   if (config.Has("description") && config.Get("description").IsTypedArray()) {
     normalized_config.Set("description", config.Get("description"));
   }
+
+  // Handle hardwareAcceleration with default value per W3C spec.
   if (config.Has("hardwareAcceleration") &&
       config.Get("hardwareAcceleration").IsString()) {
     normalized_config.Set("hardwareAcceleration",
                           config.Get("hardwareAcceleration"));
+  } else {
+    // Default to "no-preference" per W3C spec.
+    normalized_config.Set("hardwareAcceleration", "no-preference");
   }
+
   if (config.Has("optimizeForLatency") &&
       config.Get("optimizeForLatency").IsBoolean()) {
     normalized_config.Set("optimizeForLatency",
@@ -560,10 +632,32 @@ void VideoDecoder::EmitFrames(Napi::Env env) {
     sws_scale(sws_context_, frame_->data, frame_->linesize, 0, frame_->height,
               dst_data, dst_linesize);
 
-    // Create VideoFrame with rotation and flip from decoder config.
-    Napi::Object video_frame = VideoFrame::CreateInstance(
-        env, rgba_data.data(), rgba_data.size(), frame_->width, frame_->height,
-        frame_->pts, "RGBA", rotation_, flip_);
+    // Calculate display dimensions based on aspect ratio (per W3C spec).
+    // If displayAspectWidth/displayAspectHeight are set, compute display
+    // dimensions maintaining the height and adjusting width to match ratio.
+    int display_width = frame_->width;
+    int display_height = frame_->height;
+    if (display_aspect_width_ > 0 && display_aspect_height_ > 0) {
+      // Per W3C spec: displayWidth = codedHeight * aspectWidth / aspectHeight
+      display_width = static_cast<int>(
+          std::round(static_cast<double>(frame_->height) *
+                     static_cast<double>(display_aspect_width_) /
+                     static_cast<double>(display_aspect_height_)));
+      display_height = frame_->height;
+    }
+
+    // Create VideoFrame with rotation, flip, display dimensions, and colorSpace.
+    Napi::Object video_frame;
+    if (has_color_space_) {
+      video_frame = VideoFrame::CreateInstance(
+          env, rgba_data.data(), rgba_data.size(), frame_->width, frame_->height,
+          frame_->pts, "RGBA", rotation_, flip_, display_width, display_height,
+          color_primaries_, color_transfer_, color_matrix_, color_full_range_);
+    } else {
+      video_frame = VideoFrame::CreateInstance(
+          env, rgba_data.data(), rgba_data.size(), frame_->width, frame_->height,
+          frame_->pts, "RGBA", rotation_, flip_, display_width, display_height);
+    }
 
     // Call output callback.
     output_callback_.Call({video_frame});

@@ -531,8 +531,22 @@ export interface VideoEncoderInit {
 // =============================================================================
 
 /**
+ * VideoDecoder configuration options.
+ *
+ * @see https://www.w3.org/TR/webcodecs/#videodecoderconfig
+ *
  * WebIDL:
- * dictionary VideoDecoderConfig { ... };
+ * dictionary VideoDecoderConfig {
+ *   required DOMString codec;
+ *   AllowSharedBufferSource description;
+ *   [EnforceRange] unsigned long codedWidth;
+ *   [EnforceRange] unsigned long codedHeight;
+ *   [EnforceRange] unsigned long displayAspectWidth;
+ *   [EnforceRange] unsigned long displayAspectHeight;
+ *   VideoColorSpaceInit colorSpace;
+ *   HardwareAcceleration hardwareAcceleration = "no-preference";
+ *   boolean optimizeForLatency;
+ * };
  */
 export interface VideoDecoderConfig {
   codec: string;
@@ -544,8 +558,23 @@ export interface VideoDecoderConfig {
   colorSpace?: VideoColorSpaceInit;
   hardwareAcceleration?: HardwareAcceleration;
   optimizeForLatency?: boolean;
-  rotation?: number; // double, default 0
-  flip?: boolean; // default false
+
+  /**
+   * Rotation to apply to decoded frames.
+   *
+   * @nonstandard - node-webcodecs extension, not part of W3C WebCodecs spec.
+   * Valid values: 0, 90, 180, or 270 (degrees clockwise).
+   * Default: 0
+   */
+  rotation?: 0 | 90 | 180 | 270;
+
+  /**
+   * Whether to horizontally flip decoded frames.
+   *
+   * @nonstandard - node-webcodecs extension, not part of W3C WebCodecs spec.
+   * Default: false
+   */
+  flip?: boolean;
 }
 
 /**

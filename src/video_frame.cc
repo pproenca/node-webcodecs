@@ -163,6 +163,7 @@ Napi::Object VideoFrame::Init(Napi::Env env, Napi::Object exports) {
           InstanceAccessor("rotation", &VideoFrame::GetRotation, nullptr),
           InstanceAccessor("flip", &VideoFrame::GetFlip, nullptr),
           InstanceAccessor("visibleRect", &VideoFrame::GetVisibleRect, nullptr),
+          InstanceAccessor("colorSpace", &VideoFrame::GetColorSpace, nullptr),
           InstanceMethod("close", &VideoFrame::Close),
           InstanceMethod("getData", &VideoFrame::GetDataBuffer),
           InstanceMethod("clone", &VideoFrame::Clone),
@@ -265,6 +266,26 @@ VideoFrame::VideoFrame(const Napi::CallbackInfo& info)
         .ThrowAsJavaScriptException();
     return;
   }
+
+  // Parse colorSpace from options (per W3C WebCodecs spec).
+  has_color_space_ = false;
+  if (opts.Has("colorSpace") && opts.Get("colorSpace").IsObject()) {
+    Napi::Object cs = opts.Get("colorSpace").As<Napi::Object>();
+    has_color_space_ = true;
+
+    if (cs.Has("primaries") && cs.Get("primaries").IsString()) {
+      color_primaries_ = cs.Get("primaries").As<Napi::String>().Utf8Value();
+    }
+    if (cs.Has("transfer") && cs.Get("transfer").IsString()) {
+      color_transfer_ = cs.Get("transfer").As<Napi::String>().Utf8Value();
+    }
+    if (cs.Has("matrix") && cs.Get("matrix").IsString()) {
+      color_matrix_ = cs.Get("matrix").As<Napi::String>().Utf8Value();
+    }
+    if (cs.Has("fullRange") && cs.Get("fullRange").IsBoolean()) {
+      color_full_range_ = cs.Get("fullRange").As<Napi::Boolean>().Value();
+    }
+  }
 }
 
 VideoFrame::~VideoFrame() {
@@ -352,6 +373,42 @@ Napi::Value VideoFrame::GetVisibleRect(const Napi::CallbackInfo& info) {
   return rect;
 }
 
+Napi::Value VideoFrame::GetColorSpace(const Napi::CallbackInfo& info) {
+  if (closed_) {
+    throw Napi::Error::New(info.Env(), "VideoFrame is closed");
+  }
+  Napi::Env env = info.Env();
+  Napi::Object cs = Napi::Object::New(env);
+
+  // Return null values if colorSpace was not set, otherwise return the values.
+  if (!color_primaries_.empty()) {
+    cs.Set("primaries", Napi::String::New(env, color_primaries_));
+  } else {
+    cs.Set("primaries", env.Null());
+  }
+
+  if (!color_transfer_.empty()) {
+    cs.Set("transfer", Napi::String::New(env, color_transfer_));
+  } else {
+    cs.Set("transfer", env.Null());
+  }
+
+  if (!color_matrix_.empty()) {
+    cs.Set("matrix", Napi::String::New(env, color_matrix_));
+  } else {
+    cs.Set("matrix", env.Null());
+  }
+
+  // fullRange defaults to null if not set, otherwise boolean value.
+  if (has_color_space_) {
+    cs.Set("fullRange", Napi::Boolean::New(env, color_full_range_));
+  } else {
+    cs.Set("fullRange", env.Null());
+  }
+
+  return cs;
+}
+
 void VideoFrame::Close(const Napi::CallbackInfo& info) {
   if (!closed_) {
     // clear() + shrink_to_fit() actually releases memory
@@ -398,6 +455,22 @@ Napi::Value VideoFrame::Clone(const Napi::CallbackInfo& info) {
   rect.Set("width", visible_rect_.width);
   rect.Set("height", visible_rect_.height);
   init.Set("visibleRect", rect);
+
+  // Copy colorSpace if set
+  if (has_color_space_) {
+    Napi::Object cs = Napi::Object::New(env);
+    if (!color_primaries_.empty()) {
+      cs.Set("primaries", Napi::String::New(env, color_primaries_));
+    }
+    if (!color_transfer_.empty()) {
+      cs.Set("transfer", Napi::String::New(env, color_transfer_));
+    }
+    if (!color_matrix_.empty()) {
+      cs.Set("matrix", Napi::String::New(env, color_matrix_));
+    }
+    cs.Set("fullRange", Napi::Boolean::New(env, color_full_range_));
+    init.Set("colorSpace", cs);
+  }
 
   // Copy data to new buffer.
   Napi::Buffer<uint8_t> data_buffer =
@@ -752,6 +825,74 @@ Napi::Object VideoFrame::CreateInstance(Napi::Env env, const uint8_t* data,
   init.Set("format", format);
   init.Set("rotation", rotation);
   init.Set("flip", flip);
+
+  // Copy data to buffer.
+  Napi::Buffer<uint8_t> data_buffer =
+      Napi::Buffer<uint8_t>::Copy(env, data, data_size);
+
+  // Create new VideoFrame instance.
+  return constructor.New({data_buffer, init});
+}
+
+Napi::Object VideoFrame::CreateInstance(Napi::Env env, const uint8_t* data,
+                                        size_t data_size, int width, int height,
+                                        int64_t timestamp,
+                                        const std::string& format, int rotation,
+                                        bool flip, int display_width,
+                                        int display_height) {
+  // Create init object with properties.
+  Napi::Object init = Napi::Object::New(env);
+  init.Set("codedWidth", width);
+  init.Set("codedHeight", height);
+  init.Set("displayWidth", display_width);
+  init.Set("displayHeight", display_height);
+  init.Set("timestamp", Napi::Number::New(env, timestamp));
+  init.Set("format", format);
+  init.Set("rotation", rotation);
+  init.Set("flip", flip);
+
+  // Copy data to buffer.
+  Napi::Buffer<uint8_t> data_buffer =
+      Napi::Buffer<uint8_t>::Copy(env, data, data_size);
+
+  // Create new VideoFrame instance.
+  return constructor.New({data_buffer, init});
+}
+
+Napi::Object VideoFrame::CreateInstance(Napi::Env env, const uint8_t* data,
+                                        size_t data_size, int width, int height,
+                                        int64_t timestamp,
+                                        const std::string& format, int rotation,
+                                        bool flip, int display_width,
+                                        int display_height,
+                                        const std::string& color_primaries,
+                                        const std::string& color_transfer,
+                                        const std::string& color_matrix,
+                                        bool color_full_range) {
+  // Create init object with properties.
+  Napi::Object init = Napi::Object::New(env);
+  init.Set("codedWidth", width);
+  init.Set("codedHeight", height);
+  init.Set("displayWidth", display_width);
+  init.Set("displayHeight", display_height);
+  init.Set("timestamp", Napi::Number::New(env, timestamp));
+  init.Set("format", format);
+  init.Set("rotation", rotation);
+  init.Set("flip", flip);
+
+  // Set colorSpace if any values are provided.
+  Napi::Object cs = Napi::Object::New(env);
+  if (!color_primaries.empty()) {
+    cs.Set("primaries", Napi::String::New(env, color_primaries));
+  }
+  if (!color_transfer.empty()) {
+    cs.Set("transfer", Napi::String::New(env, color_transfer));
+  }
+  if (!color_matrix.empty()) {
+    cs.Set("matrix", Napi::String::New(env, color_matrix));
+  }
+  cs.Set("fullRange", Napi::Boolean::New(env, color_full_range));
+  init.Set("colorSpace", cs);
 
   // Copy data to buffer.
   Napi::Buffer<uint8_t> data_buffer =

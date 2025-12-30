@@ -595,6 +595,14 @@ export class VideoDecoder extends CodecBase {
   }
 
   decode(chunk: EncodedVideoChunk): void {
+    // W3C spec: throw InvalidStateError if not configured
+    if (this.state !== 'configured') {
+      throw new DOMException(
+        `Cannot decode in state "${this.state}"`,
+        'InvalidStateError',
+      );
+    }
+
     // Check if first chunk must be a key frame per W3C spec
     if (this._needsKeyFrame && chunk.type !== 'key') {
       this._errorCallback(
@@ -630,6 +638,11 @@ export class VideoDecoder extends CodecBase {
   }
 
   reset(): void {
+    // W3C spec: throw InvalidStateError if closed
+    if (this.state === 'closed') {
+      throw new DOMException('Decoder is closed', 'InvalidStateError');
+    }
+
     this._controlQueue.clear();
     this._decodeQueueSize = 0;
     this._needsKeyFrame = true;

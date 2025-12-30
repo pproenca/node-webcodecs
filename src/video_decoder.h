@@ -76,6 +76,24 @@ class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
   int rotation_ = 0;      // 0, 90, 180, 270
   bool flip_ = false;     // horizontal flip
 
+  // Display aspect ratio (per W3C spec).
+  int display_aspect_width_ = 0;
+  int display_aspect_height_ = 0;
+
+  // Color space config (per W3C spec).
+  std::string color_primaries_;
+  std::string color_transfer_;
+  std::string color_matrix_;
+  bool color_full_range_ = false;
+  bool has_color_space_ = false;
+
+  // Low-latency optimization (per W3C spec).
+  bool optimize_for_latency_ = false;
+
+  // Hardware acceleration config (per W3C spec).
+  // Note: This is a stub - FFmpeg uses software decoding.
+  std::string hardware_acceleration_ = "no-preference";
+
   // Track last frame format/dimensions for sws_context recreation.
   AVPixelFormat last_frame_format_ = AV_PIX_FMT_NONE;
   int last_frame_width_ = 0;
