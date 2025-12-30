@@ -317,7 +317,7 @@ describe('AudioData', () => {
   });
 
   describe('copyTo', () => {
-    it('should throw if AudioData is closed', () => {
+    it('should throw if AudioData is closed', async () => {
       const data = new Float32Array(1024 * 2);
       const audioData = new AudioData({
         format: 'f32',

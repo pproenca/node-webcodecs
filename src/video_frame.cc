@@ -6,6 +6,7 @@
 #include <cstring>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 // Static constructor reference for clone().
 Napi::FunctionReference VideoFrame::constructor;
@@ -632,33 +633,130 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
 
   PixelFormat target_format = format_;
 
-  // Check if options object with format is provided
+  // Default copy region is the visible rect
+  int copy_x = visible_rect_.x;
+  int copy_y = visible_rect_.y;
+  int copy_width = visible_rect_.width > 0 ? visible_rect_.width : coded_width_;
+  int copy_height = visible_rect_.height > 0 ? visible_rect_.height : coded_height_;
+
+  // Custom layout strides (empty if not provided)
+  std::vector<int> custom_strides;
+  std::vector<size_t> custom_offsets;
+  bool has_custom_layout = false;
+
+  // Check if options object is provided
   if (info.Length() > 1 && info[1].IsObject()) {
     Napi::Object opts = info[1].As<Napi::Object>();
+
+    // Parse format option
     if (opts.Has("format")) {
       std::string format_str =
           opts.Get("format").As<Napi::String>().Utf8Value();
       target_format = ParsePixelFormat(format_str);
     }
+
+    // Parse rect option (per W3C WebCodecs spec)
+    if (opts.Has("rect") && opts.Get("rect").IsObject()) {
+      Napi::Object rect = opts.Get("rect").As<Napi::Object>();
+
+      // Read rect properties with defaults
+      if (rect.Has("x")) {
+        copy_x = rect.Get("x").As<Napi::Number>().Int32Value();
+      }
+      if (rect.Has("y")) {
+        copy_y = rect.Get("y").As<Napi::Number>().Int32Value();
+      }
+      if (rect.Has("width")) {
+        copy_width = rect.Get("width").As<Napi::Number>().Int32Value();
+      }
+      if (rect.Has("height")) {
+        copy_height = rect.Get("height").As<Napi::Number>().Int32Value();
+      }
+
+      // Validate rect bounds against coded dimensions
+      if (copy_x < 0 || copy_y < 0 ||
+          copy_x + copy_width > coded_width_ ||
+          copy_y + copy_height > coded_height_) {
+        throw Napi::Error::New(env, "rect exceeds coded frame dimensions");
+      }
+    }
+
+    // Parse layout option (per W3C WebCodecs spec)
+    if (opts.Has("layout") && opts.Get("layout").IsArray()) {
+      Napi::Array layout_arr = opts.Get("layout").As<Napi::Array>();
+      has_custom_layout = true;
+
+      for (uint32_t i = 0; i < layout_arr.Length(); i++) {
+        Napi::Value elem = layout_arr.Get(i);
+        if (elem.IsObject()) {
+          Napi::Object plane_layout = elem.As<Napi::Object>();
+          size_t offset = 0;
+          int stride = 0;
+
+          if (plane_layout.Has("offset")) {
+            offset = static_cast<size_t>(
+                plane_layout.Get("offset").As<Napi::Number>().Int64Value());
+          }
+          if (plane_layout.Has("stride")) {
+            stride = plane_layout.Get("stride").As<Napi::Number>().Int32Value();
+          }
+
+          custom_offsets.push_back(offset);
+          custom_strides.push_back(stride);
+        }
+      }
+    }
   }
 
-  // Use visible dimensions for destination size
-  int dest_width = visible_rect_.width > 0 ? visible_rect_.width : coded_width_;
-  int dest_height = visible_rect_.height > 0 ? visible_rect_.height : coded_height_;
+  // Use copy region dimensions for destination size calculation
+  int dest_width = copy_width;
+  int dest_height = copy_height;
 
-  // Verify buffer size
+  // Calculate required size based on format (not custom layout)
   size_t required_size =
       CalculateAllocationSize(target_format, dest_width, dest_height);
+
+  // If custom layout is provided, calculate required size from layout
+  if (has_custom_layout && !custom_strides.empty()) {
+    const auto& fmt_info = GetFormatInfo(target_format);
+    size_t custom_required = 0;
+
+    if (fmt_info.num_planes == 1) {
+      // Packed format: single plane
+      if (!custom_offsets.empty() && !custom_strides.empty()) {
+        custom_required = custom_offsets[0] +
+                          static_cast<size_t>(custom_strides[0]) * dest_height;
+      }
+    } else {
+      // Multi-plane format
+      for (size_t i = 0; i < custom_offsets.size() && i < custom_strides.size(); i++) {
+        size_t plane_height = dest_height;
+        // Chroma planes are subsampled
+        if (i > 0 && i < 3 && !fmt_info.is_semi_planar) {
+          plane_height = dest_height >> fmt_info.chroma_v_shift;
+        } else if (i == 1 && fmt_info.is_semi_planar) {
+          plane_height = dest_height >> fmt_info.chroma_v_shift;
+        }
+        size_t plane_end = custom_offsets[i] +
+                           static_cast<size_t>(custom_strides[i]) * plane_height;
+        if (plane_end > custom_required) {
+          custom_required = plane_end;
+        }
+      }
+    }
+    required_size = custom_required;
+  }
+
   if (dest.Length() < required_size) {
     throw Napi::Error::New(env, "Destination buffer too small");
   }
 
   // Check if we're doing a full copy (no cropping needed)
-  bool full_copy = (visible_rect_.x == 0 && visible_rect_.y == 0 &&
+  bool full_copy = (copy_x == 0 && copy_y == 0 &&
                     dest_width == coded_width_ && dest_height == coded_height_);
 
-  // If same format and full copy, just copy the data directly
-  if (target_format == format_ && full_copy) {
+  // If same format, full copy, and no custom layout, just copy the data directly
+  if (target_format == format_ && full_copy && !has_custom_layout) {
     memcpy(dest.Data(), data_.data(), data_.size());
   } else {
     // Perform format conversion and/or cropping using sws_scale
@@ -669,7 +767,7 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
       throw Napi::Error::New(env, "Unsupported pixel format for conversion");
     }
 
-    // Create sws context with source=visible rect dimensions, dest=visible dimensions
+    // Create sws context with source=copy rect dimensions, dest=copy dimensions
     SwsContext* sws_ctx = sws_getContext(
         dest_width, dest_height, src_av_fmt,
         dest_width, dest_height, dst_av_fmt,
@@ -685,13 +783,13 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
     SetupSourcePlanes(format_, data_.data(), coded_width_, coded_height_,
                       src_data, src_linesize);
 
-    // Offset source planes for visibleRect cropping using format metadata
+    // Offset source planes for rect cropping using format metadata
     const auto& src_fmt_info = GetFormatInfo(format_);
     size_t src_bytes_per_sample = (src_fmt_info.bit_depth + 7) / 8;
 
     const uint8_t* src_data_offset[4] = {nullptr, nullptr, nullptr, nullptr};
-    int src_offset_x = visible_rect_.x;
-    int src_offset_y = visible_rect_.y;
+    int src_offset_x = copy_x;
+    int src_offset_y = copy_y;
 
     for (int i = 0; i < 4 && src_data[i]; i++) {
       if (src_fmt_info.num_planes == 1) {
@@ -721,11 +819,40 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
       }
     }
 
-    // Set up destination planes with visible dimensions
+    // Set up destination planes with copy dimensions
     uint8_t* dst_data[4];
     int dst_linesize[4];
-    SetupDestPlanes(target_format, dest.Data(), dest_width, dest_height,
-                    dst_data, dst_linesize);
+
+    if (has_custom_layout && !custom_strides.empty()) {
+      // Use custom layout
+      const auto& dst_fmt_info = GetFormatInfo(target_format);
+      dst_data[0] = nullptr;
+      dst_data[1] = nullptr;
+      dst_data[2] = nullptr;
+      dst_data[3] = nullptr;
+      dst_linesize[0] = 0;
+      dst_linesize[1] = 0;
+      dst_linesize[2] = 0;
+      dst_linesize[3] = 0;
+
+      for (size_t i = 0; i < custom_offsets.size() && i < 4; i++) {
+        dst_data[i] = dest.Data() + custom_offsets[i];
+        dst_linesize[i] = custom_strides[i];
+      }
+
+      // For semi-planar formats with custom layout, ensure UV plane is set
+      if (dst_fmt_info.is_semi_planar && custom_offsets.size() < 2) {
+        // Fall back to default UV plane setup if not provided
+        size_t bytes_per_sample = (dst_fmt_info.bit_depth + 7) / 8;
+        size_t y_size = static_cast<size_t>(custom_strides[0]) * dest_height;
+        size_t chroma_width = dest_width >> dst_fmt_info.chroma_h_shift;
+        dst_data[1] = dest.Data() + y_size;
+        dst_linesize[1] = static_cast<int>(chroma_width * 2 * bytes_per_sample);
+      }
+    } else {
+      SetupDestPlanes(target_format, dest.Data(), dest_width, dest_height,
+                      dst_data, dst_linesize);
+    }
 
     // Perform the conversion/crop
     sws_scale(sws_ctx, src_data_offset, src_linesize, 0, dest_height,
@@ -734,13 +861,21 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
     sws_freeContext(sws_ctx);
   }
 
-  // Build plane layout array using visible dimensions and format metadata
+  // Build plane layout array using copy dimensions and format metadata
   const auto& fmt_info = GetFormatInfo(target_format);
   size_t bytes_per_sample = (fmt_info.bit_depth + 7) / 8;
 
   Napi::Array layout = Napi::Array::New(env);
 
-  if (fmt_info.num_planes == 1) {
+  if (has_custom_layout && !custom_strides.empty()) {
+    // Return the custom layout that was provided
+    for (size_t i = 0; i < custom_offsets.size(); i++) {
+      Napi::Object plane = Napi::Object::New(env);
+      plane.Set("offset", static_cast<double>(custom_offsets[i]));
+      plane.Set("stride", custom_strides[i]);
+      layout.Set(static_cast<uint32_t>(i), plane);
+    }
+  } else if (fmt_info.num_planes == 1) {
     // Packed RGB format
     Napi::Object plane = Napi::Object::New(env);
     plane.Set("offset", 0);
