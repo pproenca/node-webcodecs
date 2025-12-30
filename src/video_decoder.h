@@ -14,6 +14,7 @@ extern "C" {
 
 #include <napi.h>
 
+#include <atomic>
 #include <memory>
 #include <string>
 
@@ -66,6 +67,9 @@ class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
   std::string state_;
   int coded_width_;
   int coded_height_;
+  int decode_queue_size_ = 0;
+  std::atomic<bool> codec_saturated_{false};
+  static constexpr size_t kMaxQueueSize = 16;
 
   // Rotation and flip config (per W3C spec).
   int rotation_ = 0;      // 0, 90, 180, 270

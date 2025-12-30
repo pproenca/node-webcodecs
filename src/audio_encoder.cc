@@ -363,6 +363,8 @@ Napi::Value AudioEncoder::Reset(const Napi::CallbackInfo& info) {
   Cleanup();
   state_ = "unconfigured";
   frame_count_ = 0;
+  encode_queue_size_ = 0;
+  codec_saturated_.store(false);
 
   return env.Undefined();
 }
@@ -514,6 +516,10 @@ Napi::Value AudioEncoder::Flush(const Napi::CallbackInfo& info) {
     // Get remaining packets.
     EmitChunks(env);
   }
+
+  // Reset queue after flush
+  encode_queue_size_ = 0;
+  codec_saturated_.store(false);
 
   Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
   deferred.Resolve(env.Undefined());

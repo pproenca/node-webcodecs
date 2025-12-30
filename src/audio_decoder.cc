@@ -269,6 +269,8 @@ Napi::Value AudioDecoder::Reset(const Napi::CallbackInfo& info) {
   state_ = "unconfigured";
   sample_rate_ = 0;
   number_of_channels_ = 0;
+  decode_queue_size_ = 0;
+  codec_saturated_.store(false);
 
   return env.Undefined();
 }
@@ -337,6 +339,10 @@ Napi::Value AudioDecoder::Flush(const Napi::CallbackInfo& info) {
 
   // Emit remaining decoded audio data.
   EmitAudioData(env);
+
+  // Reset queue after flush
+  decode_queue_size_ = 0;
+  codec_saturated_.store(false);
 
   // Return resolved promise.
   Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
