@@ -37,10 +37,6 @@ Napi::Object AudioEncoder::Init(Napi::Env env, Napi::Object exports) {
 AudioEncoder::AudioEncoder(const Napi::CallbackInfo& info)
     : Napi::ObjectWrap<AudioEncoder>(info),
       codec_(nullptr),
-      codec_context_(nullptr),
-      swr_context_(nullptr),
-      frame_(nullptr),
-      packet_(nullptr),
       state_("unconfigured"),
       sample_rate_(0),
       number_of_channels_(0),
@@ -74,22 +70,10 @@ AudioEncoder::AudioEncoder(const Napi::CallbackInfo& info)
 AudioEncoder::~AudioEncoder() { Cleanup(); }
 
 void AudioEncoder::Cleanup() {
-  if (frame_) {
-    av_frame_free(&frame_);
-    frame_ = nullptr;
-  }
-  if (packet_) {
-    av_packet_free(&packet_);
-    packet_ = nullptr;
-  }
-  if (swr_context_) {
-    swr_free(&swr_context_);
-    swr_context_ = nullptr;
-  }
-  if (codec_context_) {
-    avcodec_free_context(&codec_context_);
-    codec_context_ = nullptr;
-  }
+  frame_.reset();
+  packet_.reset();
+  swr_context_.reset();
+  codec_context_.reset();
   codec_ = nullptr;
 }
 
@@ -137,7 +121,7 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
 
   // Store the found encoder.
   codec_ = encoder;
-  codec_context_ = avcodec_alloc_context3(codec_);
+  codec_context_ = ffmpeg::make_codec_context(codec_);
   if (!codec_context_) {
     Napi::Error::New(env, "Could not allocate codec context")
         .ThrowAsJavaScriptException();
@@ -267,7 +251,7 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
   }
 
   // Open codec.
-  int ret = avcodec_open2(codec_context_, codec_, nullptr);
+  int ret = avcodec_open2(codec_context_.get(), codec_, nullptr);
   if (ret < 0) {
     char errbuf[256];
     av_strerror(ret, errbuf, sizeof(errbuf));
@@ -278,8 +262,8 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
   }
 
   // Allocate frame and packet.
-  frame_ = av_frame_alloc();
-  packet_ = av_packet_alloc();
+  frame_ = ffmpeg::make_frame();
+  packet_ = ffmpeg::make_packet();
 
   if (!frame_ || !packet_) {
     Cleanup();
@@ -293,7 +277,7 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
   frame_->format = codec_context_->sample_fmt;
   av_channel_layout_copy(&frame_->ch_layout, &codec_context_->ch_layout);
 
-  ret = av_frame_get_buffer(frame_, 0);
+  ret = av_frame_get_buffer(frame_.get(), 0);
   if (ret < 0) {
     Cleanup();
     Napi::Error::New(env, "Could not allocate frame buffer")
@@ -302,7 +286,7 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
   }
 
   // Create resampler context for format conversion.
-  swr_context_ = swr_alloc();
+  swr_context_.reset(swr_alloc());
   if (!swr_context_) {
     Cleanup();
     Napi::Error::New(env, "Could not allocate resampler context")
@@ -314,17 +298,18 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
   AVChannelLayout in_layout;
   av_channel_layout_default(&in_layout, number_of_channels_);
 
-  av_opt_set_chlayout(swr_context_, "in_chlayout", &in_layout, 0);
-  av_opt_set_int(swr_context_, "in_sample_rate", sample_rate_, 0);
-  av_opt_set_sample_fmt(swr_context_, "in_sample_fmt", AV_SAMPLE_FMT_FLT, 0);
+  av_opt_set_chlayout(swr_context_.get(), "in_chlayout", &in_layout, 0);
+  av_opt_set_int(swr_context_.get(), "in_sample_rate", sample_rate_, 0);
+  av_opt_set_sample_fmt(swr_context_.get(), "in_sample_fmt", AV_SAMPLE_FMT_FLT,
+                        0);
 
-  av_opt_set_chlayout(swr_context_, "out_chlayout", &codec_context_->ch_layout,
-                      0);
-  av_opt_set_int(swr_context_, "out_sample_rate", sample_rate_, 0);
-  av_opt_set_sample_fmt(swr_context_, "out_sample_fmt",
+  av_opt_set_chlayout(swr_context_.get(), "out_chlayout",
+                      &codec_context_->ch_layout, 0);
+  av_opt_set_int(swr_context_.get(), "out_sample_rate", sample_rate_, 0);
+  av_opt_set_sample_fmt(swr_context_.get(), "out_sample_fmt",
                         codec_context_->sample_fmt, 0);
 
-  ret = swr_init(swr_context_);
+  ret = swr_init(swr_context_.get());
   if (ret < 0) {
     char errbuf[256];
     av_strerror(ret, errbuf, sizeof(errbuf));
@@ -457,7 +442,7 @@ Napi::Value AudioEncoder::Encode(const Napi::CallbackInfo& info) {
 
   while (samples_remaining > 0) {
     // Make frame writable.
-    int ret = av_frame_make_writable(frame_);
+    int ret = av_frame_make_writable(frame_.get());
     if (ret < 0) {
       Napi::Error::New(env, "Could not make frame writable")
           .ThrowAsJavaScriptException();
@@ -472,7 +457,7 @@ Napi::Value AudioEncoder::Encode(const Napi::CallbackInfo& info) {
 
     // Convert samples using resampler.
     const uint8_t* in_data[] = {input_ptr};
-    ret = swr_convert(swr_context_, frame_->data, frame_size, in_data,
+    ret = swr_convert(swr_context_.get(), frame_->data, frame_size, in_data,
                       samples_to_convert);
 
     if (ret < 0) {
@@ -487,7 +472,7 @@ Napi::Value AudioEncoder::Encode(const Napi::CallbackInfo& info) {
     frame_->pts = current_pts;
 
     // Send frame to encoder.
-    ret = avcodec_send_frame(codec_context_, frame_);
+    ret = avcodec_send_frame(codec_context_.get(), frame_.get());
     if (ret < 0 && ret != AVERROR(EAGAIN)) {
       char errbuf[256];
       av_strerror(ret, errbuf, sizeof(errbuf));
@@ -526,19 +511,18 @@ Napi::Value AudioEncoder::Flush(const Napi::CallbackInfo& info) {
       int frame_size = codec_context_->frame_size;
 
       // Get buffered samples from resampler
-      int ret = av_frame_make_writable(frame_);
+      int ret = av_frame_make_writable(frame_.get());
       if (ret >= 0) {
         // Flush resampler by passing NULL input
-        int out_samples = swr_convert(swr_context_,
-                                       frame_->data, frame_size,
-                                       nullptr, 0);
+        int out_samples = swr_convert(swr_context_.get(), frame_->data,
+                                      frame_size, nullptr, 0);
 
         // If we got samples, send them to encoder
         if (out_samples > 0) {
           frame_->nb_samples = out_samples;
           frame_->pts = timestamp_;
 
-          ret = avcodec_send_frame(codec_context_, frame_);
+          ret = avcodec_send_frame(codec_context_.get(), frame_.get());
           if (ret >= 0 || ret == AVERROR(EAGAIN)) {
             EmitChunks(env);
           }
@@ -547,7 +531,7 @@ Napi::Value AudioEncoder::Flush(const Napi::CallbackInfo& info) {
     }
 
     // Send NULL frame to flush encoder
-    avcodec_send_frame(codec_context_, nullptr);
+    avcodec_send_frame(codec_context_.get(), nullptr);
 
     // Get remaining packets
     EmitChunks(env);
@@ -564,7 +548,7 @@ Napi::Value AudioEncoder::Flush(const Napi::CallbackInfo& info) {
 
 void AudioEncoder::EmitChunks(Napi::Env env) {
   while (true) {
-    int ret = avcodec_receive_packet(codec_context_, packet_);
+    int ret = avcodec_receive_packet(codec_context_.get(), packet_.get());
     if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
       break;
     }
@@ -600,7 +584,7 @@ void AudioEncoder::EmitChunks(Napi::Env env) {
       codec_saturated_.store(saturated);
     }
 
-    av_packet_unref(packet_);
+    av_packet_unref(packet_.get());
   }
 }
 
