@@ -21,6 +21,8 @@ extern "C" {
 #include <string>
 #include <vector>
 
+#include "src/ffmpeg_raii.h"
+
 class VideoFilter : public Napi::ObjectWrap<VideoFilter> {
  public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
@@ -46,13 +48,13 @@ class VideoFilter : public Napi::ObjectWrap<VideoFilter> {
       int blur_strength);
 
   // FFmpeg filter state.
-  AVFilterGraph* filter_graph_;
-  AVFilterContext* buffersrc_ctx_;
-  AVFilterContext* buffersink_ctx_;
-  SwsContext* sws_rgba_to_yuv_;
-  SwsContext* sws_yuv_to_rgba_;
-  AVFrame* yuv_frame_;
-  AVFrame* output_frame_;
+  ffmpeg::AVFilterGraphPtr filter_graph_;
+  AVFilterContext* buffersrc_ctx_;   // Not owned - owned by filter_graph_
+  AVFilterContext* buffersink_ctx_;  // Not owned - owned by filter_graph_
+  ffmpeg::SwsContextPtr sws_rgba_to_yuv_;
+  ffmpeg::SwsContextPtr sws_yuv_to_rgba_;
+  ffmpeg::AVFramePtr yuv_frame_;
+  ffmpeg::AVFramePtr output_frame_;
 
   // Configuration.
   int width_;

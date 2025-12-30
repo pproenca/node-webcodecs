@@ -25,13 +25,8 @@ Napi::Object VideoFilter::Init(Napi::Env env, Napi::Object exports) {
 
 VideoFilter::VideoFilter(const Napi::CallbackInfo& info)
     : Napi::ObjectWrap<VideoFilter>(info),
-      filter_graph_(nullptr),
       buffersrc_ctx_(nullptr),
       buffersink_ctx_(nullptr),
-      sws_rgba_to_yuv_(nullptr),
-      sws_yuv_to_rgba_(nullptr),
-      yuv_frame_(nullptr),
-      output_frame_(nullptr),
       width_(0),
       height_(0),
       state_("unconfigured") {}
@@ -41,26 +36,11 @@ VideoFilter::~VideoFilter() {
 }
 
 void VideoFilter::Cleanup() {
-  if (filter_graph_) {
-    avfilter_graph_free(&filter_graph_);
-    filter_graph_ = nullptr;
-  }
-  if (sws_rgba_to_yuv_) {
-    sws_freeContext(sws_rgba_to_yuv_);
-    sws_rgba_to_yuv_ = nullptr;
-  }
-  if (sws_yuv_to_rgba_) {
-    sws_freeContext(sws_yuv_to_rgba_);
-    sws_yuv_to_rgba_ = nullptr;
-  }
-  if (yuv_frame_) {
-    av_frame_free(&yuv_frame_);
-    yuv_frame_ = nullptr;
-  }
-  if (output_frame_) {
-    av_frame_free(&output_frame_);
-    output_frame_ = nullptr;
-  }
+  filter_graph_.reset();
+  sws_rgba_to_yuv_.reset();
+  sws_yuv_to_rgba_.reset();
+  yuv_frame_.reset();
+  output_frame_.reset();
   buffersrc_ctx_ = nullptr;
   buffersink_ctx_ = nullptr;
 }
@@ -106,15 +86,15 @@ Napi::Value VideoFilter::Configure(const Napi::CallbackInfo& info) {
   }
 
   // Initialize swscale contexts for RGBA <-> YUV420P conversion
-  sws_rgba_to_yuv_ = sws_getContext(
-      width_, height_, AV_PIX_FMT_RGBA,
-      width_, height_, AV_PIX_FMT_YUV420P,
-      SWS_BILINEAR, nullptr, nullptr, nullptr);
+  sws_rgba_to_yuv_.reset(sws_getContext(width_, height_, AV_PIX_FMT_RGBA,
+                                        width_, height_, AV_PIX_FMT_YUV420P,
+                                        SWS_BILINEAR, nullptr, nullptr,
+                                        nullptr));
 
-  sws_yuv_to_rgba_ = sws_getContext(
-      width_, height_, AV_PIX_FMT_YUV420P,
-      width_, height_, AV_PIX_FMT_RGBA,
-      SWS_BILINEAR, nullptr, nullptr, nullptr);
+  sws_yuv_to_rgba_.reset(sws_getContext(width_, height_, AV_PIX_FMT_YUV420P,
+                                        width_, height_, AV_PIX_FMT_RGBA,
+                                        SWS_BILINEAR, nullptr, nullptr,
+                                        nullptr));
 
   if (!sws_rgba_to_yuv_ || !sws_yuv_to_rgba_) {
     Cleanup();
@@ -124,14 +104,14 @@ Napi::Value VideoFilter::Configure(const Napi::CallbackInfo& info) {
   }
 
   // Allocate YUV frame for filter input
-  yuv_frame_ = av_frame_alloc();
+  yuv_frame_ = ffmpeg::make_frame();
   yuv_frame_->format = AV_PIX_FMT_YUV420P;
   yuv_frame_->width = width_;
   yuv_frame_->height = height_;
-  av_frame_get_buffer(yuv_frame_, 0);
+  av_frame_get_buffer(yuv_frame_.get(), 0);
 
   // Allocate output frame
-  output_frame_ = av_frame_alloc();
+  output_frame_ = ffmpeg::make_frame();
 
   state_ = "configured";
   return env.Undefined();
@@ -207,12 +187,12 @@ AVFrame* VideoFilter::ProcessFrame(AVFrame* input) {
     return nullptr;
   }
 
-  ret = av_buffersink_get_frame(buffersink_ctx_, output_frame_);
+  ret = av_buffersink_get_frame(buffersink_ctx_, output_frame_.get());
   if (ret < 0) {
     return nullptr;
   }
 
-  return output_frame_;
+  return output_frame_.get();
 }
 
 Napi::Value VideoFilter::ApplyBlur(const Napi::CallbackInfo& info) {
@@ -283,12 +263,9 @@ Napi::Value VideoFilter::ApplyBlur(const Napi::CallbackInfo& info) {
   std::string filter_str = BuildFilterString(regions, blur_strength);
 
   // Clean up previous filter graph
-  if (filter_graph_) {
-    avfilter_graph_free(&filter_graph_);
-    filter_graph_ = nullptr;
-  }
+  filter_graph_.reset();
 
-  filter_graph_ = avfilter_graph_alloc();
+  filter_graph_ = ffmpeg::make_filter_graph();
   if (!filter_graph_) {
     Napi::Error::New(env, "Failed to allocate filter graph")
         .ThrowAsJavaScriptException();
@@ -304,8 +281,8 @@ Napi::Value VideoFilter::ApplyBlur(const Napi::CallbackInfo& info) {
            "video_size=%dx%d:pix_fmt=%d:time_base=1/30:pixel_aspect=1/1",
            width_, height_, AV_PIX_FMT_YUV420P);
 
-  int ret = avfilter_graph_create_filter(&buffersrc_ctx_, buffersrc, "in",
-                                         args, nullptr, filter_graph_);
+  int ret = avfilter_graph_create_filter(&buffersrc_ctx_, buffersrc, "in", args,
+                                         nullptr, filter_graph_.get());
   if (ret < 0) {
     Napi::Error::New(env, "Failed to create buffer source")
         .ThrowAsJavaScriptException();
@@ -313,7 +290,7 @@ Napi::Value VideoFilter::ApplyBlur(const Napi::CallbackInfo& info) {
   }
 
   ret = avfilter_graph_create_filter(&buffersink_ctx_, buffersink, "out",
-                                     nullptr, nullptr, filter_graph_);
+                                     nullptr, nullptr, filter_graph_.get());
   if (ret < 0) {
     Napi::Error::New(env, "Failed to create buffer sink")
         .ThrowAsJavaScriptException();
@@ -334,7 +311,7 @@ Napi::Value VideoFilter::ApplyBlur(const Napi::CallbackInfo& info) {
   inputs->pad_idx = 0;
   inputs->next = nullptr;
 
-  ret = avfilter_graph_parse_ptr(filter_graph_, filter_str.c_str(),
+  ret = avfilter_graph_parse_ptr(filter_graph_.get(), filter_str.c_str(),
                                  &inputs, &outputs, nullptr);
   avfilter_inout_free(&inputs);
   avfilter_inout_free(&outputs);
@@ -345,7 +322,7 @@ Napi::Value VideoFilter::ApplyBlur(const Napi::CallbackInfo& info) {
     return env.Undefined();
   }
 
-  ret = avfilter_graph_config(filter_graph_, nullptr);
+  ret = avfilter_graph_config(filter_graph_.get(), nullptr);
   if (ret < 0) {
     Napi::Error::New(env, "Failed to configure filter graph")
         .ThrowAsJavaScriptException();
@@ -353,17 +330,17 @@ Napi::Value VideoFilter::ApplyBlur(const Napi::CallbackInfo& info) {
   }
 
   // Convert RGBA to YUV420P
-  const uint8_t* src_slices[1] = { rgba_data };
-  int src_stride[1] = { width_ * 4 };
+  const uint8_t* src_slices[1] = {rgba_data};
+  int src_stride[1] = {width_ * 4};
 
-  sws_scale(sws_rgba_to_yuv_, src_slices, src_stride, 0, height_,
+  sws_scale(sws_rgba_to_yuv_.get(), src_slices, src_stride, 0, height_,
             yuv_frame_->data, yuv_frame_->linesize);
 
   yuv_frame_->pts = 0;
 
   // Process through filter
-  av_frame_unref(output_frame_);
-  AVFrame* filtered = ProcessFrame(yuv_frame_);
+  av_frame_unref(output_frame_.get());
+  AVFrame* filtered = ProcessFrame(yuv_frame_.get());
   if (!filtered) {
     Napi::Error::New(env, "Filter processing failed")
         .ThrowAsJavaScriptException();
@@ -376,11 +353,11 @@ Napi::Value VideoFilter::ApplyBlur(const Napi::CallbackInfo& info) {
       Napi::Buffer<uint8_t>::New(env, output_size);
   uint8_t* output_data = output_buffer.Data();
 
-  uint8_t* dst_slices[1] = { output_data };
-  int dst_stride[1] = { width_ * 4 };
+  uint8_t* dst_slices[1] = {output_data};
+  int dst_stride[1] = {width_ * 4};
 
-  sws_scale(sws_yuv_to_rgba_, filtered->data, filtered->linesize,
-            0, height_, dst_slices, dst_stride);
+  sws_scale(sws_yuv_to_rgba_.get(), filtered->data, filtered->linesize, 0,
+            height_, dst_slices, dst_stride);
 
   // Create new VideoFrame with blurred data using VideoFrame::CreateInstance
   return VideoFrame::CreateInstance(env, output_data, output_size,
