@@ -15,7 +15,7 @@ import type {
   VideoEncoderInit,
   VideoDecoderConfig,
   VideoDecoderInit,
-  VideoFrameInit,
+  VideoFrameBufferInit,
   VideoColorSpaceInit,
   VideoColorPrimaries,
   VideoTransferCharacteristics,
@@ -93,7 +93,7 @@ export class VideoFrame {
   private _native: NativeVideoFrame;
   private _closed: boolean = false;
 
-  constructor(data: Buffer | Uint8Array | ArrayBuffer, init: VideoFrameInit) {
+  constructor(data: Buffer | Uint8Array | ArrayBuffer, init: VideoFrameBufferInit) {
     // Convert to Buffer if needed
     let dataBuffer: Buffer;
     if (data instanceof Buffer) {
@@ -325,13 +325,13 @@ export class VideoEncoder {
       throw new DOMException('Encoder is closed', 'InvalidStateError');
     }
 
-    // Validate displayAspect pairing per W3C spec
+    // Validate display dimensions pairing per W3C spec
     if (
-      (config.displayAspectWidth !== undefined) !==
-      (config.displayAspectHeight !== undefined)
+      (config.displayWidth !== undefined) !==
+      (config.displayHeight !== undefined)
     ) {
       throw new TypeError(
-        'displayAspectWidth and displayAspectHeight must both be present or both absent',
+        'displayWidth and displayHeight must both be present or both absent',
       );
     }
 

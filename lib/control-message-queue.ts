@@ -11,7 +11,7 @@ type ControlMessage = () => void | Promise<void>;
 export class ControlMessageQueue {
   private queue: ControlMessage[] = [];
   private processing: boolean = false;
-  private errorHandler: ((error: Error) => void) | null = null;
+  private errorHandler: ((error: Error | DOMException) => void) | null = null;
 
   /**
    * Enqueue a control message for async processing.
@@ -25,7 +25,7 @@ export class ControlMessageQueue {
   /**
    * Set error handler for message processing failures.
    */
-  setErrorHandler(handler: (error: Error) => void): void {
+  setErrorHandler(handler: (error: Error | DOMException) => void): void {
     this.errorHandler = handler;
   }
 

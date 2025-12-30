@@ -646,8 +646,9 @@ export interface AudioDecoderInit {
 /**
  * WebIDL:
  * callback WebCodecsErrorCallback = undefined(DOMException error);
+ * NOTE: We accept Error | DOMException for Node.js compatibility
  */
-export type WebCodecsErrorCallback = (error: DOMException) => void;
+export type WebCodecsErrorCallback = (error: Error | DOMException) => void;
 
 // =============================================================================
 // IMAGE DECODER

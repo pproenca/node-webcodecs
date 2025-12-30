@@ -246,7 +246,7 @@ export type AudioEncoderOutputCallback = (
   },
 ) => void;
 export type AudioDecoderOutputCallback = (data: NativeAudioData) => void;
-export type ErrorCallback = (error: Error) => void;
+export type ErrorCallback = (error: Error | DOMException) => void;
 export type DemuxerTrackCallback = (track: TrackInfo) => void;
 export type DemuxerChunkCallback = (
   chunk: {
@@ -265,13 +265,13 @@ export interface NativeVideoFrameConstructor {
   new (
     data: Buffer,
     init: {
+      format: string;
       codedWidth: number;
       codedHeight: number;
       timestamp: number;
       duration?: number;
       displayWidth?: number;
       displayHeight?: number;
-      format?: string;
       rotation?: number;
       flip?: boolean;
     },
