@@ -468,11 +468,168 @@ export class VideoFrame {
     return layout;
   }
 
-  allocationSize(options?: {format?: VideoPixelFormat}): number {
+  allocationSize(options?: VideoFrameCopyToOptions): number {
     if (this._closed) {
       throw new DOMException('VideoFrame is closed', 'InvalidStateError');
     }
+
+    // W3C spec: validate rect bounds if provided
+    if (options?.rect) {
+      const rect = options.rect;
+      const rectX = rect.x ?? 0;
+      const rectY = rect.y ?? 0;
+      const rectWidth = rect.width ?? this._native.codedWidth;
+      const rectHeight = rect.height ?? this._native.codedHeight;
+
+      if (
+        rectX < 0 ||
+        rectY < 0 ||
+        rectX + rectWidth > this._native.codedWidth ||
+        rectY + rectHeight > this._native.codedHeight
+      ) {
+        throw new RangeError('rect exceeds coded frame dimensions');
+      }
+
+      // Calculate allocation size based on rect dimensions
+      return this._calculateAllocationSizeForRect(
+        rectWidth,
+        rectHeight,
+        options.format,
+      );
+    }
+
     return this._native.allocationSize(options || {});
+  }
+
+  /**
+   * Calculate allocation size for a given width/height and format.
+   * Used internally for rect-based allocationSize calculations.
+   */
+  private _calculateAllocationSizeForRect(
+    width: number,
+    height: number,
+    format?: VideoPixelFormat,
+  ): number {
+    const targetFormat = format ?? (this._native.format as VideoPixelFormat);
+
+    // Packed RGB formats: 4 bytes per pixel
+    if (
+      targetFormat === 'RGBA' ||
+      targetFormat === 'RGBX' ||
+      targetFormat === 'BGRA' ||
+      targetFormat === 'BGRX'
+    ) {
+      return width * height * 4;
+    }
+
+    // I420 format: Y plane + U plane (1/4) + V plane (1/4) = 1.5 bytes per pixel
+    if (targetFormat === 'I420') {
+      const ySize = width * height;
+      const chromaWidth = width >> 1;
+      const chromaHeight = height >> 1;
+      const uvSize = chromaWidth * chromaHeight;
+      return ySize + uvSize * 2;
+    }
+
+    // I420A format: I420 + alpha plane
+    if (targetFormat === 'I420A') {
+      const ySize = width * height;
+      const chromaWidth = width >> 1;
+      const chromaHeight = height >> 1;
+      const uvSize = chromaWidth * chromaHeight;
+      return ySize + uvSize * 2 + ySize; // Y + U + V + A
+    }
+
+    // I422 format: Y plane + U plane (1/2 width) + V plane (1/2 width)
+    if (targetFormat === 'I422') {
+      const ySize = width * height;
+      const chromaWidth = width >> 1;
+      const uvSize = chromaWidth * height;
+      return ySize + uvSize * 2;
+    }
+
+    // I422A format: I422 + alpha plane
+    if (targetFormat === 'I422A') {
+      const ySize = width * height;
+      const chromaWidth = width >> 1;
+      const uvSize = chromaWidth * height;
+      return ySize + uvSize * 2 + ySize;
+    }
+
+    // I444 format: Y plane + U plane + V plane (all same size)
+    if (targetFormat === 'I444') {
+      return width * height * 3;
+    }
+
+    // I444A format: I444 + alpha plane
+    if (targetFormat === 'I444A') {
+      return width * height * 4;
+    }
+
+    // NV12 format: Y plane + interleaved UV plane (1/2 height)
+    if (targetFormat === 'NV12' || targetFormat === 'NV21') {
+      const ySize = width * height;
+      const chromaHeight = height >> 1;
+      const uvSize = width * chromaHeight;
+      return ySize + uvSize;
+    }
+
+    // NV12A format: NV12 + alpha plane
+    if (targetFormat === 'NV12A') {
+      const ySize = width * height;
+      const chromaHeight = height >> 1;
+      const uvSize = width * chromaHeight;
+      return ySize + uvSize + ySize;
+    }
+
+    // 10-bit formats: 2 bytes per sample
+    if (targetFormat === 'I420P10' || targetFormat === 'I420P12') {
+      const ySize = width * height * 2;
+      const chromaWidth = width >> 1;
+      const chromaHeight = height >> 1;
+      const uvSize = chromaWidth * chromaHeight * 2;
+      return ySize + uvSize * 2;
+    }
+
+    if (targetFormat === 'I420AP10' || targetFormat === 'I420AP12') {
+      const ySize = width * height * 2;
+      const chromaWidth = width >> 1;
+      const chromaHeight = height >> 1;
+      const uvSize = chromaWidth * chromaHeight * 2;
+      return ySize + uvSize * 2 + ySize;
+    }
+
+    if (targetFormat === 'I422P10' || targetFormat === 'I422P12') {
+      const ySize = width * height * 2;
+      const chromaWidth = width >> 1;
+      const uvSize = chromaWidth * height * 2;
+      return ySize + uvSize * 2;
+    }
+
+    if (targetFormat === 'I422AP10' || targetFormat === 'I422AP12') {
+      const ySize = width * height * 2;
+      const chromaWidth = width >> 1;
+      const uvSize = chromaWidth * height * 2;
+      return ySize + uvSize * 2 + ySize;
+    }
+
+    if (targetFormat === 'I444P10' || targetFormat === 'I444P12') {
+      return width * height * 3 * 2;
+    }
+
+    if (targetFormat === 'I444AP10' || targetFormat === 'I444AP12') {
+      return width * height * 4 * 2;
+    }
+
+    if (targetFormat === 'NV12P10') {
+      const ySize = width * height * 2;
+      const chromaHeight = height >> 1;
+      const uvSize = width * chromaHeight * 2;
+      return ySize + uvSize;
+    }
+
+    // Fallback: delegate to native for unknown formats
+    return this._native.allocationSize({format: targetFormat});
   }
 
   clone(): VideoFrame {
