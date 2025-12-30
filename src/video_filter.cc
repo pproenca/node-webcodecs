@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "src/common.h"
 #include "src/video_frame.h"
 
 Napi::Object VideoFilter::Init(Napi::Env env, Napi::Object exports) {
@@ -70,14 +71,14 @@ Napi::Value VideoFilter::Configure(const Napi::CallbackInfo& info) {
 
   Napi::Object config = info[0].As<Napi::Object>();
 
-  if (!config.Has("width") || !config.Has("height")) {
+  if (!webcodecs::HasAttr(config, "width") || !webcodecs::HasAttr(config, "height")) {
     Napi::TypeError::New(env, "width and height required")
         .ThrowAsJavaScriptException();
     return env.Undefined();
   }
 
-  width_ = config.Get("width").As<Napi::Number>().Int32Value();
-  height_ = config.Get("height").As<Napi::Number>().Int32Value();
+  width_ = webcodecs::AttrAsInt32(config, "width");
+  height_ = webcodecs::AttrAsInt32(config, "height");
 
   if (width_ <= 0 || height_ <= 0) {
     Napi::RangeError::New(env, "width and height must be positive")
@@ -231,10 +232,10 @@ Napi::Value VideoFilter::ApplyBlur(const Napi::CallbackInfo& info) {
 
   for (uint32_t i = 0; i < regions_arr.Length(); ++i) {
     Napi::Object region = regions_arr.Get(i).As<Napi::Object>();
-    int x = region.Get("x").As<Napi::Number>().Int32Value();
-    int y = region.Get("y").As<Napi::Number>().Int32Value();
-    int w = region.Get("width").As<Napi::Number>().Int32Value();
-    int h = region.Get("height").As<Napi::Number>().Int32Value();
+    int x = webcodecs::AttrAsInt32(region, "x");
+    int y = webcodecs::AttrAsInt32(region, "y");
+    int w = webcodecs::AttrAsInt32(region, "width");
+    int h = webcodecs::AttrAsInt32(region, "height");
     regions.emplace_back(x, y, w, h);
   }
 

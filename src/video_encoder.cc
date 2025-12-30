@@ -5,6 +5,7 @@
 
 #include <string>
 
+#include "src/common.h"
 #include "src/video_frame.h"
 
 namespace {
@@ -102,57 +103,33 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
 
   Napi::Object config = info[0].As<Napi::Object>();
 
-  // Parse config.
-  width_ = config.Get("width").As<Napi::Number>().Int32Value();
-  height_ = config.Get("height").As<Napi::Number>().Int32Value();
+  // Parse config using webcodecs:: helpers.
+  width_ = webcodecs::AttrAsInt32(config, "width");
+  height_ = webcodecs::AttrAsInt32(config, "height");
 
   // Parse display dimensions (default to coded dimensions)
-  display_width_ = width_;
-  display_height_ = height_;
-  if (config.Has("displayWidth") && config.Get("displayWidth").IsNumber()) {
-    display_width_ = config.Get("displayWidth").As<Napi::Number>().Int32Value();
-  }
-  if (config.Has("displayHeight") && config.Get("displayHeight").IsNumber()) {
-    display_height_ =
-        config.Get("displayHeight").As<Napi::Number>().Int32Value();
-  }
+  display_width_ = webcodecs::AttrAsInt32(config, "displayWidth", width_);
+  display_height_ = webcodecs::AttrAsInt32(config, "displayHeight", height_);
 
-  int bitrate = kDefaultBitrate;
-  if (config.Has("bitrate")) {
-    bitrate = config.Get("bitrate").As<Napi::Number>().Int32Value();
-  }
-
-  int framerate = kDefaultFramerate;
-  if (config.Has("framerate")) {
-    framerate = config.Get("framerate").As<Napi::Number>().Int32Value();
-  }
+  int bitrate = webcodecs::AttrAsInt32(config, "bitrate", kDefaultBitrate);
+  int framerate = webcodecs::AttrAsInt32(config, "framerate", kDefaultFramerate);
 
   // Parse codec string
-  std::string codec_str = "h264";  // Default
-  if (config.Has("codec") && config.Get("codec").IsString()) {
-    codec_str = config.Get("codec").As<Napi::String>().Utf8Value();
-  }
+  std::string codec_str = webcodecs::AttrAsStr(config, "codec", "h264");
   codec_string_ = codec_str;  // Store for metadata
 
-  // Parse colorSpace config
+  // Parse colorSpace config using webcodecs:: helpers.
   color_primaries_ = "";
   color_transfer_ = "";
   color_matrix_ = "";
   color_full_range_ = false;
-  if (config.Has("colorSpace") && config.Get("colorSpace").IsObject()) {
+  if (webcodecs::HasAttr(config, "colorSpace") &&
+      config.Get("colorSpace").IsObject()) {
     Napi::Object cs = config.Get("colorSpace").As<Napi::Object>();
-    if (cs.Has("primaries") && cs.Get("primaries").IsString()) {
-      color_primaries_ = cs.Get("primaries").As<Napi::String>().Utf8Value();
-    }
-    if (cs.Has("transfer") && cs.Get("transfer").IsString()) {
-      color_transfer_ = cs.Get("transfer").As<Napi::String>().Utf8Value();
-    }
-    if (cs.Has("matrix") && cs.Get("matrix").IsString()) {
-      color_matrix_ = cs.Get("matrix").As<Napi::String>().Utf8Value();
-    }
-    if (cs.Has("fullRange") && cs.Get("fullRange").IsBoolean()) {
-      color_full_range_ = cs.Get("fullRange").As<Napi::Boolean>().Value();
-    }
+    color_primaries_ = webcodecs::AttrAsStr(cs, "primaries", "");
+    color_transfer_ = webcodecs::AttrAsStr(cs, "transfer", "");
+    color_matrix_ = webcodecs::AttrAsStr(cs, "matrix", "");
+    color_full_range_ = webcodecs::AttrAsBool(cs, "fullRange", false);
   }
 
   // Parse codec-specific bitstream format per W3C codec registration.
@@ -160,22 +137,14 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
   // Per W3C spec, the default should be "avc"/"hevc" when explicit config provided,
   // but for backwards compatibility when no config is provided, use "annexb".
   bitstream_format_ = "annexb";
-  if (config.Has("avc") && config.Get("avc").IsObject()) {
+  if (webcodecs::HasAttr(config, "avc") && config.Get("avc").IsObject()) {
     Napi::Object avc_config = config.Get("avc").As<Napi::Object>();
-    if (avc_config.Has("format") && avc_config.Get("format").IsString()) {
-      bitstream_format_ = avc_config.Get("format").As<Napi::String>().Utf8Value();
-    } else {
-      // Per W3C spec, default is "avc" when avc config object is present
-      bitstream_format_ = "avc";
-    }
-  } else if (config.Has("hevc") && config.Get("hevc").IsObject()) {
+    // Per W3C spec, default is "avc" when avc config object is present
+    bitstream_format_ = webcodecs::AttrAsStr(avc_config, "format", "avc");
+  } else if (webcodecs::HasAttr(config, "hevc") && config.Get("hevc").IsObject()) {
     Napi::Object hevc_config = config.Get("hevc").As<Napi::Object>();
-    if (hevc_config.Has("format") && hevc_config.Get("format").IsString()) {
-      bitstream_format_ = hevc_config.Get("format").As<Napi::String>().Utf8Value();
-    } else {
-      // Per W3C spec, default is "hevc" when hevc config object is present
-      bitstream_format_ = "hevc";
-    }
+    // Per W3C spec, default is "hevc" when hevc config object is present
+    bitstream_format_ = webcodecs::AttrAsStr(hevc_config, "format", "hevc");
   }
 
   // Find encoder based on codec string
@@ -314,46 +283,39 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
   int quantizer = -1;  // -1 means not specified
   if (info.Length() >= 2 && info[1].IsObject()) {
     Napi::Object options = info[1].As<Napi::Object>();
-    if (options.Has("keyFrame") && options.Get("keyFrame").IsBoolean()) {
-      force_key_frame = options.Get("keyFrame").As<Napi::Boolean>().Value();
-    }
+    force_key_frame = webcodecs::AttrAsBool(options, "keyFrame", false);
 
     // Parse codec-specific quantizer options per W3C WebCodecs spec.
     // Check for avc (H.264) quantizer: 0-51
-    if (options.Has("avc") && options.Get("avc").IsObject()) {
+    if (webcodecs::HasAttr(options, "avc") && options.Get("avc").IsObject()) {
       Napi::Object avc_opts = options.Get("avc").As<Napi::Object>();
-      if (avc_opts.Has("quantizer") && avc_opts.Get("quantizer").IsNumber()) {
-        int q = avc_opts.Get("quantizer").As<Napi::Number>().Int32Value();
-        if (q >= 0 && q <= 51) {
-          quantizer = q;
-        }
+      int q = webcodecs::AttrAsInt32(avc_opts, "quantizer", -1);
+      if (q >= 0 && q <= 51) {
+        quantizer = q;
       }
-    } else if (options.Has("hevc") && options.Get("hevc").IsObject()) {
+    } else if (webcodecs::HasAttr(options, "hevc") &&
+               options.Get("hevc").IsObject()) {
       // hevc (H.265) quantizer: 0-51
       Napi::Object hevc_opts = options.Get("hevc").As<Napi::Object>();
-      if (hevc_opts.Has("quantizer") && hevc_opts.Get("quantizer").IsNumber()) {
-        int q = hevc_opts.Get("quantizer").As<Napi::Number>().Int32Value();
-        if (q >= 0 && q <= 51) {
-          quantizer = q;
-        }
+      int q = webcodecs::AttrAsInt32(hevc_opts, "quantizer", -1);
+      if (q >= 0 && q <= 51) {
+        quantizer = q;
       }
-    } else if (options.Has("vp9") && options.Get("vp9").IsObject()) {
+    } else if (webcodecs::HasAttr(options, "vp9") &&
+               options.Get("vp9").IsObject()) {
       // vp9 quantizer: 0-63
       Napi::Object vp9_opts = options.Get("vp9").As<Napi::Object>();
-      if (vp9_opts.Has("quantizer") && vp9_opts.Get("quantizer").IsNumber()) {
-        int q = vp9_opts.Get("quantizer").As<Napi::Number>().Int32Value();
-        if (q >= 0 && q <= 63) {
-          quantizer = q;
-        }
+      int q = webcodecs::AttrAsInt32(vp9_opts, "quantizer", -1);
+      if (q >= 0 && q <= 63) {
+        quantizer = q;
       }
-    } else if (options.Has("av1") && options.Get("av1").IsObject()) {
+    } else if (webcodecs::HasAttr(options, "av1") &&
+               options.Get("av1").IsObject()) {
       // av1 quantizer: 0-63
       Napi::Object av1_opts = options.Get("av1").As<Napi::Object>();
-      if (av1_opts.Has("quantizer") && av1_opts.Get("quantizer").IsNumber()) {
-        int q = av1_opts.Get("quantizer").As<Napi::Number>().Int32Value();
-        if (q >= 0 && q <= 63) {
-          quantizer = q;
-        }
+      int q = webcodecs::AttrAsInt32(av1_opts, "quantizer", -1);
+      if (q >= 0 && q <= 63) {
+        quantizer = q;
       }
     }
   }
@@ -591,10 +553,10 @@ Napi::Value VideoEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   Napi::Object normalized_config = Napi::Object::New(env);
 
   // Validate codec.
-  if (!config.Has("codec") || !config.Get("codec").IsString()) {
+  std::string codec = webcodecs::AttrAsStr(config, "codec");
+  if (codec.empty()) {
     supported = false;
   } else {
-    std::string codec = config.Get("codec").As<Napi::String>().Utf8Value();
     normalized_config.Set("codec", codec);
 
     // Check if codec is supported.
@@ -630,10 +592,11 @@ Napi::Value VideoEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   }
 
   // Validate and copy width.
-  if (!config.Has("width") || !config.Get("width").IsNumber()) {
+  if (!webcodecs::HasAttr(config, "width") ||
+      !config.Get("width").IsNumber()) {
     supported = false;
   } else {
-    int width = config.Get("width").As<Napi::Number>().Int32Value();
+    int width = webcodecs::AttrAsInt32(config, "width");
     if (width <= 0 || width > kMaxDimension) {
       supported = false;
     }
@@ -641,94 +604,101 @@ Napi::Value VideoEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   }
 
   // Validate and copy height.
-  if (!config.Has("height") || !config.Get("height").IsNumber()) {
+  if (!webcodecs::HasAttr(config, "height") ||
+      !config.Get("height").IsNumber()) {
     supported = false;
   } else {
-    int height = config.Get("height").As<Napi::Number>().Int32Value();
+    int height = webcodecs::AttrAsInt32(config, "height");
     if (height <= 0 || height > kMaxDimension) {
       supported = false;
     }
     normalized_config.Set("height", height);
   }
 
-  // Copy optional properties if present.
-  if (config.Has("bitrate") && config.Get("bitrate").IsNumber()) {
+  // Copy optional properties if present using webcodecs:: helpers.
+  if (webcodecs::HasAttr(config, "bitrate") &&
+      config.Get("bitrate").IsNumber()) {
     normalized_config.Set("bitrate", config.Get("bitrate"));
   }
-  if (config.Has("framerate") && config.Get("framerate").IsNumber()) {
+  if (webcodecs::HasAttr(config, "framerate") &&
+      config.Get("framerate").IsNumber()) {
     normalized_config.Set("framerate", config.Get("framerate"));
   }
-  if (config.Has("hardwareAcceleration") &&
+  if (webcodecs::HasAttr(config, "hardwareAcceleration") &&
       config.Get("hardwareAcceleration").IsString()) {
     normalized_config.Set("hardwareAcceleration",
                           config.Get("hardwareAcceleration"));
   }
-  if (config.Has("latencyMode") && config.Get("latencyMode").IsString()) {
+  if (webcodecs::HasAttr(config, "latencyMode") &&
+      config.Get("latencyMode").IsString()) {
     normalized_config.Set("latencyMode", config.Get("latencyMode"));
   }
-  if (config.Has("bitrateMode") && config.Get("bitrateMode").IsString()) {
+  if (webcodecs::HasAttr(config, "bitrateMode") &&
+      config.Get("bitrateMode").IsString()) {
     normalized_config.Set("bitrateMode", config.Get("bitrateMode"));
   }
   // Copy displayWidth and displayHeight if present (per W3C spec echo requirement)
-  if (config.Has("displayWidth") && config.Get("displayWidth").IsNumber()) {
+  if (webcodecs::HasAttr(config, "displayWidth") &&
+      config.Get("displayWidth").IsNumber()) {
     normalized_config.Set("displayWidth", config.Get("displayWidth"));
   }
-  if (config.Has("displayHeight") && config.Get("displayHeight").IsNumber()) {
+  if (webcodecs::HasAttr(config, "displayHeight") &&
+      config.Get("displayHeight").IsNumber()) {
     normalized_config.Set("displayHeight", config.Get("displayHeight"));
   }
   // Echo alpha option per W3C spec
-  if (config.Has("alpha") && config.Get("alpha").IsString()) {
+  if (webcodecs::HasAttr(config, "alpha") && config.Get("alpha").IsString()) {
     normalized_config.Set("alpha", config.Get("alpha"));
   }
   // Echo scalabilityMode per W3C spec
-  if (config.Has("scalabilityMode") &&
+  if (webcodecs::HasAttr(config, "scalabilityMode") &&
       config.Get("scalabilityMode").IsString()) {
     normalized_config.Set("scalabilityMode", config.Get("scalabilityMode"));
   }
   // Echo contentHint per W3C spec
-  if (config.Has("contentHint") && config.Get("contentHint").IsString()) {
+  if (webcodecs::HasAttr(config, "contentHint") &&
+      config.Get("contentHint").IsString()) {
     normalized_config.Set("contentHint", config.Get("contentHint"));
   }
   // Echo colorSpace per W3C spec
-  if (config.Has("colorSpace") && config.Get("colorSpace").IsObject()) {
+  if (webcodecs::HasAttr(config, "colorSpace") &&
+      config.Get("colorSpace").IsObject()) {
     Napi::Object cs = config.Get("colorSpace").As<Napi::Object>();
     Napi::Object cs_copy = Napi::Object::New(env);
-    if (cs.Has("primaries")) cs_copy.Set("primaries", cs.Get("primaries"));
-    if (cs.Has("transfer")) cs_copy.Set("transfer", cs.Get("transfer"));
-    if (cs.Has("matrix")) cs_copy.Set("matrix", cs.Get("matrix"));
-    if (cs.Has("fullRange")) cs_copy.Set("fullRange", cs.Get("fullRange"));
+    if (webcodecs::HasAttr(cs, "primaries"))
+      cs_copy.Set("primaries", cs.Get("primaries"));
+    if (webcodecs::HasAttr(cs, "transfer"))
+      cs_copy.Set("transfer", cs.Get("transfer"));
+    if (webcodecs::HasAttr(cs, "matrix"))
+      cs_copy.Set("matrix", cs.Get("matrix"));
+    if (webcodecs::HasAttr(cs, "fullRange"))
+      cs_copy.Set("fullRange", cs.Get("fullRange"));
     normalized_config.Set("colorSpace", cs_copy);
   }
 
   // Copy avc-specific config if present (per W3C AVC codec registration).
-  if (config.Has("avc") && config.Get("avc").IsObject()) {
+  if (webcodecs::HasAttr(config, "avc") && config.Get("avc").IsObject()) {
     Napi::Object avc_config = config.Get("avc").As<Napi::Object>();
     Napi::Object normalized_avc = Napi::Object::New(env);
 
-    if (avc_config.Has("format") && avc_config.Get("format").IsString()) {
-      std::string format =
-          avc_config.Get("format").As<Napi::String>().Utf8Value();
-      // Validate per W3C spec: "annexb" or "avc"
-      if (format == "annexb" || format == "avc") {
-        normalized_avc.Set("format", format);
-      }
+    std::string format = webcodecs::AttrAsStr(avc_config, "format");
+    // Validate per W3C spec: "annexb" or "avc"
+    if (format == "annexb" || format == "avc") {
+      normalized_avc.Set("format", format);
     }
 
     normalized_config.Set("avc", normalized_avc);
   }
 
   // Copy hevc-specific config if present (per W3C HEVC codec registration).
-  if (config.Has("hevc") && config.Get("hevc").IsObject()) {
+  if (webcodecs::HasAttr(config, "hevc") && config.Get("hevc").IsObject()) {
     Napi::Object hevc_config = config.Get("hevc").As<Napi::Object>();
     Napi::Object normalized_hevc = Napi::Object::New(env);
 
-    if (hevc_config.Has("format") && hevc_config.Get("format").IsString()) {
-      std::string format =
-          hevc_config.Get("format").As<Napi::String>().Utf8Value();
-      // Validate per W3C spec: "annexb" or "hevc"
-      if (format == "annexb" || format == "hevc") {
-        normalized_hevc.Set("format", format);
-      }
+    std::string format = webcodecs::AttrAsStr(hevc_config, "format");
+    // Validate per W3C spec: "annexb" or "hevc"
+    if (format == "annexb" || format == "hevc") {
+      normalized_hevc.Set("format", format);
     }
 
     normalized_config.Set("hevc", normalized_hevc);

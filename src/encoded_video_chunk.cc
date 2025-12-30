@@ -6,6 +6,8 @@
 #include <cstring>
 #include <string>
 
+#include "src/common.h"
+
 Napi::FunctionReference EncodedVideoChunk::constructor;
 
 Napi::Object InitEncodedVideoChunk(Napi::Env env, Napi::Object exports) {
@@ -59,23 +61,23 @@ EncodedVideoChunk::EncodedVideoChunk(const Napi::CallbackInfo& info)
   Napi::Object init = info[0].As<Napi::Object>();
 
   // Required: type.
-  if (!init.Has("type") || !init.Get("type").IsString()) {
+  if (!webcodecs::HasAttr(init, "type") || !init.Get("type").IsString()) {
     throw Napi::TypeError::New(env, "init.type must be 'key' or 'delta'");
   }
-  type_ = init.Get("type").As<Napi::String>().Utf8Value();
+  type_ = webcodecs::AttrAsStr(init, "type");
   if (type_ != "key" && type_ != "delta") {
     throw Napi::TypeError::New(env, "init.type must be 'key' or 'delta'");
   }
 
   // Required: timestamp.
-  if (!init.Has("timestamp") || !init.Get("timestamp").IsNumber()) {
+  if (!webcodecs::HasAttr(init, "timestamp") || !init.Get("timestamp").IsNumber()) {
     throw Napi::TypeError::New(env, "init.timestamp must be a number");
   }
-  timestamp_ = init.Get("timestamp").As<Napi::Number>().Int64Value();
+  timestamp_ = webcodecs::AttrAsInt64(init, "timestamp");
 
   // Optional: duration.
-  if (init.Has("duration") && init.Get("duration").IsNumber()) {
-    duration_ = init.Get("duration").As<Napi::Number>().Int64Value();
+  if (webcodecs::HasAttr(init, "duration") && init.Get("duration").IsNumber()) {
+    duration_ = webcodecs::AttrAsInt64(init, "duration");
     has_duration_ = true;
   }
 

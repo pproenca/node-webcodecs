@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <string>
 
+#include "src/common.h"
 #include "src/video_frame.h"
 
 Napi::Object ImageDecoder::Init(Napi::Env env, Napi::Object exports) {
@@ -50,12 +51,12 @@ ImageDecoder::ImageDecoder(const Napi::CallbackInfo& info)
   Napi::Object init = info[0].As<Napi::Object>();
 
   // Get type (MIME type)
-  if (!init.Has("type") || !init.Get("type").IsString()) {
+  if (!webcodecs::HasAttr(init, "type") || !init.Get("type").IsString()) {
     Napi::TypeError::New(env, "type is required and must be a string")
         .ThrowAsJavaScriptException();
     return;
   }
-  type_ = init.Get("type").As<Napi::String>().Utf8Value();
+  type_ = webcodecs::AttrAsStr(init, "type");
 
   // Get data
   if (!init.Has("data")) {

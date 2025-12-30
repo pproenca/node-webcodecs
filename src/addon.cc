@@ -3,6 +3,8 @@
 
 #include <napi.h>
 
+#include "src/common.h"
+
 // Forward declarations.
 Napi::Object InitVideoEncoder(Napi::Env env, Napi::Object exports);
 Napi::Object InitVideoDecoder(Napi::Env env, Napi::Object exports);
@@ -17,6 +19,9 @@ Napi::Object InitDemuxer(Napi::Env env, Napi::Object exports);
 Napi::Object InitImageDecoder(Napi::Env env, Napi::Object exports);
 
 Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
+  // Thread-safe FFmpeg initialization
+  webcodecs::InitFFmpeg();
+
   InitVideoEncoder(env, exports);
   InitVideoDecoder(env, exports);
   InitVideoFrame(env, exports);
