@@ -262,6 +262,20 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
     }
   }
 
+  // Parse optional optimizeForLatency (per W3C spec).
+  optimize_for_latency_ = false;
+  if (config.Has("optimizeForLatency") &&
+      config.Get("optimizeForLatency").IsBoolean()) {
+    optimize_for_latency_ =
+        config.Get("optimizeForLatency").As<Napi::Boolean>().Value();
+  }
+
+  // Apply low-latency flags if requested (before opening codec).
+  if (optimize_for_latency_) {
+    codec_context_->flags |= AV_CODEC_FLAG_LOW_DELAY;
+    codec_context_->flags2 |= AV_CODEC_FLAG2_FAST;
+  }
+
   // Open codec.
   int ret = avcodec_open2(codec_context_, codec_, nullptr);
   if (ret < 0) {

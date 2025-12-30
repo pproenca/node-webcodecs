@@ -87,6 +87,13 @@ class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
   bool color_full_range_ = false;
   bool has_color_space_ = false;
 
+  // Low-latency optimization (per W3C spec).
+  bool optimize_for_latency_ = false;
+
+  // Hardware acceleration config (per W3C spec).
+  // Note: This is a stub - FFmpeg uses software decoding.
+  std::string hardware_acceleration_ = "no-preference";
+
   // Track last frame format/dimensions for sws_context recreation.
   AVPixelFormat last_frame_format_ = AV_PIX_FMT_NONE;
   int last_frame_width_ = 0;

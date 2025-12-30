@@ -291,6 +291,73 @@ describe('VideoDecoder', () => {
     });
   });
 
+  describe('optimizeForLatency', () => {
+    it('should accept optimizeForLatency config option', async () => {
+      const decoder = new VideoDecoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      // Should not throw when optimizeForLatency is provided
+      expect(() => {
+        decoder.configure({
+          codec: 'avc1.42001e',
+          optimizeForLatency: true,
+        });
+      }).not.toThrow();
+
+      expect(decoder.state).toBe('configured');
+      decoder.close();
+    });
+
+    it('should include optimizeForLatency in isConfigSupported result', async () => {
+      const result = await VideoDecoder.isConfigSupported({
+        codec: 'avc1.42001e',
+        optimizeForLatency: true,
+      });
+      expect(result.supported).toBe(true);
+      expect(result.config.optimizeForLatency).toBe(true);
+    });
+  });
+
+  describe('hardwareAcceleration', () => {
+    it('should accept hardwareAcceleration config option', async () => {
+      const decoder = new VideoDecoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      // Should not throw with hardwareAcceleration
+      expect(() => {
+        decoder.configure({
+          codec: 'avc1.42001e',
+          hardwareAcceleration: 'prefer-software',
+        });
+      }).not.toThrow();
+
+      expect(decoder.state).toBe('configured');
+      decoder.close();
+    });
+
+    it('should include hardwareAcceleration in isConfigSupported result', async () => {
+      const result = await VideoDecoder.isConfigSupported({
+        codec: 'avc1.42001e',
+        hardwareAcceleration: 'prefer-hardware',
+      });
+      expect(result.supported).toBe(true);
+      expect(result.config.hardwareAcceleration).toBe('prefer-hardware');
+    });
+
+    it('should default to no-preference', async () => {
+      const result = await VideoDecoder.isConfigSupported({
+        codec: 'avc1.42001e',
+      });
+      expect(result.supported).toBe(true);
+      // Default value should be 'no-preference' per W3C spec
+      expect(result.config.hardwareAcceleration).toBe('no-preference');
+    });
+  });
+
   describe('colorSpace', () => {
     it('should pass colorSpace from config to output VideoFrame', async () => {
       // Encode frame first (same pattern as above)
