@@ -52,6 +52,8 @@ class VideoFrame : public Napi::ObjectWrap<VideoFrame> {
   // Property getters.
   Napi::Value GetCodedWidth(const Napi::CallbackInfo& info);
   Napi::Value GetCodedHeight(const Napi::CallbackInfo& info);
+  Napi::Value GetDisplayWidth(const Napi::CallbackInfo& info);
+  Napi::Value GetDisplayHeight(const Napi::CallbackInfo& info);
   Napi::Value GetTimestamp(const Napi::CallbackInfo& info);
   Napi::Value GetFormat(const Napi::CallbackInfo& info);
   Napi::Value GetRotation(const Napi::CallbackInfo& info);
@@ -67,6 +69,8 @@ class VideoFrame : public Napi::ObjectWrap<VideoFrame> {
   std::vector<uint8_t> data_;
   int coded_width_;
   int coded_height_;
+  int display_width_;
+  int display_height_;
   int64_t timestamp_;
   PixelFormat format_;
   bool closed_;

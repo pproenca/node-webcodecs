@@ -62,6 +62,10 @@ Napi::Object VideoFrame::Init(Napi::Env env, Napi::Object exports) {
       {
           InstanceAccessor("codedWidth", &VideoFrame::GetCodedWidth, nullptr),
           InstanceAccessor("codedHeight", &VideoFrame::GetCodedHeight, nullptr),
+          InstanceAccessor("displayWidth", &VideoFrame::GetDisplayWidth,
+                           nullptr),
+          InstanceAccessor("displayHeight", &VideoFrame::GetDisplayHeight,
+                           nullptr),
           InstanceAccessor("timestamp", &VideoFrame::GetTimestamp, nullptr),
           InstanceAccessor("format", &VideoFrame::GetFormat, nullptr),
           InstanceAccessor("rotation", &VideoFrame::GetRotation, nullptr),
@@ -98,6 +102,18 @@ VideoFrame::VideoFrame(const Napi::CallbackInfo& info)
   coded_height_ = opts.Get("codedHeight").As<Napi::Number>().Int32Value();
   timestamp_ = opts.Get("timestamp").As<Napi::Number>().Int64Value();
 
+  // displayWidth/displayHeight default to codedWidth/codedHeight per W3C spec
+  if (opts.Has("displayWidth")) {
+    display_width_ = opts.Get("displayWidth").As<Napi::Number>().Int32Value();
+  } else {
+    display_width_ = coded_width_;
+  }
+  if (opts.Has("displayHeight")) {
+    display_height_ = opts.Get("displayHeight").As<Napi::Number>().Int32Value();
+  } else {
+    display_height_ = coded_height_;
+  }
+
   if (opts.Has("format")) {
     std::string format_str = opts.Get("format").As<Napi::String>().Utf8Value();
     format_ = ParsePixelFormat(format_str);
@@ -132,6 +148,20 @@ Napi::Value VideoFrame::GetCodedHeight(const Napi::CallbackInfo& info) {
     throw Napi::Error::New(info.Env(), "VideoFrame is closed");
   }
   return Napi::Number::New(info.Env(), coded_height_);
+}
+
+Napi::Value VideoFrame::GetDisplayWidth(const Napi::CallbackInfo& info) {
+  if (closed_) {
+    throw Napi::Error::New(info.Env(), "VideoFrame is closed");
+  }
+  return Napi::Number::New(info.Env(), display_width_);
+}
+
+Napi::Value VideoFrame::GetDisplayHeight(const Napi::CallbackInfo& info) {
+  if (closed_) {
+    throw Napi::Error::New(info.Env(), "VideoFrame is closed");
+  }
+  return Napi::Number::New(info.Env(), display_height_);
 }
 
 Napi::Value VideoFrame::GetTimestamp(const Napi::CallbackInfo& info) {
@@ -185,6 +215,8 @@ Napi::Value VideoFrame::Clone(const Napi::CallbackInfo& info) {
   Napi::Object init = Napi::Object::New(env);
   init.Set("codedWidth", coded_width_);
   init.Set("codedHeight", coded_height_);
+  init.Set("displayWidth", display_width_);
+  init.Set("displayHeight", display_height_);
   init.Set("timestamp", Napi::Number::New(env, timestamp_));
   init.Set("format", PixelFormatToString(format_));
   init.Set("rotation", rotation_);
