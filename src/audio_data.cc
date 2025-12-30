@@ -4,11 +4,14 @@
 #include "src/audio_data.h"
 
 extern "C" {
+#include <libavutil/channel_layout.h>
+#include <libavutil/opt.h>
 #include <libswresample/swresample.h>
 }
 
 #include <cstring>
 #include <string>
+#include <vector>
 
 namespace {
 constexpr int kMicrosecondsPerSecond = 1000000;
@@ -457,9 +460,104 @@ void AudioData::CopyTo(const Napi::CallbackInfo& info) {
     return;
   }
 
-  // Format conversion required - implemented in Task 6.
-  Napi::Error::New(env, "Format conversion not yet implemented")
-      .ThrowAsJavaScriptException();
+  // Format conversion using libswresample.
+  AVSampleFormat src_fmt = ParseAudioFormat(format_);
+  AVSampleFormat dst_fmt = ParseAudioFormat(target_format);
+
+  if (src_fmt == AV_SAMPLE_FMT_NONE || dst_fmt == AV_SAMPLE_FMT_NONE) {
+    Napi::Error::New(env, "Unsupported audio format")
+        .ThrowAsJavaScriptException();
+    return;
+  }
+
+  // Create resampler context.
+  SwrContext* swr = swr_alloc();
+  if (!swr) {
+    Napi::Error::New(env, "Failed to allocate SwrContext")
+        .ThrowAsJavaScriptException();
+    return;
+  }
+
+  // Configure channel layout (same number of channels, just reordering for planar/interleaved).
+  AVChannelLayout ch_layout;
+  av_channel_layout_default(&ch_layout, number_of_channels_);
+
+  // Set input parameters.
+  av_opt_set_chlayout(swr, "in_chlayout", &ch_layout, 0);
+  av_opt_set_int(swr, "in_sample_rate", sample_rate_, 0);
+  av_opt_set_sample_fmt(swr, "in_sample_fmt", src_fmt, 0);
+
+  // Set output parameters.
+  av_opt_set_chlayout(swr, "out_chlayout", &ch_layout, 0);
+  av_opt_set_int(swr, "out_sample_rate", sample_rate_, 0);
+  av_opt_set_sample_fmt(swr, "out_sample_fmt", dst_fmt, 0);
+
+  int ret = swr_init(swr);
+  if (ret < 0) {
+    swr_free(&swr);
+    av_channel_layout_uninit(&ch_layout);
+    Napi::Error::New(env, "Failed to initialize SwrContext")
+        .ThrowAsJavaScriptException();
+    return;
+  }
+
+  // Prepare source data pointers.
+  const uint8_t* src_data[8] = {nullptr};
+  int src_linesize = 0;
+
+  if (is_planar) {
+    // Source is planar: set up pointers to each channel plane.
+    size_t plane_size = number_of_frames_ * bytes_per_sample;
+    for (uint32_t c = 0; c < number_of_channels_; c++) {
+      src_data[c] = data_.data() + c * plane_size + frame_offset * bytes_per_sample;
+    }
+    src_linesize = frame_count * bytes_per_sample;
+  } else {
+    // Source is interleaved: single data pointer.
+    src_data[0] = data_.data() + frame_offset * number_of_channels_ * bytes_per_sample;
+    src_linesize = frame_count * number_of_channels_ * bytes_per_sample;
+  }
+
+  // Prepare destination data pointers.
+  uint8_t* dst_data[8] = {nullptr};
+
+  if (target_planar) {
+    // For planar output, we only copy the requested plane.
+    // Need temporary buffer for all planes, then extract one.
+    size_t total_out_size = frame_count * number_of_channels_ * target_bytes_per_sample;
+    std::vector<uint8_t> temp_buffer(total_out_size);
+
+    for (uint32_t c = 0; c < number_of_channels_; c++) {
+      dst_data[c] = temp_buffer.data() + c * frame_count * target_bytes_per_sample;
+    }
+
+    ret = swr_convert(swr, dst_data, frame_count, src_data, frame_count);
+    if (ret < 0) {
+      swr_free(&swr);
+      av_channel_layout_uninit(&ch_layout);
+      Napi::Error::New(env, "swr_convert failed")
+          .ThrowAsJavaScriptException();
+      return;
+    }
+
+    // Copy requested plane to destination.
+    std::memcpy(dest_data, dst_data[plane_index], frame_count * target_bytes_per_sample);
+  } else {
+    // Interleaved output: write directly to destination.
+    dst_data[0] = dest_data;
+
+    ret = swr_convert(swr, dst_data, frame_count, src_data, frame_count);
+    if (ret < 0) {
+      swr_free(&swr);
+      av_channel_layout_uninit(&ch_layout);
+      Napi::Error::New(env, "swr_convert failed")
+          .ThrowAsJavaScriptException();
+      return;
+    }
+  }
+
+  swr_free(&swr);
+  av_channel_layout_uninit(&ch_layout);
 }
 
 Napi::Value AudioData::Clone(const Napi::CallbackInfo& info) {
