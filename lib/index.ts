@@ -44,8 +44,9 @@ import type {
   ImageDecoderInit,
   ImageDecodeOptions,
   ImageDecodeResult,
-  ImageTrackList,
 } from './types';
+import {ImageTrack} from './image-track';
+import {ImageTrackList} from './image-track-list';
 import type {
   NativeModule,
   NativeVideoFrame,
@@ -1224,6 +1225,7 @@ export class Demuxer {
 export class ImageDecoder {
   private _native: NativeImageDecoder;
   private _closed: boolean = false;
+  private _tracks: ImageTrackList | null = null;
 
   constructor(init: ImageDecoderInit) {
     // Convert data to Buffer if needed
@@ -1255,35 +1257,25 @@ export class ImageDecoder {
   }
 
   get tracks(): ImageTrackList {
-    // Wrap native array as W3C-compliant ImageTrackList
-    const nativeTracks = this._native.tracks;
-    const trackList: ImageTrackList = {
-      get length() {
-        return nativeTracks.length;
-      },
-      get selectedIndex() {
-        return 0;
-      },
-      get selectedTrack() {
-        return nativeTracks.length > 0 ? nativeTracks[0] : null;
-      },
-      ready: Promise.resolve(),
-      [Symbol.iterator]: function* () {
-        for (let i = 0; i < nativeTracks.length; i++) {
-          yield nativeTracks[i];
-        }
-      },
-    } as ImageTrackList;
+    if (this._tracks === null) {
+      const nativeTracks = this._native.tracks;
+      const tracks: ImageTrack[] = [];
 
-    // Add index accessor
-    for (let i = 0; i < nativeTracks.length; i++) {
-      Object.defineProperty(trackList, i, {
-        get: () => nativeTracks[i],
-        enumerable: true,
-      });
+      for (let i = 0; i < nativeTracks.length; i++) {
+        const nt = nativeTracks[i];
+        tracks.push(
+          new ImageTrack({
+            animated: nt.animated,
+            frameCount: nt.frameCount,
+            repetitionCount: nt.repetitionCount,
+            selected: nt.selected,
+          }),
+        );
+      }
+
+      this._tracks = new ImageTrackList(tracks, Promise.resolve());
     }
-
-    return trackList;
+    return this._tracks;
   }
 
   get completed(): Promise<void> {
@@ -1414,8 +1406,6 @@ export type {
   ImageDecoderInit,
   ImageDecodeOptions,
   ImageDecodeResult,
-  ImageTrack,
-  ImageTrackList,
   // Constructor interfaces
   VideoEncoderConstructor,
   VideoDecoderConstructor,
@@ -1437,6 +1427,10 @@ export type {
 
 // Re-export ResourceManager
 export {ResourceManager} from './resource-manager';
+
+// Re-export ImageTrack and ImageTrackList classes
+export {ImageTrack} from './image-track';
+export {ImageTrackList} from './image-track-list';
 
 // Re-export error classes and codes
 export {
