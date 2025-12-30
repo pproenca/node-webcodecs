@@ -10,7 +10,6 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const {execSync} = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -42,29 +41,6 @@ app.get('/api/status', (req, res) => {
   });
 
   res.json({demos: status, outputDir: OUTPUT_DIR});
-});
-
-// API: Run a specific demo
-app.post('/api/run/:demoId', (req, res) => {
-  const {demoId} = req.params;
-  const demoPath = path.join(__dirname, '..', `0${demoId}-*`, 'index.js');
-
-  try {
-    // Find the demo directory
-    const matches = require('glob').sync(demoPath);
-    if (matches.length === 0) {
-      return res.status(404).json({error: `Demo ${demoId} not found`});
-    }
-
-    const output = execSync(`node "${matches[0]}"`, {
-      encoding: 'utf8',
-      timeout: 60000,
-    });
-
-    res.json({success: true, output});
-  } catch (e) {
-    res.status(500).json({error: e.message, output: e.stdout});
-  }
 });
 
 // API: Get output files
