@@ -494,21 +494,26 @@ export class EncodedVideoChunk {
     return this.data.length;
   }
 
-  copyTo(destination: ArrayBuffer | Uint8Array): void {
+  copyTo(destination: ArrayBuffer | ArrayBufferView): void {
+    let targetView: Uint8Array;
     if (destination instanceof ArrayBuffer) {
-      const view = new Uint8Array(destination);
-      if (view.byteLength < this.data.length) {
-        throw new TypeError('Destination buffer too small');
-      }
-      view.set(this.data);
-    } else if (destination instanceof Uint8Array) {
-      if (destination.byteLength < this.data.length) {
-        throw new TypeError('Destination buffer too small');
-      }
-      destination.set(this.data);
+      targetView = new Uint8Array(destination);
+    } else if (ArrayBuffer.isView(destination)) {
+      // Handle all ArrayBufferView types (Uint8Array, DataView, etc.)
+      targetView = new Uint8Array(
+        destination.buffer,
+        destination.byteOffset,
+        destination.byteLength,
+      );
     } else {
-      throw new TypeError('Destination must be ArrayBuffer or Uint8Array');
+      throw new TypeError(
+        'Destination must be ArrayBuffer or ArrayBufferView',
+      );
     }
+    if (targetView.byteLength < this.data.length) {
+      throw new TypeError('Destination buffer too small');
+    }
+    targetView.set(this.data);
   }
 }
 
@@ -544,6 +549,7 @@ export class VideoDecoder extends CodecBase {
       const wrapper = Object.create(VideoFrame.prototype) as any;
       wrapper._native = nativeFrame;
       wrapper._closed = false;
+      wrapper._metadata = {};  // Initialize empty metadata for decoded frames
       init.output(wrapper as VideoFrame);
 
       // Fire ondequeue after output
@@ -668,28 +674,31 @@ export class AudioData {
   }
 
   get sampleRate(): number {
-    return this._native.sampleRate;
+    return this._closed ? 0 : this._native.sampleRate;
   }
 
   get numberOfFrames(): number {
-    return this._native.numberOfFrames;
+    return this._closed ? 0 : this._native.numberOfFrames;
   }
 
   get numberOfChannels(): number {
-    return this._native.numberOfChannels;
+    return this._closed ? 0 : this._native.numberOfChannels;
   }
 
   get duration(): number {
-    return this._native.duration;
+    return this._closed ? 0 : this._native.duration;
   }
 
   get timestamp(): number {
-    return this._native.timestamp;
+    return this._closed ? 0 : this._native.timestamp;
   }
 
   allocationSize(options?: AudioDataCopyToOptions): number {
     if (this._closed) {
-      throw new DOMException('AudioData is closed', 'InvalidStateError');
+      throw new DOMException(
+        'InvalidStateError: AudioData is closed',
+        'InvalidStateError',
+      );
     }
     return this._native.allocationSize(options || {});
   }
@@ -699,7 +708,10 @@ export class AudioData {
     options?: AudioDataCopyToOptions,
   ): void {
     if (this._closed) {
-      throw new DOMException('AudioData is closed', 'InvalidStateError');
+      throw new DOMException(
+        'InvalidStateError: AudioData is closed',
+        'InvalidStateError',
+      );
     }
     let destBuffer: Buffer;
     if (destination instanceof ArrayBuffer) {
@@ -720,7 +732,10 @@ export class AudioData {
 
   clone(): AudioData {
     if (this._closed) {
-      throw new DOMException('AudioData is closed', 'InvalidStateError');
+      throw new DOMException(
+        'InvalidStateError: AudioData is closed',
+        'InvalidStateError',
+      );
     }
     const clonedNative = this._native.clone();
     const wrapper = Object.create(AudioData.prototype);
@@ -1143,6 +1158,7 @@ export class ImageDecoder {
     const wrapper = Object.create(VideoFrame.prototype) as any;
     wrapper._native = result.image;
     wrapper._closed = false;
+    wrapper._metadata = {};  // Initialize empty metadata for decoded images
 
     return {
       image: wrapper as VideoFrame,
