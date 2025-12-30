@@ -1234,6 +1234,7 @@ export class ImageDecoder {
   private _tracksReadyResolve!: () => void;
   private _tracksReadyReject!: (error: Error) => void;
   private _tracksReadyPromise: Promise<void>;
+  private _initOptions: Omit<ImageDecoderInit, 'data'> | null = null;
 
   constructor(init: ImageDecoderInit) {
     // Store type immediately for the type getter
@@ -1250,6 +1251,15 @@ export class ImageDecoder {
       this._tracksReadyResolve = resolve;
       this._tracksReadyReject = reject;
     });
+
+    // Store init options (without data) for streaming case
+    this._initOptions = {
+      type: init.type,
+      colorSpaceConversion: init.colorSpaceConversion,
+      desiredWidth: init.desiredWidth,
+      desiredHeight: init.desiredHeight,
+      preferAnimation: init.preferAnimation,
+    };
 
     // Handle ReadableStream
     if (
@@ -1277,14 +1287,46 @@ export class ImageDecoder {
       throw new TypeError('data must be ArrayBuffer or ArrayBufferView');
     }
 
-    this._initializeNative(dataBuffer, init.type);
+    // Handle transfer option - detach specified ArrayBuffers per W3C spec
+    if (init.transfer && init.transfer.length > 0) {
+      detachArrayBuffers(init.transfer);
+    }
+
+    this._initializeNative(dataBuffer, init);
   }
 
-  private _initializeNative(dataBuffer: Buffer, type: string): void {
-    this._native = new native.ImageDecoder({
-      type: type,
+  private _initializeNative(
+    dataBuffer: Buffer,
+    init: ImageDecoderInit | {type: string},
+  ): void {
+    // Build native init object with all supported options
+    const nativeInit: {
+      type: string;
+      data: Buffer;
+      colorSpaceConversion?: string;
+      desiredWidth?: number;
+      desiredHeight?: number;
+      preferAnimation?: boolean;
+    } = {
+      type: init.type,
       data: dataBuffer,
-    });
+    };
+
+    // Pass additional options if they are present in the full init object
+    if ('colorSpaceConversion' in init && init.colorSpaceConversion) {
+      nativeInit.colorSpaceConversion = init.colorSpaceConversion;
+    }
+    if ('desiredWidth' in init && init.desiredWidth !== undefined) {
+      nativeInit.desiredWidth = init.desiredWidth;
+    }
+    if ('desiredHeight' in init && init.desiredHeight !== undefined) {
+      nativeInit.desiredHeight = init.desiredHeight;
+    }
+    if ('preferAnimation' in init && init.preferAnimation !== undefined) {
+      nativeInit.preferAnimation = init.preferAnimation;
+    }
+
+    this._native = new native.ImageDecoder(nativeInit);
     this._isStreaming = false;
     this._completedResolve();
     this._tracksReadyResolve();
@@ -1314,8 +1356,11 @@ export class ImageDecoder {
         offset += chunk.length;
       }
 
-      // Initialize native decoder with complete data
-      this._initializeNative(Buffer.from(fullData), this._type);
+      // Initialize native decoder with complete data and stored options
+      this._initializeNative(
+        Buffer.from(fullData),
+        this._initOptions || {type: this._type},
+      );
     } catch (error) {
       // Cancel the reader to properly clean up and prevent additional rejections
       try {
