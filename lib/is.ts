@@ -75,7 +75,7 @@ export function arrayBuffer(val: unknown): val is ArrayBuffer {
  * Is this value buffer-like (Buffer, ArrayBuffer, TypedArray)?
  */
 export function bufferLike(
-  val: unknown
+  val: unknown,
 ): val is Buffer | ArrayBuffer | ArrayBufferView {
   return buffer(val) || arrayBuffer(val) || typedArray(val);
 }
@@ -156,7 +156,7 @@ export function inArray<T>(val: T, list: readonly T[]): boolean {
 export function invalidParameterError(
   name: string,
   expected: string,
-  actual: unknown
+  actual: unknown,
 ): Error {
   let actualType: string;
   if (actual === null) {
@@ -175,7 +175,7 @@ export function invalidParameterError(
         : actualType;
 
   return new Error(
-    `Expected ${expected} for ${name} but received ${actualStr} of type ${actualType}`
+    `Expected ${expected} for ${name} but received ${actualStr} of type ${actualType}`,
   );
 }
 
@@ -193,10 +193,10 @@ export function rangeError(
   name: string,
   min: number,
   max: number,
-  actual: number
+  actual: number,
 ): Error {
   return new Error(
-    `Expected ${name} between ${min} and ${max} but received ${actual}`
+    `Expected ${name} between ${min} and ${max} but received ${actual}`,
   );
 }
 
@@ -206,10 +206,10 @@ export function rangeError(
 export function enumError(
   name: string,
   allowed: readonly string[],
-  actual: unknown
+  actual: unknown,
 ): Error {
   return new Error(
-    `Expected one of [${allowed.join(', ')}] for ${name} but received '${actual}'`
+    `Expected one of [${allowed.join(', ')}] for ${name} but received '${actual}'`,
   );
 }
 
@@ -223,4 +223,111 @@ export function nativeError(native: Error, context: Error): Error {
     (context as Error & {code: unknown}).code = native.code;
   }
   return context;
+}
+
+//==============================================================================
+// Assertion Helpers
+//==============================================================================
+
+/**
+ * Assert value is defined, throw if not.
+ */
+export function assertDefined<T>(
+  val: T | undefined | null,
+  name: string,
+): asserts val is T {
+  if (!defined(val)) {
+    throw missingParameterError(name);
+  }
+}
+
+/**
+ * Assert value is a positive integer, throw if not.
+ */
+export function assertPositiveInteger(
+  val: unknown,
+  name: string,
+): asserts val is number {
+  if (!positiveInteger(val)) {
+    throw invalidParameterError(name, 'positive integer', val);
+  }
+}
+
+/**
+ * Assert value is a non-negative integer, throw if not.
+ */
+export function assertNonNegativeInteger(
+  val: unknown,
+  name: string,
+): asserts val is number {
+  if (!nonNegativeInteger(val)) {
+    throw invalidParameterError(name, 'non-negative integer', val);
+  }
+}
+
+/**
+ * Assert value is in range, throw if not.
+ */
+export function assertInRange(
+  val: number,
+  name: string,
+  min: number,
+  max: number,
+): void {
+  if (!inRange(val, min, max)) {
+    throw rangeError(name, min, max, val);
+  }
+}
+
+/**
+ * Assert value is a function, throw if not.
+ */
+export function assertFunction(
+  val: unknown,
+  name: string,
+): asserts val is (...args: unknown[]) => unknown {
+  if (!fn(val)) {
+    throw invalidParameterError(name, 'function', val);
+  }
+}
+
+/**
+ * Assert value is a plain object, throw if not.
+ */
+export function assertPlainObject(
+  val: unknown,
+  name: string,
+): asserts val is Record<string, unknown> {
+  if (!plainObject(val)) {
+    throw invalidParameterError(name, 'plain object', val);
+  }
+}
+
+/**
+ * Assert value is one of allowed values, throw if not.
+ */
+export function assertOneOf<T extends string>(
+  val: unknown,
+  name: string,
+  allowed: readonly T[],
+): asserts val is T {
+  if (!string(val) || !inArray(val as T, allowed)) {
+    throw enumError(name, allowed, val);
+  }
+}
+
+/**
+ * Assert value is buffer-like, throw if not.
+ */
+export function assertBufferLike(
+  val: unknown,
+  name: string,
+): asserts val is Buffer | ArrayBuffer | ArrayBufferView {
+  if (!bufferLike(val)) {
+    throw invalidParameterError(
+      name,
+      'Buffer, ArrayBuffer, or TypedArray',
+      val,
+    );
+  }
 }

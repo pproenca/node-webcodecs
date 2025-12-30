@@ -98,3 +98,87 @@ describe('lib/is - Error Factories', () => {
     });
   });
 });
+
+describe('lib/is - Assertion Helpers', () => {
+  describe('assertDefined', () => {
+    it('passes for defined values', () => {
+      expect(() => is.assertDefined(0, 'value')).not.toThrow();
+      expect(() => is.assertDefined('', 'value')).not.toThrow();
+    });
+
+    it('throws for undefined/null', () => {
+      expect(() => is.assertDefined(undefined, 'config')).toThrow(
+        'Missing required parameter: config'
+      );
+      expect(() => is.assertDefined(null, 'config')).toThrow(
+        'Missing required parameter: config'
+      );
+    });
+  });
+
+  describe('assertPositiveInteger', () => {
+    it('passes for positive integers', () => {
+      expect(() => is.assertPositiveInteger(1, 'width')).not.toThrow();
+      expect(() => is.assertPositiveInteger(1920, 'width')).not.toThrow();
+    });
+
+    it('throws for invalid values', () => {
+      expect(() => is.assertPositiveInteger(0, 'width')).toThrow(
+        /Expected positive integer for width/
+      );
+      expect(() => is.assertPositiveInteger(-1, 'width')).toThrow(
+        /Expected positive integer for width/
+      );
+      expect(() => is.assertPositiveInteger(1.5, 'width')).toThrow(
+        /Expected positive integer for width/
+      );
+      expect(() => is.assertPositiveInteger('100', 'width')).toThrow(
+        /Expected positive integer for width/
+      );
+    });
+  });
+
+  describe('assertPlainObject', () => {
+    it('passes for plain objects', () => {
+      expect(() => is.assertPlainObject({}, 'config')).not.toThrow();
+      expect(() => is.assertPlainObject({a: 1}, 'config')).not.toThrow();
+    });
+
+    it('throws for non-plain objects', () => {
+      expect(() => is.assertPlainObject([], 'config')).toThrow();
+      expect(() => is.assertPlainObject(null, 'config')).toThrow();
+      expect(() => is.assertPlainObject('string', 'config')).toThrow();
+    });
+  });
+
+  describe('assertOneOf', () => {
+    it('passes for valid enum values', () => {
+      expect(() =>
+        is.assertOneOf('quality', 'mode', ['quality', 'realtime'])
+      ).not.toThrow();
+    });
+
+    it('throws for invalid enum values', () => {
+      expect(() =>
+        is.assertOneOf('fast', 'mode', ['quality', 'realtime'])
+      ).toThrow(/Expected one of \[quality, realtime\] for mode/);
+    });
+  });
+
+  describe('assertBufferLike', () => {
+    it('passes for buffer-like values', () => {
+      expect(() =>
+        is.assertBufferLike(Buffer.from([1]), 'data')
+      ).not.toThrow();
+      expect(() =>
+        is.assertBufferLike(new Uint8Array(8), 'data')
+      ).not.toThrow();
+    });
+
+    it('throws for non-buffer values', () => {
+      expect(() => is.assertBufferLike([1, 2, 3], 'data')).toThrow(
+        /Expected Buffer, ArrayBuffer, or TypedArray for data/
+      );
+    });
+  });
+});
