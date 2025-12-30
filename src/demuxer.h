@@ -34,6 +34,10 @@ class Demuxer : public Napi::ObjectWrap<Demuxer> {
   explicit Demuxer(const Napi::CallbackInfo& info);
   ~Demuxer();
 
+  // Disallow copy and assign.
+  Demuxer(const Demuxer&) = delete;
+  Demuxer& operator=(const Demuxer&) = delete;
+
  private:
   Napi::Value Open(const Napi::CallbackInfo& info);
   Napi::Value DemuxPackets(const Napi::CallbackInfo& info);
