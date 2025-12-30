@@ -23,7 +23,7 @@ const runtimePlatform = `${platform}-${arch}`;
 function getBindingPaths(): string[] {
   const rootDir = path.resolve(__dirname, '..');
   return [
-    // Development build (cmake-js output)
+    // Development build (node-gyp output)
     path.join(rootDir, 'build', 'Release', 'node_webcodecs.node'),
     path.join(rootDir, 'build', 'Debug', 'node_webcodecs.node'),
 
@@ -147,7 +147,14 @@ function loadBinding(): unknown {
   }
 
   message += '\nTo build from source:\n';
-  message += '  1. Install FFmpeg development libraries\n';
+  if (platform === 'darwin') {
+    message += '  1. Install FFmpeg: brew install ffmpeg pkg-config\n';
+  } else if (platform === 'linux') {
+    message +=
+      '  1. Install FFmpeg: sudo apt-get install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev pkg-config\n';
+  } else {
+    message += '  1. Install FFmpeg development libraries\n';
+  }
   message += '  2. Run: npm run build\n';
 
   throw new Error(message);
