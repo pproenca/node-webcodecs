@@ -693,4 +693,74 @@ describe('W3C Interface Compliance', () => {
       expect(result.config.aac?.format).toBe('adts');
     });
   });
+
+  describe('isConfigSupported W3C compliance', () => {
+    it('should echo all recognized AudioEncoderConfig properties for AAC', async () => {
+      const inputConfig = {
+        codec: 'mp4a.40.2',
+        sampleRate: 48000,
+        numberOfChannels: 2,
+        bitrate: 128000,
+        bitrateMode: 'variable' as const,
+        aac: {format: 'adts' as const},
+      };
+
+      const result = await AudioEncoder.isConfigSupported(inputConfig);
+
+      expect(result.supported).toBe(true);
+      expect(result.config.codec).toBe(inputConfig.codec);
+      expect(result.config.sampleRate).toBe(inputConfig.sampleRate);
+      expect(result.config.numberOfChannels).toBe(inputConfig.numberOfChannels);
+      expect(result.config.bitrate).toBe(inputConfig.bitrate);
+      expect(result.config.bitrateMode).toBe(inputConfig.bitrateMode);
+      expect(result.config.aac?.format).toBe(inputConfig.aac.format);
+    });
+
+    it('should echo all recognized AudioEncoderConfig properties for Opus', async () => {
+      const inputConfig = {
+        codec: 'opus',
+        sampleRate: 48000,
+        numberOfChannels: 2,
+        bitrate: 128000,
+        bitrateMode: 'constant' as const,
+        opus: {
+          application: 'audio',
+          complexity: 10,
+          format: 'opus',
+          frameDuration: 20000,
+          signal: 'music',
+          usedtx: false,
+          useinbandfec: true,
+        },
+      };
+
+      const result = await AudioEncoder.isConfigSupported(inputConfig);
+
+      expect(result.supported).toBe(true);
+      expect(result.config.codec).toBe(inputConfig.codec);
+      expect(result.config.sampleRate).toBe(inputConfig.sampleRate);
+      expect(result.config.numberOfChannels).toBe(inputConfig.numberOfChannels);
+      expect(result.config.bitrate).toBe(inputConfig.bitrate);
+      expect(result.config.bitrateMode).toBe(inputConfig.bitrateMode);
+      expect(result.config.opus?.application).toBe(inputConfig.opus.application);
+      expect(result.config.opus?.complexity).toBe(inputConfig.opus.complexity);
+      expect(result.config.opus?.format).toBe(inputConfig.opus.format);
+      expect(result.config.opus?.frameDuration).toBe(inputConfig.opus.frameDuration);
+      expect(result.config.opus?.signal).toBe(inputConfig.opus.signal);
+      expect(result.config.opus?.usedtx).toBe(inputConfig.opus.usedtx);
+      expect(result.config.opus?.useinbandfec).toBe(inputConfig.opus.useinbandfec);
+    });
+
+    it('should not echo unrecognized properties', async () => {
+      const result = await AudioEncoder.isConfigSupported({
+        codec: 'mp4a.40.2',
+        sampleRate: 48000,
+        numberOfChannels: 2,
+        unknownProperty: 'should-not-appear',
+      } as any);
+
+      expect(result.supported).toBe(true);
+      expect((result.config as any).unknownProperty).toBeUndefined();
+    });
+  });
 });
