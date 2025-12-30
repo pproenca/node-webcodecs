@@ -17,6 +17,7 @@ import type {
   VideoDecoderConfig,
   VideoDecoderInit,
   VideoFrameBufferInit,
+  VideoFrameMetadata,
   VideoColorSpaceInit,
   VideoColorPrimaries,
   VideoTransferCharacteristics,
@@ -147,6 +148,7 @@ export class VideoColorSpace {
 export class VideoFrame {
   private _native: NativeVideoFrame;
   private _closed: boolean = false;
+  private _metadata: VideoFrameMetadata;
 
   constructor(
     data: Buffer | Uint8Array | ArrayBuffer,
@@ -164,6 +166,9 @@ export class VideoFrame {
       throw new TypeError('data must be Buffer, Uint8Array, or ArrayBuffer');
     }
     this._native = new native.VideoFrame(dataBuffer, init);
+
+    // Store metadata per W3C VideoFrame Metadata Registry
+    this._metadata = init.metadata ?? {};
 
     // Handle ArrayBuffer transfer semantics per W3C WebCodecs spec
     if (init.transfer && Array.isArray(init.transfer)) {
@@ -251,11 +256,12 @@ export class VideoFrame {
     return this._native.flip ?? false;
   }
 
-  metadata(): Record<string, unknown> {
+  metadata(): VideoFrameMetadata {
     if (this._closed) {
       throw new DOMException('VideoFrame is closed', 'InvalidStateError');
     }
-    return {};
+    // Return a copy to prevent external mutation
+    return {...this._metadata};
   }
 
   close(): void {
@@ -316,6 +322,8 @@ export class VideoFrame {
     const wrapper = Object.create(VideoFrame.prototype);
     wrapper._native = clonedNative;
     wrapper._closed = false;
+    // Preserve metadata through clone
+    wrapper._metadata = {...this._metadata};
     return wrapper;
   }
 
