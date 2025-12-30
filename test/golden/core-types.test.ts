@@ -229,6 +229,91 @@ describe('AudioData', () => {
 
       audioData.close();
     });
+
+    it('should return per-plane size for planar format', () => {
+      const numberOfFrames = 1024;
+      const numberOfChannels = 2;
+      const data = new Float32Array(numberOfFrames * numberOfChannels);
+
+      const audioData = new AudioData({
+        format: 'f32-planar',
+        sampleRate: 48000,
+        numberOfFrames,
+        numberOfChannels,
+        timestamp: 0,
+        data: data.buffer,
+      });
+
+      // Each plane is just one channel
+      expect(audioData.allocationSize({ planeIndex: 0 })).toBe(numberOfFrames * 4);
+      expect(audioData.allocationSize({ planeIndex: 1 })).toBe(numberOfFrames * 4);
+
+      audioData.close();
+    });
+
+    it('should calculate size for format conversion', () => {
+      const numberOfFrames = 1024;
+      const numberOfChannels = 2;
+      const data = new Float32Array(numberOfFrames * numberOfChannels);
+
+      const audioData = new AudioData({
+        format: 'f32',
+        sampleRate: 48000,
+        numberOfFrames,
+        numberOfChannels,
+        timestamp: 0,
+        data: data.buffer,
+      });
+
+      // Convert f32 (4 bytes) to s16 (2 bytes)
+      const size = audioData.allocationSize({
+        planeIndex: 0,
+        format: 's16',
+      });
+      expect(size).toBe(numberOfFrames * numberOfChannels * 2);
+
+      audioData.close();
+    });
+
+    it('should throw RangeError for invalid planeIndex on interleaved', () => {
+      const data = new Float32Array(1024 * 2);
+      const audioData = new AudioData({
+        format: 'f32',
+        sampleRate: 48000,
+        numberOfFrames: 1024,
+        numberOfChannels: 2,
+        timestamp: 0,
+        data: data.buffer,
+      });
+
+      expect(() => audioData.allocationSize({ planeIndex: 1 })).toThrow();
+      audioData.close();
+    });
+
+    it('should return correct size with frameOffset and frameCount', () => {
+      const numberOfFrames = 1024;
+      const numberOfChannels = 2;
+      const data = new Float32Array(numberOfFrames * numberOfChannels);
+
+      const audioData = new AudioData({
+        format: 'f32',
+        sampleRate: 48000,
+        numberOfFrames,
+        numberOfChannels,
+        timestamp: 0,
+        data: data.buffer,
+      });
+
+      // Request only 100 frames starting at offset 50
+      const size = audioData.allocationSize({
+        planeIndex: 0,
+        frameOffset: 50,
+        frameCount: 100,
+      });
+      expect(size).toBe(100 * numberOfChannels * 4); // 100 frames * 2 channels * 4 bytes
+
+      audioData.close();
+    });
   });
 
   describe('clone', () => {
