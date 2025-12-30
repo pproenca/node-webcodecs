@@ -3,15 +3,15 @@
 
 #include "src/audio_data.h"
 
+#include <cstring>
+#include <string>
+#include <vector>
+
 extern "C" {
 #include <libavutil/channel_layout.h>
 #include <libavutil/opt.h>
 #include <libswresample/swresample.h>
 }
-
-#include <cstring>
-#include <string>
-#include <vector>
 
 namespace {
 constexpr int kMicrosecondsPerSecond = 1000000;

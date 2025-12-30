@@ -3,13 +3,13 @@
 
 #include "src/audio_decoder.h"
 
-extern "C" {
-#include <libavutil/opt.h>
-}
-
 #include <cstring>
 #include <string>
 #include <vector>
+
+extern "C" {
+#include <libavutil/opt.h>
+}
 
 #include "src/audio_data.h"
 #include "src/encoded_audio_chunk.h"
