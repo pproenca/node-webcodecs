@@ -12,10 +12,22 @@ Napi::FunctionReference VideoFrame::constructor;
 PixelFormat ParsePixelFormat(const std::string& format_str) {
   if (format_str == "RGBA") {
     return PixelFormat::RGBA;
+  } else if (format_str == "BGRA") {
+    return PixelFormat::BGRA;
   } else if (format_str == "I420") {
     return PixelFormat::I420;
+  } else if (format_str == "I420A") {
+    return PixelFormat::I420A;
+  } else if (format_str == "I422") {
+    return PixelFormat::I422;
+  } else if (format_str == "I444") {
+    return PixelFormat::I444;
   } else if (format_str == "NV12") {
     return PixelFormat::NV12;
+  } else if (format_str == "RGBX") {
+    return PixelFormat::RGBX;
+  } else if (format_str == "BGRX") {
+    return PixelFormat::BGRX;
   }
   return PixelFormat::UNKNOWN;
 }
@@ -24,10 +36,22 @@ std::string PixelFormatToString(PixelFormat format) {
   switch (format) {
     case PixelFormat::RGBA:
       return "RGBA";
+    case PixelFormat::BGRA:
+      return "BGRA";
     case PixelFormat::I420:
       return "I420";
+    case PixelFormat::I420A:
+      return "I420A";
+    case PixelFormat::I422:
+      return "I422";
+    case PixelFormat::I444:
+      return "I444";
     case PixelFormat::NV12:
       return "NV12";
+    case PixelFormat::RGBX:
+      return "RGBX";
+    case PixelFormat::BGRX:
+      return "BGRX";
     default:
       return "UNKNOWN";
   }
@@ -37,12 +61,31 @@ size_t CalculateAllocationSize(PixelFormat format, uint32_t width,
                                 uint32_t height) {
   switch (format) {
     case PixelFormat::RGBA:
+    case PixelFormat::BGRA:
+    case PixelFormat::RGBX:
+    case PixelFormat::BGRX:
       return width * height * 4;
     case PixelFormat::I420:
       // Y plane: width * height
       // U plane: (width/2) * (height/2)
       // V plane: (width/2) * (height/2)
       return width * height + (width / 2) * (height / 2) * 2;
+    case PixelFormat::I420A:
+      // Y plane: width * height
+      // U plane: (width/2) * (height/2)
+      // V plane: (width/2) * (height/2)
+      // A plane: width * height
+      return width * height * 5 / 2;
+    case PixelFormat::I422:
+      // Y plane: width * height
+      // U plane: (width/2) * height
+      // V plane: (width/2) * height
+      return width * height * 2;
+    case PixelFormat::I444:
+      // Y plane: width * height
+      // U plane: width * height
+      // V plane: width * height
+      return width * height * 3;
     case PixelFormat::NV12:
       // Y plane: width * height
       // UV plane: width * (height/2)
@@ -293,7 +336,10 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
   // Build plane layout array
   Napi::Array layout = Napi::Array::New(env);
 
-  if (target_format == PixelFormat::RGBA) {
+  if (target_format == PixelFormat::RGBA ||
+      target_format == PixelFormat::BGRA ||
+      target_format == PixelFormat::RGBX ||
+      target_format == PixelFormat::BGRX) {
     Napi::Object plane = Napi::Object::New(env);
     plane.Set("offset", 0);
     plane.Set("stride", coded_width_ * 4);
@@ -318,6 +364,74 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
     Napi::Object vPlane = Napi::Object::New(env);
     vPlane.Set("offset", ySize + uvSize);
     vPlane.Set("stride", coded_width_ / 2);
+    layout.Set(static_cast<uint32_t>(2), vPlane);
+  } else if (target_format == PixelFormat::I420A) {
+    uint32_t ySize = coded_width_ * coded_height_;
+    uint32_t uvSize = (coded_width_ / 2) * (coded_height_ / 2);
+
+    // Y plane
+    Napi::Object yPlane = Napi::Object::New(env);
+    yPlane.Set("offset", 0);
+    yPlane.Set("stride", coded_width_);
+    layout.Set(static_cast<uint32_t>(0), yPlane);
+
+    // U plane
+    Napi::Object uPlane = Napi::Object::New(env);
+    uPlane.Set("offset", ySize);
+    uPlane.Set("stride", coded_width_ / 2);
+    layout.Set(static_cast<uint32_t>(1), uPlane);
+
+    // V plane
+    Napi::Object vPlane = Napi::Object::New(env);
+    vPlane.Set("offset", ySize + uvSize);
+    vPlane.Set("stride", coded_width_ / 2);
+    layout.Set(static_cast<uint32_t>(2), vPlane);
+
+    // A plane
+    Napi::Object aPlane = Napi::Object::New(env);
+    aPlane.Set("offset", ySize + uvSize * 2);
+    aPlane.Set("stride", coded_width_);
+    layout.Set(static_cast<uint32_t>(3), aPlane);
+  } else if (target_format == PixelFormat::I422) {
+    uint32_t ySize = coded_width_ * coded_height_;
+    uint32_t uvSize = (coded_width_ / 2) * coded_height_;
+
+    // Y plane
+    Napi::Object yPlane = Napi::Object::New(env);
+    yPlane.Set("offset", 0);
+    yPlane.Set("stride", coded_width_);
+    layout.Set(static_cast<uint32_t>(0), yPlane);
+
+    // U plane
+    Napi::Object uPlane = Napi::Object::New(env);
+    uPlane.Set("offset", ySize);
+    uPlane.Set("stride", coded_width_ / 2);
+    layout.Set(static_cast<uint32_t>(1), uPlane);
+
+    // V plane
+    Napi::Object vPlane = Napi::Object::New(env);
+    vPlane.Set("offset", ySize + uvSize);
+    vPlane.Set("stride", coded_width_ / 2);
+    layout.Set(static_cast<uint32_t>(2), vPlane);
+  } else if (target_format == PixelFormat::I444) {
+    uint32_t planeSize = coded_width_ * coded_height_;
+
+    // Y plane
+    Napi::Object yPlane = Napi::Object::New(env);
+    yPlane.Set("offset", 0);
+    yPlane.Set("stride", coded_width_);
+    layout.Set(static_cast<uint32_t>(0), yPlane);
+
+    // U plane
+    Napi::Object uPlane = Napi::Object::New(env);
+    uPlane.Set("offset", planeSize);
+    uPlane.Set("stride", coded_width_);
+    layout.Set(static_cast<uint32_t>(1), uPlane);
+
+    // V plane
+    Napi::Object vPlane = Napi::Object::New(env);
+    vPlane.Set("offset", planeSize * 2);
+    vPlane.Set("stride", coded_width_);
     layout.Set(static_cast<uint32_t>(2), vPlane);
   } else if (target_format == PixelFormat::NV12) {
     uint32_t ySize = coded_width_ * coded_height_;

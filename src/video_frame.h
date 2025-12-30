@@ -14,8 +14,14 @@
 
 enum class PixelFormat {
   RGBA,
+  BGRA,    // BGR with alpha
   I420,    // YUV420p planar
+  I420A,   // YUV420p with alpha plane
+  I422,    // YUV422p planar
+  I444,    // YUV444p planar
   NV12,    // YUV420 semi-planar
+  RGBX,    // RGB with padding byte (no alpha)
+  BGRX,    // BGR with padding byte (no alpha)
   UNKNOWN
 };
 
