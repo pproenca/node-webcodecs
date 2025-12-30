@@ -686,7 +686,10 @@ export class AudioData {
 
   allocationSize(options?: AudioDataCopyToOptions): number {
     if (this._closed) {
-      throw new DOMException('AudioData is closed', 'InvalidStateError');
+      throw new DOMException(
+        'InvalidStateError: AudioData is closed',
+        'InvalidStateError',
+      );
     }
     return this._native.allocationSize(options || {});
   }
@@ -696,7 +699,10 @@ export class AudioData {
     options?: AudioDataCopyToOptions,
   ): void {
     if (this._closed) {
-      throw new DOMException('AudioData is closed', 'InvalidStateError');
+      throw new DOMException(
+        'InvalidStateError: AudioData is closed',
+        'InvalidStateError',
+      );
     }
     let destBuffer: Buffer;
     if (destination instanceof ArrayBuffer) {
@@ -717,7 +723,10 @@ export class AudioData {
 
   clone(): AudioData {
     if (this._closed) {
-      throw new DOMException('AudioData is closed', 'InvalidStateError');
+      throw new DOMException(
+        'InvalidStateError: AudioData is closed',
+        'InvalidStateError',
+      );
     }
     const clonedNative = this._native.clone();
     const wrapper = Object.create(AudioData.prototype);
