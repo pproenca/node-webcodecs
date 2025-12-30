@@ -21,7 +21,11 @@ import type {
     VideoFilterConfig,
     DemuxerInit,
     TrackInfo,
-    DOMRectReadOnly
+    DOMRectReadOnly,
+    ImageDecoderInit,
+    ImageDecodeOptions,
+    ImageDecodeResult,
+    ImageTrackList
 } from './types';
 import { ControlMessageQueue } from './control-message-queue';
 import { ResourceManager } from './resource-manager';
@@ -854,6 +858,90 @@ export class Demuxer {
     }
 }
 
+export class ImageDecoder {
+    private _native: any;
+    private _closed: boolean = false;
+
+    constructor(init: ImageDecoderInit) {
+        // Convert data to Buffer if needed
+        let dataBuffer: Buffer;
+        if (init.data instanceof ArrayBuffer) {
+            dataBuffer = Buffer.from(init.data);
+        } else if (ArrayBuffer.isView(init.data)) {
+            dataBuffer = Buffer.from(init.data.buffer, init.data.byteOffset, init.data.byteLength);
+        } else {
+            throw new TypeError('data must be ArrayBuffer or ArrayBufferView');
+        }
+
+        this._native = new native.ImageDecoder({
+            type: init.type,
+            data: dataBuffer
+        });
+    }
+
+    get type(): string {
+        return this._native.type;
+    }
+
+    get complete(): boolean {
+        return this._native.complete;
+    }
+
+    get tracks(): ImageTrackList {
+        return this._native.tracks;
+    }
+
+    get completed(): Promise<void> {
+        // Resolve immediately since we decode synchronously
+        return Promise.resolve();
+    }
+
+    async decode(options?: ImageDecodeOptions): Promise<ImageDecodeResult> {
+        if (this._closed) {
+            throw new DOMException('ImageDecoder is closed', 'InvalidStateError');
+        }
+
+        const result = await this._native.decode(options || {});
+
+        // Wrap the image as a VideoFrame
+        if (result.image) {
+            const wrapper = Object.create(VideoFrame.prototype);
+            wrapper._native = {
+                codedWidth: result.image.codedWidth,
+                codedHeight: result.image.codedHeight,
+                timestamp: result.image.timestamp || 0,
+                format: result.image.format || 'RGBA',
+                displayWidth: result.image.codedWidth,
+                displayHeight: result.image.codedHeight,
+                data: result.image.data,
+                close: () => {}
+            };
+            wrapper._closed = false;
+            return {
+                image: wrapper,
+                complete: result.complete
+            };
+        }
+
+        return result;
+    }
+
+    reset(): void {
+        // No-op for static images
+    }
+
+    close(): void {
+        if (!this._closed) {
+            this._native.close();
+            this._closed = true;
+        }
+    }
+
+    static async isTypeSupported(type: string): Promise<boolean> {
+        return native.ImageDecoder.isTypeSupported(type);
+    }
+}
+
 // Re-export types
 export type {
     VideoEncoderConfig,
@@ -877,7 +965,11 @@ export type {
     BlurRegion,
     VideoFilterConfig,
     DemuxerInit,
-    TrackInfo
+    TrackInfo,
+    ImageDecoderInit,
+    ImageDecodeOptions,
+    ImageDecodeResult,
+    ImageTrackList
 } from './types';
 
 // Re-export ResourceManager

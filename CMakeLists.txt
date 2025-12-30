@@ -23,6 +23,7 @@ add_definitions(-DNAPI_CPP_EXCEPTIONS)
 # Find FFmpeg libraries using pkg-config
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(AVCODEC REQUIRED libavcodec)
+pkg_check_modules(AVFORMAT REQUIRED libavformat)
 pkg_check_modules(AVUTIL REQUIRED libavutil)
 pkg_check_modules(SWSCALE REQUIRED libswscale)
 pkg_check_modules(SWRESAMPLE REQUIRED libswresample)
@@ -59,6 +60,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}
     ${AVCODEC_INCLUDE_DIRS}
+    ${AVFORMAT_INCLUDE_DIRS}
     ${AVUTIL_INCLUDE_DIRS}
     ${SWSCALE_INCLUDE_DIRS}
     ${SWRESAMPLE_INCLUDE_DIRS}
@@ -69,6 +71,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 target_link_libraries(${PROJECT_NAME}
     ${CMAKE_JS_LIB}
     ${AVCODEC_LIBRARIES}
+    ${AVFORMAT_LIBRARIES}
     ${AVUTIL_LIBRARIES}
     ${SWSCALE_LIBRARIES}
     ${SWRESAMPLE_LIBRARIES}
@@ -78,6 +81,7 @@ target_link_libraries(${PROJECT_NAME}
 # Link directories for FFmpeg
 target_link_directories(${PROJECT_NAME} PRIVATE
     ${AVCODEC_LIBRARY_DIRS}
+    ${AVFORMAT_LIBRARY_DIRS}
     ${AVUTIL_LIBRARY_DIRS}
     ${SWSCALE_LIBRARY_DIRS}
     ${SWRESAMPLE_LIBRARY_DIRS}
