@@ -36,8 +36,6 @@ Napi::Object AudioDecoder::Init(Napi::Env env, Napi::Object exports) {
           InstanceAccessor("state", &AudioDecoder::GetState, nullptr),
           InstanceAccessor("decodeQueueSize", &AudioDecoder::GetDecodeQueueSize,
                            nullptr),
-          InstanceAccessor("codecSaturated", &AudioDecoder::GetCodecSaturated,
-                           nullptr),
           StaticMethod("isConfigSupported", &AudioDecoder::IsConfigSupported),
       });
 
@@ -251,10 +249,6 @@ Napi::Value AudioDecoder::GetDecodeQueueSize(const Napi::CallbackInfo& info) {
   return Napi::Number::New(info.Env(), decode_queue_size_);
 }
 
-Napi::Value AudioDecoder::GetCodecSaturated(const Napi::CallbackInfo& info) {
-  return Napi::Boolean::New(info.Env(), codec_saturated_.load());
-}
-
 void AudioDecoder::Close(const Napi::CallbackInfo& info) {
   Cleanup();
   state_ = "closed";
@@ -282,7 +276,6 @@ Napi::Value AudioDecoder::Reset(const Napi::CallbackInfo& info) {
   sample_rate_ = 0;
   number_of_channels_ = 0;
   decode_queue_size_ = 0;
-  codec_saturated_.store(false);
 
   return env.Undefined();
 }
@@ -326,8 +319,6 @@ Napi::Value AudioDecoder::Decode(const Napi::CallbackInfo& info) {
 
   // Increment queue size after successful packet submission
   decode_queue_size_++;
-  bool saturated = decode_queue_size_ >= static_cast<int>(kMaxQueueSize);
-  codec_saturated_.store(saturated);
 
   // Emit any available decoded audio data.
   EmitAudioData(env);
@@ -359,7 +350,6 @@ Napi::Value AudioDecoder::Flush(const Napi::CallbackInfo& info) {
 
   // Reset queue after flush
   decode_queue_size_ = 0;
-  codec_saturated_.store(false);
 
   // Return resolved promise.
   Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
@@ -470,8 +460,6 @@ void AudioDecoder::EmitAudioData(Napi::Env env) {
     // Decrement queue size after audio data is emitted
     if (decode_queue_size_ > 0) {
       decode_queue_size_--;
-      bool saturated = decode_queue_size_ >= static_cast<int>(kMaxQueueSize);
-      codec_saturated_.store(saturated);
     }
 
     av_frame_unref(frame_);

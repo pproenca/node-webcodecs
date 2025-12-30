@@ -296,4 +296,18 @@ describe('AudioDecoder', () => {
       decoder.close();
     });
   });
+
+  describe('W3C interface compliance', () => {
+    it('should NOT have codecSaturated property (non-standard)', () => {
+      const decoder = new AudioDecoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      // W3C spec does not include codecSaturated
+      expect('codecSaturated' in decoder).toBe(false);
+
+      decoder.close();
+    });
+  });
 });

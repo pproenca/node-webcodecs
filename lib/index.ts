@@ -941,10 +941,6 @@ export class AudioDecoder extends CodecBase {
     return this._decodeQueueSize;
   }
 
-  get codecSaturated(): boolean {
-    return this._native.codecSaturated;
-  }
-
   configure(config: AudioDecoderConfig): void {
     // W3C spec: throw if closed
     if (this.state === 'closed') {

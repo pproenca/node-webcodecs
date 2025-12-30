@@ -11,7 +11,6 @@ extern "C" {
 
 #include <napi.h>
 
-#include <atomic>
 #include <cstdint>
 #include <string>
 
@@ -34,7 +33,6 @@ class AudioDecoder : public Napi::ObjectWrap<AudioDecoder> {
   void Close(const Napi::CallbackInfo& info);
   Napi::Value GetState(const Napi::CallbackInfo& info);
   Napi::Value GetDecodeQueueSize(const Napi::CallbackInfo& info);
-  Napi::Value GetCodecSaturated(const Napi::CallbackInfo& info);
 
   // Static methods.
   static Napi::Value IsConfigSupported(const Napi::CallbackInfo& info);
@@ -61,8 +59,6 @@ class AudioDecoder : public Napi::ObjectWrap<AudioDecoder> {
 
   // Queue tracking for W3C WebCodecs spec compliance
   int decode_queue_size_ = 0;
-  std::atomic<bool> codec_saturated_{false};
-  static constexpr size_t kMaxQueueSize = 16;
 };
 
 #endif  // SRC_AUDIO_DECODER_H_
