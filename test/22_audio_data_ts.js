@@ -1,4 +1,4 @@
-const { AudioData } = require('../dist/index.js');
+const {AudioData} = require('../dist/index.js');
 const assert = require('assert');
 
 console.log('Test 22: AudioData TypeScript wrapper');
@@ -6,17 +6,17 @@ console.log('Test 22: AudioData TypeScript wrapper');
 // Create stereo audio at 48kHz
 const samples = new Float32Array(2048);
 for (let i = 0; i < 1024; i++) {
-    samples[i * 2] = Math.sin(2 * Math.PI * 440 * i / 48000);
-    samples[i * 2 + 1] = Math.sin(2 * Math.PI * 880 * i / 48000);
+  samples[i * 2] = Math.sin((2 * Math.PI * 440 * i) / 48000);
+  samples[i * 2 + 1] = Math.sin((2 * Math.PI * 880 * i) / 48000);
 }
 
 const audioData = new AudioData({
-    format: 'f32',
-    sampleRate: 48000,
-    numberOfFrames: 1024,
-    numberOfChannels: 2,
-    timestamp: 0,
-    data: samples.buffer
+  format: 'f32',
+  sampleRate: 48000,
+  numberOfFrames: 1024,
+  numberOfChannels: 2,
+  timestamp: 0,
+  data: samples.buffer,
 });
 
 assert.strictEqual(audioData.format, 'f32');

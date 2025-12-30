@@ -4,7 +4,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-const { Demuxer } = require('../dist/index.js');
+const {Demuxer} = require('../dist/index.js');
 
 console.log('Test 29: Demuxer basic structure');
 
@@ -20,23 +20,29 @@ async function testDemuxer() {
   let videoTrack = null;
 
   const demuxer = new Demuxer({
-    onTrack: (track) => {
+    onTrack: track => {
       console.log(`  Track: ${track.type}, codec: ${track.codec}`);
       if (track.type === 'video') {
         videoTrack = track;
       }
     },
     onChunk: (chunk, trackId) => {
-      chunks.push({ chunk, trackId });
+      chunks.push({chunk, trackId});
     },
-    onError: (e) => { throw e; }
+    onError: e => {
+      throw e;
+    },
   });
 
   // Open file
   await demuxer.open(testVideoPath);
 
   assert(videoTrack !== null, 'Should detect video track');
-  assert.strictEqual(typeof videoTrack.codec, 'string', 'Track should have codec');
+  assert.strictEqual(
+    typeof videoTrack.codec,
+    'string',
+    'Track should have codec',
+  );
   assert(videoTrack.width > 0, 'Track should have width');
   assert(videoTrack.height > 0, 'Track should have height');
 
@@ -47,7 +53,11 @@ async function testDemuxer() {
   assert(chunks.length > 0, 'Should receive chunks');
 
   // Verify first chunk is keyframe
-  assert.strictEqual(chunks[0].chunk.type, 'key', 'First chunk should be keyframe');
+  assert.strictEqual(
+    chunks[0].chunk.type,
+    'key',
+    'First chunk should be keyframe',
+  );
 
   demuxer.close();
   console.log('PASS');

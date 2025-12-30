@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { VideoFrame } = require('../dist/index.js');
+const {VideoFrame} = require('../dist/index.js');
 
 console.log('Test 25: VideoFrame YUV420p format support');
 
@@ -23,7 +23,7 @@ console.log('Test 25: VideoFrame YUV420p format support');
     format: 'I420',
     codedWidth: width,
     codedHeight: height,
-    timestamp: 0
+    timestamp: 0,
   });
 
   assert.strictEqual(frame.format, 'I420', 'Format should be I420');
@@ -31,19 +31,39 @@ console.log('Test 25: VideoFrame YUV420p format support');
   assert.strictEqual(frame.codedHeight, 240, 'Height should be 240');
 
   // Test allocationSize for I420
-  const allocSize = frame.allocationSize({ format: 'I420' });
-  assert.strictEqual(allocSize, totalSize, `Allocation size should be ${totalSize}`);
+  const allocSize = frame.allocationSize({format: 'I420'});
+  assert.strictEqual(
+    allocSize,
+    totalSize,
+    `Allocation size should be ${totalSize}`,
+  );
 
   // Test copyTo for I420
   const dest = new Uint8Array(totalSize);
-  const layout = await frame.copyTo(dest.buffer, { format: 'I420' });
+  const layout = await frame.copyTo(dest.buffer, {format: 'I420'});
   assert.strictEqual(layout.length, 3, 'I420 should have 3 planes');
   assert.strictEqual(layout[0].offset, 0, 'Y plane offset should be 0');
   assert.strictEqual(layout[0].stride, width, 'Y plane stride should be width');
-  assert.strictEqual(layout[1].offset, ySize, 'U plane offset should be after Y');
-  assert.strictEqual(layout[1].stride, width / 2, 'U plane stride should be width/2');
-  assert.strictEqual(layout[2].offset, ySize + uvSize, 'V plane offset should be after U');
-  assert.strictEqual(layout[2].stride, width / 2, 'V plane stride should be width/2');
+  assert.strictEqual(
+    layout[1].offset,
+    ySize,
+    'U plane offset should be after Y',
+  );
+  assert.strictEqual(
+    layout[1].stride,
+    width / 2,
+    'U plane stride should be width/2',
+  );
+  assert.strictEqual(
+    layout[2].offset,
+    ySize + uvSize,
+    'V plane offset should be after U',
+  );
+  assert.strictEqual(
+    layout[2].stride,
+    width / 2,
+    'V plane stride should be width/2',
+  );
 
   frame.close();
   console.log('PASS');

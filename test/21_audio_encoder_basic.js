@@ -7,24 +7,28 @@ let chunkReceived = false;
 let errorReceived = false;
 
 const encoder = new native.AudioEncoder({
-    output: (chunk, metadata) => {
-        chunkReceived = true;
-        console.log(`Chunk: type=${chunk.type}, size=${chunk.byteLength}`);
-    },
-    error: (e) => {
-        errorReceived = true;
-        console.error('Error:', e);
-    }
+  output: (chunk, metadata) => {
+    chunkReceived = true;
+    console.log(`Chunk: type=${chunk.type}, size=${chunk.byteLength}`);
+  },
+  error: e => {
+    errorReceived = true;
+    console.error('Error:', e);
+  },
 });
 
-assert.strictEqual(encoder.state, 'unconfigured', 'Initial state should be unconfigured');
+assert.strictEqual(
+  encoder.state,
+  'unconfigured',
+  'Initial state should be unconfigured',
+);
 
 // Configure for AAC-LC
 encoder.configure({
-    codec: 'mp4a.40.2',
-    sampleRate: 48000,
-    numberOfChannels: 2,
-    bitrate: 128000
+  codec: 'mp4a.40.2',
+  sampleRate: 48000,
+  numberOfChannels: 2,
+  bitrate: 128000,
 });
 
 assert.strictEqual(encoder.state, 'configured', 'State should be configured');

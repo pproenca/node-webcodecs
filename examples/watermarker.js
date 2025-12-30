@@ -17,7 +17,7 @@ const {
   VideoDecoder,
   VideoEncoder,
   VideoFrame,
-  EncodedVideoChunk
+  EncodedVideoChunk,
 } = require('../dist/index.js');
 
 const inputPath = process.argv[2];
@@ -55,9 +55,9 @@ function drawWatermark(rgbaData, width, height, timestamp) {
     for (let x = boxX; x < boxX + boxWidth && x < width; x++) {
       const idx = (y * width + x) * 4;
       // Yellow with 50% alpha blend.
-      rgbaData[idx] = Math.min(255, rgbaData[idx] + 127);       // R
+      rgbaData[idx] = Math.min(255, rgbaData[idx] + 127); // R
       rgbaData[idx + 1] = Math.min(255, rgbaData[idx + 1] + 127); // G
-      rgbaData[idx + 2] = rgbaData[idx + 2];                      // B unchanged
+      rgbaData[idx + 2] = rgbaData[idx + 2]; // B unchanged
     }
   }
 
@@ -66,9 +66,9 @@ function drawWatermark(rgbaData, width, height, timestamp) {
   const lineWidth = Math.min(boxWidth, (timestamp / 1000000) % 100);
   for (let x = boxX; x < boxX + lineWidth && x < width; x++) {
     const idx = (lineY * width + x) * 4;
-    rgbaData[idx] = 255;     // R
-    rgbaData[idx + 1] = 0;   // G
-    rgbaData[idx + 2] = 0;   // B
+    rgbaData[idx] = 255; // R
+    rgbaData[idx + 1] = 0; // G
+    rgbaData[idx + 2] = 0; // B
   }
 }
 
@@ -87,25 +87,30 @@ async function main() {
 
   // Create decoder.
   const decoder = new VideoDecoder({
-    output: (frame) => {
+    output: frame => {
       // Get RGBA data.
-      const size = frame.allocationSize({ format: 'RGBA' });
+      const size = frame.allocationSize({format: 'RGBA'});
       const rgbaData = new Uint8Array(size);
-      frame.copyTo(rgbaData.buffer, { format: 'RGBA' });
+      frame.copyTo(rgbaData.buffer, {format: 'RGBA'});
 
       // Apply watermark.
-      drawWatermark(rgbaData, frame.codedWidth, frame.codedHeight, frame.timestamp);
+      drawWatermark(
+        rgbaData,
+        frame.codedWidth,
+        frame.codedHeight,
+        frame.timestamp,
+      );
 
       // Create new frame with modified pixels.
       const modifiedFrame = new VideoFrame(Buffer.from(rgbaData), {
         format: 'RGBA',
         codedWidth: frame.codedWidth,
         codedHeight: frame.codedHeight,
-        timestamp: frame.timestamp
+        timestamp: frame.timestamp,
       });
 
       // Encode (keyframe every 30 frames).
-      encoder.encode(modifiedFrame, { keyFrame: framesProcessed % 30 === 0 });
+      encoder.encode(modifiedFrame, {keyFrame: framesProcessed % 30 === 0});
       modifiedFrame.close();
       frame.close();
 
@@ -114,12 +119,12 @@ async function main() {
         process.stdout.write(`\rProcessed ${framesProcessed} frames...`);
       }
     },
-    error: (e) => console.error('Decoder error:', e)
+    error: e => console.error('Decoder error:', e),
   });
 
   // Create demuxer.
   const demuxer = new Demuxer({
-    onTrack: (track) => {
+    onTrack: track => {
       console.log(`Found track: ${track.type} (${track.codec})`);
       if (track.type === 'video') {
         videoTrack = track;
@@ -130,15 +135,15 @@ async function main() {
           codec: 'avc1.42001e',
           codedWidth: track.width,
           codedHeight: track.height,
-          description: track.extradata
+          description: track.extradata,
         });
 
         // Create and configure encoder.
         encoder = new VideoEncoder({
-          output: (chunk) => {
+          output: chunk => {
             encodedChunks.push(chunk);
           },
-          error: (e) => console.error('Encoder error:', e)
+          error: e => console.error('Encoder error:', e),
         });
 
         encoder.configure({
@@ -146,7 +151,7 @@ async function main() {
           width: track.width,
           height: track.height,
           bitrate: 2_000_000,
-          framerate: 30
+          framerate: 30,
         });
       }
     },
@@ -156,7 +161,7 @@ async function main() {
         decoder.decode(chunk);
       }
     },
-    onError: (e) => console.error('Demuxer error:', e)
+    onError: e => console.error('Demuxer error:', e),
   });
 
   // Open and process file.
@@ -182,7 +187,9 @@ async function main() {
   decoder.close();
   encoder.close();
 
-  console.log(`\nProcessed ${framesProcessed} frames from ${totalChunks} chunks`);
+  console.log(
+    `\nProcessed ${framesProcessed} frames from ${totalChunks} chunks`,
+  );
 
   // Write output.
   const outputData = Buffer.concat(
@@ -190,18 +197,20 @@ async function main() {
       const buf = new Uint8Array(chunk.byteLength);
       chunk.copyTo(buf);
       return Buffer.from(buf);
-    })
+    }),
   );
 
   fs.writeFileSync(outputPath, outputData);
-  console.log(`\nWritten: ${outputPath} (${(outputData.length / 1024).toFixed(2)} KB)`);
+  console.log(
+    `\nWritten: ${outputPath} (${(outputData.length / 1024).toFixed(2)} KB)`,
+  );
   console.log('');
   console.log('To play the output, wrap it in a container:');
   console.log(`  ffmpeg -i ${outputPath} -c copy output.mp4`);
   console.log('  ffplay output.mp4');
 }
 
-main().catch((e) => {
+main().catch(e => {
   console.error('Error:', e.message || e);
   process.exit(1);
 });

@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { VideoEncoder, VideoFrame } = require('../dist/index.js');
+const {VideoEncoder, VideoFrame} = require('../dist/index.js');
 
 console.log('Test 27: Async VideoEncoder');
 
@@ -7,8 +7,10 @@ async function testAsyncEncode() {
   const chunks = [];
 
   const encoder = new VideoEncoder({
-    output: (chunk) => chunks.push(chunk),
-    error: (e) => { throw e; }
+    output: chunk => chunks.push(chunk),
+    error: e => {
+      throw e;
+    },
   });
 
   encoder.configure({
@@ -16,7 +18,7 @@ async function testAsyncEncode() {
     width: 1920,
     height: 1080,
     bitrate: 5_000_000,
-    framerate: 30
+    framerate: 30,
   });
 
   // Encode 30 1080p frames
@@ -27,9 +29,9 @@ async function testAsyncEncode() {
       format: 'RGBA',
       codedWidth: 1920,
       codedHeight: 1080,
-      timestamp: i * 33333
+      timestamp: i * 33333,
     });
-    encoder.encode(frame, { keyFrame: i % 10 === 0 });
+    encoder.encode(frame, {keyFrame: i % 10 === 0});
     frame.close();
   }
 

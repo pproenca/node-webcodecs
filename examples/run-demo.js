@@ -6,7 +6,7 @@
 //
 // Guides developers through the video watermarker demo step by step.
 
-const { execSync, spawn } = require('child_process');
+const {execSync, spawn} = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
@@ -18,11 +18,11 @@ const OUTPUT_MP4 = path.join(DEMO_DIR, 'watermarked.mp4');
 
 const rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout
+  output: process.stdout,
 });
 
 function ask(question) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     rl.question(question, resolve);
   });
 }
@@ -41,7 +41,7 @@ function printHeader(title) {
 }
 
 function printStep(num, title) {
-  print(`\n[${ num }] ${title}`);
+  print(`\n[${num}] ${title}`);
   print('-'.repeat(40));
 }
 
@@ -51,17 +51,17 @@ function run(cmd, options = {}) {
     const result = execSync(cmd, {
       encoding: 'utf8',
       stdio: options.silent ? 'pipe' : 'inherit',
-      ...options
+      ...options,
     });
-    return { success: true, output: result };
+    return {success: true, output: result};
   } catch (e) {
-    return { success: false, error: e.message };
+    return {success: false, error: e.message};
   }
 }
 
 function checkDependency(name, cmd) {
   try {
-    execSync(cmd, { stdio: 'pipe' });
+    execSync(cmd, {stdio: 'pipe'});
     return true;
   } catch {
     return false;
@@ -98,15 +98,21 @@ async function main() {
     process.exit(1);
   }
   print('  FFmpeg: OK');
-  print(`  FFplay: ${hasFFplay ? 'OK' : 'Not found (playback will be skipped)'}`);
+  print(
+    `  FFplay: ${hasFFplay ? 'OK' : 'Not found (playback will be skipped)'}`,
+  );
 
   // Check if project is built
-  const distExists = fs.existsSync(path.join(__dirname, '..', 'dist', 'index.js'));
-  const buildExists = fs.existsSync(path.join(__dirname, '..', 'build', 'Release', 'webcodecs.node'));
+  const distExists = fs.existsSync(
+    path.join(__dirname, '..', 'dist', 'index.js'),
+  );
+  const buildExists = fs.existsSync(
+    path.join(__dirname, '..', 'build', 'Release', 'webcodecs.node'),
+  );
 
   if (!distExists || !buildExists) {
     print('\n[WARNING] Project not built. Building now...');
-    run('npm run build', { cwd: path.join(__dirname, '..') });
+    run('npm run build', {cwd: path.join(__dirname, '..')});
   }
   print('  Build: OK');
 
@@ -116,7 +122,7 @@ async function main() {
   printStep(2, 'Creating Test Video');
 
   if (!fs.existsSync(DEMO_DIR)) {
-    fs.mkdirSync(DEMO_DIR, { recursive: true });
+    fs.mkdirSync(DEMO_DIR, {recursive: true});
   }
 
   print('Generating a 5-second test video with FFmpeg...');
@@ -129,7 +135,7 @@ async function main() {
     '-c:v libx264 -preset fast -crf 23',
     '-c:a aac -b:a 128k',
     '-pix_fmt yuv420p',
-    `"${TEST_VIDEO}"`
+    `"${TEST_VIDEO}"`,
   ].join(' ');
 
   const result = run(ffmpegCmd);
@@ -157,9 +163,9 @@ async function main() {
 
   const watermarkerPath = path.join(__dirname, 'watermarker.js');
 
-  await new Promise((resolve) => {
+  await new Promise(resolve => {
     const child = spawn('node', [watermarkerPath, TEST_VIDEO, OUTPUT_H264], {
-      stdio: 'inherit'
+      stdio: 'inherit',
     });
     child.on('close', resolve);
   });
@@ -194,9 +200,9 @@ async function main() {
     const playChoice = await ask('Play the video? [Y/n] ');
 
     if (playChoice.toLowerCase() !== 'n') {
-      await new Promise((resolve) => {
+      await new Promise(resolve => {
         const player = spawn('ffplay', ['-autoexit', OUTPUT_MP4], {
-          stdio: 'inherit'
+          stdio: 'inherit',
         });
         player.on('close', resolve);
       });
@@ -221,12 +227,12 @@ async function main() {
   print(`  Output: ${OUTPUT_MP4}`);
   print();
   print('Try it with your own video:');
-  print(`  node examples/watermarker.js your-video.mp4 output.h264`);
+  print('  node examples/watermarker.js your-video.mp4 output.h264');
   print();
 
   const cleanup = await ask('Delete demo files? [y/N] ');
   if (cleanup.toLowerCase() === 'y') {
-    fs.rmSync(DEMO_DIR, { recursive: true, force: true });
+    fs.rmSync(DEMO_DIR, {recursive: true, force: true});
     print('Cleaned up demo files.');
   }
 
@@ -234,7 +240,7 @@ async function main() {
   rl.close();
 }
 
-main().catch((e) => {
+main().catch(e => {
   console.error('Demo error:', e);
   rl.close();
   process.exit(1);

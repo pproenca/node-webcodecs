@@ -9,17 +9,17 @@ const buffer = Buffer.alloc(width * height * 4);
 
 // Fill with recognizable pattern
 for (let i = 0; i < buffer.length; i += 4) {
-    buffer[i] = 255;     // R
-    buffer[i + 1] = 128; // G
-    buffer[i + 2] = 64;  // B
-    buffer[i + 3] = 255; // A
+  buffer[i] = 255; // R
+  buffer[i + 1] = 128; // G
+  buffer[i + 2] = 64; // B
+  buffer[i + 3] = 255; // A
 }
 
 const frame = new native.VideoFrame(buffer, {
-    codedWidth: width,
-    codedHeight: height,
-    timestamp: 12345,
-    format: 'RGBA'
+  codedWidth: width,
+  codedHeight: height,
+  timestamp: 12345,
+  format: 'RGBA',
 });
 
 // Clone the frame

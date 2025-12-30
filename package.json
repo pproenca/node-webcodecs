@@ -16,18 +16,26 @@
     "test:coverage:js": "c8 npm test",
     "test:coverage:cpp": "npm run build:coverage && npm test && lcov --capture --directory build --output-file coverage/cpp.info --no-external && genhtml coverage/cpp.info --output-directory coverage/cpp",
     "coverage": "npm run test:coverage:js && c8 report --reporter=html",
-    "clean": "rm -rf build dist coverage"
+    "lint": "gts lint",
+    "fix": "gts fix"
   },
-  "keywords": ["webcodecs", "video", "encoder", "ffmpeg", "nodejs"],
+  "keywords": [
+    "webcodecs",
+    "video",
+    "encoder",
+    "ffmpeg",
+    "nodejs"
+  ],
   "license": "MIT",
   "dependencies": {
     "node-addon-api": "^7.0.0"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
+    "@types/node": "^22.7.5",
     "c8": "^10.1.2",
     "cmake-js": "^7.3.0",
-    "typescript": "^5.3.0"
+    "gts": "^7.0.0",
+    "typescript": "^5.6.3"
   },
   "engines": {
     "node": ">=18.0.0"

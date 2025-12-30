@@ -1,5 +1,8 @@
 // Hardware acceleration hint
-export type HardwareAcceleration = 'no-preference' | 'prefer-hardware' | 'prefer-software';
+export type HardwareAcceleration =
+  | 'no-preference'
+  | 'prefer-hardware'
+  | 'prefer-software';
 
 // Alpha handling
 export type AlphaOption = 'keep' | 'discard';
@@ -11,239 +14,275 @@ export type LatencyMode = 'quality' | 'realtime';
 export type VideoEncoderBitrateMode = 'constant' | 'variable' | 'quantizer';
 
 export interface VideoEncoderConfig {
-    codec: string;
-    width: number;
-    height: number;
-    bitrate?: number;
-    framerate?: number;
-    hardwareAcceleration?: HardwareAcceleration;
-    latencyMode?: LatencyMode;
-    bitrateMode?: VideoEncoderBitrateMode;
-    alpha?: AlphaOption;
-    scalabilityMode?: string;
-    displayAspectWidth?: number;
-    displayAspectHeight?: number;
-    contentHint?: string;
+  codec: string;
+  width: number;
+  height: number;
+  bitrate?: number;
+  framerate?: number;
+  hardwareAcceleration?: HardwareAcceleration;
+  latencyMode?: LatencyMode;
+  bitrateMode?: VideoEncoderBitrateMode;
+  alpha?: AlphaOption;
+  scalabilityMode?: string;
+  displayAspectWidth?: number;
+  displayAspectHeight?: number;
+  contentHint?: string;
 }
 
 export interface VideoEncoderInit {
-    output: (chunk: EncodedVideoChunk, metadata?: EncodedVideoChunkMetadata) => void;
-    error: (error: Error) => void;
+  output: (
+    chunk: EncodedVideoChunk,
+    metadata?: EncodedVideoChunkMetadata,
+  ) => void;
+  error: (error: Error) => void;
 }
 
 export interface EncodedVideoChunk {
-    type: 'key' | 'delta';
-    timestamp: number;
-    duration: number | null;
-    data: Buffer;
-    byteLength: number;
+  type: 'key' | 'delta';
+  timestamp: number;
+  duration: number | null;
+  data: Buffer;
+  byteLength: number;
 }
 
 export interface EncodedVideoChunkMetadata {
-    decoderConfig?: VideoDecoderConfig & {
-        description?: ArrayBuffer;
-    };
-    svc?: {
-        temporalLayerId: number;
-    };
-    alphaSideData?: BufferSource;
+  decoderConfig?: VideoDecoderConfig & {
+    description?: ArrayBuffer;
+  };
+  svc?: {
+    temporalLayerId: number;
+  };
+  alphaSideData?: BufferSource;
 }
 
 export interface DOMRectReadOnly {
-    readonly x: number;
-    readonly y: number;
-    readonly width: number;
-    readonly height: number;
-    readonly top: number;
-    readonly right: number;
-    readonly bottom: number;
-    readonly left: number;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+  readonly left: number;
 }
 
 export interface VideoFrameInit {
-    codedWidth: number;
-    codedHeight: number;
-    timestamp: number;
-    duration?: number;
-    displayWidth?: number;
-    displayHeight?: number;
-    format?: VideoPixelFormat;
-    rotation?: 0 | 90 | 180 | 270;
-    flip?: boolean;
-    visibleRect?: { x: number; y: number; width: number; height: number };
+  codedWidth: number;
+  codedHeight: number;
+  timestamp: number;
+  duration?: number;
+  displayWidth?: number;
+  displayHeight?: number;
+  format?: VideoPixelFormat;
+  rotation?: 0 | 90 | 180 | 270;
+  flip?: boolean;
+  visibleRect?: {x: number; y: number; width: number; height: number};
 }
 
 // Codec-specific quantizer options per W3C WebCodecs spec
 export interface VideoEncoderEncodeOptionsForVp9 {
-    quantizer?: number;  // 0-63
+  quantizer?: number; // 0-63
 }
 
 export interface VideoEncoderEncodeOptionsForAv1 {
-    quantizer?: number;  // 0-63
+  quantizer?: number; // 0-63
 }
 
 export interface VideoEncoderEncodeOptionsForAvc {
-    quantizer?: number;  // 0-51
+  quantizer?: number; // 0-51
 }
 
 export interface VideoEncoderEncodeOptionsForHevc {
-    quantizer?: number;  // 0-51
+  quantizer?: number; // 0-51
 }
 
 export interface VideoEncoderEncodeOptions {
-    keyFrame?: boolean;
-    vp9?: VideoEncoderEncodeOptionsForVp9;
-    av1?: VideoEncoderEncodeOptionsForAv1;
-    avc?: VideoEncoderEncodeOptionsForAvc;
-    hevc?: VideoEncoderEncodeOptionsForHevc;
+  keyFrame?: boolean;
+  vp9?: VideoEncoderEncodeOptionsForVp9;
+  av1?: VideoEncoderEncodeOptionsForAv1;
+  avc?: VideoEncoderEncodeOptionsForAvc;
+  hevc?: VideoEncoderEncodeOptionsForHevc;
 }
 
 export type CodecState = 'unconfigured' | 'configured' | 'closed';
 
 export interface PlaneLayout {
-    offset: number;
-    stride: number;
+  offset: number;
+  stride: number;
 }
 
-export type VideoPixelFormat = 'RGBA' | 'RGBX' | 'BGRA' | 'BGRX' | 'I420' | 'I420A' | 'I422' | 'I444' | 'NV12';
+export type VideoPixelFormat =
+  | 'RGBA'
+  | 'RGBX'
+  | 'BGRA'
+  | 'BGRX'
+  | 'I420'
+  | 'I420A'
+  | 'I422'
+  | 'I444'
+  | 'NV12';
 
 export interface VideoFrameCopyToOptions {
-    rect?: { x: number; y: number; width: number; height: number };
-    layout?: PlaneLayout[];
-    format?: VideoPixelFormat;
+  rect?: {x: number; y: number; width: number; height: number};
+  layout?: PlaneLayout[];
+  format?: VideoPixelFormat;
 }
 
 // W3C VideoColorPrimaries enum values
-export type VideoColorPrimaries = 'bt709' | 'bt470bg' | 'smpte170m' | 'bt2020' | 'smpte432';
+export type VideoColorPrimaries =
+  | 'bt709'
+  | 'bt470bg'
+  | 'smpte170m'
+  | 'bt2020'
+  | 'smpte432';
 
 // W3C VideoTransferCharacteristics enum values
-export type VideoTransferCharacteristics = 'bt709' | 'smpte170m' | 'iec61966-2-1' | 'linear' | 'pq' | 'hlg';
+export type VideoTransferCharacteristics =
+  | 'bt709'
+  | 'smpte170m'
+  | 'iec61966-2-1'
+  | 'linear'
+  | 'pq'
+  | 'hlg';
 
 // W3C VideoMatrixCoefficients enum values
-export type VideoMatrixCoefficients = 'rgb' | 'bt709' | 'bt470bg' | 'smpte170m' | 'bt2020-ncl';
+export type VideoMatrixCoefficients =
+  | 'rgb'
+  | 'bt709'
+  | 'bt470bg'
+  | 'smpte170m'
+  | 'bt2020-ncl';
 
 export interface VideoColorSpaceInit {
-    primaries?: VideoColorPrimaries | string;
-    transfer?: VideoTransferCharacteristics | string;
-    matrix?: VideoMatrixCoefficients | string;
-    fullRange?: boolean;
+  primaries?: VideoColorPrimaries | string;
+  transfer?: VideoTransferCharacteristics | string;
+  matrix?: VideoMatrixCoefficients | string;
+  fullRange?: boolean;
 }
 
 export interface VideoDecoderConfig {
-    codec: string;
-    codedWidth?: number;
-    codedHeight?: number;
-    description?: ArrayBuffer | ArrayBufferView;
-    colorSpace?: VideoColorSpaceInit;
-    hardwareAcceleration?: HardwareAcceleration;
-    optimizeForLatency?: boolean;
-    displayAspectWidth?: number;
-    displayAspectHeight?: number;
-    rotation?: 0 | 90 | 180 | 270;
-    flip?: boolean;
+  codec: string;
+  codedWidth?: number;
+  codedHeight?: number;
+  description?: ArrayBuffer | ArrayBufferView;
+  colorSpace?: VideoColorSpaceInit;
+  hardwareAcceleration?: HardwareAcceleration;
+  optimizeForLatency?: boolean;
+  displayAspectWidth?: number;
+  displayAspectHeight?: number;
+  rotation?: 0 | 90 | 180 | 270;
+  flip?: boolean;
 }
 
 export interface VideoDecoderInit {
-    output: (frame: any) => void;
-    error: (error: Error) => void;
+  output: (frame: any) => void;
+  error: (error: Error) => void;
 }
 
 // Audio types
-export type AudioSampleFormat = 'u8' | 's16' | 's32' | 'f32' | 'u8-planar' | 's16-planar' | 's32-planar' | 'f32-planar';
+export type AudioSampleFormat =
+  | 'u8'
+  | 's16'
+  | 's32'
+  | 'f32'
+  | 'u8-planar'
+  | 's16-planar'
+  | 's32-planar'
+  | 'f32-planar';
 
 export interface AudioDataInit {
-    format: AudioSampleFormat;
-    sampleRate: number;
-    numberOfFrames: number;
-    numberOfChannels: number;
-    timestamp: number;
-    data: ArrayBuffer | ArrayBufferView;
-    transfer?: ArrayBuffer[];
+  format: AudioSampleFormat;
+  sampleRate: number;
+  numberOfFrames: number;
+  numberOfChannels: number;
+  timestamp: number;
+  data: ArrayBuffer | ArrayBufferView;
+  transfer?: ArrayBuffer[];
 }
 
 // Opus-specific encoder configuration per W3C WebCodecs spec
 export interface OpusEncoderConfig {
-    application?: 'audio' | 'lowdelay' | 'voip';
-    complexity?: number;        // 0-10
-    format?: 'opus' | 'ogg';
-    frameDuration?: number;     // microseconds
-    packetlossperc?: number;    // 0-100
-    signal?: 'auto' | 'music' | 'voice';
-    usedtx?: boolean;
-    useinbandfec?: boolean;
+  application?: 'audio' | 'lowdelay' | 'voip';
+  complexity?: number; // 0-10
+  format?: 'opus' | 'ogg';
+  frameDuration?: number; // microseconds
+  packetlossperc?: number; // 0-100
+  signal?: 'auto' | 'music' | 'voice';
+  usedtx?: boolean;
+  useinbandfec?: boolean;
 }
 
 export interface AudioEncoderConfig {
-    codec: string;
-    sampleRate: number;
-    numberOfChannels: number;
-    bitrate?: number;
-    bitrateMode?: 'constant' | 'variable';
-    opus?: OpusEncoderConfig;
+  codec: string;
+  sampleRate: number;
+  numberOfChannels: number;
+  bitrate?: number;
+  bitrateMode?: 'constant' | 'variable';
+  opus?: OpusEncoderConfig;
 }
 
 export interface AudioEncoderInit {
-    output: (chunk: any, metadata?: any) => void;
-    error: (error: Error) => void;
+  output: (chunk: any, metadata?: any) => void;
+  error: (error: Error) => void;
 }
 
 export interface AudioDecoderConfig {
-    codec: string;
-    sampleRate: number;
-    numberOfChannels: number;
-    description?: ArrayBuffer | ArrayBufferView;
+  codec: string;
+  sampleRate: number;
+  numberOfChannels: number;
+  description?: ArrayBuffer | ArrayBufferView;
 }
 
 export interface AudioDecoderInit {
-    output: (data: any) => void;
-    error: (error: Error) => void;
+  output: (data: any) => void;
+  error: (error: Error) => void;
 }
 
 export interface AudioDataCopyToOptions {
-    planeIndex?: number;
-    frameOffset?: number;
-    frameCount?: number;
-    format?: AudioSampleFormat;
+  planeIndex?: number;
+  frameOffset?: number;
+  frameCount?: number;
+  format?: AudioSampleFormat;
 }
 
 export interface EncodedAudioChunkInit {
-    type: 'key' | 'delta';
-    timestamp: number;
-    duration?: number;
-    data: BufferSource;
+  type: 'key' | 'delta';
+  timestamp: number;
+  duration?: number;
+  data: BufferSource;
 }
 
 export type BufferSource = ArrayBuffer | ArrayBufferView;
 
 // VideoFilter types
 export interface BlurRegion {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface VideoFilterConfig {
-    width: number;
-    height: number;
+  width: number;
+  height: number;
 }
 
 // Demuxer types
 export interface DemuxerInit {
-    onTrack?: (track: TrackInfo) => void;
-    onChunk?: (chunk: any, trackIndex: number) => void;
-    onError?: (error: Error) => void;
+  onTrack?: (track: TrackInfo) => void;
+  onChunk?: (chunk: any, trackIndex: number) => void;
+  onError?: (error: Error) => void;
 }
 
 export interface TrackInfo {
-    index: number;
-    type: 'video' | 'audio';
-    codec: string;
-    width?: number;
-    height?: number;
-    sampleRate?: number;
-    channels?: number;
-    extradata?: Uint8Array;
+  index: number;
+  type: 'video' | 'audio';
+  codec: string;
+  width?: number;
+  height?: number;
+  sampleRate?: number;
+  channels?: number;
+  extradata?: Uint8Array;
 }
 
 // High-resolution timestamp
@@ -251,49 +290,49 @@ export type DOMHighResTimeStamp = number;
 
 // VideoFrameMetadata
 export interface VideoFrameMetadata {
-    captureTime?: DOMHighResTimeStamp;
-    receiveTime?: DOMHighResTimeStamp;
-    rtpTimestamp?: number;
+  captureTime?: DOMHighResTimeStamp;
+  receiveTime?: DOMHighResTimeStamp;
+  rtpTimestamp?: number;
 }
 
 // ImageDecoder types
 export interface ImageDecodeOptions {
-    frameIndex?: number;
-    completeFramesOnly?: boolean;
+  frameIndex?: number;
+  completeFramesOnly?: boolean;
 }
 
 export interface ImageDecodeResult {
-    image: any; // VideoFrame
-    complete: boolean;
+  image: any; // VideoFrame
+  complete: boolean;
 }
 
 export interface ImageDecoderInit {
-    type: string;
-    data: ReadableStream<Uint8Array> | BufferSource;
-    colorSpaceConversion?: 'default' | 'none';
-    desiredWidth?: number;
-    desiredHeight?: number;
-    preferAnimation?: boolean;
+  type: string;
+  data: ReadableStream<Uint8Array> | BufferSource;
+  colorSpaceConversion?: 'default' | 'none';
+  desiredWidth?: number;
+  desiredHeight?: number;
+  preferAnimation?: boolean;
 }
 
 export interface ImageTrack {
-    readonly animated: boolean;
-    readonly frameCount: number;
-    readonly repetitionCount: number;
-    selected: boolean;
+  readonly animated: boolean;
+  readonly frameCount: number;
+  readonly repetitionCount: number;
+  selected: boolean;
 }
 
 export interface ImageTrackList {
-    readonly length: number;
-    readonly selectedIndex: number;
-    readonly selectedTrack: ImageTrack | null;
-    readonly ready: Promise<void>;
-    [index: number]: ImageTrack;
+  readonly length: number;
+  readonly selectedIndex: number;
+  readonly selectedTrack: ImageTrack | null;
+  readonly ready: Promise<void>;
+  [index: number]: ImageTrack;
 }
 
 // Enhanced audio encoder metadata
 export interface EncodedAudioChunkMetadata {
-    decoderConfig?: AudioDecoderConfig & {
-        description?: ArrayBuffer;
-    };
+  decoderConfig?: AudioDecoderConfig & {
+    description?: ArrayBuffer;
+  };
 }

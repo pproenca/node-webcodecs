@@ -1,5 +1,10 @@
 const assert = require('assert');
-const { VideoEncoder, VideoDecoder, VideoFrame, EncodedVideoChunk } = require('../dist/index.js');
+const {
+  VideoEncoder,
+  VideoDecoder,
+  VideoFrame,
+  EncodedVideoChunk,
+} = require('../dist/index.js');
 
 console.log('Test 26: Async VideoDecoder');
 
@@ -9,8 +14,10 @@ async function testAsyncDecode() {
 
   // First encode some frames
   const encoder = new VideoEncoder({
-    output: (chunk) => chunks.push(chunk),
-    error: (e) => { throw e; }
+    output: chunk => chunks.push(chunk),
+    error: e => {
+      throw e;
+    },
   });
 
   encoder.configure({
@@ -18,7 +25,7 @@ async function testAsyncDecode() {
     width: 320,
     height: 240,
     bitrate: 1_000_000,
-    framerate: 30
+    framerate: 30,
   });
 
   for (let i = 0; i < 10; i++) {
@@ -28,9 +35,9 @@ async function testAsyncDecode() {
       format: 'RGBA',
       codedWidth: 320,
       codedHeight: 240,
-      timestamp: i * 33333
+      timestamp: i * 33333,
     });
-    encoder.encode(frame, { keyFrame: i === 0 });
+    encoder.encode(frame, {keyFrame: i === 0});
     frame.close();
   }
 
@@ -42,21 +49,23 @@ async function testAsyncDecode() {
 
   // Now decode
   const decoder = new VideoDecoder({
-    output: (frame) => {
+    output: frame => {
       frames.push({
         width: frame.codedWidth,
         height: frame.codedHeight,
-        timestamp: frame.timestamp
+        timestamp: frame.timestamp,
       });
       frame.close();
     },
-    error: (e) => { throw e; }
+    error: e => {
+      throw e;
+    },
   });
 
   decoder.configure({
     codec: 'avc1.42001e',
     codedWidth: 320,
-    codedHeight: 240
+    codedHeight: 240,
   });
 
   for (const chunk of chunks) {
