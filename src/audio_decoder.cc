@@ -46,10 +46,6 @@ Napi::Object AudioDecoder::Init(Napi::Env env, Napi::Object exports) {
 AudioDecoder::AudioDecoder(const Napi::CallbackInfo& info)
     : Napi::ObjectWrap<AudioDecoder>(info),
       codec_(nullptr),
-      codec_context_(nullptr),
-      swr_context_(nullptr),
-      frame_(nullptr),
-      packet_(nullptr),
       state_("unconfigured"),
       sample_rate_(0),
       number_of_channels_(0) {
@@ -81,22 +77,10 @@ AudioDecoder::AudioDecoder(const Napi::CallbackInfo& info)
 AudioDecoder::~AudioDecoder() { Cleanup(); }
 
 void AudioDecoder::Cleanup() {
-  if (frame_) {
-    av_frame_free(&frame_);
-    frame_ = nullptr;
-  }
-  if (packet_) {
-    av_packet_free(&packet_);
-    packet_ = nullptr;
-  }
-  if (swr_context_) {
-    swr_free(&swr_context_);
-    swr_context_ = nullptr;
-  }
-  if (codec_context_) {
-    avcodec_free_context(&codec_context_);
-    codec_context_ = nullptr;
-  }
+  frame_.reset();
+  packet_.reset();
+  swr_context_.reset();
+  codec_context_.reset();
   codec_ = nullptr;
 }
 
@@ -154,7 +138,7 @@ Napi::Value AudioDecoder::Configure(const Napi::CallbackInfo& info) {
 
   // Store the found decoder.
   codec_ = decoder;
-  codec_context_ = avcodec_alloc_context3(codec_);
+  codec_context_ = ffmpeg::make_codec_context(codec_);
   if (!codec_context_) {
     Napi::Error::New(env, "Could not allocate codec context")
         .ThrowAsJavaScriptException();
@@ -215,7 +199,7 @@ Napi::Value AudioDecoder::Configure(const Napi::CallbackInfo& info) {
   }
 
   // Open codec.
-  int ret = avcodec_open2(codec_context_, codec_, nullptr);
+  int ret = avcodec_open2(codec_context_.get(), codec_, nullptr);
   if (ret < 0) {
     char errbuf[256];
     av_strerror(ret, errbuf, sizeof(errbuf));
@@ -226,8 +210,8 @@ Napi::Value AudioDecoder::Configure(const Napi::CallbackInfo& info) {
   }
 
   // Allocate frame and packet.
-  frame_ = av_frame_alloc();
-  packet_ = av_packet_alloc();
+  frame_ = ffmpeg::make_frame();
+  packet_ = ffmpeg::make_packet();
 
   if (!frame_ || !packet_) {
     Cleanup();
@@ -265,9 +249,9 @@ Napi::Value AudioDecoder::Reset(const Napi::CallbackInfo& info) {
 
   // Flush any pending frames (discard them).
   if (codec_context_) {
-    avcodec_send_packet(codec_context_, nullptr);
-    while (avcodec_receive_frame(codec_context_, frame_) == 0) {
-      av_frame_unref(frame_);
+    avcodec_send_packet(codec_context_.get(), nullptr);
+    while (avcodec_receive_frame(codec_context_.get(), frame_.get()) == 0) {
+      av_frame_unref(frame_.get());
     }
   }
 
@@ -302,12 +286,12 @@ Napi::Value AudioDecoder::Decode(const Napi::CallbackInfo& info) {
   const std::vector<uint8_t>& data = chunk->GetData();
 
   // Setup packet.
-  av_packet_unref(packet_);
+  av_packet_unref(packet_.get());
   packet_->data = const_cast<uint8_t*>(data.data());
   packet_->size = static_cast<int>(data.size());
 
   // Send packet to decoder.
-  int ret = avcodec_send_packet(codec_context_, packet_);
+  int ret = avcodec_send_packet(codec_context_.get(), packet_.get());
   if (ret < 0 && ret != AVERROR(EAGAIN)) {
     char errbuf[256];
     av_strerror(ret, errbuf, sizeof(errbuf));
@@ -337,7 +321,7 @@ Napi::Value AudioDecoder::Flush(const Napi::CallbackInfo& info) {
   }
 
   // Send NULL packet to flush decoder.
-  int ret = avcodec_send_packet(codec_context_, nullptr);
+  int ret = avcodec_send_packet(codec_context_.get(), nullptr);
   if (ret < 0 && ret != AVERROR_EOF) {
     char errbuf[256];
     av_strerror(ret, errbuf, sizeof(errbuf));
@@ -359,7 +343,7 @@ Napi::Value AudioDecoder::Flush(const Napi::CallbackInfo& info) {
 
 void AudioDecoder::EmitAudioData(Napi::Env env) {
   while (true) {
-    int ret = avcodec_receive_frame(codec_context_, frame_);
+    int ret = avcodec_receive_frame(codec_context_.get(), frame_.get());
     if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
       break;
     }
@@ -378,28 +362,31 @@ void AudioDecoder::EmitAudioData(Napi::Env env) {
 
     // Initialize resampler if needed (convert to f32 interleaved).
     if (!swr_context_) {
-      swr_context_ = swr_alloc();
+      swr_context_.reset(swr_alloc());
       if (!swr_context_) {
         error_callback_.Call(
             {Napi::Error::New(env, "Could not allocate resampler").Value()});
-        av_frame_unref(frame_);
+        av_frame_unref(frame_.get());
         break;
       }
 
       // Configure resampler: decoder's format -> f32 interleaved.
-      av_opt_set_chlayout(swr_context_, "in_chlayout", &frame_->ch_layout, 0);
-      av_opt_set_int(swr_context_, "in_sample_rate", frame_->sample_rate, 0);
-      av_opt_set_sample_fmt(swr_context_, "in_sample_fmt",
+      av_opt_set_chlayout(swr_context_.get(), "in_chlayout", &frame_->ch_layout,
+                          0);
+      av_opt_set_int(swr_context_.get(), "in_sample_rate", frame_->sample_rate,
+                     0);
+      av_opt_set_sample_fmt(swr_context_.get(), "in_sample_fmt",
                             static_cast<AVSampleFormat>(frame_->format), 0);
 
       AVChannelLayout out_layout;
       av_channel_layout_default(&out_layout, nb_channels);
-      av_opt_set_chlayout(swr_context_, "out_chlayout", &out_layout, 0);
-      av_opt_set_int(swr_context_, "out_sample_rate", frame_->sample_rate, 0);
-      av_opt_set_sample_fmt(swr_context_, "out_sample_fmt", AV_SAMPLE_FMT_FLT,
-                            0);
+      av_opt_set_chlayout(swr_context_.get(), "out_chlayout", &out_layout, 0);
+      av_opt_set_int(swr_context_.get(), "out_sample_rate", frame_->sample_rate,
+                     0);
+      av_opt_set_sample_fmt(swr_context_.get(), "out_sample_fmt",
+                            AV_SAMPLE_FMT_FLT, 0);
 
-      ret = swr_init(swr_context_);
+      ret = swr_init(swr_context_.get());
       if (ret < 0) {
         char errbuf[256];
         av_strerror(ret, errbuf, sizeof(errbuf));
@@ -407,9 +394,8 @@ void AudioDecoder::EmitAudioData(Napi::Env env) {
             {Napi::Error::New(
                  env, std::string("Could not init resampler: ") + errbuf)
                  .Value()});
-        swr_free(&swr_context_);
-        swr_context_ = nullptr;
-        av_frame_unref(frame_);
+        swr_context_.reset();
+        av_frame_unref(frame_.get());
         break;
       }
     }
@@ -422,7 +408,7 @@ void AudioDecoder::EmitAudioData(Napi::Env env) {
 
     // Convert audio.
     int converted =
-        swr_convert(swr_context_, &output_ptr, nb_samples,
+        swr_convert(swr_context_.get(), &output_ptr, nb_samples,
                     const_cast<const uint8_t**>(frame_->data), nb_samples);
 
     if (converted < 0) {
@@ -432,7 +418,7 @@ void AudioDecoder::EmitAudioData(Napi::Env env) {
           {Napi::Error::New(env,
                             std::string("Audio conversion error: ") + errbuf)
                .Value()});
-      av_frame_unref(frame_);
+      av_frame_unref(frame_.get());
       continue;
     }
 
@@ -462,7 +448,7 @@ void AudioDecoder::EmitAudioData(Napi::Env env) {
       decode_queue_size_--;
     }
 
-    av_frame_unref(frame_);
+    av_frame_unref(frame_.get());
   }
 }
 

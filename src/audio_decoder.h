@@ -14,6 +14,8 @@ extern "C" {
 #include <cstdint>
 #include <string>
 
+#include "src/ffmpeg_raii.h"
+
 class AudioDecoder : public Napi::ObjectWrap<AudioDecoder> {
  public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
@@ -42,11 +44,11 @@ class AudioDecoder : public Napi::ObjectWrap<AudioDecoder> {
   void EmitAudioData(Napi::Env env);
 
   // FFmpeg state.
-  const AVCodec* codec_;
-  AVCodecContext* codec_context_;
-  SwrContext* swr_context_;
-  AVFrame* frame_;
-  AVPacket* packet_;
+  const AVCodec* codec_;  // Not owned - references FFmpeg's static codec descriptor
+  ffmpeg::AVCodecContextPtr codec_context_;
+  ffmpeg::SwrContextPtr swr_context_;
+  ffmpeg::AVFramePtr frame_;
+  ffmpeg::AVPacketPtr packet_;
 
   // Callbacks.
   Napi::FunctionReference output_callback_;
