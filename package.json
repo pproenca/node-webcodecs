@@ -9,10 +9,7 @@
     "build:ts": "tsc",
     "build": "npm run build:native && npm run build:ts",
     "build:coverage": "cmake-js compile -- -DENABLE_COVERAGE=ON",
-    "test": "node test/suite.js",
-    "test:contracts": "node test/contracts/run_contracts.js",
-    "test:guardrails": "node test/guardrails/run_all.js",
-    "test:all": "npm test && npm run test:contracts && npm run test:guardrails",
+    "test": "vitest run --config test/vitest.config.ts",
     "test:coverage:js": "c8 npm test",
     "test:coverage:cpp": "npm run build:coverage && npm test && lcov --capture --directory build --output-file coverage/cpp.info --no-external && genhtml coverage/cpp.info --output-directory coverage/cpp",
     "coverage": "npm run test:coverage:js && c8 report --reporter=html",
@@ -35,7 +32,10 @@
     "c8": "^10.1.2",
     "cmake-js": "^7.3.0",
     "gts": "^7.0.0",
-    "typescript": "^5.6.3"
+    "mediabunny": "^1.25.4",
+    "tsx": "^4.20.6",
+    "typescript": "^5.6.3",
+    "vitest": "^4.0.15"
   },
   "engines": {
     "node": ">=18.0.0"
