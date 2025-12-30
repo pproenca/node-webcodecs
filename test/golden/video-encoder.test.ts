@@ -120,4 +120,98 @@ describe('VideoEncoder', () => {
       }).toThrow();
     });
   });
+
+  describe('EventTarget', () => {
+    it('should support addEventListener for dequeue', async () => {
+      let dequeueCount = 0;
+      const encoder = new VideoEncoder({
+        output: () => {},
+        error: (e) => { throw e; },
+      });
+
+      encoder.addEventListener('dequeue', () => {
+        dequeueCount++;
+      });
+
+      encoder.configure({
+        codec: 'avc1.42001e',
+        width: 320,
+        height: 240,
+        bitrate: 1_000_000,
+      });
+
+      const frame = new VideoFrame(
+        new Uint8Array(320 * 240 * 4),
+        {
+          format: 'RGBA',
+          codedWidth: 320,
+          codedHeight: 240,
+          timestamp: 0,
+        }
+      );
+
+      encoder.encode(frame);
+      frame.close();
+
+      await encoder.flush();
+      encoder.close();
+
+      expect(dequeueCount).toBeGreaterThan(0);
+    });
+
+    it('should support removeEventListener', () => {
+      const encoder = new VideoEncoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      let called = false;
+      const handler = () => { called = true; };
+
+      encoder.addEventListener('dequeue', handler);
+      encoder.removeEventListener('dequeue', handler);
+
+      encoder.close();
+      expect(encoder.removeEventListener).toBeDefined();
+    });
+
+    it('should support both ondequeue callback and addEventListener', async () => {
+      let callbackCalled = false;
+      let eventCalled = false;
+
+      const encoder = new VideoEncoder({
+        output: () => {},
+        error: (e) => { throw e; },
+      });
+
+      encoder.ondequeue = () => { callbackCalled = true; };
+      encoder.addEventListener('dequeue', () => { eventCalled = true; });
+
+      encoder.configure({
+        codec: 'avc1.42001e',
+        width: 320,
+        height: 240,
+        bitrate: 1_000_000,
+      });
+
+      const frame = new VideoFrame(
+        new Uint8Array(320 * 240 * 4),
+        {
+          format: 'RGBA',
+          codedWidth: 320,
+          codedHeight: 240,
+          timestamp: 0,
+        }
+      );
+
+      encoder.encode(frame);
+      frame.close();
+
+      await encoder.flush();
+      encoder.close();
+
+      expect(callbackCalled).toBe(true);
+      expect(eventCalled).toBe(true);
+    });
+  });
 });

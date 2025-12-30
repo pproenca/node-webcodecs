@@ -2,8 +2,7 @@
  * node-webcodecs - WebCodecs API implementation for Node.js
  *
  * W3C WebCodecs Specification Compliance Notes:
- * - TODO: W3C spec requires VideoEncoder, VideoDecoder, AudioEncoder, AudioDecoder
- *   to extend EventTarget. Currently using callback-based ondequeue instead of events.
+ * - VideoEncoder, VideoDecoder, AudioEncoder, AudioDecoder extend EventTarget via CodecBase
  * - TODO: VideoFrame constructor from CanvasImageSource not supported (Node.js limitation)
  * - TODO: visibleRect cropping not fully implemented in native layer
  * - TODO: ArrayBuffer transfer semantics not implemented
@@ -64,6 +63,41 @@ import {ResourceManager} from './resource-manager';
 
 // Load native addon with type assertion
 const native: NativeModule = require('../build/Release/node_webcodecs.node');
+
+/**
+ * Abstract base class for all WebCodecs codec classes.
+ * Provides EventTarget inheritance and common dequeue event handling.
+ * Per W3C WebCodecs spec, all codecs extend EventTarget.
+ */
+abstract class CodecBase extends EventTarget {
+  protected _ondequeue: (() => void) | null = null;
+
+  get ondequeue(): (() => void) | null {
+    return this._ondequeue;
+  }
+
+  set ondequeue(handler: (() => void) | null) {
+    this._ondequeue = handler;
+  }
+
+  /**
+   * Triggers the 'dequeue' event per W3C spec.
+   * Dispatches both the standard Event and calls the legacy callback.
+   */
+  protected _triggerDequeue(): void {
+    // Dispatch standard EventTarget event
+    this.dispatchEvent(new Event('dequeue'));
+
+    // Also call legacy ondequeue callback for backwards compatibility
+    if (this._ondequeue) {
+      queueMicrotask(() => {
+        if (this._ondequeue) {
+          this._ondequeue();
+        }
+      });
+    }
+  }
+}
 
 export class VideoColorSpace {
   readonly primaries: VideoColorPrimaries | null;
@@ -245,15 +279,15 @@ export class VideoFrame {
   }
 }
 
-export class VideoEncoder {
+export class VideoEncoder extends CodecBase {
   private _native: NativeVideoEncoder;
   private _state: CodecState = 'unconfigured';
-  private _ondequeue: (() => void) | null = null;
   private _controlQueue: ControlMessageQueue;
   private _encodeQueueSize: number = 0;
   private _resourceId: symbol;
 
   constructor(init: VideoEncoderInit) {
+    super();
     // W3C spec: output and error callbacks are required
     if (!init || typeof init.output !== 'function') {
       throw new TypeError('output callback is required');
@@ -298,25 +332,6 @@ export class VideoEncoder {
 
   get codecSaturated(): boolean {
     return this._native.codecSaturated;
-  }
-
-  get ondequeue(): (() => void) | null {
-    return this._ondequeue;
-  }
-
-  set ondequeue(handler: (() => void) | null) {
-    this._ondequeue = handler;
-  }
-
-  // Internal: triggers dequeue event with proper microtask timing
-  _triggerDequeue(): void {
-    if (this._ondequeue) {
-      queueMicrotask(() => {
-        if (this._ondequeue) {
-          this._ondequeue();
-        }
-      });
-    }
   }
 
   configure(config: VideoEncoderConfig): void {
@@ -438,9 +453,8 @@ export class EncodedVideoChunk {
   }
 }
 
-export class VideoDecoder {
+export class VideoDecoder extends CodecBase {
   private _native: NativeVideoDecoder;
-  private _ondequeue: (() => void) | null = null;
   private _controlQueue: ControlMessageQueue;
   private _decodeQueueSize: number = 0;
   private _needsKeyFrame: boolean = true;
@@ -448,6 +462,7 @@ export class VideoDecoder {
   private _resourceId: symbol;
 
   constructor(init: VideoDecoderInit) {
+    super();
     // W3C spec: output and error callbacks are required
     if (!init || typeof init.output !== 'function') {
       throw new TypeError('output callback is required');
@@ -488,25 +503,6 @@ export class VideoDecoder {
 
   get decodeQueueSize(): number {
     return this._decodeQueueSize;
-  }
-
-  get ondequeue(): (() => void) | null {
-    return this._ondequeue;
-  }
-
-  set ondequeue(handler: (() => void) | null) {
-    this._ondequeue = handler;
-  }
-
-  // Internal: triggers dequeue event with proper microtask timing
-  _triggerDequeue(): void {
-    if (this._ondequeue) {
-      queueMicrotask(() => {
-        if (this._ondequeue) {
-          this._ondequeue();
-        }
-      });
-    }
   }
 
   configure(config: VideoDecoderConfig): void {
@@ -746,13 +742,13 @@ export class EncodedAudioChunk {
   }
 }
 
-export class AudioEncoder {
+export class AudioEncoder extends CodecBase {
   private _native: NativeAudioEncoder;
-  private _ondequeue: (() => void) | null = null;
   private _controlQueue: ControlMessageQueue;
   private _encodeQueueSize: number = 0;
 
   constructor(init: AudioEncoderInit) {
+    super();
     this._controlQueue = new ControlMessageQueue();
     this._controlQueue.setErrorHandler(init.error);
 
@@ -781,25 +777,6 @@ export class AudioEncoder {
 
   get encodeQueueSize(): number {
     return this._encodeQueueSize;
-  }
-
-  get ondequeue(): (() => void) | null {
-    return this._ondequeue;
-  }
-
-  set ondequeue(handler: (() => void) | null) {
-    this._ondequeue = handler;
-  }
-
-  // Internal: triggers dequeue event with proper microtask timing
-  _triggerDequeue(): void {
-    if (this._ondequeue) {
-      queueMicrotask(() => {
-        if (this._ondequeue) {
-          this._ondequeue();
-        }
-      });
-    }
   }
 
   configure(config: AudioEncoderConfig): void {
@@ -837,15 +814,15 @@ export class AudioEncoder {
   }
 }
 
-export class AudioDecoder {
+export class AudioDecoder extends CodecBase {
   private _native: NativeAudioDecoder;
-  private _ondequeue: (() => void) | null = null;
   private _controlQueue: ControlMessageQueue;
   private _decodeQueueSize: number = 0;
   private _needsKeyFrame: boolean = true;
   private _errorCallback: (error: DOMException) => void;
 
   constructor(init: AudioDecoderInit) {
+    super();
     this._controlQueue = new ControlMessageQueue();
     this._errorCallback = init.error;
     this._controlQueue.setErrorHandler(init.error);
@@ -876,25 +853,6 @@ export class AudioDecoder {
 
   get decodeQueueSize(): number {
     return this._decodeQueueSize;
-  }
-
-  get ondequeue(): (() => void) | null {
-    return this._ondequeue;
-  }
-
-  set ondequeue(handler: (() => void) | null) {
-    this._ondequeue = handler;
-  }
-
-  // Internal: triggers dequeue event with proper microtask timing
-  _triggerDequeue(): void {
-    if (this._ondequeue) {
-      queueMicrotask(() => {
-        if (this._ondequeue) {
-          this._ondequeue();
-        }
-      });
-    }
   }
 
   configure(config: AudioDecoderConfig): void {
