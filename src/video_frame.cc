@@ -10,69 +10,80 @@
 // Static constructor reference for clone().
 Napi::FunctionReference VideoFrame::constructor;
 
-// Format registry: single source of truth for all pixel format metadata
-// clang-format off
-static const std::unordered_map<PixelFormat, PixelFormatInfo> kFormatRegistry = {
-    // 8-bit RGB formats (packed, single plane)
-    {PixelFormat::RGBA,    {"RGBA",    AV_PIX_FMT_RGBA,         8, 1, 0, 0, true,  false}},
-    {PixelFormat::RGBX,    {"RGBX",    AV_PIX_FMT_RGB0,         8, 1, 0, 0, false, false}},
-    {PixelFormat::BGRA,    {"BGRA",    AV_PIX_FMT_BGRA,         8, 1, 0, 0, true,  false}},
-    {PixelFormat::BGRX,    {"BGRX",    AV_PIX_FMT_BGR0,         8, 1, 0, 0, false, false}},
-    // 8-bit YUV formats (4:2:0)
-    {PixelFormat::I420,    {"I420",    AV_PIX_FMT_YUV420P,      8, 3, 1, 1, false, false}},
-    {PixelFormat::I420A,   {"I420A",   AV_PIX_FMT_YUVA420P,     8, 4, 1, 1, true,  false}},
-    // 8-bit YUV formats (4:2:2)
-    {PixelFormat::I422,    {"I422",    AV_PIX_FMT_YUV422P,      8, 3, 1, 0, false, false}},
-    // 8-bit YUV formats (4:4:4)
-    {PixelFormat::I444,    {"I444",    AV_PIX_FMT_YUV444P,      8, 3, 0, 0, false, false}},
-    // 8-bit semi-planar
-    {PixelFormat::NV12,    {"NV12",    AV_PIX_FMT_NV12,         8, 2, 1, 1, false, true}},
-    {PixelFormat::NV21,    {"NV21",    AV_PIX_FMT_NV21,         8, 2, 1, 1, false, true}},
-    // 10-bit YUV formats
-    {PixelFormat::I420P10, {"I420P10", AV_PIX_FMT_YUV420P10LE, 10, 3, 1, 1, false, false}},
-    {PixelFormat::I422P10, {"I422P10", AV_PIX_FMT_YUV422P10LE, 10, 3, 1, 0, false, false}},
-    {PixelFormat::I444P10, {"I444P10", AV_PIX_FMT_YUV444P10LE, 10, 3, 0, 0, false, false}},
-    {PixelFormat::NV12P10, {"NV12P10", AV_PIX_FMT_P010LE,      10, 2, 1, 1, false, true}},
-    // 10-bit YUV formats with alpha
-    {PixelFormat::I420AP10, {"I420AP10", AV_PIX_FMT_YUVA420P10LE, 10, 4, 1, 1, true, false}},
-    {PixelFormat::I422AP10, {"I422AP10", AV_PIX_FMT_YUVA422P10LE, 10, 4, 1, 0, true, false}},
-    {PixelFormat::I444AP10, {"I444AP10", AV_PIX_FMT_YUVA444P10LE, 10, 4, 0, 0, true, false}},
-    // 12-bit YUV formats
-    {PixelFormat::I420P12, {"I420P12", AV_PIX_FMT_YUV420P12LE, 12, 3, 1, 1, false, false}},
-    {PixelFormat::I422P12, {"I422P12", AV_PIX_FMT_YUV422P12LE, 12, 3, 1, 0, false, false}},
-    {PixelFormat::I444P12, {"I444P12", AV_PIX_FMT_YUV444P12LE, 12, 3, 0, 0, false, false}},
-    // Note: 12-bit YUVA formats (I420AP12, etc.) not supported by FFmpeg
-    // Unknown sentinel
-    {PixelFormat::UNKNOWN, {"UNKNOWN", AV_PIX_FMT_NONE,         0, 0, 0, 0, false, false}},
-};
-// clang-format on
-
-// Reverse lookup: string name to PixelFormat enum
-static const std::unordered_map<std::string, PixelFormat> kFormatNameLookup = []() {
-  std::unordered_map<std::string, PixelFormat> lookup;
-  for (const auto& [format, info] : kFormatRegistry) {
-    if (format != PixelFormat::UNKNOWN) {
-      lookup[info.name] = format;
-    }
-  }
-  return lookup;
-}();
-
-// Sentinel for unknown formats
+// Sentinel for unknown formats (trivially destructible - safe as file-scope static)
 static const PixelFormatInfo kUnknownFormatInfo = {
     "UNKNOWN", AV_PIX_FMT_NONE, 0, 0, 0, 0, false, false};
 
+// Format registry accessor using function-local static with heap allocation.
+// This pattern avoids the "static initialization order fiasco" and destruction
+// order issues per Google C++ Style Guide - the object is never destroyed.
+// clang-format off
+static const std::unordered_map<PixelFormat, PixelFormatInfo>& GetFormatRegistry() {
+  static const auto* registry = new std::unordered_map<PixelFormat, PixelFormatInfo>{
+      // 8-bit RGB formats (packed, single plane)
+      {PixelFormat::RGBA,    {"RGBA",    AV_PIX_FMT_RGBA,         8, 1, 0, 0, true,  false}},
+      {PixelFormat::RGBX,    {"RGBX",    AV_PIX_FMT_RGB0,         8, 1, 0, 0, false, false}},
+      {PixelFormat::BGRA,    {"BGRA",    AV_PIX_FMT_BGRA,         8, 1, 0, 0, true,  false}},
+      {PixelFormat::BGRX,    {"BGRX",    AV_PIX_FMT_BGR0,         8, 1, 0, 0, false, false}},
+      // 8-bit YUV formats (4:2:0)
+      {PixelFormat::I420,    {"I420",    AV_PIX_FMT_YUV420P,      8, 3, 1, 1, false, false}},
+      {PixelFormat::I420A,   {"I420A",   AV_PIX_FMT_YUVA420P,     8, 4, 1, 1, true,  false}},
+      // 8-bit YUV formats (4:2:2)
+      {PixelFormat::I422,    {"I422",    AV_PIX_FMT_YUV422P,      8, 3, 1, 0, false, false}},
+      // 8-bit YUV formats (4:4:4)
+      {PixelFormat::I444,    {"I444",    AV_PIX_FMT_YUV444P,      8, 3, 0, 0, false, false}},
+      // 8-bit semi-planar
+      {PixelFormat::NV12,    {"NV12",    AV_PIX_FMT_NV12,         8, 2, 1, 1, false, true}},
+      {PixelFormat::NV21,    {"NV21",    AV_PIX_FMT_NV21,         8, 2, 1, 1, false, true}},
+      // 10-bit YUV formats
+      {PixelFormat::I420P10, {"I420P10", AV_PIX_FMT_YUV420P10LE, 10, 3, 1, 1, false, false}},
+      {PixelFormat::I422P10, {"I422P10", AV_PIX_FMT_YUV422P10LE, 10, 3, 1, 0, false, false}},
+      {PixelFormat::I444P10, {"I444P10", AV_PIX_FMT_YUV444P10LE, 10, 3, 0, 0, false, false}},
+      {PixelFormat::NV12P10, {"NV12P10", AV_PIX_FMT_P010LE,      10, 2, 1, 1, false, true}},
+      // 10-bit YUV formats with alpha
+      {PixelFormat::I420AP10, {"I420AP10", AV_PIX_FMT_YUVA420P10LE, 10, 4, 1, 1, true, false}},
+      {PixelFormat::I422AP10, {"I422AP10", AV_PIX_FMT_YUVA422P10LE, 10, 4, 1, 0, true, false}},
+      {PixelFormat::I444AP10, {"I444AP10", AV_PIX_FMT_YUVA444P10LE, 10, 4, 0, 0, true, false}},
+      // 12-bit YUV formats
+      {PixelFormat::I420P12, {"I420P12", AV_PIX_FMT_YUV420P12LE, 12, 3, 1, 1, false, false}},
+      {PixelFormat::I422P12, {"I422P12", AV_PIX_FMT_YUV422P12LE, 12, 3, 1, 0, false, false}},
+      {PixelFormat::I444P12, {"I444P12", AV_PIX_FMT_YUV444P12LE, 12, 3, 0, 0, false, false}},
+      // Note: 12-bit YUVA formats (I420AP12, etc.) not supported by FFmpeg
+      // Unknown sentinel
+      {PixelFormat::UNKNOWN, {"UNKNOWN", AV_PIX_FMT_NONE,         0, 0, 0, 0, false, false}},
+  };
+  return *registry;
+}
+// clang-format on
+
+// Reverse lookup accessor: string name to PixelFormat enum
+// Uses function-local static with heap allocation (never destroyed).
+static const std::unordered_map<std::string, PixelFormat>& GetFormatNameLookup() {
+  static const auto* lookup = new std::unordered_map<std::string, PixelFormat>([]() {
+    std::unordered_map<std::string, PixelFormat> result;
+    for (const auto& [format, info] : GetFormatRegistry()) {
+      if (format != PixelFormat::UNKNOWN) {
+        result[info.name] = format;
+      }
+    }
+    return result;
+  }());
+  return *lookup;
+}
+
 const PixelFormatInfo& GetFormatInfo(PixelFormat format) {
-  auto it = kFormatRegistry.find(format);
-  if (it != kFormatRegistry.end()) {
+  const auto& registry = GetFormatRegistry();
+  auto it = registry.find(format);
+  if (it != registry.end()) {
     return it->second;
   }
   return kUnknownFormatInfo;
 }
 
 PixelFormat ParsePixelFormat(const std::string& format_str) {
-  auto it = kFormatNameLookup.find(format_str);
-  if (it != kFormatNameLookup.end()) {
+  const auto& lookup = GetFormatNameLookup();
+  auto it = lookup.find(format_str);
+  if (it != lookup.end()) {
     return it->second;
   }
   return PixelFormat::UNKNOWN;

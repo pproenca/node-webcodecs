@@ -88,7 +88,7 @@ void AsyncDecodeWorker::Flush() {
 }
 
 size_t AsyncDecodeWorker::QueueSize() const {
-  std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(queue_mutex_));
+  std::lock_guard<std::mutex> lock(queue_mutex_);
   return task_queue_.size();
 }
 

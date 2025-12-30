@@ -66,7 +66,7 @@ class AsyncEncodeWorker {
 
   std::thread worker_thread_;
   std::queue<EncodeTask> task_queue_;
-  std::mutex queue_mutex_;
+  mutable std::mutex queue_mutex_;  // mutable for const QueueSize()
   std::condition_variable queue_cv_;
   std::atomic<bool> running_{false};
   std::atomic<bool> flushing_{false};
