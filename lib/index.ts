@@ -730,10 +730,10 @@ export class AudioData {
     return this._native.allocationSize(options);
   }
 
-  copyTo(
+  async copyTo(
     destination: ArrayBuffer | ArrayBufferView,
     options: AudioDataCopyToOptions,
-  ): void {
+  ): Promise<undefined> {
     if (this._closed) {
       throw new DOMException(
         'InvalidStateError: AudioData is closed',
@@ -761,6 +761,7 @@ export class AudioData {
     if (destination instanceof ArrayBuffer) {
       new Uint8Array(destination).set(destBuffer);
     }
+    return undefined;
   }
 
   clone(): AudioData {

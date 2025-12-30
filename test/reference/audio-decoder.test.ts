@@ -39,7 +39,7 @@ test('AudioDecoder lifecycle', { timeout: 10_000 }, async () => {
 
 			const allocSize = audioData.allocationSize({ planeIndex: 0 });
 			const buffer = new Uint8Array(allocSize);
-			audioData.copyTo(buffer, { planeIndex: 0 });
+			await audioData.copyTo(buffer, { planeIndex: 0 });
 
 			valuesSeen.add(buffer[0]);
 
