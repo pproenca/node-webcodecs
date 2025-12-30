@@ -152,7 +152,6 @@ export interface NativeAudioEncoder {
 export interface NativeAudioDecoder {
   readonly state: CodecState;
   readonly decodeQueueSize: number;
-  readonly codecSaturated: boolean;
 
   configure(config: AudioDecoderConfig): void;
   decode(chunk: NativeEncodedAudioChunk): void;

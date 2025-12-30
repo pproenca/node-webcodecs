@@ -701,24 +701,36 @@ export class AudioData {
     return this._closed ? 0 : this._native.timestamp;
   }
 
-  allocationSize(options?: AudioDataCopyToOptions): number {
+  allocationSize(options: AudioDataCopyToOptions): number {
     if (this._closed) {
       throw new DOMException(
         'InvalidStateError: AudioData is closed',
         'InvalidStateError',
       );
     }
-    return this._native.allocationSize(options || {});
+    // W3C spec: planeIndex is required
+    if (options.planeIndex === undefined || options.planeIndex === null) {
+      throw new TypeError(
+        "Failed to execute 'allocationSize' on 'AudioData': required member planeIndex is undefined.",
+      );
+    }
+    return this._native.allocationSize(options);
   }
 
   copyTo(
     destination: ArrayBuffer | ArrayBufferView,
-    options?: AudioDataCopyToOptions,
+    options: AudioDataCopyToOptions,
   ): void {
     if (this._closed) {
       throw new DOMException(
         'InvalidStateError: AudioData is closed',
         'InvalidStateError',
+      );
+    }
+    // W3C spec: planeIndex is required
+    if (options.planeIndex === undefined || options.planeIndex === null) {
+      throw new TypeError(
+        "Failed to execute 'copyTo' on 'AudioData': required member planeIndex is undefined.",
       );
     }
     let destBuffer: Buffer;
@@ -731,7 +743,7 @@ export class AudioData {
         destination.byteLength,
       );
     }
-    this._native.copyTo(destBuffer, options || {});
+    this._native.copyTo(destBuffer, options);
     // Copy back to original if it was an ArrayBuffer
     if (destination instanceof ArrayBuffer) {
       new Uint8Array(destination).set(destBuffer);
@@ -941,21 +953,43 @@ export class AudioDecoder extends CodecBase {
     return this._decodeQueueSize;
   }
 
-  get codecSaturated(): boolean {
-    return this._native.codecSaturated;
-  }
-
   configure(config: AudioDecoderConfig): void {
     // W3C spec: throw if closed
     if (this.state === 'closed') {
       throw new DOMException('Decoder is closed', 'InvalidStateError');
     }
+
+    // W3C spec: validate required fields with TypeError
+    if (config.codec === undefined || config.codec === null) {
+      throw new TypeError(
+        "Failed to execute 'configure' on 'AudioDecoder': required member codec is undefined."
+      );
+    }
+    if (config.sampleRate === undefined || config.sampleRate === null) {
+      throw new TypeError(
+        "Failed to execute 'configure' on 'AudioDecoder': required member sampleRate is undefined."
+      );
+    }
+    if (config.numberOfChannels === undefined || config.numberOfChannels === null) {
+      throw new TypeError(
+        "Failed to execute 'configure' on 'AudioDecoder': required member numberOfChannels is undefined."
+      );
+    }
+
     this._needsKeyFrame = true;
     // Configure synchronously to set state immediately per W3C spec
     this._native.configure(config);
   }
 
   decode(chunk: EncodedAudioChunk): void {
+    // W3C spec: throw InvalidStateError if not configured
+    if (this.state === 'unconfigured') {
+      throw new DOMException('Decoder is not configured', 'InvalidStateError');
+    }
+    if (this.state === 'closed') {
+      throw new DOMException('Decoder is closed', 'InvalidStateError');
+    }
+
     // Check if first chunk must be a key frame per W3C spec
     if (this._needsKeyFrame && chunk.type !== 'key') {
       this._errorCallback(
@@ -990,6 +1024,10 @@ export class AudioDecoder extends CodecBase {
   }
 
   reset(): void {
+    // W3C spec: reset() is a no-op when closed (does NOT throw)
+    if (this.state === 'closed') {
+      return;
+    }
     this._controlQueue.clear();
     this._decodeQueueSize = 0;
     this._needsKeyFrame = true;
