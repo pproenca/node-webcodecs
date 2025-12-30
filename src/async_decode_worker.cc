@@ -5,12 +5,14 @@
 
 #include "src/async_decode_worker.h"
 
-#include <utility>
-
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
 }
+
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "src/video_decoder.h"
 #include "src/video_frame.h"

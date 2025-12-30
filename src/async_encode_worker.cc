@@ -5,7 +5,9 @@
 
 #include "src/async_encode_worker.h"
 
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "src/encoded_video_chunk.h"
 #include "src/video_encoder.h"
@@ -166,7 +168,8 @@ void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
         init.Set("type", is_key ? "key" : "delta");
         init.Set("timestamp", static_cast<double>(pts));
         init.Set("duration", static_cast<double>(duration));
-        init.Set("data", Napi::Buffer<uint8_t>::Copy(env, data->data(), data->size()));
+        init.Set("data",
+                 Napi::Buffer<uint8_t>::Copy(env, data->data(), data->size()));
 
         // Create EncodedVideoChunk via its constructor
         Napi::Function constructor = env.Global()

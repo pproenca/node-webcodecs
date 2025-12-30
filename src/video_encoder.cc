@@ -242,13 +242,15 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
 
   // Track queue size and saturation
   encode_queue_size_++;
-  codec_saturated_.store(encode_queue_size_ >= static_cast<int>(kMaxQueueSize));
+  bool saturated = encode_queue_size_ >= static_cast<int>(kMaxQueueSize);
+  codec_saturated_.store(saturated);
 
   // Send frame to encoder.
   int ret = avcodec_send_frame(codec_context_, frame_);
   if (ret < 0) {
     encode_queue_size_--;
-    codec_saturated_.store(encode_queue_size_ >= static_cast<int>(kMaxQueueSize));
+    bool saturated = encode_queue_size_ >= static_cast<int>(kMaxQueueSize);
+    codec_saturated_.store(saturated);
     char errbuf[256];
     av_strerror(ret, errbuf, sizeof(errbuf));
     throw Napi::Error::New(env, std::string("Error sending frame: ") + errbuf);
@@ -344,7 +346,8 @@ void VideoEncoder::EmitChunks(Napi::Env env) {
     // Decrement queue after emitting chunk
     if (encode_queue_size_ > 0) {
       encode_queue_size_--;
-      codec_saturated_.store(encode_queue_size_ >= static_cast<int>(kMaxQueueSize));
+      bool saturated = encode_queue_size_ >= static_cast<int>(kMaxQueueSize);
+      codec_saturated_.store(saturated);
     }
   }
 }
