@@ -342,6 +342,10 @@ Napi::Value VideoDecoder::Flush(const Napi::CallbackInfo& info) {
   // Emit remaining decoded frames.
   EmitFrames(env);
 
+  // Reset queue after flush
+  decode_queue_size_ = 0;
+  codec_saturated_.store(false);
+
   // Return resolved promise.
   Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
   deferred.Resolve(env.Undefined());
@@ -371,6 +375,8 @@ Napi::Value VideoDecoder::Reset(const Napi::CallbackInfo& info) {
   state_ = "unconfigured";
   coded_width_ = 0;
   coded_height_ = 0;
+  decode_queue_size_ = 0;
+  codec_saturated_.store(false);
 
   return env.Undefined();
 }

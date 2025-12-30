@@ -803,9 +803,9 @@ export interface AudioData {
 
 /**
  * WebIDL: interface VideoEncoder : EventTarget
- * TODO: EventTarget inheritance not implemented
+ * Implements EventTarget for 'dequeue' event support.
  */
-export interface VideoEncoder {
+export interface VideoEncoder extends EventTarget {
   readonly state: CodecState;
   readonly encodeQueueSize: number; // unsigned long
   ondequeue: (() => void) | null; // EventHandler
@@ -828,9 +828,9 @@ export interface VideoEncoderConstructor {
 
 /**
  * WebIDL: interface VideoDecoder : EventTarget
- * TODO: EventTarget inheritance not implemented
+ * Implements EventTarget for 'dequeue' event support.
  */
-export interface VideoDecoder {
+export interface VideoDecoder extends EventTarget {
   readonly state: CodecState;
   readonly decodeQueueSize: number; // unsigned long
   ondequeue: (() => void) | null; // EventHandler
@@ -853,9 +853,9 @@ export interface VideoDecoderConstructor {
 
 /**
  * WebIDL: interface AudioEncoder : EventTarget
- * TODO: EventTarget inheritance not implemented
+ * Implements EventTarget for 'dequeue' event support.
  */
-export interface AudioEncoder {
+export interface AudioEncoder extends EventTarget {
   readonly state: CodecState;
   readonly encodeQueueSize: number; // unsigned long
   ondequeue: (() => void) | null; // EventHandler
@@ -878,9 +878,9 @@ export interface AudioEncoderConstructor {
 
 /**
  * WebIDL: interface AudioDecoder : EventTarget
- * TODO: EventTarget inheritance not implemented
+ * Implements EventTarget for 'dequeue' event support.
  */
-export interface AudioDecoder {
+export interface AudioDecoder extends EventTarget {
   readonly state: CodecState;
   readonly decodeQueueSize: number; // unsigned long
   ondequeue: (() => void) | null; // EventHandler
