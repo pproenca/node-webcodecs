@@ -186,14 +186,18 @@ export type VideoTransferCharacteristics =
 
 /**
  * WebIDL:
- * enum VideoMatrixCoefficients { "rgb", "bt709", "bt470bg", "smpte170m", "bt2020-ncl" };
+ * enum VideoMatrixCoefficients { "rgb", "bt709", "bt470bg", "smpte170m", "bt2020-ncl",
+ *   "smpte240m", "bt2020-cl", "smpte2085" };
  */
 export type VideoMatrixCoefficients =
   | 'rgb'
   | 'bt709'
   | 'bt470bg'
   | 'smpte170m'
-  | 'bt2020-ncl';
+  | 'bt2020-ncl'
+  | 'smpte240m'
+  | 'bt2020-cl'
+  | 'smpte2085';
 
 /**
  * WebIDL:
