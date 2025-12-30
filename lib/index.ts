@@ -18,6 +18,7 @@ import type {
   VideoDecoderConfig,
   VideoDecoderInit,
   VideoFrameBufferInit,
+  VideoFrameInit,
   VideoFrameMetadata,
   VideoColorSpaceInit,
   VideoColorPrimaries,
@@ -156,11 +157,77 @@ export class VideoFrame {
   private _native: NativeVideoFrame;
   private _closed: boolean = false;
   private _metadata: VideoFrameMetadata;
+  private _timestampOverride?: number;
+  private _durationOverride?: number;
+  private _visibleRectOverride?: {x: number; y: number; width: number; height: number};
 
+  /**
+   * Constructs a VideoFrame from raw data or from an existing VideoFrame.
+   *
+   * Per W3C WebCodecs spec, VideoFrame can be constructed from:
+   * 1. Raw buffer data with VideoFrameBufferInit
+   * 2. An existing VideoFrame with optional VideoFrameInit overrides
+   */
+  constructor(data: Buffer | Uint8Array | ArrayBuffer, init: VideoFrameBufferInit);
+  constructor(source: VideoFrame, init?: VideoFrameInit);
   constructor(
-    data: Buffer | Uint8Array | ArrayBuffer,
-    init: VideoFrameBufferInit,
+    dataOrSource: Buffer | Uint8Array | ArrayBuffer | VideoFrame,
+    init?: VideoFrameBufferInit | VideoFrameInit,
   ) {
+    // Check if constructing from existing VideoFrame
+    if (dataOrSource instanceof VideoFrame) {
+      const source = dataOrSource;
+      const frameInit = init as VideoFrameInit | undefined;
+
+      // W3C spec: throw InvalidStateError if source frame is closed (detached)
+      if (source._closed) {
+        throw new DOMException(
+          'Cannot construct VideoFrame from closed VideoFrame',
+          'InvalidStateError',
+        );
+      }
+
+      // Clone the native frame
+      this._native = source._native.clone();
+      this._closed = false;
+
+      // Copy metadata from source
+      this._metadata = {...source._metadata};
+
+      // Apply overrides from init if provided
+      if (frameInit) {
+        // Override timestamp if provided
+        if (frameInit.timestamp !== undefined) {
+          this._timestampOverride = frameInit.timestamp;
+        }
+
+        // Override duration if provided
+        if (frameInit.duration !== undefined) {
+          this._durationOverride = frameInit.duration;
+        }
+
+        // Override visibleRect if provided
+        if (frameInit.visibleRect) {
+          this._visibleRectOverride = {
+            x: frameInit.visibleRect.x ?? 0,
+            y: frameInit.visibleRect.y ?? 0,
+            width: frameInit.visibleRect.width ?? this._native.visibleRect.width,
+            height: frameInit.visibleRect.height ?? this._native.visibleRect.height,
+          };
+        }
+
+        // Override metadata if provided
+        if (frameInit.metadata) {
+          this._metadata = {...this._metadata, ...frameInit.metadata};
+        }
+      }
+      return;
+    }
+
+    // Original buffer-based construction
+    const data = dataOrSource;
+    const bufferInit = init as VideoFrameBufferInit;
+
     // Convert to Buffer if needed
     let dataBuffer: Buffer;
     if (data instanceof Buffer) {
@@ -172,14 +239,14 @@ export class VideoFrame {
     } else {
       throw new TypeError('data must be Buffer, Uint8Array, or ArrayBuffer');
     }
-    this._native = new native.VideoFrame(dataBuffer, init);
+    this._native = new native.VideoFrame(dataBuffer, bufferInit);
 
     // Store metadata per W3C VideoFrame Metadata Registry
-    this._metadata = init.metadata ?? {};
+    this._metadata = bufferInit.metadata ?? {};
 
     // Handle ArrayBuffer transfer semantics per W3C WebCodecs spec
-    if (init.transfer && Array.isArray(init.transfer)) {
-      detachArrayBuffers(init.transfer);
+    if (bufferInit.transfer && Array.isArray(bufferInit.transfer)) {
+      detachArrayBuffers(bufferInit.transfer);
     }
   }
 
@@ -198,6 +265,10 @@ export class VideoFrame {
   get timestamp(): number {
     // W3C spec: return 0 when [[Detached]] is true
     if (this._closed) return 0;
+    // Return override if set (from VideoFrame-from-VideoFrame construction)
+    if (this._timestampOverride !== undefined) {
+      return this._timestampOverride;
+    }
     return this._native.timestamp;
   }
 
@@ -211,6 +282,10 @@ export class VideoFrame {
   get duration(): number | null {
     // W3C spec: return null when [[Detached]] is true
     if (this._closed) return null;
+    // Return override if set (from VideoFrame-from-VideoFrame construction)
+    if (this._durationOverride !== undefined) {
+      return this._durationOverride;
+    }
     return this._native.duration ?? null;
   }
 
@@ -246,7 +321,8 @@ export class VideoFrame {
   get visibleRect(): DOMRectReadOnly | null {
     // W3C spec: return null when [[Detached]] is true
     if (this._closed) return null;
-    const rect = this._native.visibleRect;
+    // Return override if set (from VideoFrame-from-VideoFrame construction)
+    const rect = this._visibleRectOverride ?? this._native.visibleRect;
     // Return DOMRectReadOnly-compatible object with computed right/bottom/top/left
     return {
       x: rect.x,
