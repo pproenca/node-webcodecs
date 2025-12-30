@@ -164,11 +164,12 @@ export interface NativeAudioDecoder {
  * Native VideoFilter object from C++ addon
  */
 export interface NativeVideoFilter {
+  configure(config: VideoFilterConfig): void;
   applyBlur(
-    frameData: Buffer,
+    frame: NativeVideoFrame,
     regions: BlurRegion[],
     blurRadius: number,
-  ): Buffer;
+  ): NativeVideoFrame;
   close(): void;
 }
 

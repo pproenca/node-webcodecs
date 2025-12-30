@@ -1139,8 +1139,8 @@ export class VideoFilter {
     return this._state;
   }
 
-  configure(_config: VideoFilterConfig): void {
-    // VideoFilter is configured at construction time
+  configure(config: VideoFilterConfig): void {
+    this._native.configure(config);
     this._state = 'configured';
   }
 
@@ -1152,16 +1152,17 @@ export class VideoFilter {
     if (this._state === 'closed') {
       throw new DOMException('VideoFilter is closed', 'InvalidStateError');
     }
-    // Pass the native VideoFrame data to applyBlur
-    const frameData = frame._nativeFrame.getData();
-    const resultData = this._native.applyBlur(frameData, regions, strength);
-    // Create a new VideoFrame with the blurred data
-    return new VideoFrame(resultData, {
-      codedWidth: frame.codedWidth,
-      codedHeight: frame.codedHeight,
-      timestamp: frame.timestamp,
-      format: frame.format as VideoPixelFormat,
-    });
+    // Pass the native VideoFrame to applyBlur, which returns a native VideoFrame
+    const resultNativeFrame = this._native.applyBlur(
+      frame._nativeFrame,
+      regions,
+      strength,
+    );
+    // Wrap the returned native VideoFrame in a TypeScript VideoFrame
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const wrapper = Object.create(VideoFrame.prototype) as any;
+    wrapper._native = resultNativeFrame;
+    return wrapper as VideoFrame;
   }
 
   close(): void {
