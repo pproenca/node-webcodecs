@@ -688,6 +688,11 @@ export class AudioData {
       timestamp: init.timestamp,
       data: dataBuffer,
     });
+
+    // Handle ArrayBuffer transfer semantics per W3C WebCodecs spec
+    if (init.transfer && Array.isArray(init.transfer)) {
+      detachArrayBuffers(init.transfer);
+    }
   }
 
   get format(): AudioSampleFormat | null {
