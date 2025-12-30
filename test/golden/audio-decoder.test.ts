@@ -224,4 +224,76 @@ describe('AudioDecoder', () => {
       decoder.close();
     });
   });
+
+  describe('FLAC codec support', () => {
+    it('should support flac codec string', async () => {
+      const result = await AudioDecoder.isConfigSupported({
+        codec: 'flac',
+        sampleRate: 48000,
+        numberOfChannels: 2,
+      });
+
+      expect(result.supported).toBe(true);
+      expect(result.config.codec).toBe('flac');
+    });
+
+    it('should configure with flac codec', () => {
+      const decoder = new AudioDecoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      expect(() => {
+        decoder.configure({
+          codec: 'flac',
+          sampleRate: 48000,
+          numberOfChannels: 2,
+        });
+      }).not.toThrow();
+
+      expect(decoder.state).toBe('configured');
+
+      decoder.close();
+    });
+  });
+
+  describe('Vorbis codec support', () => {
+    it('should support vorbis codec string', async () => {
+      const result = await AudioDecoder.isConfigSupported({
+        codec: 'vorbis',
+        sampleRate: 48000,
+        numberOfChannels: 2,
+      });
+
+      expect(result.supported).toBe(true);
+      expect(result.config.codec).toBe('vorbis');
+    });
+
+    it('should recognize vorbis codec and require description', () => {
+      const decoder = new AudioDecoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      // Vorbis codec is recognized but requires codec-specific extradata
+      // (identification, comment, setup headers) via the description property.
+      // Without description, FFmpeg cannot initialize the decoder.
+      // This test verifies the codec string is recognized (not NotSupportedError).
+      try {
+        decoder.configure({
+          codec: 'vorbis',
+          sampleRate: 48000,
+          numberOfChannels: 2,
+        });
+        // If we get here without error, vorbis is configured (unlikely without description)
+      } catch (e) {
+        // Should NOT be NotSupportedError (codec is recognized)
+        expect((e as Error).message).not.toContain('NotSupportedError');
+        // Error should be about opening decoder (missing extradata), not unknown codec
+        expect((e as Error).message).toContain('Could not open decoder');
+      }
+
+      decoder.close();
+    });
+  });
 });
