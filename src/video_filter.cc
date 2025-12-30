@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: MIT
 
 #include "src/video_filter.h"
-#include "src/video_frame.h"
 
 #include <algorithm>
 #include <cstdio>
 #include <sstream>
 #include <string>
 #include <vector>
+
+#include "src/video_frame.h"
 
 Napi::Object VideoFilter::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "VideoFilter", {
