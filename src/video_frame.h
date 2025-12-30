@@ -74,6 +74,7 @@ class VideoFrame : public Napi::ObjectWrap<VideoFrame> {
   Napi::Value GetDisplayWidth(const Napi::CallbackInfo& info);
   Napi::Value GetDisplayHeight(const Napi::CallbackInfo& info);
   Napi::Value GetTimestamp(const Napi::CallbackInfo& info);
+  Napi::Value GetDuration(const Napi::CallbackInfo& info);
   Napi::Value GetFormat(const Napi::CallbackInfo& info);
   Napi::Value GetRotation(const Napi::CallbackInfo& info);
   Napi::Value GetFlip(const Napi::CallbackInfo& info);

@@ -134,6 +134,7 @@ Napi::Object VideoFrame::Init(Napi::Env env, Napi::Object exports) {
           InstanceAccessor("displayHeight", &VideoFrame::GetDisplayHeight,
                            nullptr),
           InstanceAccessor("timestamp", &VideoFrame::GetTimestamp, nullptr),
+          InstanceAccessor("duration", &VideoFrame::GetDuration, nullptr),
           InstanceAccessor("format", &VideoFrame::GetFormat, nullptr),
           InstanceAccessor("rotation", &VideoFrame::GetRotation, nullptr),
           InstanceAccessor("flip", &VideoFrame::GetFlip, nullptr),
@@ -152,7 +153,10 @@ Napi::Object VideoFrame::Init(Napi::Env env, Napi::Object exports) {
 }
 
 VideoFrame::VideoFrame(const Napi::CallbackInfo& info)
-    : Napi::ObjectWrap<VideoFrame>(info), closed_(false) {
+    : Napi::ObjectWrap<VideoFrame>(info),
+      duration_(0),
+      has_duration_(false),
+      closed_(false) {
   Napi::Env env = info.Env();
 
   if (info.Length() < 2) {
@@ -168,6 +172,12 @@ VideoFrame::VideoFrame(const Napi::CallbackInfo& info)
   coded_width_ = opts.Get("codedWidth").As<Napi::Number>().Int32Value();
   coded_height_ = opts.Get("codedHeight").As<Napi::Number>().Int32Value();
   timestamp_ = opts.Get("timestamp").As<Napi::Number>().Int64Value();
+
+  // Parse optional duration.
+  if (opts.Has("duration") && opts.Get("duration").IsNumber()) {
+    duration_ = opts.Get("duration").As<Napi::Number>().Int64Value();
+    has_duration_ = true;
+  }
 
   // displayWidth/displayHeight default to codedWidth/codedHeight per W3C spec
   if (opts.Has("displayWidth")) {
@@ -238,6 +248,17 @@ Napi::Value VideoFrame::GetTimestamp(const Napi::CallbackInfo& info) {
   return Napi::Number::New(info.Env(), timestamp_);
 }
 
+Napi::Value VideoFrame::GetDuration(const Napi::CallbackInfo& info) {
+  if (closed_) {
+    throw Napi::Error::New(info.Env(), "VideoFrame is closed");
+  }
+  // Return null if duration was not set, otherwise return the value.
+  if (!has_duration_) {
+    return info.Env().Null();
+  }
+  return Napi::Number::New(info.Env(), duration_);
+}
+
 Napi::Value VideoFrame::GetFormat(const Napi::CallbackInfo& info) {
   if (closed_) {
     throw Napi::Error::New(info.Env(), "VideoFrame is closed");
@@ -291,6 +312,9 @@ Napi::Value VideoFrame::Clone(const Napi::CallbackInfo& info) {
   init.Set("displayWidth", display_width_);
   init.Set("displayHeight", display_height_);
   init.Set("timestamp", Napi::Number::New(env, timestamp_));
+  if (has_duration_) {
+    init.Set("duration", Napi::Number::New(env, duration_));
+  }
   init.Set("format", PixelFormatToString(format_));
   init.Set("rotation", rotation_);
   init.Set("flip", flip_);
