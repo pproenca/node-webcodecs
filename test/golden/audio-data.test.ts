@@ -55,15 +55,15 @@ describe('AudioData.copyTo() W3C compliance', () => {
     const destination = new ArrayBuffer(1024 * 2 * 4);
 
     // W3C spec: planeIndex is required in AudioDataCopyToOptions
-    // copyTo now returns a Promise per W3C spec
-    await expect(
+    // copyTo returns void per W3C spec
+    expect(() =>
       audioData.copyTo(destination, {} as AudioDataCopyToOptions)
-    ).rejects.toThrow(TypeError);
+    ).toThrow(TypeError);
 
     audioData.close();
   });
 
-  it('should accept valid planeIndex', async () => {
+  it('should accept valid planeIndex', () => {
     const audioData = new AudioData({
       format: 'f32',
       sampleRate: 48000,
@@ -75,10 +75,9 @@ describe('AudioData.copyTo() W3C compliance', () => {
 
     const destination = new ArrayBuffer(1024 * 2 * 4);
     // Should not throw with valid planeIndex
-    // copyTo now returns a Promise per W3C spec
-    await expect(
-      audioData.copyTo(destination, {planeIndex: 0})
-    ).resolves.toBeUndefined();
+    // copyTo returns void per W3C spec
+    const result = audioData.copyTo(destination, {planeIndex: 0});
+    expect(result).toBeUndefined();
 
     audioData.close();
   });

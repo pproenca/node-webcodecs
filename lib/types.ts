@@ -921,7 +921,7 @@ export interface AudioData {
   copyTo(
     destination: AllowSharedBufferSource,
     options: AudioDataCopyToOptions,
-  ): Promise<undefined>;
+  ): void;
   clone(): AudioData;
   close(): void;
 }

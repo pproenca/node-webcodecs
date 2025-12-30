@@ -1,7 +1,7 @@
 import {describe, it, expect} from 'vitest';
 
-describe('AudioData.copyTo() returns Promise per W3C spec', () => {
-  it('should return a Promise that resolves to undefined', async () => {
+describe('AudioData.copyTo() returns void per W3C spec', () => {
+  it('should return undefined (void)', () => {
     const audioData = new AudioData({
       format: 'f32',
       sampleRate: 48000,
@@ -14,16 +14,13 @@ describe('AudioData.copyTo() returns Promise per W3C spec', () => {
     const destination = new ArrayBuffer(1024 * 2 * 4);
     const result = audioData.copyTo(destination, {planeIndex: 0});
 
-    // W3C spec: copyTo returns Promise<undefined>
-    expect(result).toBeInstanceOf(Promise);
-
-    const resolved = await result;
-    expect(resolved).toBeUndefined();
+    // W3C spec: copyTo returns undefined (void)
+    expect(result).toBeUndefined();
 
     audioData.close();
   });
 
-  it('should reject with InvalidStateError when closed', async () => {
+  it('should throw InvalidStateError when closed', () => {
     const audioData = new AudioData({
       format: 'f32',
       sampleRate: 48000,
@@ -36,8 +33,8 @@ describe('AudioData.copyTo() returns Promise per W3C spec', () => {
 
     const destination = new ArrayBuffer(1024 * 2 * 4);
 
-    await expect(
+    expect(() =>
       audioData.copyTo(destination, {planeIndex: 0})
-    ).rejects.toThrow('InvalidStateError');
+    ).toThrow('InvalidStateError');
   });
 });

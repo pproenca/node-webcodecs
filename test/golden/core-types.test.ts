@@ -331,10 +331,10 @@ describe('AudioData', () => {
       audioData.close();
 
       const dest = new Float32Array(1024 * 2);
-      await expect(audioData.copyTo(dest, { planeIndex: 0 })).rejects.toThrow(/InvalidStateError/);
+      expect(() => audioData.copyTo(dest, { planeIndex: 0 })).toThrow(/InvalidStateError/);
     });
 
-    it('should throw if destination buffer too small', async () => {
+    it('should throw if destination buffer too small', () => {
       const data = new Float32Array(1024 * 2);
       const audioData = new AudioData({
         format: 'f32',
@@ -346,12 +346,12 @@ describe('AudioData', () => {
       });
 
       const dest = new Float32Array(10); // Too small
-      await expect(audioData.copyTo(dest, { planeIndex: 0 })).rejects.toThrow();
+      expect(() => audioData.copyTo(dest, { planeIndex: 0 })).toThrow();
 
       audioData.close();
     });
 
-    it('should throw RangeError for invalid planeIndex on planar', async () => {
+    it('should throw RangeError for invalid planeIndex on planar', () => {
       const data = new Float32Array(1024 * 2);
       const audioData = new AudioData({
         format: 'f32-planar',
@@ -363,12 +363,12 @@ describe('AudioData', () => {
       });
 
       const dest = new Float32Array(1024);
-      await expect(audioData.copyTo(dest, { planeIndex: 2 })).rejects.toThrow();
+      expect(() => audioData.copyTo(dest, { planeIndex: 2 })).toThrow();
 
       audioData.close();
     });
 
-    it('should copy partial frames with frameOffset and frameCount', async () => {
+    it('should copy partial frames with frameOffset and frameCount', () => {
       const numberOfFrames = 100;
       const numberOfChannels = 2;
       // Create data with recognizable pattern: frame index * 0.01
@@ -395,7 +395,7 @@ describe('AudioData', () => {
         frameCount: 10,
       });
       const dest = new Float32Array(copySize / 4);
-      await audioData.copyTo(dest, { planeIndex: 0, frameOffset: 10, frameCount: 10 });
+      audioData.copyTo(dest, { planeIndex: 0, frameOffset: 10, frameCount: 10 });
 
       // Verify first sample is from frame 10
       expect(dest[0]).toBeCloseTo(0.10, 5);
@@ -405,7 +405,7 @@ describe('AudioData', () => {
       audioData.close();
     });
 
-    it('should copy single plane from planar format', async () => {
+    it('should copy single plane from planar format', () => {
       const numberOfFrames = 100;
       const numberOfChannels = 2;
       // Planar: all channel 0 samples, then all channel 1 samples
@@ -431,7 +431,7 @@ describe('AudioData', () => {
       // Copy plane 1 (channel 1)
       const copySize = audioData.allocationSize({ planeIndex: 1 });
       const dest = new Float32Array(copySize / 4);
-      await audioData.copyTo(dest, { planeIndex: 1 });
+      audioData.copyTo(dest, { planeIndex: 1 });
 
       // Verify values are from channel 1
       expect(dest[0]).toBeCloseTo(1.0, 5);
@@ -440,7 +440,7 @@ describe('AudioData', () => {
       audioData.close();
     });
 
-    it('should convert f32 to s16 format', async () => {
+    it('should convert f32 to s16 format', () => {
       const numberOfFrames = 100;
       const numberOfChannels = 1;
       // Create f32 data with values that map nicely to s16
@@ -464,7 +464,7 @@ describe('AudioData', () => {
       expect(allocSize).toBe(numberOfFrames * 2); // 2 bytes per s16 sample
 
       const dest = new Int16Array(numberOfFrames);
-      await audioData.copyTo(dest, { planeIndex: 0, format: 's16' });
+      audioData.copyTo(dest, { planeIndex: 0, format: 's16' });
 
       // First sample should be near -32768 (min s16)
       expect(dest[0]).toBeLessThan(-30000);
@@ -474,7 +474,7 @@ describe('AudioData', () => {
       audioData.close();
     });
 
-    it('should convert s16 to f32 format', async () => {
+    it('should convert s16 to f32 format', () => {
       const numberOfFrames = 100;
       const numberOfChannels = 1;
       // Create s16 data
@@ -496,7 +496,7 @@ describe('AudioData', () => {
       expect(allocSize).toBe(numberOfFrames * 4);
 
       const dest = new Float32Array(numberOfFrames);
-      await audioData.copyTo(dest, { planeIndex: 0, format: 'f32' });
+      audioData.copyTo(dest, { planeIndex: 0, format: 'f32' });
 
       // Values should be in -1.0 to 1.0 range
       expect(dest[0]).toBeCloseTo(-1.0, 1);
@@ -505,7 +505,7 @@ describe('AudioData', () => {
       audioData.close();
     });
 
-    it('should convert interleaved to planar format', async () => {
+    it('should convert interleaved to planar format', () => {
       const numberOfFrames = 100;
       const numberOfChannels = 2;
       // Interleaved: L0 R0 L1 R1 ...
@@ -529,7 +529,7 @@ describe('AudioData', () => {
       expect(allocSize).toBe(numberOfFrames * 4); // Single channel
 
       const dest = new Float32Array(numberOfFrames);
-      await audioData.copyTo(dest, { planeIndex: 0, format: 'f32-planar' });
+      audioData.copyTo(dest, { planeIndex: 0, format: 'f32-planar' });
 
       // All values should be 0.5 (left channel)
       expect(dest[0]).toBeCloseTo(0.5, 5);
@@ -538,7 +538,7 @@ describe('AudioData', () => {
       audioData.close();
     });
 
-    it('should convert planar to interleaved format', async () => {
+    it('should convert planar to interleaved format', () => {
       const numberOfFrames = 100;
       const numberOfChannels = 2;
       // Planar: plane 0 all 0.25, plane 1 all 0.75
@@ -562,7 +562,7 @@ describe('AudioData', () => {
       expect(allocSize).toBe(numberOfFrames * numberOfChannels * 4);
 
       const dest = new Float32Array(numberOfFrames * numberOfChannels);
-      await audioData.copyTo(dest, { planeIndex: 0, format: 'f32' });
+      audioData.copyTo(dest, { planeIndex: 0, format: 'f32' });
 
       // Interleaved: L0 R0 L1 R1 ...
       expect(dest[0]).toBeCloseTo(0.25, 5);  // L0
