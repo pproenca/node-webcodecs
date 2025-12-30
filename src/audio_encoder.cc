@@ -515,10 +515,35 @@ Napi::Value AudioEncoder::Flush(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
   if (state_ == "configured") {
-    // Send NULL frame to flush encoder.
+    // First, flush the resampler to get any buffered samples
+    if (swr_context_) {
+      int frame_size = codec_context_->frame_size;
+
+      // Get buffered samples from resampler
+      int ret = av_frame_make_writable(frame_);
+      if (ret >= 0) {
+        // Flush resampler by passing NULL input
+        int out_samples = swr_convert(swr_context_,
+                                       frame_->data, frame_size,
+                                       nullptr, 0);
+
+        // If we got samples, send them to encoder
+        if (out_samples > 0) {
+          frame_->nb_samples = out_samples;
+          frame_->pts = timestamp_;
+
+          ret = avcodec_send_frame(codec_context_, frame_);
+          if (ret >= 0 || ret == AVERROR(EAGAIN)) {
+            EmitChunks(env);
+          }
+        }
+      }
+    }
+
+    // Send NULL frame to flush encoder
     avcodec_send_frame(codec_context_, nullptr);
 
-    // Get remaining packets.
+    // Get remaining packets
     EmitChunks(env);
   }
 
