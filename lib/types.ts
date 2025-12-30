@@ -150,6 +150,7 @@ export type VideoPixelFormat =
   | 'I444AP12'
   // 4:2:0 Y, UV (semi-planar)
   | 'NV12'
+  | 'NV21'
   | 'NV12P10'
   // 4:4:4 RGB variants
   | 'RGBA'

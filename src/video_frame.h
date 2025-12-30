@@ -28,16 +28,22 @@ enum class PixelFormat {
   I420A,    // YUV420p with alpha plane
   I422,     // YUV422p planar
   I444,     // YUV444p planar
-  NV12,     // YUV420 semi-planar
+  NV12,     // YUV420 semi-planar (Y plane + interleaved UV)
+  NV21,     // YUV420 semi-planar (Y plane + interleaved VU)
   // 10-bit formats
   I420P10,  // YUV420p 10-bit planar
   I422P10,  // YUV422p 10-bit planar
   I444P10,  // YUV444p 10-bit planar
   NV12P10,  // YUV420 10-bit semi-planar (P010)
+  // 10-bit alpha formats
+  I420AP10, // YUV420p 10-bit with alpha
+  I422AP10, // YUV422p 10-bit with alpha
+  I444AP10, // YUV444p 10-bit with alpha
   // 12-bit formats
   I420P12,  // YUV420p 12-bit planar
   I422P12,  // YUV422p 12-bit planar
   I444P12,  // YUV444p 12-bit planar
+  // Note: 12-bit YUVA formats not supported by FFmpeg
   // Unknown/invalid
   UNKNOWN
 };

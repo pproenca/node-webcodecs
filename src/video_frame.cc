@@ -27,15 +27,21 @@ static const std::unordered_map<PixelFormat, PixelFormatInfo> kFormatRegistry = 
     {PixelFormat::I444,    {"I444",    AV_PIX_FMT_YUV444P,      8, 3, 0, 0, false, false}},
     // 8-bit semi-planar
     {PixelFormat::NV12,    {"NV12",    AV_PIX_FMT_NV12,         8, 2, 1, 1, false, true}},
+    {PixelFormat::NV21,    {"NV21",    AV_PIX_FMT_NV21,         8, 2, 1, 1, false, true}},
     // 10-bit YUV formats
     {PixelFormat::I420P10, {"I420P10", AV_PIX_FMT_YUV420P10LE, 10, 3, 1, 1, false, false}},
     {PixelFormat::I422P10, {"I422P10", AV_PIX_FMT_YUV422P10LE, 10, 3, 1, 0, false, false}},
     {PixelFormat::I444P10, {"I444P10", AV_PIX_FMT_YUV444P10LE, 10, 3, 0, 0, false, false}},
     {PixelFormat::NV12P10, {"NV12P10", AV_PIX_FMT_P010LE,      10, 2, 1, 1, false, true}},
+    // 10-bit YUV formats with alpha
+    {PixelFormat::I420AP10, {"I420AP10", AV_PIX_FMT_YUVA420P10LE, 10, 4, 1, 1, true, false}},
+    {PixelFormat::I422AP10, {"I422AP10", AV_PIX_FMT_YUVA422P10LE, 10, 4, 1, 0, true, false}},
+    {PixelFormat::I444AP10, {"I444AP10", AV_PIX_FMT_YUVA444P10LE, 10, 4, 0, 0, true, false}},
     // 12-bit YUV formats
     {PixelFormat::I420P12, {"I420P12", AV_PIX_FMT_YUV420P12LE, 12, 3, 1, 1, false, false}},
     {PixelFormat::I422P12, {"I422P12", AV_PIX_FMT_YUV422P12LE, 12, 3, 1, 0, false, false}},
     {PixelFormat::I444P12, {"I444P12", AV_PIX_FMT_YUV444P12LE, 12, 3, 0, 0, false, false}},
+    // Note: 12-bit YUVA formats (I420AP12, etc.) not supported by FFmpeg
     // Unknown sentinel
     {PixelFormat::UNKNOWN, {"UNKNOWN", AV_PIX_FMT_NONE,         0, 0, 0, 0, false, false}},
 };
