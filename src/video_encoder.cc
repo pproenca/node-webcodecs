@@ -571,6 +571,19 @@ Napi::Value VideoEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   if (config.Has("displayHeight") && config.Get("displayHeight").IsNumber()) {
     normalized_config.Set("displayHeight", config.Get("displayHeight"));
   }
+  // Echo alpha option per W3C spec
+  if (config.Has("alpha") && config.Get("alpha").IsString()) {
+    normalized_config.Set("alpha", config.Get("alpha"));
+  }
+  // Echo scalabilityMode per W3C spec
+  if (config.Has("scalabilityMode") &&
+      config.Get("scalabilityMode").IsString()) {
+    normalized_config.Set("scalabilityMode", config.Get("scalabilityMode"));
+  }
+  // Echo contentHint per W3C spec
+  if (config.Has("contentHint") && config.Get("contentHint").IsString()) {
+    normalized_config.Set("contentHint", config.Get("contentHint"));
+  }
 
   result.Set("supported", supported);
   result.Set("config", normalized_config);

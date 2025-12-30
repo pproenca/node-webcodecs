@@ -69,6 +69,39 @@ describe('VideoEncoder', () => {
       expect(result.config.displayWidth).toBe(1280);
       expect(result.config.displayHeight).toBe(720);
     });
+
+    it('should echo alpha option in config', async () => {
+      const result = await VideoEncoder.isConfigSupported({
+        codec: 'avc1.42E01E',
+        width: 640,
+        height: 480,
+        alpha: 'discard',
+      });
+      expect(result.supported).toBe(true);
+      expect(result.config.alpha).toBe('discard');
+    });
+
+    it('should echo scalabilityMode in config', async () => {
+      const result = await VideoEncoder.isConfigSupported({
+        codec: 'avc1.42E01E',
+        width: 640,
+        height: 480,
+        scalabilityMode: 'L1T2',
+      });
+      expect(result.supported).toBe(true);
+      expect(result.config.scalabilityMode).toBe('L1T2');
+    });
+
+    it('should echo contentHint in config', async () => {
+      const result = await VideoEncoder.isConfigSupported({
+        codec: 'avc1.42E01E',
+        width: 640,
+        height: 480,
+        contentHint: 'motion',
+      });
+      expect(result.supported).toBe(true);
+      expect(result.config.contentHint).toBe('motion');
+    });
   });
 
   describe('constructor', () => {
