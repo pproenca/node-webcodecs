@@ -579,13 +579,24 @@ export class EncodedAudioChunk {
 export class AudioEncoder {
     private _native: any;
     private _ondequeue: (() => void) | null = null;
+    private _controlQueue: ControlMessageQueue;
+    private _encodeQueueSize: number = 0;
 
     constructor(init: AudioEncoderInit) {
+        this._controlQueue = new ControlMessageQueue();
+        this._controlQueue.setErrorHandler(init.error);
+
         this._native = new native.AudioEncoder({
             output: (chunk: any, metadata?: any) => {
+                // Decrement queue size when output received
+                this._encodeQueueSize = Math.max(0, this._encodeQueueSize - 1);
+
                 const wrapper = Object.create(EncodedAudioChunk.prototype);
                 wrapper._native = chunk;
                 init.output(wrapper, metadata);
+
+                // Fire ondequeue after output
+                this._triggerDequeue();
             },
             error: init.error
         });
@@ -596,7 +607,7 @@ export class AudioEncoder {
     }
 
     get encodeQueueSize(): number {
-        return this._native.encodeQueueSize;
+        return this._encodeQueueSize;
     }
 
     get ondequeue(): (() => void) | null {
@@ -607,23 +618,43 @@ export class AudioEncoder {
         this._ondequeue = handler;
     }
 
+    // Internal: triggers dequeue event with proper microtask timing
+    _triggerDequeue(): void {
+        if (this._ondequeue) {
+            queueMicrotask(() => {
+                if (this._ondequeue) {
+                    this._ondequeue();
+                }
+            });
+        }
+    }
+
     configure(config: AudioEncoderConfig): void {
-        this._native.configure(config);
+        this._controlQueue.enqueue(() => {
+            this._native.configure(config);
+        });
     }
 
     encode(data: AudioData): void {
-        this._native.encode(data._nativeAudioData);
+        this._encodeQueueSize++;
+        this._controlQueue.enqueue(() => {
+            this._native.encode(data._nativeAudioData);
+        });
     }
 
     async flush(): Promise<void> {
+        await this._controlQueue.flush();
         return this._native.flush();
     }
 
     reset(): void {
+        this._controlQueue.clear();
+        this._encodeQueueSize = 0;
         this._native.reset();
     }
 
     close(): void {
+        this._controlQueue.clear();
         this._native.close();
     }
 
@@ -638,14 +669,28 @@ export class AudioEncoder {
 export class AudioDecoder {
     private _native: any;
     private _ondequeue: (() => void) | null = null;
+    private _controlQueue: ControlMessageQueue;
+    private _decodeQueueSize: number = 0;
+    private _needsKeyFrame: boolean = true;
+    private _errorCallback: (error: DOMException) => void;
 
     constructor(init: AudioDecoderInit) {
+        this._controlQueue = new ControlMessageQueue();
+        this._errorCallback = init.error;
+        this._controlQueue.setErrorHandler(init.error);
+
         this._native = new native.AudioDecoder({
             output: (data: any) => {
+                // Decrement queue size when output received
+                this._decodeQueueSize = Math.max(0, this._decodeQueueSize - 1);
+
                 const wrapper = Object.create(AudioData.prototype);
                 wrapper._native = data;
                 wrapper._closed = false;
                 init.output(wrapper);
+
+                // Fire ondequeue after output
+                this._triggerDequeue();
             },
             error: init.error
         });
@@ -656,7 +701,7 @@ export class AudioDecoder {
     }
 
     get decodeQueueSize(): number {
-        return this._native.decodeQueueSize;
+        return this._decodeQueueSize;
     }
 
     get ondequeue(): (() => void) | null {
@@ -667,23 +712,51 @@ export class AudioDecoder {
         this._ondequeue = handler;
     }
 
+    // Internal: triggers dequeue event with proper microtask timing
+    _triggerDequeue(): void {
+        if (this._ondequeue) {
+            queueMicrotask(() => {
+                if (this._ondequeue) {
+                    this._ondequeue();
+                }
+            });
+        }
+    }
+
     configure(config: AudioDecoderConfig): void {
+        this._needsKeyFrame = true;
+        // Configure synchronously to set state immediately per W3C spec
         this._native.configure(config);
     }
 
     decode(chunk: EncodedAudioChunk): void {
-        this._native.decode(chunk._nativeChunk);
+        // Check if first chunk must be a key frame per W3C spec
+        if (this._needsKeyFrame && chunk.type !== 'key') {
+            this._errorCallback(new DOMException('First chunk after configure/reset must be a key frame', 'DataError'));
+            return;
+        }
+        this._needsKeyFrame = false;
+
+        this._decodeQueueSize++;
+        this._controlQueue.enqueue(() => {
+            this._native.decode(chunk._nativeChunk);
+        });
     }
 
     async flush(): Promise<void> {
+        await this._controlQueue.flush();
         return this._native.flush();
     }
 
     reset(): void {
+        this._controlQueue.clear();
+        this._decodeQueueSize = 0;
+        this._needsKeyFrame = true;
         this._native.reset();
     }
 
     close(): void {
+        this._controlQueue.clear();
         this._native.close();
     }
 
