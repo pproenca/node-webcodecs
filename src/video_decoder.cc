@@ -48,10 +48,6 @@ Napi::Object VideoDecoder::Init(Napi::Env env, Napi::Object exports) {
 VideoDecoder::VideoDecoder(const Napi::CallbackInfo& info)
     : Napi::ObjectWrap<VideoDecoder>(info),
       codec_(nullptr),
-      codec_context_(nullptr),
-      sws_context_(nullptr),
-      frame_(nullptr),
-      packet_(nullptr),
       state_("unconfigured"),
       coded_width_(0),
       coded_height_(0) {
@@ -94,22 +90,10 @@ void VideoDecoder::Cleanup() {
 
   async_mode_ = false;
 
-  if (frame_) {
-    av_frame_free(&frame_);
-    frame_ = nullptr;
-  }
-  if (packet_) {
-    av_packet_free(&packet_);
-    packet_ = nullptr;
-  }
-  if (sws_context_) {
-    sws_freeContext(sws_context_);
-    sws_context_ = nullptr;
-  }
-  if (codec_context_) {
-    avcodec_free_context(&codec_context_);
-    codec_context_ = nullptr;
-  }
+  frame_.reset();
+  packet_.reset();
+  sws_context_.reset();
+  codec_context_.reset();
   codec_ = nullptr;
 }
 
@@ -173,7 +157,7 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
   }
 
   // Allocate codec context.
-  codec_context_ = avcodec_alloc_context3(codec_);
+  codec_context_ = ffmpeg::make_codec_context(codec_);
   if (!codec_context_) {
     throw Napi::Error::New(env, "Could not allocate codec context");
   }
@@ -295,7 +279,7 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
   }
 
   // Open codec.
-  int ret = avcodec_open2(codec_context_, codec_, nullptr);
+  int ret = avcodec_open2(codec_context_.get(), codec_, nullptr);
   if (ret < 0) {
     char errbuf[256];
     av_strerror(ret, errbuf, sizeof(errbuf));
@@ -305,13 +289,13 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
   }
 
   // Allocate frame and packet.
-  frame_ = av_frame_alloc();
+  frame_ = ffmpeg::make_frame();
   if (!frame_) {
     Cleanup();
     throw Napi::Error::New(env, "Could not allocate frame");
   }
 
-  packet_ = av_packet_alloc();
+  packet_ = ffmpeg::make_packet();
   if (!packet_) {
     Cleanup();
     throw Napi::Error::New(env, "Could not allocate packet");
@@ -370,7 +354,7 @@ Napi::Value VideoDecoder::Decode(const Napi::CallbackInfo& info) {
   bool is_key_frame = (chunk->GetTypeValue() == "key");
 
   // Setup packet.
-  av_packet_unref(packet_);
+  av_packet_unref(packet_.get());
   packet_->data = const_cast<uint8_t*>(data);
   packet_->size = static_cast<int>(data_size);
   packet_->pts = timestamp;
@@ -381,7 +365,7 @@ Napi::Value VideoDecoder::Decode(const Napi::CallbackInfo& info) {
   }
 
   // Send packet to decoder.
-  int ret = avcodec_send_packet(codec_context_, packet_);
+  int ret = avcodec_send_packet(codec_context_.get(), packet_.get());
   if (ret < 0 && ret != AVERROR(EAGAIN)) {
     char errbuf[256];
     av_strerror(ret, errbuf, sizeof(errbuf));
@@ -413,7 +397,7 @@ Napi::Value VideoDecoder::Flush(const Napi::CallbackInfo& info) {
   }
 
   // Send NULL packet to flush decoder.
-  int ret = avcodec_send_packet(codec_context_, nullptr);
+  int ret = avcodec_send_packet(codec_context_.get(), nullptr);
   if (ret < 0 && ret != AVERROR_EOF) {
     char errbuf[256];
     av_strerror(ret, errbuf, sizeof(errbuf));
@@ -444,9 +428,9 @@ Napi::Value VideoDecoder::Reset(const Napi::CallbackInfo& info) {
 
   // Flush any pending frames (discard them).
   if (codec_context_) {
-    avcodec_send_packet(codec_context_, nullptr);
-    while (avcodec_receive_frame(codec_context_, frame_) == 0) {
-      av_frame_unref(frame_);
+    avcodec_send_packet(codec_context_.get(), nullptr);
+    while (avcodec_receive_frame(codec_context_.get(), frame_.get()) == 0) {
+      av_frame_unref(frame_.get());
     }
   }
 
@@ -639,7 +623,7 @@ Napi::Value VideoDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
 
 void VideoDecoder::EmitFrames(Napi::Env env) {
   while (true) {
-    int ret = avcodec_receive_frame(codec_context_, frame_);
+    int ret = avcodec_receive_frame(codec_context_.get(), frame_.get());
     if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
       break;
     }
@@ -659,19 +643,15 @@ void VideoDecoder::EmitFrames(Napi::Env env) {
     if (!sws_context_ || last_frame_format_ != frame_format ||
         last_frame_width_ != frame_->width ||
         last_frame_height_ != frame_->height) {
-      if (sws_context_) {
-        sws_freeContext(sws_context_);
-      }
-
-      sws_context_ =
+      sws_context_.reset(
           sws_getContext(frame_->width, frame_->height, frame_format,
                          frame_->width, frame_->height, AV_PIX_FMT_RGBA,
-                         SWS_BILINEAR, nullptr, nullptr, nullptr);
+                         SWS_BILINEAR, nullptr, nullptr, nullptr));
 
       if (!sws_context_) {
         error_callback_.Call(
             {Napi::Error::New(env, "Could not create sws context").Value()});
-        av_frame_unref(frame_);
+        av_frame_unref(frame_.get());
         break;
       }
 
@@ -689,8 +669,8 @@ void VideoDecoder::EmitFrames(Napi::Env env) {
     int dst_linesize[1] = {frame_->width * kBytesPerPixelRgba};
 
     // Convert to RGBA.
-    sws_scale(sws_context_, frame_->data, frame_->linesize, 0, frame_->height,
-              dst_data, dst_linesize);
+    sws_scale(sws_context_.get(), frame_->data, frame_->linesize, 0,
+              frame_->height, dst_data, dst_linesize);
 
     // Calculate display dimensions based on aspect ratio (per W3C spec).
     // If displayAspectWidth/displayAspectHeight are set, compute display
@@ -729,6 +709,6 @@ void VideoDecoder::EmitFrames(Napi::Env env) {
       codec_saturated_.store(saturated);
     }
 
-    av_frame_unref(frame_);
+    av_frame_unref(frame_.get());
   }
 }
