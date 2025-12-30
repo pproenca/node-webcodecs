@@ -393,9 +393,8 @@ export class VideoDecoder {
 
     configure(config: VideoDecoderConfig): void {
         this._needsKeyFrame = true;
-        this._controlQueue.enqueue(() => {
-            this._native.configure(config);
-        });
+        // Configure synchronously to set state immediately per W3C spec
+        this._native.configure(config);
     }
 
     decode(chunk: EncodedVideoChunk | any): void {
