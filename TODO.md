@@ -16,21 +16,21 @@ Complete WebCodecs API specification extracted from W3C/MDN documentation.
 - `error` (WebCodecsErrorCallback) - required
 
 **Instance Properties (read-only):**
-- [ ] `encodeQueueSize` - Number of pending encode requests
-- [ ] `state` - CodecState: "unconfigured" | "configured" | "closed"
+- [x] `encodeQueueSize` - Number of pending encode requests
+- [x] `state` - CodecState: "unconfigured" | "configured" | "closed"
 
 **Events:**
-- [ ] `dequeue` - Fires when encodeQueueSize decreases
+- [x] `dequeue` - Fires when encodeQueueSize decreases
 
 **Static Methods:**
-- [ ] `isConfigSupported(config)` - Returns Promise<VideoEncoderSupport>
+- [x] `isConfigSupported(config)` - Returns Promise<VideoEncoderSupport>
 
 **Instance Methods:**
-- [ ] `configure(config)` - Configure encoder for encoding
-- [ ] `encode(frame, options?)` - Encode a VideoFrame
-- [ ] `flush()` - Returns Promise, resolves when pending encodes complete
-- [ ] `reset()` - Cancels pending encodes and callbacks
-- [ ] `close()` - Ends pending work, releases resources
+- [x] `configure(config)` - Configure encoder for encoding
+- [x] `encode(frame, options?)` - Encode a VideoFrame
+- [x] `flush()` - Returns Promise, resolves when pending encodes complete
+- [x] `reset()` - Cancels pending encodes and callbacks
+- [x] `close()` - Ends pending work, releases resources
 
 **VideoEncoderConfig:**
 - `codec` (string) - required, e.g. "avc1.42001E", "vp8", "vp09.00.10.08"
@@ -68,21 +68,21 @@ Complete WebCodecs API specification extracted from W3C/MDN documentation.
 - `error` (WebCodecsErrorCallback) - required
 
 **Instance Properties (read-only):**
-- [ ] `decodeQueueSize` - Number of pending decode requests
-- [ ] `state` - CodecState: "unconfigured" | "configured" | "closed"
+- [x] `decodeQueueSize` - Number of pending decode requests
+- [x] `state` - CodecState: "unconfigured" | "configured" | "closed"
 
 **Events:**
-- [ ] `dequeue` - Fires when decodeQueueSize decreases
+- [x] `dequeue` - Fires when decodeQueueSize decreases
 
 **Static Methods:**
-- [ ] `isConfigSupported(config)` - Returns Promise<VideoDecoderSupport>
+- [x] `isConfigSupported(config)` - Returns Promise<VideoDecoderSupport>
 
 **Instance Methods:**
-- [ ] `configure(config)` - Configure decoder for decoding
-- [ ] `decode(chunk)` - Decode an EncodedVideoChunk
-- [ ] `flush()` - Returns Promise, resolves when pending decodes complete
-- [ ] `reset()` - Resets all states and pending callbacks
-- [ ] `close()` - Ends pending work, releases resources
+- [x] `configure(config)` - Configure decoder for decoding
+- [x] `decode(chunk)` - Decode an EncodedVideoChunk
+- [x] `flush()` - Returns Promise, resolves when pending decodes complete
+- [x] `reset()` - Resets all states and pending callbacks
+- [x] `close()` - Ends pending work, releases resources
 
 **VideoDecoderConfig:**
 - `codec` (string) - required
@@ -109,21 +109,21 @@ Complete WebCodecs API specification extracted from W3C/MDN documentation.
 - `error` (WebCodecsErrorCallback) - required
 
 **Instance Properties (read-only):**
-- [ ] `encodeQueueSize` - Number of pending encode requests
-- [ ] `state` - CodecState: "unconfigured" | "configured" | "closed"
+- [x] `encodeQueueSize` - Number of pending encode requests
+- [x] `state` - CodecState: "unconfigured" | "configured" | "closed"
 
 **Events:**
-- [ ] `dequeue` - Fires when encodeQueueSize decreases
+- [x] `dequeue` - Fires when encodeQueueSize decreases
 
 **Static Methods:**
-- [ ] `isConfigSupported(config)` - Returns Promise<AudioEncoderSupport>
+- [x] `isConfigSupported(config)` - Returns Promise<AudioEncoderSupport>
 
 **Instance Methods:**
-- [ ] `configure(config)` - Configure encoder
-- [ ] `encode(data)` - Encode an AudioData
-- [ ] `flush()` - Returns Promise
-- [ ] `reset()` - Resets all states
-- [ ] `close()` - Ends pending work, releases resources
+- [x] `configure(config)` - Configure encoder
+- [x] `encode(data)` - Encode an AudioData
+- [x] `flush()` - Returns Promise
+- [x] `reset()` - Resets all states
+- [x] `close()` - Ends pending work, releases resources
 
 **AudioEncoderConfig:**
 - `codec` (string) - required, e.g. "opus", "mp3", "aac"
@@ -155,21 +155,21 @@ Complete WebCodecs API specification extracted from W3C/MDN documentation.
 - `error` (WebCodecsErrorCallback) - required
 
 **Instance Properties (read-only):**
-- [ ] `decodeQueueSize` - Number of pending decode requests
-- [ ] `state` - CodecState: "unconfigured" | "configured" | "closed"
+- [x] `decodeQueueSize` - Number of pending decode requests
+- [x] `state` - CodecState: "unconfigured" | "configured" | "closed"
 
 **Events:**
-- [ ] `dequeue` - Fires when decodeQueueSize decreases
+- [x] `dequeue` - Fires when decodeQueueSize decreases
 
 **Static Methods:**
-- [ ] `isConfigSupported(config)` - Returns Promise<AudioDecoderSupport>
+- [x] `isConfigSupported(config)` - Returns Promise<AudioDecoderSupport>
 
 **Instance Methods:**
-- [ ] `configure(config)` - Configure decoder
-- [ ] `decode(chunk)` - Decode an EncodedAudioChunk
-- [ ] `flush()` - Returns Promise
-- [ ] `reset()` - Resets all states
-- [ ] `close()` - Ends pending work, releases resources
+- [x] `configure(config)` - Configure decoder
+- [x] `decode(chunk)` - Decode an EncodedAudioChunk
+- [x] `flush()` - Returns Promise
+- [x] `reset()` - Resets all states
+- [x] `close()` - Ends pending work, releases resources
 
 **AudioDecoderConfig:**
 - `codec` (string) - required
@@ -222,24 +222,24 @@ new VideoFrame(data, init)
 - `rotation` (integer) - optional
 
 **Instance Properties (read-only):**
-- [ ] `format` - VideoPixelFormat
-- [ ] `codedWidth` - Integer, width including padding
-- [ ] `codedHeight` - Integer, height including padding
-- [ ] `codedRect` - DOMRectReadOnly
-- [ ] `visibleRect` - DOMRectReadOnly
+- [x] `format` - VideoPixelFormat
+- [x] `codedWidth` - Integer, width including padding
+- [x] `codedHeight` - Integer, height including padding
+- [x] `codedRect` - DOMRectReadOnly
+- [x] `visibleRect` - DOMRectReadOnly
 - [x] `displayWidth` - Integer
 - [x] `displayHeight` - Integer
-- [ ] `duration` - Integer, microseconds (nullable)
-- [ ] `timestamp` - Integer, microseconds
-- [ ] `colorSpace` - VideoColorSpace
-- [ ] `flip` (experimental) - Boolean
-- [ ] `rotation` (experimental) - Integer (0, 90, 180, 270)
+- [x] `duration` - Integer, microseconds (nullable)
+- [x] `timestamp` - Integer, microseconds
+- [x] `colorSpace` - VideoColorSpace
+- [x] `flip` (experimental) - Boolean
+- [x] `rotation` (experimental) - Integer (0, 90, 180, 270)
 
 **Instance Methods:**
-- [ ] `allocationSize(options?)` - Returns byte size needed for copyTo
-- [ ] `copyTo(destination, options?)` - Returns Promise<PlaneLayout[]>
-- [ ] `clone()` - Returns new VideoFrame referencing same resource
-- [ ] `close()` - Clears state, releases resource reference
+- [x] `allocationSize(options?)` - Returns byte size needed for copyTo
+- [x] `copyTo(destination, options?)` - Returns Promise<PlaneLayout[]>
+- [x] `clone()` - Returns new VideoFrame referencing same resource
+- [x] `close()` - Clears state, releases resource reference
 
 **VideoFrameCopyToOptions:**
 - `rect` (DOMRectInit) - optional, pixels to copy
@@ -266,18 +266,18 @@ new AudioData(init)
 - `transfer` (ArrayBuffer[]) - optional
 
 **Instance Properties (read-only):**
-- [ ] `format` - AudioSampleFormat
-- [ ] `sampleRate` - Number, Hz
-- [ ] `numberOfFrames` - Integer
-- [ ] `numberOfChannels` - Integer
-- [ ] `duration` - Integer, microseconds
-- [ ] `timestamp` - Integer, microseconds
+- [x] `format` - AudioSampleFormat
+- [x] `sampleRate` - Number, Hz
+- [x] `numberOfFrames` - Integer
+- [x] `numberOfChannels` - Integer
+- [x] `duration` - Integer, microseconds
+- [x] `timestamp` - Integer, microseconds
 
 **Instance Methods:**
-- [ ] `allocationSize(options)` - Returns byte size for plane
-- [ ] `copyTo(destination, options)` - Copies plane data
-- [ ] `clone()` - Returns new AudioData referencing same resource
-- [ ] `close()` - Clears state, releases resource
+- [x] `allocationSize(options)` - Returns byte size for plane
+- [x] `copyTo(destination, options)` - Copies plane data
+- [x] `clone()` - Returns new AudioData referencing same resource
+- [x] `close()` - Clears state, releases resource
 
 **AudioDataCopyToOptions:**
 - `planeIndex` (integer) - required
@@ -301,13 +301,13 @@ new EncodedVideoChunk(init)
 - `transfer` (ArrayBuffer[]) - optional
 
 **Instance Properties (read-only):**
-- [ ] `type` - "key" | "delta"
-- [ ] `timestamp` - Integer, microseconds
-- [ ] `duration` - Integer, microseconds (nullable)
-- [ ] `byteLength` - Integer
+- [x] `type` - "key" | "delta"
+- [x] `timestamp` - Integer, microseconds
+- [x] `duration` - Integer, microseconds (nullable)
+- [x] `byteLength` - Integer
 
 **Instance Methods:**
-- [ ] `copyTo(destination)` - Copies encoded data to buffer
+- [x] `copyTo(destination)` - Copies encoded data to buffer
 
 ---
 
@@ -326,13 +326,13 @@ new EncodedAudioChunk(init)
 - `transfer` (ArrayBuffer[]) - optional
 
 **Instance Properties (read-only):**
-- [ ] `type` - "key" | "delta"
-- [ ] `timestamp` - Integer, microseconds
-- [ ] `duration` - Integer, microseconds (nullable)
-- [ ] `byteLength` - Integer
+- [x] `type` - "key" | "delta"
+- [x] `timestamp` - Integer, microseconds
+- [x] `duration` - Integer, microseconds (nullable)
+- [x] `byteLength` - Integer
 
 **Instance Methods:**
-- [ ] `copyTo(destination)` - Copies encoded data to buffer
+- [x] `copyTo(destination)` - Copies encoded data to buffer
 
 ---
 
@@ -354,18 +354,18 @@ new ImageDecoder(init)
 - `transfer` (ArrayBuffer[]) - optional
 
 **Instance Properties (read-only):**
-- [ ] `complete` - Boolean, true when data fully buffered
-- [ ] `completed` - Promise, resolves when complete is true
-- [ ] `tracks` - ImageTrackList
-- [ ] `type` - String, MIME type
+- [x] `complete` - Boolean, true when data fully buffered
+- [x] `completed` - Promise, resolves when complete is true
+- [x] `tracks` - ImageTrackList
+- [x] `type` - String, MIME type
 
 **Static Methods:**
-- [ ] `isTypeSupported(type)` - Returns Promise<boolean>
+- [x] `isTypeSupported(type)` - Returns Promise<boolean>
 
 **Instance Methods:**
-- [ ] `decode(options?)` - Returns Promise<ImageDecodeResult>
-- [ ] `reset()` - Aborts pending decode operations
-- [ ] `close()` - Ends pending work, releases resources
+- [x] `decode(options?)` - Returns Promise<ImageDecodeResult>
+- [x] `reset()` - Aborts pending decode operations
+- [x] `close()` - Ends pending work, releases resources
 
 **ImageDecodeOptions:**
 - `frameIndex` (integer) - optional, default 0
@@ -380,20 +380,20 @@ new ImageDecoder(init)
 ### 10. ImageTrackList
 
 **Instance Properties (read-only):**
-- [ ] `ready` - Promise, resolves when tracks populated
-- [ ] `length` - Integer, number of tracks
-- [ ] `selectedIndex` - Integer, index of selected track
-- [ ] `selectedTrack` - ImageTrack
+- [x] `ready` - Promise, resolves when tracks populated
+- [x] `length` - Integer, number of tracks
+- [x] `selectedIndex` - Integer, index of selected track
+- [x] `selectedTrack` - ImageTrack
 
 ---
 
 ### 11. ImageTrack
 
 **Instance Properties (read-only):**
-- [ ] `animated` - Boolean, true if track has multiple frames
-- [ ] `frameCount` - Integer
-- [ ] `repetitionCount` - Integer, animation repeat count
-- [ ] `selected` - Boolean, true if selected for decoding
+- [x] `animated` - Boolean, true if track has multiple frames
+- [x] `frameCount` - Integer
+- [x] `repetitionCount` - Integer, animation repeat count
+- [x] `selected` - Boolean, true if selected for decoding
 
 ---
 
@@ -411,87 +411,87 @@ new VideoColorSpace(init?)
 - `fullRange` (boolean) - optional
 
 **Instance Properties (read-only):**
-- [ ] `primaries` - VideoColorPrimaries (nullable)
-- [ ] `transfer` - VideoTransferCharacteristics (nullable)
-- [ ] `matrix` - VideoMatrixCoefficients (nullable)
-- [ ] `fullRange` - Boolean (nullable)
+- [x] `primaries` - VideoColorPrimaries (nullable)
+- [x] `transfer` - VideoTransferCharacteristics (nullable)
+- [x] `matrix` - VideoMatrixCoefficients (nullable)
+- [x] `fullRange` - Boolean (nullable)
 
 **Instance Methods:**
-- [ ] `toJSON()` - Returns VideoColorSpaceInit
+- [x] `toJSON()` - Returns VideoColorSpaceInit
 
 ---
 
 ## Enumerations
 
 ### CodecState
-- [ ] `"unconfigured"` - Not yet configured
-- [ ] `"configured"` - Ready for encode/decode
-- [ ] `"closed"` - Permanently closed
+- [x] `"unconfigured"` - Not yet configured
+- [x] `"configured"` - Ready for encode/decode
+- [x] `"closed"` - Permanently closed
 
 ### HardwareAcceleration
-- [ ] `"no-preference"`
-- [ ] `"prefer-hardware"`
-- [ ] `"prefer-software"`
+- [x] `"no-preference"`
+- [x] `"prefer-hardware"`
+- [x] `"prefer-software"`
 
 ### LatencyMode
-- [ ] `"quality"` - Optimize for output quality
-- [ ] `"realtime"` - Optimize for low latency
+- [x] `"quality"` - Optimize for output quality
+- [x] `"realtime"` - Optimize for low latency
 
 ### AlphaOption
-- [ ] `"discard"` - Ignore alpha channel
-- [ ] `"keep"` - Preserve alpha channel
+- [x] `"discard"` - Ignore alpha channel
+- [x] `"keep"` - Preserve alpha channel
 
 ### VideoEncoderBitrateMode
-- [ ] `"constant"` - Constant bitrate
-- [ ] `"variable"` - Variable bitrate
-- [ ] `"quantizer"` - Quantizer-based
+- [x] `"constant"` - Constant bitrate
+- [x] `"variable"` - Variable bitrate
+- [x] `"quantizer"` - Quantizer-based
 
 ### VideoPixelFormat
-- [ ] `"I420"` - Planar YUV 4:2:0
+- [x] `"I420"` - Planar YUV 4:2:0
 - [ ] `"I420A"` - Planar YUV 4:2:0 with alpha
 - [ ] `"I422"` - Planar YUV 4:2:2
 - [ ] `"I444"` - Planar YUV 4:4:4
-- [ ] `"NV12"` - Semi-planar YUV 4:2:0
-- [ ] `"RGBA"` - RGB with alpha
+- [x] `"NV12"` - Semi-planar YUV 4:2:0
+- [x] `"RGBA"` - RGB with alpha
 - [ ] `"RGBX"` - RGB with padding
-- [ ] `"BGRA"` - BGR with alpha
+- [x] `"BGRA"` - BGR with alpha
 - [ ] `"BGRX"` - BGR with padding
 
 ### AudioSampleFormat
-- [ ] `"u8"` - Unsigned 8-bit interleaved
-- [ ] `"s16"` - Signed 16-bit interleaved
-- [ ] `"s32"` - Signed 32-bit interleaved
-- [ ] `"f32"` - Float 32-bit interleaved
-- [ ] `"u8-planar"` - Unsigned 8-bit planar
-- [ ] `"s16-planar"` - Signed 16-bit planar
-- [ ] `"s32-planar"` - Signed 32-bit planar
-- [ ] `"f32-planar"` - Float 32-bit planar
+- [x] `"u8"` - Unsigned 8-bit interleaved
+- [x] `"s16"` - Signed 16-bit interleaved
+- [x] `"s32"` - Signed 32-bit interleaved
+- [x] `"f32"` - Float 32-bit interleaved
+- [x] `"u8-planar"` - Unsigned 8-bit planar
+- [x] `"s16-planar"` - Signed 16-bit planar
+- [x] `"s32-planar"` - Signed 32-bit planar
+- [x] `"f32-planar"` - Float 32-bit planar
 
 ### EncodedVideoChunkType / EncodedAudioChunkType
-- [ ] `"key"` - Independent frame/chunk
-- [ ] `"delta"` - Depends on previous data
+- [x] `"key"` - Independent frame/chunk
+- [x] `"delta"` - Depends on previous data
 
 ### VideoColorPrimaries
-- [ ] `"bt709"`
-- [ ] `"bt470bg"`
-- [ ] `"smpte170m"`
-- [ ] `"bt2020"`
-- [ ] `"smpte432"`
+- [x] `"bt709"`
+- [x] `"bt470bg"`
+- [x] `"smpte170m"`
+- [x] `"bt2020"`
+- [x] `"smpte432"`
 
 ### VideoTransferCharacteristics
-- [ ] `"bt709"`
-- [ ] `"smpte170m"`
-- [ ] `"iec61966-2-1"` (sRGB)
-- [ ] `"linear"`
-- [ ] `"pq"` (HDR10)
-- [ ] `"hlg"` (HLG HDR)
+- [x] `"bt709"`
+- [x] `"smpte170m"`
+- [x] `"iec61966-2-1"` (sRGB)
+- [x] `"linear"`
+- [x] `"pq"` (HDR10)
+- [x] `"hlg"` (HLG HDR)
 
 ### VideoMatrixCoefficients
-- [ ] `"rgb"`
-- [ ] `"bt709"`
-- [ ] `"bt470bg"`
-- [ ] `"smpte170m"`
-- [ ] `"bt2020-ncl"`
+- [x] `"rgb"`
+- [x] `"bt709"`
+- [x] `"bt470bg"`
+- [x] `"smpte170m"`
+- [x] `"bt2020-ncl"`
 
 ---
 
