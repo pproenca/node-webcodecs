@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "src/async_decode_worker.h"
+#include "src/common.h"
 #include "src/encoded_video_chunk.h"
 #include "src/video_frame.h"
 
@@ -111,26 +112,18 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
 
   Napi::Object config = info[0].As<Napi::Object>();
 
-  // Parse codec string.
-  if (!config.Has("codec") || !config.Get("codec").IsString()) {
-    throw Napi::Error::New(env, "config.codec is required");
-  }
-  std::string codec_str = config.Get("codec").As<Napi::String>().Utf8Value();
+  // Parse codec string (required).
+  webcodecs::RequireAttr(env, config, "codec");
+  std::string codec_str = webcodecs::AttrAsStr(config, "codec");
 
   // Parse dimensions (optional per W3C spec - decoder can infer from bitstream).
-  coded_width_ = 0;
-  coded_height_ = 0;
-  if (config.Has("codedWidth") && config.Get("codedWidth").IsNumber()) {
-    coded_width_ = config.Get("codedWidth").As<Napi::Number>().Int32Value();
-    if (coded_width_ < 0 || coded_width_ > kMaxDimension) {
-      throw Napi::Error::New(env, "codedWidth must be between 0 and 16384");
-    }
+  coded_width_ = webcodecs::AttrAsInt32(config, "codedWidth", 0);
+  if (coded_width_ < 0 || coded_width_ > kMaxDimension) {
+    throw Napi::Error::New(env, "codedWidth must be between 0 and 16384");
   }
-  if (config.Has("codedHeight") && config.Get("codedHeight").IsNumber()) {
-    coded_height_ = config.Get("codedHeight").As<Napi::Number>().Int32Value();
-    if (coded_height_ < 0 || coded_height_ > kMaxDimension) {
-      throw Napi::Error::New(env, "codedHeight must be between 0 and 16384");
-    }
+  coded_height_ = webcodecs::AttrAsInt32(config, "codedHeight", 0);
+  if (coded_height_ < 0 || coded_height_ > kMaxDimension) {
+    throw Napi::Error::New(env, "codedHeight must be between 0 and 16384");
   }
 
   // Determine codec ID from codec string.
@@ -171,56 +164,30 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
   }
 
   // Handle optional description (extradata / SPS+PPS for H.264).
-  if (config.Has("description") && config.Get("description").IsTypedArray()) {
-    Napi::TypedArray typed_array =
-        config.Get("description").As<Napi::TypedArray>();
-    Napi::ArrayBuffer array_buffer = typed_array.ArrayBuffer();
-    size_t byte_offset = typed_array.ByteOffset();
-    size_t byte_length = typed_array.ByteLength();
-
-    uint8_t* data = static_cast<uint8_t*>(array_buffer.Data()) + byte_offset;
-
+  auto [desc_data, desc_size] = webcodecs::AttrAsBuffer(config, "description");
+  if (desc_data != nullptr && desc_size > 0) {
     codec_context_->extradata = static_cast<uint8_t*>(
-        av_malloc(byte_length + AV_INPUT_BUFFER_PADDING_SIZE));
+        av_malloc(desc_size + AV_INPUT_BUFFER_PADDING_SIZE));
     if (codec_context_->extradata) {
-      memcpy(codec_context_->extradata, data, byte_length);
-      memset(codec_context_->extradata + byte_length, 0,
+      memcpy(codec_context_->extradata, desc_data, desc_size);
+      memset(codec_context_->extradata + desc_size, 0,
              AV_INPUT_BUFFER_PADDING_SIZE);
-      codec_context_->extradata_size = static_cast<int>(byte_length);
+      codec_context_->extradata_size = static_cast<int>(desc_size);
     }
   }
 
   // Parse optional rotation (must be 0, 90, 180, or 270).
-  rotation_ = 0;
-  if (config.Has("rotation") && config.Get("rotation").IsNumber()) {
-    int rotation = config.Get("rotation").As<Napi::Number>().Int32Value();
-    if (rotation == 0 || rotation == 90 || rotation == 180 ||
-        rotation == 270) {
-      rotation_ = rotation;
-    } else {
-      throw Napi::Error::New(env, "rotation must be 0, 90, 180, or 270");
-    }
+  rotation_ = webcodecs::AttrAsInt32(config, "rotation", 0);
+  if (rotation_ != 0 && rotation_ != 90 && rotation_ != 180 && rotation_ != 270) {
+    throw Napi::Error::New(env, "rotation must be 0, 90, 180, or 270");
   }
 
   // Parse optional flip (horizontal flip).
-  flip_ = false;
-  if (config.Has("flip") && config.Get("flip").IsBoolean()) {
-    flip_ = config.Get("flip").As<Napi::Boolean>().Value();
-  }
+  flip_ = webcodecs::AttrAsBool(config, "flip", false);
 
   // Parse optional displayAspectWidth/displayAspectHeight (per W3C spec).
-  display_aspect_width_ = 0;
-  display_aspect_height_ = 0;
-  if (config.Has("displayAspectWidth") &&
-      config.Get("displayAspectWidth").IsNumber()) {
-    display_aspect_width_ =
-        config.Get("displayAspectWidth").As<Napi::Number>().Int32Value();
-  }
-  if (config.Has("displayAspectHeight") &&
-      config.Get("displayAspectHeight").IsNumber()) {
-    display_aspect_height_ =
-        config.Get("displayAspectHeight").As<Napi::Number>().Int32Value();
-  }
+  display_aspect_width_ = webcodecs::AttrAsInt32(config, "displayAspectWidth", 0);
+  display_aspect_height_ = webcodecs::AttrAsInt32(config, "displayAspectHeight", 0);
 
   // Parse optional colorSpace (per W3C spec).
   has_color_space_ = false;
@@ -228,48 +195,30 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
   color_transfer_.clear();
   color_matrix_.clear();
   color_full_range_ = false;
-  if (config.Has("colorSpace") && config.Get("colorSpace").IsObject()) {
+  if (webcodecs::HasAttr(config, "colorSpace") && config.Get("colorSpace").IsObject()) {
     Napi::Object cs = config.Get("colorSpace").As<Napi::Object>();
     has_color_space_ = true;
 
-    if (cs.Has("primaries") && cs.Get("primaries").IsString()) {
-      color_primaries_ = cs.Get("primaries").As<Napi::String>().Utf8Value();
-    }
-    if (cs.Has("transfer") && cs.Get("transfer").IsString()) {
-      color_transfer_ = cs.Get("transfer").As<Napi::String>().Utf8Value();
-    }
-    if (cs.Has("matrix") && cs.Get("matrix").IsString()) {
-      color_matrix_ = cs.Get("matrix").As<Napi::String>().Utf8Value();
-    }
-    if (cs.Has("fullRange") && cs.Get("fullRange").IsBoolean()) {
-      color_full_range_ = cs.Get("fullRange").As<Napi::Boolean>().Value();
-    }
+    color_primaries_ = webcodecs::AttrAsStr(cs, "primaries");
+    color_transfer_ = webcodecs::AttrAsStr(cs, "transfer");
+    color_matrix_ = webcodecs::AttrAsStr(cs, "matrix");
+    color_full_range_ = webcodecs::AttrAsBool(cs, "fullRange", false);
   }
 
   // Parse optional optimizeForLatency (per W3C spec).
-  optimize_for_latency_ = false;
-  if (config.Has("optimizeForLatency") &&
-      config.Get("optimizeForLatency").IsBoolean()) {
-    optimize_for_latency_ =
-        config.Get("optimizeForLatency").As<Napi::Boolean>().Value();
-  }
+  optimize_for_latency_ = webcodecs::AttrAsBool(config, "optimizeForLatency", false);
 
   // Parse optional hardwareAcceleration (per W3C spec).
   // Note: This is a stub - FFmpeg uses software decoding.
-  hardware_acceleration_ = "no-preference";
-  if (config.Has("hardwareAcceleration") &&
-      config.Get("hardwareAcceleration").IsString()) {
-    std::string hw =
-        config.Get("hardwareAcceleration").As<Napi::String>().Utf8Value();
-    // Validate W3C enum values per spec.
-    if (hw != "no-preference" && hw != "prefer-hardware" &&
-        hw != "prefer-software") {
-      throw Napi::TypeError::New(
-          env,
-          "hardwareAcceleration must be 'no-preference', 'prefer-hardware', "
-          "or 'prefer-software'");
-    }
-    hardware_acceleration_ = hw;
+  hardware_acceleration_ = webcodecs::AttrAsStr(config, "hardwareAcceleration", "no-preference");
+  // Validate W3C enum values per spec.
+  if (hardware_acceleration_ != "no-preference" &&
+      hardware_acceleration_ != "prefer-hardware" &&
+      hardware_acceleration_ != "prefer-software") {
+    throw Napi::TypeError::New(
+        env,
+        "hardwareAcceleration must be 'no-preference', 'prefer-hardware', "
+        "or 'prefer-software'");
   }
 
   // Apply low-latency flags if requested (before opening codec).
@@ -468,10 +417,10 @@ Napi::Value VideoDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   Napi::Object normalized_config = Napi::Object::New(env);
 
   // Validate codec.
-  if (!config.Has("codec") || !config.Get("codec").IsString()) {
+  std::string codec = webcodecs::AttrAsStr(config, "codec");
+  if (codec.empty()) {
     supported = false;
   } else {
-    std::string codec = config.Get("codec").As<Napi::String>().Utf8Value();
     normalized_config.Set("codec", codec);
 
     // Check if codec is supported.
@@ -578,20 +527,13 @@ Napi::Value VideoDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   }
 
   // Handle hardwareAcceleration with default value per W3C spec.
-  if (config.Has("hardwareAcceleration") &&
-      config.Get("hardwareAcceleration").IsString()) {
-    std::string hw =
-        config.Get("hardwareAcceleration").As<Napi::String>().Utf8Value();
-    // Validate W3C enum values per spec.
-    if (hw != "no-preference" && hw != "prefer-hardware" &&
-        hw != "prefer-software") {
-      supported = false;
-    }
-    normalized_config.Set("hardwareAcceleration", hw);
-  } else {
-    // Default to "no-preference" per W3C spec.
-    normalized_config.Set("hardwareAcceleration", "no-preference");
+  std::string hw = webcodecs::AttrAsStr(config, "hardwareAcceleration", "no-preference");
+  // Validate W3C enum values per spec.
+  if (hw != "no-preference" && hw != "prefer-hardware" &&
+      hw != "prefer-software") {
+    supported = false;
   }
+  normalized_config.Set("hardwareAcceleration", hw);
 
   if (config.Has("optimizeForLatency") &&
       config.Get("optimizeForLatency").IsBoolean()) {
