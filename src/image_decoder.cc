@@ -300,25 +300,39 @@ Napi::Value ImageDecoder::GetComplete(const Napi::CallbackInfo& info) {
 Napi::Value ImageDecoder::GetTracks(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
-  // Create tracks array with one track (images are single-track)
-  Napi::Array tracks = Napi::Array::New(env, 1);
-
-  Napi::Object track = Napi::Object::New(env);
-  track.Set("selected", Napi::Boolean::New(env, true));
-  track.Set("animated", Napi::Boolean::New(env, false));
-  track.Set("frameCount", Napi::Number::New(env, 1));
-  track.Set("repetitionCount", Napi::Number::New(env, 0));
+  // Create ImageTrack object per W3C spec
+  Napi::Object selectedTrack = Napi::Object::New(env);
+  selectedTrack.Set("selected", Napi::Boolean::New(env, true));
+  selectedTrack.Set("animated", Napi::Boolean::New(env, false));
+  selectedTrack.Set("frameCount", Napi::Number::New(env, 1));
+  selectedTrack.Set("repetitionCount", Napi::Number::New(env, 0));
 
   if (complete_) {
-    Napi::Object selectedTrack = Napi::Object::New(env);
     selectedTrack.Set("width", Napi::Number::New(env, decoded_width_));
     selectedTrack.Set("height", Napi::Number::New(env, decoded_height_));
-    track.Set("track", selectedTrack);
   }
 
-  tracks.Set((uint32_t)0, track);
+  // Create ImageTrackList object per W3C spec
+  // The tracks property returns an ImageTrackList with:
+  // - length: number of tracks
+  // - selectedIndex: index of the selected track
+  // - selectedTrack: the currently selected ImageTrack
+  // - ready: Promise that resolves when track info is available
+  Napi::Object trackList = Napi::Object::New(env);
+  trackList.Set("length", Napi::Number::New(env, 1));
+  trackList.Set("selectedIndex", Napi::Number::New(env, 0));
+  trackList.Set("selectedTrack", selectedTrack);
 
-  return tracks;
+  // Create a resolved Promise for the ready property
+  // Static images are immediately ready
+  Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
+  deferred.Resolve(trackList);
+  trackList.Set("ready", deferred.Promise());
+
+  // Make trackList indexable like an array (tracks[0] should work)
+  trackList.Set((uint32_t)0, selectedTrack);
+
+  return trackList;
 }
 
 Napi::Value ImageDecoder::IsTypeSupported(const Napi::CallbackInfo& info) {
