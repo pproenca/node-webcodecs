@@ -5,118 +5,120 @@
 
 #include <cstring>
 #include <string>
+#include <unordered_map>
 
 // Static constructor reference for clone().
 Napi::FunctionReference VideoFrame::constructor;
 
+// Format registry: single source of truth for all pixel format metadata
+// clang-format off
+static const std::unordered_map<PixelFormat, PixelFormatInfo> kFormatRegistry = {
+    // 8-bit RGB formats (packed, single plane)
+    {PixelFormat::RGBA,    {"RGBA",    AV_PIX_FMT_RGBA,         8, 1, 0, 0, true,  false}},
+    {PixelFormat::RGBX,    {"RGBX",    AV_PIX_FMT_RGB0,         8, 1, 0, 0, false, false}},
+    {PixelFormat::BGRA,    {"BGRA",    AV_PIX_FMT_BGRA,         8, 1, 0, 0, true,  false}},
+    {PixelFormat::BGRX,    {"BGRX",    AV_PIX_FMT_BGR0,         8, 1, 0, 0, false, false}},
+    // 8-bit YUV formats (4:2:0)
+    {PixelFormat::I420,    {"I420",    AV_PIX_FMT_YUV420P,      8, 3, 1, 1, false, false}},
+    {PixelFormat::I420A,   {"I420A",   AV_PIX_FMT_YUVA420P,     8, 4, 1, 1, true,  false}},
+    // 8-bit YUV formats (4:2:2)
+    {PixelFormat::I422,    {"I422",    AV_PIX_FMT_YUV422P,      8, 3, 1, 0, false, false}},
+    // 8-bit YUV formats (4:4:4)
+    {PixelFormat::I444,    {"I444",    AV_PIX_FMT_YUV444P,      8, 3, 0, 0, false, false}},
+    // 8-bit semi-planar
+    {PixelFormat::NV12,    {"NV12",    AV_PIX_FMT_NV12,         8, 2, 1, 1, false, true}},
+    // 10-bit YUV formats
+    {PixelFormat::I420P10, {"I420P10", AV_PIX_FMT_YUV420P10LE, 10, 3, 1, 1, false, false}},
+    {PixelFormat::I422P10, {"I422P10", AV_PIX_FMT_YUV422P10LE, 10, 3, 1, 0, false, false}},
+    {PixelFormat::I444P10, {"I444P10", AV_PIX_FMT_YUV444P10LE, 10, 3, 0, 0, false, false}},
+    {PixelFormat::NV12P10, {"NV12P10", AV_PIX_FMT_P010LE,      10, 2, 1, 1, false, true}},
+    // 12-bit YUV formats
+    {PixelFormat::I420P12, {"I420P12", AV_PIX_FMT_YUV420P12LE, 12, 3, 1, 1, false, false}},
+    {PixelFormat::I422P12, {"I422P12", AV_PIX_FMT_YUV422P12LE, 12, 3, 1, 0, false, false}},
+    {PixelFormat::I444P12, {"I444P12", AV_PIX_FMT_YUV444P12LE, 12, 3, 0, 0, false, false}},
+    // Unknown sentinel
+    {PixelFormat::UNKNOWN, {"UNKNOWN", AV_PIX_FMT_NONE,         0, 0, 0, 0, false, false}},
+};
+// clang-format on
+
+// Reverse lookup: string name to PixelFormat enum
+static const std::unordered_map<std::string, PixelFormat> kFormatNameLookup = []() {
+  std::unordered_map<std::string, PixelFormat> lookup;
+  for (const auto& [format, info] : kFormatRegistry) {
+    if (format != PixelFormat::UNKNOWN) {
+      lookup[info.name] = format;
+    }
+  }
+  return lookup;
+}();
+
+// Sentinel for unknown formats
+static const PixelFormatInfo kUnknownFormatInfo = {
+    "UNKNOWN", AV_PIX_FMT_NONE, 0, 0, 0, 0, false, false};
+
+const PixelFormatInfo& GetFormatInfo(PixelFormat format) {
+  auto it = kFormatRegistry.find(format);
+  if (it != kFormatRegistry.end()) {
+    return it->second;
+  }
+  return kUnknownFormatInfo;
+}
+
 PixelFormat ParsePixelFormat(const std::string& format_str) {
-  if (format_str == "RGBA") {
-    return PixelFormat::RGBA;
-  } else if (format_str == "RGBX") {
-    return PixelFormat::RGBX;
-  } else if (format_str == "BGRA") {
-    return PixelFormat::BGRA;
-  } else if (format_str == "BGRX") {
-    return PixelFormat::BGRX;
-  } else if (format_str == "I420") {
-    return PixelFormat::I420;
-  } else if (format_str == "I420A") {
-    return PixelFormat::I420A;
-  } else if (format_str == "I422") {
-    return PixelFormat::I422;
-  } else if (format_str == "I444") {
-    return PixelFormat::I444;
-  } else if (format_str == "NV12") {
-    return PixelFormat::NV12;
+  auto it = kFormatNameLookup.find(format_str);
+  if (it != kFormatNameLookup.end()) {
+    return it->second;
   }
   return PixelFormat::UNKNOWN;
 }
 
 std::string PixelFormatToString(PixelFormat format) {
-  switch (format) {
-    case PixelFormat::RGBA:
-      return "RGBA";
-    case PixelFormat::RGBX:
-      return "RGBX";
-    case PixelFormat::BGRA:
-      return "BGRA";
-    case PixelFormat::BGRX:
-      return "BGRX";
-    case PixelFormat::I420:
-      return "I420";
-    case PixelFormat::I420A:
-      return "I420A";
-    case PixelFormat::I422:
-      return "I422";
-    case PixelFormat::I444:
-      return "I444";
-    case PixelFormat::NV12:
-      return "NV12";
-    default:
-      return "UNKNOWN";
-  }
+  return GetFormatInfo(format).name;
 }
 
 AVPixelFormat PixelFormatToAV(PixelFormat format) {
-  switch (format) {
-    case PixelFormat::RGBA:
-      return AV_PIX_FMT_RGBA;
-    case PixelFormat::BGRA:
-      return AV_PIX_FMT_BGRA;
-    case PixelFormat::I420:
-      return AV_PIX_FMT_YUV420P;
-    case PixelFormat::I420A:
-      return AV_PIX_FMT_YUVA420P;
-    case PixelFormat::I422:
-      return AV_PIX_FMT_YUV422P;
-    case PixelFormat::I444:
-      return AV_PIX_FMT_YUV444P;
-    case PixelFormat::NV12:
-      return AV_PIX_FMT_NV12;
-    case PixelFormat::RGBX:
-      return AV_PIX_FMT_RGB0;
-    case PixelFormat::BGRX:
-      return AV_PIX_FMT_BGR0;
-    default:
-      return AV_PIX_FMT_NONE;
-  }
+  return GetFormatInfo(format).av_format;
 }
 
 size_t CalculateAllocationSize(PixelFormat format, uint32_t width,
                                 uint32_t height) {
-  switch (format) {
-    case PixelFormat::RGBA:
-    case PixelFormat::RGBX:
-    case PixelFormat::BGRA:
-    case PixelFormat::BGRX:
-      // 4 bytes per pixel (RGB + alpha or padding)
-      return width * height * 4;
-    case PixelFormat::I420:
-      // Y plane: width * height
-      // U plane: (width/2) * (height/2)
-      // V plane: (width/2) * (height/2)
-      return width * height + (width / 2) * (height / 2) * 2;
-    case PixelFormat::I420A:
-      // Y plane: width * height
-      // U plane: (width/2) * (height/2)
-      // V plane: (width/2) * (height/2)
-      // A plane: width * height
-      return width * height * 2 + (width / 2) * (height / 2) * 2;
-    case PixelFormat::I422:
-      // Y plane: width * height
-      // U plane: (width/2) * height
-      // V plane: (width/2) * height
-      return width * height + (width / 2) * height * 2;
-    case PixelFormat::I444:
-      // Y, U, V planes all full size
-      return width * height * 3;
-    case PixelFormat::NV12:
-      // Y plane: width * height
-      // UV plane: width * (height/2)
-      return width * height + width * (height / 2);
-    default:
-      return 0;
+  const auto& info = GetFormatInfo(format);
+
+  if (info.bit_depth == 0) {
+    return 0;  // Unknown format
   }
+
+  // Bytes per sample: 1 for 8-bit, 2 for 10-bit and 12-bit
+  size_t bytes_per_sample = (info.bit_depth + 7) / 8;
+
+  // Handle packed RGB formats (single plane, 4 bytes per pixel for RGBA/BGRA)
+  if (info.num_planes == 1) {
+    return width * height * 4;
+  }
+
+  // Y plane size
+  size_t y_size = width * height * bytes_per_sample;
+
+  // Chroma plane dimensions (using bit shifts for subsampling)
+  size_t chroma_width = width >> info.chroma_h_shift;
+  size_t chroma_height = height >> info.chroma_v_shift;
+
+  if (info.is_semi_planar) {
+    // NV12-style: Y plane + interleaved UV plane
+    // UV plane has same height as chroma, but double width (U and V interleaved)
+    size_t uv_size = chroma_width * 2 * chroma_height * bytes_per_sample;
+    return y_size + uv_size;
+  }
+
+  // Planar YUV: Y + U + V (+ optional A)
+  size_t uv_size = chroma_width * chroma_height * bytes_per_sample;
+  size_t total = y_size + uv_size * 2;  // U and V planes
+
+  if (info.has_alpha && info.num_planes > 3) {
+    total += y_size;  // Alpha plane same size as Y
+  }
+
+  return total;
 }
 
 Napi::Object InitVideoFrame(Napi::Env env, Napi::Object exports) {
@@ -415,6 +417,9 @@ static void SetupSourcePlanes(PixelFormat format, const uint8_t* data,
                                int width, int height,
                                const uint8_t* src_data[4],
                                int src_linesize[4]) {
+  const auto& info = GetFormatInfo(format);
+  size_t bytes_per_sample = (info.bit_depth + 7) / 8;
+
   src_data[0] = data;
   src_data[1] = nullptr;
   src_data[2] = nullptr;
@@ -424,71 +429,41 @@ static void SetupSourcePlanes(PixelFormat format, const uint8_t* data,
   src_linesize[2] = 0;
   src_linesize[3] = 0;
 
-  switch (format) {
-    case PixelFormat::RGBA:
-    case PixelFormat::BGRA:
-    case PixelFormat::RGBX:
-    case PixelFormat::BGRX:
-      src_linesize[0] = width * 4;
-      break;
-    case PixelFormat::I420: {
-      int y_size = width * height;
-      int uv_stride = width / 2;
-      int uv_size = uv_stride * (height / 2);
-      src_data[0] = data;
-      src_data[1] = data + y_size;
-      src_data[2] = data + y_size + uv_size;
-      src_linesize[0] = width;
-      src_linesize[1] = uv_stride;
-      src_linesize[2] = uv_stride;
-      break;
-    }
-    case PixelFormat::I420A: {
-      int y_size = width * height;
-      int uv_stride = width / 2;
-      int uv_size = uv_stride * (height / 2);
-      src_data[0] = data;
-      src_data[1] = data + y_size;
-      src_data[2] = data + y_size + uv_size;
-      src_data[3] = data + y_size + uv_size * 2;
-      src_linesize[0] = width;
-      src_linesize[1] = uv_stride;
-      src_linesize[2] = uv_stride;
-      src_linesize[3] = width;
-      break;
-    }
-    case PixelFormat::I422: {
-      int y_size = width * height;
-      int uv_stride = width / 2;
-      int uv_size = uv_stride * height;
-      src_data[0] = data;
-      src_data[1] = data + y_size;
-      src_data[2] = data + y_size + uv_size;
-      src_linesize[0] = width;
-      src_linesize[1] = uv_stride;
-      src_linesize[2] = uv_stride;
-      break;
-    }
-    case PixelFormat::I444: {
-      int plane_size = width * height;
-      src_data[0] = data;
-      src_data[1] = data + plane_size;
-      src_data[2] = data + plane_size * 2;
-      src_linesize[0] = width;
-      src_linesize[1] = width;
-      src_linesize[2] = width;
-      break;
-    }
-    case PixelFormat::NV12: {
-      int y_size = width * height;
-      src_data[0] = data;
-      src_data[1] = data + y_size;
-      src_linesize[0] = width;
-      src_linesize[1] = width;
-      break;
-    }
-    default:
-      break;
+  // Handle packed RGB formats
+  if (info.num_planes == 1) {
+    src_linesize[0] = width * 4;  // RGBA/BGRA = 4 bytes per pixel
+    return;
+  }
+
+  // Y plane
+  size_t y_stride = width * bytes_per_sample;
+  size_t y_size = y_stride * height;
+  src_data[0] = data;
+  src_linesize[0] = static_cast<int>(y_stride);
+
+  // Chroma dimensions
+  size_t chroma_width = width >> info.chroma_h_shift;
+  size_t chroma_height = height >> info.chroma_v_shift;
+  size_t chroma_stride = chroma_width * bytes_per_sample;
+
+  if (info.is_semi_planar) {
+    // NV12-style: interleaved UV
+    src_data[1] = data + y_size;
+    src_linesize[1] = static_cast<int>(chroma_width * 2 * bytes_per_sample);
+    return;
+  }
+
+  // Planar U and V
+  size_t uv_size = chroma_stride * chroma_height;
+  src_data[1] = data + y_size;
+  src_linesize[1] = static_cast<int>(chroma_stride);
+  src_data[2] = data + y_size + uv_size;
+  src_linesize[2] = static_cast<int>(chroma_stride);
+
+  // Alpha plane if present
+  if (info.has_alpha && info.num_planes > 3) {
+    src_data[3] = data + y_size + uv_size * 2;
+    src_linesize[3] = static_cast<int>(y_stride);
   }
 }
 
@@ -496,6 +471,9 @@ static void SetupSourcePlanes(PixelFormat format, const uint8_t* data,
 static void SetupDestPlanes(PixelFormat format, uint8_t* data,
                              int width, int height,
                              uint8_t* dst_data[4], int dst_linesize[4]) {
+  const auto& info = GetFormatInfo(format);
+  size_t bytes_per_sample = (info.bit_depth + 7) / 8;
+
   dst_data[0] = data;
   dst_data[1] = nullptr;
   dst_data[2] = nullptr;
@@ -505,71 +483,41 @@ static void SetupDestPlanes(PixelFormat format, uint8_t* data,
   dst_linesize[2] = 0;
   dst_linesize[3] = 0;
 
-  switch (format) {
-    case PixelFormat::RGBA:
-    case PixelFormat::BGRA:
-    case PixelFormat::RGBX:
-    case PixelFormat::BGRX:
-      dst_linesize[0] = width * 4;
-      break;
-    case PixelFormat::I420: {
-      int y_size = width * height;
-      int uv_stride = width / 2;
-      int uv_size = uv_stride * (height / 2);
-      dst_data[0] = data;
-      dst_data[1] = data + y_size;
-      dst_data[2] = data + y_size + uv_size;
-      dst_linesize[0] = width;
-      dst_linesize[1] = uv_stride;
-      dst_linesize[2] = uv_stride;
-      break;
-    }
-    case PixelFormat::I420A: {
-      int y_size = width * height;
-      int uv_stride = width / 2;
-      int uv_size = uv_stride * (height / 2);
-      dst_data[0] = data;
-      dst_data[1] = data + y_size;
-      dst_data[2] = data + y_size + uv_size;
-      dst_data[3] = data + y_size + uv_size * 2;
-      dst_linesize[0] = width;
-      dst_linesize[1] = uv_stride;
-      dst_linesize[2] = uv_stride;
-      dst_linesize[3] = width;
-      break;
-    }
-    case PixelFormat::I422: {
-      int y_size = width * height;
-      int uv_stride = width / 2;
-      int uv_size = uv_stride * height;
-      dst_data[0] = data;
-      dst_data[1] = data + y_size;
-      dst_data[2] = data + y_size + uv_size;
-      dst_linesize[0] = width;
-      dst_linesize[1] = uv_stride;
-      dst_linesize[2] = uv_stride;
-      break;
-    }
-    case PixelFormat::I444: {
-      int plane_size = width * height;
-      dst_data[0] = data;
-      dst_data[1] = data + plane_size;
-      dst_data[2] = data + plane_size * 2;
-      dst_linesize[0] = width;
-      dst_linesize[1] = width;
-      dst_linesize[2] = width;
-      break;
-    }
-    case PixelFormat::NV12: {
-      int y_size = width * height;
-      dst_data[0] = data;
-      dst_data[1] = data + y_size;
-      dst_linesize[0] = width;
-      dst_linesize[1] = width;
-      break;
-    }
-    default:
-      break;
+  // Handle packed RGB formats
+  if (info.num_planes == 1) {
+    dst_linesize[0] = width * 4;
+    return;
+  }
+
+  // Y plane
+  size_t y_stride = width * bytes_per_sample;
+  size_t y_size = y_stride * height;
+  dst_data[0] = data;
+  dst_linesize[0] = static_cast<int>(y_stride);
+
+  // Chroma dimensions
+  size_t chroma_width = width >> info.chroma_h_shift;
+  size_t chroma_height = height >> info.chroma_v_shift;
+  size_t chroma_stride = chroma_width * bytes_per_sample;
+
+  if (info.is_semi_planar) {
+    // NV12-style: interleaved UV
+    dst_data[1] = data + y_size;
+    dst_linesize[1] = static_cast<int>(chroma_width * 2 * bytes_per_sample);
+    return;
+  }
+
+  // Planar U and V
+  size_t uv_size = chroma_stride * chroma_height;
+  dst_data[1] = data + y_size;
+  dst_linesize[1] = static_cast<int>(chroma_stride);
+  dst_data[2] = data + y_size + uv_size;
+  dst_linesize[2] = static_cast<int>(chroma_stride);
+
+  // Alpha plane if present
+  if (info.has_alpha && info.num_planes > 3) {
+    dst_data[3] = data + y_size + uv_size * 2;
+    dst_linesize[3] = static_cast<int>(y_stride);
   }
 }
 
@@ -642,48 +590,39 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
     SetupSourcePlanes(format_, data_.data(), coded_width_, coded_height_,
                       src_data, src_linesize);
 
-    // Offset source planes for visibleRect cropping
+    // Offset source planes for visibleRect cropping using format metadata
+    const auto& src_fmt_info = GetFormatInfo(format_);
+    size_t src_bytes_per_sample = (src_fmt_info.bit_depth + 7) / 8;
+
     const uint8_t* src_data_offset[4] = {nullptr, nullptr, nullptr, nullptr};
     int src_offset_x = visible_rect_.x;
     int src_offset_y = visible_rect_.y;
 
     for (int i = 0; i < 4 && src_data[i]; i++) {
-      if (format_ == PixelFormat::RGBA || format_ == PixelFormat::RGBX ||
-          format_ == PixelFormat::BGRA || format_ == PixelFormat::BGRX) {
-        // For packed formats: offset = y * stride + x * bytes_per_pixel
-        src_data_offset[i] = src_data[i] + src_offset_y * src_linesize[i] + src_offset_x * 4;
-      } else if (format_ == PixelFormat::NV12) {
-        if (i == 0) {
-          // Y plane
-          src_data_offset[i] = src_data[i] + src_offset_y * src_linesize[i] + src_offset_x;
-        } else {
-          // UV plane (interleaved, 4:2:0 subsampling)
-          int chroma_x = src_offset_x;  // NV12 UV plane is interleaved, x offset is same
-          int chroma_y = src_offset_y / 2;
-          src_data_offset[i] = src_data[i] + chroma_y * src_linesize[i] + chroma_x;
-        }
+      if (src_fmt_info.num_planes == 1) {
+        // Packed RGB formats: offset = y * stride + x * bytes_per_pixel
+        src_data_offset[i] = src_data[i] + src_offset_y * src_linesize[i] +
+                             src_offset_x * 4;
+      } else if (i == 0) {
+        // Y plane: offset = y * stride + x * bytes_per_sample
+        src_data_offset[i] = src_data[i] + src_offset_y * src_linesize[i] +
+                             src_offset_x * src_bytes_per_sample;
+      } else if (src_fmt_info.has_alpha && i == 3) {
+        // Alpha plane (same as Y)
+        src_data_offset[i] = src_data[i] + src_offset_y * src_linesize[i] +
+                             src_offset_x * src_bytes_per_sample;
+      } else if (src_fmt_info.is_semi_planar) {
+        // Semi-planar UV plane
+        int chroma_x = src_offset_x;  // UV is interleaved, x offset scaled by 2 in stride
+        int chroma_y = src_offset_y >> src_fmt_info.chroma_v_shift;
+        src_data_offset[i] = src_data[i] + chroma_y * src_linesize[i] +
+                             chroma_x * src_bytes_per_sample;
       } else {
-        // Planar formats (I420, I420A, I422, I444)
-        if (i == 0) {
-          // Y plane
-          src_data_offset[i] = src_data[i] + src_offset_y * src_linesize[i] + src_offset_x;
-        } else if (i == 3 && format_ == PixelFormat::I420A) {
-          // Alpha plane (same size as Y)
-          src_data_offset[i] = src_data[i] + src_offset_y * src_linesize[i] + src_offset_x;
-        } else {
-          // U/V planes - subsample based on format
-          int chroma_x = src_offset_x;
-          int chroma_y = src_offset_y;
-          if (format_ == PixelFormat::I420 || format_ == PixelFormat::I420A) {
-            chroma_x = src_offset_x / 2;
-            chroma_y = src_offset_y / 2;
-          } else if (format_ == PixelFormat::I422) {
-            chroma_x = src_offset_x / 2;
-            // chroma_y stays the same
-          }
-          // I444 has no subsampling
-          src_data_offset[i] = src_data[i] + chroma_y * src_linesize[i] + chroma_x;
-        }
+        // U/V planes - use chroma subsampling from format info
+        int chroma_x = src_offset_x >> src_fmt_info.chroma_h_shift;
+        int chroma_y = src_offset_y >> src_fmt_info.chroma_v_shift;
+        src_data_offset[i] = src_data[i] + chroma_y * src_linesize[i] +
+                             chroma_x * src_bytes_per_sample;
       }
     }
 
@@ -700,120 +639,60 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
     sws_freeContext(sws_ctx);
   }
 
-  // Build plane layout array using visible dimensions
+  // Build plane layout array using visible dimensions and format metadata
+  const auto& fmt_info = GetFormatInfo(target_format);
+  size_t bytes_per_sample = (fmt_info.bit_depth + 7) / 8;
+
   Napi::Array layout = Napi::Array::New(env);
 
-  if (target_format == PixelFormat::RGBA ||
-      target_format == PixelFormat::BGRA ||
-      target_format == PixelFormat::RGBX ||
-      target_format == PixelFormat::BGRX) {
+  if (fmt_info.num_planes == 1) {
+    // Packed RGB format
     Napi::Object plane = Napi::Object::New(env);
     plane.Set("offset", 0);
     plane.Set("stride", dest_width * 4);
     layout.Set(static_cast<uint32_t>(0), plane);
-  } else if (target_format == PixelFormat::I420) {
-    uint32_t ySize = dest_width * dest_height;
-    uint32_t uvSize = (dest_width / 2) * (dest_height / 2);
+  } else {
+    size_t y_stride = dest_width * bytes_per_sample;
+    size_t y_size = y_stride * dest_height;
+
+    size_t chroma_width = dest_width >> fmt_info.chroma_h_shift;
+    size_t chroma_height = dest_height >> fmt_info.chroma_v_shift;
+    size_t chroma_stride = chroma_width * bytes_per_sample;
+    size_t uv_size = chroma_stride * chroma_height;
 
     // Y plane
     Napi::Object yPlane = Napi::Object::New(env);
     yPlane.Set("offset", 0);
-    yPlane.Set("stride", dest_width);
+    yPlane.Set("stride", y_stride);
     layout.Set(static_cast<uint32_t>(0), yPlane);
 
-    // U plane
-    Napi::Object uPlane = Napi::Object::New(env);
-    uPlane.Set("offset", ySize);
-    uPlane.Set("stride", dest_width / 2);
-    layout.Set(static_cast<uint32_t>(1), uPlane);
+    if (fmt_info.is_semi_planar) {
+      // UV plane (interleaved)
+      Napi::Object uvPlane = Napi::Object::New(env);
+      uvPlane.Set("offset", y_size);
+      uvPlane.Set("stride", chroma_width * 2 * bytes_per_sample);
+      layout.Set(static_cast<uint32_t>(1), uvPlane);
+    } else {
+      // U plane
+      Napi::Object uPlane = Napi::Object::New(env);
+      uPlane.Set("offset", y_size);
+      uPlane.Set("stride", chroma_stride);
+      layout.Set(static_cast<uint32_t>(1), uPlane);
 
-    // V plane
-    Napi::Object vPlane = Napi::Object::New(env);
-    vPlane.Set("offset", ySize + uvSize);
-    vPlane.Set("stride", dest_width / 2);
-    layout.Set(static_cast<uint32_t>(2), vPlane);
-  } else if (target_format == PixelFormat::I420A) {
-    uint32_t ySize = dest_width * dest_height;
-    uint32_t uvSize = (dest_width / 2) * (dest_height / 2);
+      // V plane
+      Napi::Object vPlane = Napi::Object::New(env);
+      vPlane.Set("offset", y_size + uv_size);
+      vPlane.Set("stride", chroma_stride);
+      layout.Set(static_cast<uint32_t>(2), vPlane);
 
-    // Y plane
-    Napi::Object yPlane = Napi::Object::New(env);
-    yPlane.Set("offset", 0);
-    yPlane.Set("stride", dest_width);
-    layout.Set(static_cast<uint32_t>(0), yPlane);
-
-    // U plane
-    Napi::Object uPlane = Napi::Object::New(env);
-    uPlane.Set("offset", ySize);
-    uPlane.Set("stride", dest_width / 2);
-    layout.Set(static_cast<uint32_t>(1), uPlane);
-
-    // V plane
-    Napi::Object vPlane = Napi::Object::New(env);
-    vPlane.Set("offset", ySize + uvSize);
-    vPlane.Set("stride", dest_width / 2);
-    layout.Set(static_cast<uint32_t>(2), vPlane);
-
-    // A plane
-    Napi::Object aPlane = Napi::Object::New(env);
-    aPlane.Set("offset", ySize + uvSize * 2);
-    aPlane.Set("stride", dest_width);
-    layout.Set(static_cast<uint32_t>(3), aPlane);
-  } else if (target_format == PixelFormat::I422) {
-    uint32_t ySize = dest_width * dest_height;
-    uint32_t uvSize = (dest_width / 2) * dest_height;
-
-    // Y plane
-    Napi::Object yPlane = Napi::Object::New(env);
-    yPlane.Set("offset", 0);
-    yPlane.Set("stride", dest_width);
-    layout.Set(static_cast<uint32_t>(0), yPlane);
-
-    // U plane
-    Napi::Object uPlane = Napi::Object::New(env);
-    uPlane.Set("offset", ySize);
-    uPlane.Set("stride", dest_width / 2);
-    layout.Set(static_cast<uint32_t>(1), uPlane);
-
-    // V plane
-    Napi::Object vPlane = Napi::Object::New(env);
-    vPlane.Set("offset", ySize + uvSize);
-    vPlane.Set("stride", dest_width / 2);
-    layout.Set(static_cast<uint32_t>(2), vPlane);
-  } else if (target_format == PixelFormat::I444) {
-    uint32_t planeSize = dest_width * dest_height;
-
-    // Y plane
-    Napi::Object yPlane = Napi::Object::New(env);
-    yPlane.Set("offset", 0);
-    yPlane.Set("stride", dest_width);
-    layout.Set(static_cast<uint32_t>(0), yPlane);
-
-    // U plane
-    Napi::Object uPlane = Napi::Object::New(env);
-    uPlane.Set("offset", planeSize);
-    uPlane.Set("stride", dest_width);
-    layout.Set(static_cast<uint32_t>(1), uPlane);
-
-    // V plane
-    Napi::Object vPlane = Napi::Object::New(env);
-    vPlane.Set("offset", planeSize * 2);
-    vPlane.Set("stride", dest_width);
-    layout.Set(static_cast<uint32_t>(2), vPlane);
-  } else if (target_format == PixelFormat::NV12) {
-    uint32_t ySize = dest_width * dest_height;
-
-    // Y plane
-    Napi::Object yPlane = Napi::Object::New(env);
-    yPlane.Set("offset", 0);
-    yPlane.Set("stride", dest_width);
-    layout.Set(static_cast<uint32_t>(0), yPlane);
-
-    // UV plane
-    Napi::Object uvPlane = Napi::Object::New(env);
-    uvPlane.Set("offset", ySize);
-    uvPlane.Set("stride", dest_width);
-    layout.Set(static_cast<uint32_t>(1), uvPlane);
+      // Alpha plane if present
+      if (fmt_info.has_alpha && fmt_info.num_planes > 3) {
+        Napi::Object aPlane = Napi::Object::New(env);
+        aPlane.Set("offset", y_size + uv_size * 2);
+        aPlane.Set("stride", y_stride);
+        layout.Set(static_cast<uint32_t>(3), aPlane);
+      }
+    }
   }
 
   return layout;

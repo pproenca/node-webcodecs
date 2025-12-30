@@ -19,17 +19,43 @@ extern "C" {
 #include <vector>
 
 enum class PixelFormat {
+  // 8-bit formats
   RGBA,
-  RGBX,    // RGB with padding (no alpha)
+  RGBX,     // RGB with padding (no alpha)
   BGRA,
-  BGRX,    // BGR with padding (no alpha)
-  I420,    // YUV420p planar
-  I420A,   // YUV420p with alpha plane
-  I422,    // YUV422p planar
-  I444,    // YUV444p planar
-  NV12,    // YUV420 semi-planar
+  BGRX,     // BGR with padding (no alpha)
+  I420,     // YUV420p planar
+  I420A,    // YUV420p with alpha plane
+  I422,     // YUV422p planar
+  I444,     // YUV444p planar
+  NV12,     // YUV420 semi-planar
+  // 10-bit formats
+  I420P10,  // YUV420p 10-bit planar
+  I422P10,  // YUV422p 10-bit planar
+  I444P10,  // YUV444p 10-bit planar
+  NV12P10,  // YUV420 10-bit semi-planar (P010)
+  // 12-bit formats
+  I420P12,  // YUV420p 12-bit planar
+  I422P12,  // YUV422p 12-bit planar
+  I444P12,  // YUV444p 12-bit planar
+  // Unknown/invalid
   UNKNOWN
 };
+
+// Metadata describing a pixel format's properties
+struct PixelFormatInfo {
+  const char* name;        // WebCodecs format string (e.g., "I420P10")
+  AVPixelFormat av_format; // FFmpeg pixel format enum
+  int bit_depth;           // Bits per sample (8, 10, or 12)
+  int num_planes;          // Number of planes (1 for packed, 2-4 for planar)
+  int chroma_h_shift;      // Horizontal chroma subsampling (1 = half width)
+  int chroma_v_shift;      // Vertical chroma subsampling (1 = half height)
+  bool has_alpha;          // Whether format includes alpha plane
+  bool is_semi_planar;     // NV12-style interleaved UV plane
+};
+
+// Get format metadata by enum value. Returns info with UNKNOWN if not found.
+const PixelFormatInfo& GetFormatInfo(PixelFormat format);
 
 // Visible rectangle within coded frame (for cropping)
 struct VisibleRect {

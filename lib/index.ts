@@ -5,8 +5,8 @@
  * - VideoEncoder, VideoDecoder, AudioEncoder, AudioDecoder extend EventTarget via CodecBase
  * - VideoFrame visibleRect cropping implemented in native layer
  * - ArrayBuffer transfer semantics implemented (uses structuredClone with transfer)
+ * - High bit-depth pixel formats (I420P10, I420P12, I422P10, I422P12, I444P10, I444P12, NV12P10) supported
  * - TODO: VideoFrame constructor from CanvasImageSource not supported (Node.js limitation)
- * - TODO: High bit-depth pixel formats (P10/P12 variants) not supported in native layer
  */
 
 import type {
