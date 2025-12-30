@@ -185,6 +185,85 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
   // Time base.
   codec_context_->time_base = AVRational{1, static_cast<int>(sample_rate_)};
 
+  // Parse Opus-specific options per W3C WebCodecs spec.
+  if (codec_id == AV_CODEC_ID_OPUS && config.Has("opus") &&
+      config.Get("opus").IsObject()) {
+    Napi::Object opus_config = config.Get("opus").As<Napi::Object>();
+
+    // Parse 'application': 'audio' | 'lowdelay' | 'voip'
+    // Maps to libopus "application" option.
+    if (opus_config.Has("application") &&
+        opus_config.Get("application").IsString()) {
+      std::string app =
+          opus_config.Get("application").As<Napi::String>().Utf8Value();
+      if (app == "voip") {
+        av_opt_set(codec_context_->priv_data, "application", "voip", 0);
+      } else if (app == "lowdelay") {
+        av_opt_set(codec_context_->priv_data, "application", "lowdelay", 0);
+      } else {
+        // Default to "audio" for music/general audio.
+        av_opt_set(codec_context_->priv_data, "application", "audio", 0);
+      }
+    }
+
+    // Parse 'complexity': 0-10.
+    // Maps to libopus "compression_level" option.
+    if (opus_config.Has("complexity") &&
+        opus_config.Get("complexity").IsNumber()) {
+      int complexity =
+          opus_config.Get("complexity").As<Napi::Number>().Int32Value();
+      // Clamp to valid range 0-10.
+      if (complexity < 0) complexity = 0;
+      if (complexity > 10) complexity = 10;
+      av_opt_set_int(codec_context_->priv_data, "compression_level", complexity,
+                     0);
+    }
+
+    // Parse 'frameDuration': microseconds.
+    // Maps to libopus "frame_duration" option (in milliseconds).
+    if (opus_config.Has("frameDuration") &&
+        opus_config.Get("frameDuration").IsNumber()) {
+      int64_t frame_duration_us =
+          opus_config.Get("frameDuration").As<Napi::Number>().Int64Value();
+      // Convert microseconds to milliseconds.
+      double frame_duration_ms = frame_duration_us / 1000.0;
+      av_opt_set_double(codec_context_->priv_data, "frame_duration",
+                        frame_duration_ms, 0);
+    }
+
+    // Parse 'signal': 'auto' | 'music' | 'voice'.
+    // Maps to libopus "mapping_family" indirectly; not directly supported
+    // by FFmpeg's libopus wrapper. We skip this as it's not available.
+
+    // Parse 'usedtx': boolean.
+    // Maps to libopus "dtx" option (discontinuous transmission).
+    if (opus_config.Has("usedtx") && opus_config.Get("usedtx").IsBoolean()) {
+      bool use_dtx = opus_config.Get("usedtx").As<Napi::Boolean>().Value();
+      av_opt_set_int(codec_context_->priv_data, "dtx", use_dtx ? 1 : 0, 0);
+    }
+
+    // Parse 'useinbandfec': boolean.
+    // Maps to libopus "fec" option (forward error correction).
+    if (opus_config.Has("useinbandfec") &&
+        opus_config.Get("useinbandfec").IsBoolean()) {
+      bool use_fec =
+          opus_config.Get("useinbandfec").As<Napi::Boolean>().Value();
+      av_opt_set_int(codec_context_->priv_data, "fec", use_fec ? 1 : 0, 0);
+    }
+
+    // Parse 'packetlossperc': 0-100.
+    // Maps to libopus "packet_loss" option.
+    if (opus_config.Has("packetlossperc") &&
+        opus_config.Get("packetlossperc").IsNumber()) {
+      int packet_loss =
+          opus_config.Get("packetlossperc").As<Napi::Number>().Int32Value();
+      // Clamp to valid range 0-100.
+      if (packet_loss < 0) packet_loss = 0;
+      if (packet_loss > 100) packet_loss = 100;
+      av_opt_set_int(codec_context_->priv_data, "packet_loss", packet_loss, 0);
+    }
+  }
+
   // Open codec.
   int ret = avcodec_open2(codec_context_, codec_, nullptr);
   if (ret < 0) {
@@ -523,6 +602,44 @@ Napi::Value AudioEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   }
   if (config.Has("bitrate") && config.Get("bitrate").IsNumber()) {
     normalized_config.Set("bitrate", config.Get("bitrate"));
+  }
+
+  // Copy opus-specific config if present (for Opus codec).
+  if (config.Has("opus") && config.Get("opus").IsObject()) {
+    Napi::Object opus_config = config.Get("opus").As<Napi::Object>();
+    Napi::Object normalized_opus = Napi::Object::New(env);
+
+    if (opus_config.Has("application") &&
+        opus_config.Get("application").IsString()) {
+      normalized_opus.Set("application", opus_config.Get("application"));
+    }
+    if (opus_config.Has("complexity") &&
+        opus_config.Get("complexity").IsNumber()) {
+      normalized_opus.Set("complexity", opus_config.Get("complexity"));
+    }
+    if (opus_config.Has("format") && opus_config.Get("format").IsString()) {
+      normalized_opus.Set("format", opus_config.Get("format"));
+    }
+    if (opus_config.Has("frameDuration") &&
+        opus_config.Get("frameDuration").IsNumber()) {
+      normalized_opus.Set("frameDuration", opus_config.Get("frameDuration"));
+    }
+    if (opus_config.Has("packetlossperc") &&
+        opus_config.Get("packetlossperc").IsNumber()) {
+      normalized_opus.Set("packetlossperc", opus_config.Get("packetlossperc"));
+    }
+    if (opus_config.Has("signal") && opus_config.Get("signal").IsString()) {
+      normalized_opus.Set("signal", opus_config.Get("signal"));
+    }
+    if (opus_config.Has("usedtx") && opus_config.Get("usedtx").IsBoolean()) {
+      normalized_opus.Set("usedtx", opus_config.Get("usedtx"));
+    }
+    if (opus_config.Has("useinbandfec") &&
+        opus_config.Get("useinbandfec").IsBoolean()) {
+      normalized_opus.Set("useinbandfec", opus_config.Get("useinbandfec"));
+    }
+
+    normalized_config.Set("opus", normalized_opus);
   }
 
   result.Set("supported", supported);
