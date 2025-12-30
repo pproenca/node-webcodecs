@@ -31,12 +31,7 @@ function getBindingPaths(): string[] {
     path.join(rootDir, 'prebuilds', runtimePlatform, 'node_webcodecs.node'),
 
     // node-gyp-build compatible location
-    path.join(
-      rootDir,
-      'prebuilds',
-      `${platform}-${arch}`,
-      `node.napi.node`
-    ),
+    path.join(rootDir, 'prebuilds', `${platform}-${arch}`, 'node.napi.node'),
 
     // Fallback: adjacent to dist/
     path.join(rootDir, 'node_webcodecs.node'),
@@ -109,7 +104,7 @@ function loadBinding(): unknown {
       }
 
       // Attempt to load the binding
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
+
       const binding = require(bindingPath);
 
       // Validate that binding has expected exports
@@ -129,31 +124,31 @@ function loadBinding(): unknown {
   // All paths failed - generate helpful error message
   const ffmpegCheck = checkFFmpegAvailability();
 
-  let message = `Failed to load native binding for node-webcodecs.\n\n`;
+  let message = 'Failed to load native binding for node-webcodecs.\n\n';
   message += `Platform: ${runtimePlatform}\n`;
   message += `Node.js: ${process.version}\n\n`;
 
   if (!ffmpegCheck.available) {
-    message += `FFmpeg libraries not found:\n`;
+    message += 'FFmpeg libraries not found:\n';
     message += `  ${ffmpegCheck.message}\n\n`;
   }
 
-  message += `Searched paths:\n`;
+  message += 'Searched paths:\n';
   for (const p of paths) {
     const exists = fs.existsSync(p);
     message += `  ${exists ? '✓' : '✗'} ${p}\n`;
   }
 
   if (errors.length > 0) {
-    message += `\nErrors encountered:\n`;
+    message += '\nErrors encountered:\n';
     for (const {path: p, error} of errors) {
       message += `  ${p}:\n    ${error.message}\n`;
     }
   }
 
-  message += `\nTo build from source:\n`;
-  message += `  1. Install FFmpeg development libraries\n`;
-  message += `  2. Run: npm run build\n`;
+  message += '\nTo build from source:\n';
+  message += '  1. Install FFmpeg development libraries\n';
+  message += '  2. Run: npm run build\n';
 
   throw new Error(message);
 }

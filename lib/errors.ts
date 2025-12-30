@@ -61,7 +61,7 @@ export class WebCodecsError extends Error {
       nativeCode?: number;
       context?: Record<string, unknown>;
       cause?: Error;
-    }
+    },
   ) {
     super(message);
     this.name = 'WebCodecsError';
@@ -105,7 +105,7 @@ export class ConfigurationError extends WebCodecsError {
       nativeCode?: number;
       context?: Record<string, unknown>;
       cause?: Error;
-    }
+    },
   ) {
     super(message, ErrorCode.ERR_INVALID_CONFIG, options);
     this.name = 'ConfigurationError';
@@ -122,7 +122,7 @@ export class UnsupportedCodecError extends WebCodecsError {
     codec: string,
     options?: {
       context?: Record<string, unknown>;
-    }
+    },
   ) {
     super(`Unsupported codec: ${codec}`, ErrorCode.ERR_UNSUPPORTED_CODEC, {
       context: {...options?.context, codec},
@@ -142,12 +142,12 @@ export class InvalidStateError extends WebCodecsError {
   constructor(
     operation: string,
     currentState: string,
-    expectedStates: string[]
+    expectedStates: string[],
   ) {
     super(
       `Cannot ${operation} in state "${currentState}". Expected: ${expectedStates.join(' or ')}`,
       ErrorCode.ERR_INVALID_STATE,
-      {context: {operation, currentState, expectedStates}}
+      {context: {operation, currentState, expectedStates}},
     );
     this.name = 'InvalidStateError';
     this.currentState = currentState;
@@ -165,7 +165,7 @@ export class EncodingError extends WebCodecsError {
       nativeCode?: number;
       context?: Record<string, unknown>;
       cause?: Error;
-    }
+    },
   ) {
     super(message, ErrorCode.ERR_ENCODE_FAILED, options);
     this.name = 'EncodingError';
@@ -182,7 +182,7 @@ export class DecodingError extends WebCodecsError {
       nativeCode?: number;
       context?: Record<string, unknown>;
       cause?: Error;
-    }
+    },
   ) {
     super(message, ErrorCode.ERR_DECODE_FAILED, options);
     this.name = 'DecodingError';
@@ -198,7 +198,7 @@ export class InvalidDataError extends WebCodecsError {
     code: ErrorCodeType = ErrorCode.ERR_INVALID_FRAME,
     options?: {
       context?: Record<string, unknown>;
-    }
+    },
   ) {
     super(message, code, options);
     this.name = 'InvalidDataError';
@@ -213,7 +213,7 @@ export class AllocationError extends WebCodecsError {
     resource: string,
     options?: {
       nativeCode?: number;
-    }
+    },
   ) {
     super(`Failed to allocate ${resource}`, ErrorCode.ERR_ALLOCATION_FAILED, {
       nativeCode: options?.nativeCode,
