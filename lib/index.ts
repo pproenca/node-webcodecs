@@ -184,35 +184,51 @@ export class VideoFrame {
   }
 
   get codedWidth(): number {
+    // W3C spec: return 0 when [[Detached]] is true
+    if (this._closed) return 0;
     return this._native.codedWidth;
   }
 
   get codedHeight(): number {
+    // W3C spec: return 0 when [[Detached]] is true
+    if (this._closed) return 0;
     return this._native.codedHeight;
   }
 
   get timestamp(): number {
+    // W3C spec: return 0 when [[Detached]] is true
+    if (this._closed) return 0;
     return this._native.timestamp;
   }
 
   get format(): VideoPixelFormat | null {
+    // W3C spec: return null when [[Detached]] is true
+    if (this._closed) return null;
     // Cast native format string to VideoPixelFormat enum
     return (this._native.format as VideoPixelFormat) ?? null;
   }
 
   get duration(): number | null {
+    // W3C spec: return null when [[Detached]] is true
+    if (this._closed) return null;
     return this._native.duration ?? null;
   }
 
   get displayWidth(): number {
+    // W3C spec: return 0 when [[Detached]] is true
+    if (this._closed) return 0;
     return this._native.displayWidth;
   }
 
   get displayHeight(): number {
+    // W3C spec: return 0 when [[Detached]] is true
+    if (this._closed) return 0;
     return this._native.displayHeight;
   }
 
-  get codedRect(): DOMRectReadOnly {
+  get codedRect(): DOMRectReadOnly | null {
+    // W3C spec: return null when [[Detached]] is true
+    if (this._closed) return null;
     const w = this.codedWidth;
     const h = this.codedHeight;
     return {
@@ -227,8 +243,9 @@ export class VideoFrame {
     };
   }
 
-  get visibleRect(): DOMRectReadOnly {
-    this._throwIfClosed();
+  get visibleRect(): DOMRectReadOnly | null {
+    // W3C spec: return null when [[Detached]] is true
+    if (this._closed) return null;
     const rect = this._native.visibleRect;
     // Return DOMRectReadOnly-compatible object with computed right/bottom/top/left
     return {
