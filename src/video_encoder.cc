@@ -564,6 +564,13 @@ Napi::Value VideoEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   if (config.Has("bitrateMode") && config.Get("bitrateMode").IsString()) {
     normalized_config.Set("bitrateMode", config.Get("bitrateMode"));
   }
+  // Copy displayWidth and displayHeight if present (per W3C spec echo requirement)
+  if (config.Has("displayWidth") && config.Get("displayWidth").IsNumber()) {
+    normalized_config.Set("displayWidth", config.Get("displayWidth"));
+  }
+  if (config.Has("displayHeight") && config.Get("displayHeight").IsNumber()) {
+    normalized_config.Set("displayHeight", config.Get("displayHeight"));
+  }
 
   result.Set("supported", supported);
   result.Set("config", normalized_config);

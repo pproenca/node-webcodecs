@@ -43,6 +43,32 @@ describe('VideoEncoder', () => {
       });
       expect(result.supported).toBe(false);
     });
+
+    it('should echo displayWidth and displayHeight in config', async () => {
+      const result = await VideoEncoder.isConfigSupported({
+        codec: 'avc1.42E01E',
+        width: 1920,
+        height: 1080,
+        displayWidth: 1920,
+        displayHeight: 1080,
+      });
+      expect(result.supported).toBe(true);
+      expect(result.config.displayWidth).toBe(1920);
+      expect(result.config.displayHeight).toBe(1080);
+    });
+
+    it('should echo displayWidth and displayHeight when different from coded dimensions', async () => {
+      const result = await VideoEncoder.isConfigSupported({
+        codec: 'avc1.42E01E',
+        width: 1920,
+        height: 1080,
+        displayWidth: 1280,
+        displayHeight: 720,
+      });
+      expect(result.supported).toBe(true);
+      expect(result.config.displayWidth).toBe(1280);
+      expect(result.config.displayHeight).toBe(720);
+    });
   });
 
   describe('constructor', () => {
