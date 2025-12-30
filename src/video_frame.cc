@@ -247,10 +247,16 @@ Napi::Value VideoFrame::GetFormat(const Napi::CallbackInfo& info) {
 }
 
 Napi::Value VideoFrame::GetRotation(const Napi::CallbackInfo& info) {
+  if (closed_) {
+    throw Napi::Error::New(info.Env(), "VideoFrame is closed");
+  }
   return Napi::Number::New(info.Env(), rotation_);
 }
 
 Napi::Value VideoFrame::GetFlip(const Napi::CallbackInfo& info) {
+  if (closed_) {
+    throw Napi::Error::New(info.Env(), "VideoFrame is closed");
+  }
   return Napi::Boolean::New(info.Env(), flip_);
 }
 
