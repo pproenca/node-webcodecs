@@ -514,19 +514,21 @@ Napi::Value VideoDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   }
 
   // Validate and copy codedWidth (optional for isConfigSupported per W3C spec).
+  // Note: 0 is valid (decoder infers from bitstream), consistent with configure().
   if (config.Has("codedWidth") && config.Get("codedWidth").IsNumber()) {
     int coded_width = config.Get("codedWidth").As<Napi::Number>().Int32Value();
-    if (coded_width <= 0 || coded_width > kMaxDimension) {
+    if (coded_width < 0 || coded_width > kMaxDimension) {
       supported = false;
     }
     normalized_config.Set("codedWidth", coded_width);
   }
 
   // Validate and copy codedHeight (optional per W3C spec).
+  // Note: 0 is valid (decoder infers from bitstream), consistent with configure().
   if (config.Has("codedHeight") && config.Get("codedHeight").IsNumber()) {
     int coded_height =
         config.Get("codedHeight").As<Napi::Number>().Int32Value();
-    if (coded_height <= 0 || coded_height > kMaxDimension) {
+    if (coded_height < 0 || coded_height > kMaxDimension) {
       supported = false;
     }
     normalized_config.Set("codedHeight", coded_height);

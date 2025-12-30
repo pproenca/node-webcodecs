@@ -544,7 +544,7 @@ export interface VideoEncoderInit {
  *   [EnforceRange] unsigned long displayAspectWidth;
  *   [EnforceRange] unsigned long displayAspectHeight;
  *   VideoColorSpaceInit colorSpace;
- *   HardwareAcceleration hardwareAcceleration = "allow";
+ *   HardwareAcceleration hardwareAcceleration = "no-preference";
  *   boolean optimizeForLatency;
  * };
  */
