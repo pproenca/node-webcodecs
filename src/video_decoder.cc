@@ -238,6 +238,30 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
         config.Get("displayAspectHeight").As<Napi::Number>().Int32Value();
   }
 
+  // Parse optional colorSpace (per W3C spec).
+  has_color_space_ = false;
+  color_primaries_.clear();
+  color_transfer_.clear();
+  color_matrix_.clear();
+  color_full_range_ = false;
+  if (config.Has("colorSpace") && config.Get("colorSpace").IsObject()) {
+    Napi::Object cs = config.Get("colorSpace").As<Napi::Object>();
+    has_color_space_ = true;
+
+    if (cs.Has("primaries") && cs.Get("primaries").IsString()) {
+      color_primaries_ = cs.Get("primaries").As<Napi::String>().Utf8Value();
+    }
+    if (cs.Has("transfer") && cs.Get("transfer").IsString()) {
+      color_transfer_ = cs.Get("transfer").As<Napi::String>().Utf8Value();
+    }
+    if (cs.Has("matrix") && cs.Get("matrix").IsString()) {
+      color_matrix_ = cs.Get("matrix").As<Napi::String>().Utf8Value();
+    }
+    if (cs.Has("fullRange") && cs.Get("fullRange").IsBoolean()) {
+      color_full_range_ = cs.Get("fullRange").As<Napi::Boolean>().Value();
+    }
+  }
+
   // Open codec.
   int ret = avcodec_open2(codec_context_, codec_, nullptr);
   if (ret < 0) {
@@ -591,10 +615,18 @@ void VideoDecoder::EmitFrames(Napi::Env env) {
       display_height = frame_->height;
     }
 
-    // Create VideoFrame with rotation, flip, and display dimensions.
-    Napi::Object video_frame = VideoFrame::CreateInstance(
-        env, rgba_data.data(), rgba_data.size(), frame_->width, frame_->height,
-        frame_->pts, "RGBA", rotation_, flip_, display_width, display_height);
+    // Create VideoFrame with rotation, flip, display dimensions, and colorSpace.
+    Napi::Object video_frame;
+    if (has_color_space_) {
+      video_frame = VideoFrame::CreateInstance(
+          env, rgba_data.data(), rgba_data.size(), frame_->width, frame_->height,
+          frame_->pts, "RGBA", rotation_, flip_, display_width, display_height,
+          color_primaries_, color_transfer_, color_matrix_, color_full_range_);
+    } else {
+      video_frame = VideoFrame::CreateInstance(
+          env, rgba_data.data(), rgba_data.size(), frame_->width, frame_->height,
+          frame_->pts, "RGBA", rotation_, flip_, display_width, display_height);
+    }
 
     // Call output callback.
     output_callback_.Call({video_frame});

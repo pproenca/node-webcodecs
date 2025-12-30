@@ -98,6 +98,16 @@ class VideoFrame : public Napi::ObjectWrap<VideoFrame> {
                                      const std::string& format, int rotation,
                                      bool flip, int display_width,
                                      int display_height);
+  static Napi::Object CreateInstance(Napi::Env env, const uint8_t* data,
+                                     size_t data_size, int width, int height,
+                                     int64_t timestamp,
+                                     const std::string& format, int rotation,
+                                     bool flip, int display_width,
+                                     int display_height,
+                                     const std::string& color_primaries,
+                                     const std::string& color_transfer,
+                                     const std::string& color_matrix,
+                                     bool color_full_range);
   explicit VideoFrame(const Napi::CallbackInfo& info);
   ~VideoFrame();
 
@@ -128,6 +138,7 @@ class VideoFrame : public Napi::ObjectWrap<VideoFrame> {
   Napi::Value GetRotation(const Napi::CallbackInfo& info);
   Napi::Value GetFlip(const Napi::CallbackInfo& info);
   Napi::Value GetVisibleRect(const Napi::CallbackInfo& info);
+  Napi::Value GetColorSpace(const Napi::CallbackInfo& info);
 
   // Methods.
   void Close(const Napi::CallbackInfo& info);
@@ -149,6 +160,13 @@ class VideoFrame : public Napi::ObjectWrap<VideoFrame> {
   int rotation_;
   bool flip_;
   VisibleRect visible_rect_;
+
+  // Color space (per W3C WebCodecs spec).
+  std::string color_primaries_;
+  std::string color_transfer_;
+  std::string color_matrix_;
+  bool color_full_range_ = false;
+  bool has_color_space_ = false;
 };
 
 #endif  // SRC_VIDEO_FRAME_H_

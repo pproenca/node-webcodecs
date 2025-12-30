@@ -290,4 +290,77 @@ describe('VideoDecoder', () => {
       decoder.close();
     });
   });
+
+  describe('colorSpace', () => {
+    it('should pass colorSpace from config to output VideoFrame', async () => {
+      // Encode frame first (same pattern as above)
+      const encodedChunks: EncodedVideoChunk[] = [];
+      const encoder = new VideoEncoder({
+        output: (chunk) => {
+          const data = new Uint8Array(chunk.byteLength);
+          chunk.copyTo(data);
+          encodedChunks.push(new EncodedVideoChunk({
+            type: chunk.type,
+            timestamp: chunk.timestamp,
+            data: data,
+          }));
+        },
+        error: (e) => { throw e; },
+      });
+
+      encoder.configure({
+        codec: 'avc1.42001e',
+        width: 320,
+        height: 240,
+        bitrate: 500_000,
+        framerate: 30,
+      });
+
+      const frameData = new Uint8Array(320 * 240 * 4).fill(128);
+      const frame = new VideoFrame(frameData, {
+        format: 'RGBA',
+        codedWidth: 320,
+        codedHeight: 240,
+        timestamp: 0,
+      });
+
+      encoder.encode(frame, { keyFrame: true });
+      await encoder.flush();
+      frame.close();
+      encoder.close();
+
+      // Decode with colorSpace specified
+      const outputFrames: VideoFrame[] = [];
+      const decoder = new VideoDecoder({
+        output: (outputFrame) => {
+          outputFrames.push(outputFrame);
+        },
+        error: (e) => { throw e; },
+      });
+
+      decoder.configure({
+        codec: 'avc1.42001e',
+        codedWidth: 320,
+        codedHeight: 240,
+        colorSpace: {
+          primaries: 'bt709',
+          transfer: 'bt709',
+          matrix: 'bt709',
+          fullRange: false,
+        },
+      });
+
+      decoder.decode(encodedChunks[0]);
+      await decoder.flush();
+
+      expect(outputFrames.length).toBeGreaterThan(0);
+      expect(outputFrames[0].colorSpace.primaries).toBe('bt709');
+      expect(outputFrames[0].colorSpace.transfer).toBe('bt709');
+      expect(outputFrames[0].colorSpace.matrix).toBe('bt709');
+      expect(outputFrames[0].colorSpace.fullRange).toBe(false);
+
+      outputFrames.forEach(f => f.close());
+      decoder.close();
+    });
+  });
 });
