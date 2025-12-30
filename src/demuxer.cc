@@ -32,7 +32,6 @@ Napi::Object Demuxer::Init(Napi::Env env, Napi::Object exports) {
 
 Demuxer::Demuxer(const Napi::CallbackInfo& info)
     : Napi::ObjectWrap<Demuxer>(info),
-      format_context_(nullptr),
       video_stream_index_(-1),
       audio_stream_index_(-1) {
   Napi::Env env = info.Env();
@@ -62,10 +61,7 @@ Demuxer::Demuxer(const Napi::CallbackInfo& info)
 Demuxer::~Demuxer() { Cleanup(); }
 
 void Demuxer::Cleanup() {
-  if (format_context_) {
-    avformat_close_input(&format_context_);
-    format_context_ = nullptr;
-  }
+  format_context_.reset();
   tracks_.clear();
   video_stream_index_ = -1;
   audio_stream_index_ = -1;
@@ -83,8 +79,8 @@ Napi::Value Demuxer::Open(const Napi::CallbackInfo& info) {
   std::string path = info[0].As<Napi::String>().Utf8Value();
 
   // Open input file.
-  int ret = avformat_open_input(
-      &format_context_, path.c_str(), nullptr, nullptr);
+  AVFormatContext* raw_ctx = nullptr;
+  int ret = avformat_open_input(&raw_ctx, path.c_str(), nullptr, nullptr);
   if (ret < 0) {
     char err[AV_ERROR_MAX_STRING_SIZE];
     av_strerror(ret, err, sizeof(err));
@@ -92,9 +88,10 @@ Napi::Value Demuxer::Open(const Napi::CallbackInfo& info) {
         .ThrowAsJavaScriptException();
     return env.Undefined();
   }
+  format_context_.reset(raw_ctx);
 
   // Find stream info.
-  ret = avformat_find_stream_info(format_context_, nullptr);
+  ret = avformat_find_stream_info(format_context_.get(), nullptr);
   if (ret < 0) {
     Cleanup();
     Napi::Error::New(env, "Failed to find stream info")
@@ -104,7 +101,7 @@ Napi::Value Demuxer::Open(const Napi::CallbackInfo& info) {
 
   // Enumerate tracks.
   for (unsigned int i = 0; i < format_context_->nb_streams; i++) {
-    AVStream* stream = format_context_->streams[i];
+    AVStream* stream = format_context_.get()->streams[i];
     AVCodecParameters* codecpar = stream->codecpar;
 
     TrackInfo track;
@@ -186,22 +183,21 @@ Napi::Value Demuxer::DemuxPackets(const Napi::CallbackInfo& info) {
     return env.Undefined();
   }
 
-  AVPacket* packet = av_packet_alloc();
+  ffmpeg::AVPacketPtr packet = ffmpeg::make_packet();
   if (!packet) {
     Napi::Error::New(env, "Failed to allocate packet")
         .ThrowAsJavaScriptException();
     return env.Undefined();
   }
 
-  while (av_read_frame(format_context_, packet) >= 0) {
+  while (av_read_frame(format_context_.get(), packet.get()) >= 0) {
     if (packet->stream_index == video_stream_index_ ||
         packet->stream_index == audio_stream_index_) {
-      EmitChunk(env, packet, packet->stream_index);
+      EmitChunk(env, packet.get(), packet->stream_index);
     }
-    av_packet_unref(packet);
+    av_packet_unref(packet.get());
   }
 
-  av_packet_free(&packet);
   return env.Undefined();
 }
 
@@ -214,7 +210,7 @@ void Demuxer::EmitChunk(Napi::Env env, AVPacket* packet, int track_index) {
   bool is_key = (packet->flags & AV_PKT_FLAG_KEY) != 0;
   chunk.Set("type", Napi::String::New(env, is_key ? "key" : "delta"));
 
-  AVStream* stream = format_context_->streams[track_index];
+  AVStream* stream = format_context_.get()->streams[track_index];
   int64_t timestamp_us =
       av_rescale_q(packet->pts, stream->time_base, {1, 1000000});
   chunk.Set("timestamp",

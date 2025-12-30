@@ -15,6 +15,8 @@ extern "C" {
 #include <string>
 #include <vector>
 
+#include "src/ffmpeg_raii.h"
+
 struct TrackInfo {
   int index;
   std::string type;  // "video" or "audio"
@@ -49,7 +51,7 @@ class Demuxer : public Napi::ObjectWrap<Demuxer> {
   void EmitTrack(Napi::Env env, const TrackInfo& track);
   void EmitChunk(Napi::Env env, AVPacket* packet, int track_index);
 
-  AVFormatContext* format_context_;
+  ffmpeg::AVFormatContextPtr format_context_;
   std::vector<TrackInfo> tracks_;
   int video_stream_index_;
   int audio_stream_index_;
