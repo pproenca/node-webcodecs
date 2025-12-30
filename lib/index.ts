@@ -881,7 +881,29 @@ export class ImageDecoder {
     }
 
     get tracks(): ImageTrackList {
-        return this._native.tracks;
+        // Wrap native array as W3C-compliant ImageTrackList
+        const nativeTracks = this._native.tracks;
+        const trackList: ImageTrackList = {
+            get length() { return nativeTracks.length; },
+            get selectedIndex() { return 0; },
+            get selectedTrack() { return nativeTracks.length > 0 ? nativeTracks[0] : null; },
+            ready: Promise.resolve(),
+            [Symbol.iterator]: function* () {
+                for (let i = 0; i < nativeTracks.length; i++) {
+                    yield nativeTracks[i];
+                }
+            }
+        } as ImageTrackList;
+
+        // Add index accessor
+        for (let i = 0; i < nativeTracks.length; i++) {
+            Object.defineProperty(trackList, i, {
+                get: () => nativeTracks[i],
+                enumerable: true
+            });
+        }
+
+        return trackList;
     }
 
     get completed(): Promise<void> {

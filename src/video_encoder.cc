@@ -215,12 +215,55 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
                                     std::to_string(actual_size));
   }
 
-  // Check for keyFrame option.
+  // Check for keyFrame and codec-specific quantizer options.
   bool force_key_frame = false;
+  int quantizer = -1;  // -1 means not specified
   if (info.Length() >= 2 && info[1].IsObject()) {
     Napi::Object options = info[1].As<Napi::Object>();
     if (options.Has("keyFrame") && options.Get("keyFrame").IsBoolean()) {
       force_key_frame = options.Get("keyFrame").As<Napi::Boolean>().Value();
+    }
+
+    // Parse codec-specific quantizer options per W3C WebCodecs spec.
+    // Check for avc (H.264) quantizer: 0-51
+    if (options.Has("avc") && options.Get("avc").IsObject()) {
+      Napi::Object avc_opts = options.Get("avc").As<Napi::Object>();
+      if (avc_opts.Has("quantizer") && avc_opts.Get("quantizer").IsNumber()) {
+        int q = avc_opts.Get("quantizer").As<Napi::Number>().Int32Value();
+        if (q >= 0 && q <= 51) {
+          quantizer = q;
+        }
+      }
+    }
+    // Check for hevc (H.265) quantizer: 0-51
+    else if (options.Has("hevc") && options.Get("hevc").IsObject()) {
+      Napi::Object hevc_opts = options.Get("hevc").As<Napi::Object>();
+      if (hevc_opts.Has("quantizer") && hevc_opts.Get("quantizer").IsNumber()) {
+        int q = hevc_opts.Get("quantizer").As<Napi::Number>().Int32Value();
+        if (q >= 0 && q <= 51) {
+          quantizer = q;
+        }
+      }
+    }
+    // Check for vp9 quantizer: 0-63
+    else if (options.Has("vp9") && options.Get("vp9").IsObject()) {
+      Napi::Object vp9_opts = options.Get("vp9").As<Napi::Object>();
+      if (vp9_opts.Has("quantizer") && vp9_opts.Get("quantizer").IsNumber()) {
+        int q = vp9_opts.Get("quantizer").As<Napi::Number>().Int32Value();
+        if (q >= 0 && q <= 63) {
+          quantizer = q;
+        }
+      }
+    }
+    // Check for av1 quantizer: 0-63
+    else if (options.Has("av1") && options.Get("av1").IsObject()) {
+      Napi::Object av1_opts = options.Get("av1").As<Napi::Object>();
+      if (av1_opts.Has("quantizer") && av1_opts.Get("quantizer").IsNumber()) {
+        int q = av1_opts.Get("quantizer").As<Napi::Number>().Int32Value();
+        if (q >= 0 && q <= 63) {
+          quantizer = q;
+        }
+      }
     }
   }
 
@@ -238,6 +281,16 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
     frame_->pict_type = AV_PICTURE_TYPE_I;
   } else {
     frame_->pict_type = AV_PICTURE_TYPE_NONE;
+  }
+
+  // Apply codec-specific quantizer if specified.
+  // In FFmpeg, quality is specified in a scale where lower is better.
+  // For H.264/HEVC (0-51) and VP9/AV1 (0-63), we set the frame quality.
+  if (quantizer >= 0) {
+    // FF_QP2LAMBDA converts QP to the internal quality scale.
+    frame_->quality = quantizer * FF_QP2LAMBDA;
+  } else {
+    frame_->quality = 0;  // Let encoder decide
   }
 
   // Track queue size and saturation

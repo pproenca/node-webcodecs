@@ -198,6 +198,24 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
     }
   }
 
+  // Parse optional rotation (must be 0, 90, 180, or 270).
+  rotation_ = 0;
+  if (config.Has("rotation") && config.Get("rotation").IsNumber()) {
+    int rotation = config.Get("rotation").As<Napi::Number>().Int32Value();
+    if (rotation == 0 || rotation == 90 || rotation == 180 ||
+        rotation == 270) {
+      rotation_ = rotation;
+    } else {
+      throw Napi::Error::New(env, "rotation must be 0, 90, 180, or 270");
+    }
+  }
+
+  // Parse optional flip (horizontal flip).
+  flip_ = false;
+  if (config.Has("flip") && config.Get("flip").IsBoolean()) {
+    flip_ = config.Get("flip").As<Napi::Boolean>().Value();
+  }
+
   // Open codec.
   int ret = avcodec_open2(codec_context_, codec_, nullptr);
   if (ret < 0) {
@@ -443,6 +461,19 @@ Napi::Value VideoDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
     normalized_config.Set("optimizeForLatency",
                           config.Get("optimizeForLatency"));
   }
+  if (config.Has("rotation") && config.Get("rotation").IsNumber()) {
+    int rotation = config.Get("rotation").As<Napi::Number>().Int32Value();
+    // Validate rotation value.
+    if (rotation == 0 || rotation == 90 || rotation == 180 ||
+        rotation == 270) {
+      normalized_config.Set("rotation", rotation);
+    } else {
+      supported = false;
+    }
+  }
+  if (config.Has("flip") && config.Get("flip").IsBoolean()) {
+    normalized_config.Set("flip", config.Get("flip"));
+  }
 
   result.Set("supported", supported);
   result.Set("config", normalized_config);
@@ -496,10 +527,10 @@ void VideoDecoder::EmitFrames(Napi::Env env) {
     sws_scale(sws_context_, frame_->data, frame_->linesize, 0, frame_->height,
               dst_data, dst_linesize);
 
-    // Create VideoFrame.
+    // Create VideoFrame with rotation and flip from decoder config.
     Napi::Object video_frame = VideoFrame::CreateInstance(
         env, rgba_data.data(), rgba_data.size(), frame_->width, frame_->height,
-        frame_->pts, "RGBA");
+        frame_->pts, "RGBA", rotation_, flip_);
 
     // Call output callback.
     output_callback_.Call({video_frame});

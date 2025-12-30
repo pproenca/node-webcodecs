@@ -73,8 +73,29 @@ export interface VideoFrameInit {
     visibleRect?: { x: number; y: number; width: number; height: number };
 }
 
+// Codec-specific quantizer options per W3C WebCodecs spec
+export interface VideoEncoderEncodeOptionsForVp9 {
+    quantizer?: number;  // 0-63
+}
+
+export interface VideoEncoderEncodeOptionsForAv1 {
+    quantizer?: number;  // 0-63
+}
+
+export interface VideoEncoderEncodeOptionsForAvc {
+    quantizer?: number;  // 0-51
+}
+
+export interface VideoEncoderEncodeOptionsForHevc {
+    quantizer?: number;  // 0-51
+}
+
 export interface VideoEncoderEncodeOptions {
     keyFrame?: boolean;
+    vp9?: VideoEncoderEncodeOptionsForVp9;
+    av1?: VideoEncoderEncodeOptionsForAv1;
+    avc?: VideoEncoderEncodeOptionsForAvc;
+    hevc?: VideoEncoderEncodeOptionsForHevc;
 }
 
 export type CodecState = 'unconfigured' | 'configured' | 'closed';
@@ -92,10 +113,19 @@ export interface VideoFrameCopyToOptions {
     format?: VideoPixelFormat;
 }
 
+// W3C VideoColorPrimaries enum values
+export type VideoColorPrimaries = 'bt709' | 'bt470bg' | 'smpte170m' | 'bt2020' | 'smpte432';
+
+// W3C VideoTransferCharacteristics enum values
+export type VideoTransferCharacteristics = 'bt709' | 'smpte170m' | 'iec61966-2-1' | 'linear' | 'pq' | 'hlg';
+
+// W3C VideoMatrixCoefficients enum values
+export type VideoMatrixCoefficients = 'rgb' | 'bt709' | 'bt470bg' | 'smpte170m' | 'bt2020-ncl';
+
 export interface VideoColorSpaceInit {
-    primaries?: string;
-    transfer?: string;
-    matrix?: string;
+    primaries?: VideoColorPrimaries | string;
+    transfer?: VideoTransferCharacteristics | string;
+    matrix?: VideoMatrixCoefficients | string;
     fullRange?: boolean;
 }
 
@@ -131,12 +161,25 @@ export interface AudioDataInit {
     transfer?: ArrayBuffer[];
 }
 
+// Opus-specific encoder configuration per W3C WebCodecs spec
+export interface OpusEncoderConfig {
+    application?: 'audio' | 'lowdelay' | 'voip';
+    complexity?: number;        // 0-10
+    format?: 'opus' | 'ogg';
+    frameDuration?: number;     // microseconds
+    packetlossperc?: number;    // 0-100
+    signal?: 'auto' | 'music' | 'voice';
+    usedtx?: boolean;
+    useinbandfec?: boolean;
+}
+
 export interface AudioEncoderConfig {
     codec: string;
     sampleRate: number;
     numberOfChannels: number;
     bitrate?: number;
     bitrateMode?: 'constant' | 'variable';
+    opus?: OpusEncoderConfig;
 }
 
 export interface AudioEncoderInit {
