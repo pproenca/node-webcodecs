@@ -1162,6 +1162,8 @@ export class VideoFilter {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const wrapper = Object.create(VideoFrame.prototype) as any;
     wrapper._native = resultNativeFrame;
+    wrapper._closed = false;
+    wrapper._metadata = {};
     return wrapper as VideoFrame;
   }
 
