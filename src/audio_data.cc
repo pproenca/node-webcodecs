@@ -301,7 +301,9 @@ Napi::Value AudioData::AllocationSize(const Napi::CallbackInfo& info) {
   if (options.Has("frameCount") && options.Get("frameCount").IsNumber()) {
     frame_count = options.Get("frameCount").As<Napi::Number>().Uint32Value();
     if (frame_offset + frame_count > number_of_frames_) {
-      frame_count = number_of_frames_ - frame_offset;
+      Napi::RangeError::New(env, "frameOffset + frameCount exceeds numberOfFrames")
+          .ThrowAsJavaScriptException();
+      return env.Undefined();
     }
   }
 
@@ -309,6 +311,12 @@ Napi::Value AudioData::AllocationSize(const Napi::CallbackInfo& info) {
   std::string target_format = format_;
   if (options.Has("format") && options.Get("format").IsString()) {
     target_format = options.Get("format").As<Napi::String>().Utf8Value();
+    // Validate target format.
+    if (ParseAudioFormat(target_format) == AV_SAMPLE_FMT_NONE) {
+      Napi::TypeError::New(env, "Invalid audio sample format")
+          .ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
   }
 
   // Calculate allocation size.
@@ -412,7 +420,9 @@ void AudioData::CopyTo(const Napi::CallbackInfo& info) {
   if (options.Has("frameCount") && options.Get("frameCount").IsNumber()) {
     frame_count = options.Get("frameCount").As<Napi::Number>().Uint32Value();
     if (frame_offset + frame_count > number_of_frames_) {
-      frame_count = number_of_frames_ - frame_offset;
+      Napi::RangeError::New(env, "frameOffset + frameCount exceeds numberOfFrames")
+          .ThrowAsJavaScriptException();
+      return;
     }
   }
 
@@ -420,6 +430,12 @@ void AudioData::CopyTo(const Napi::CallbackInfo& info) {
   std::string target_format = format_;
   if (options.Has("format") && options.Get("format").IsString()) {
     target_format = options.Get("format").As<Napi::String>().Utf8Value();
+    // Validate target format.
+    if (ParseAudioFormat(target_format) == AV_SAMPLE_FMT_NONE) {
+      Napi::TypeError::New(env, "Invalid audio sample format")
+          .ThrowAsJavaScriptException();
+      return;
+    }
   }
 
   // Calculate required size.
@@ -461,6 +477,13 @@ void AudioData::CopyTo(const Napi::CallbackInfo& info) {
   }
 
   // Format conversion using libswresample.
+  // Validate channel count for planar format arrays (max 8 channels supported).
+  if (number_of_channels_ > 8) {
+    Napi::RangeError::New(env, "Format conversion supports maximum 8 channels")
+        .ThrowAsJavaScriptException();
+    return;
+  }
+
   AVSampleFormat src_fmt = ParseAudioFormat(format_);
   AVSampleFormat dst_fmt = ParseAudioFormat(target_format);
 
@@ -503,7 +526,6 @@ void AudioData::CopyTo(const Napi::CallbackInfo& info) {
 
   // Prepare source data pointers.
   const uint8_t* src_data[8] = {nullptr};
-  int src_linesize = 0;
 
   if (is_planar) {
     // Source is planar: set up pointers to each channel plane.
@@ -511,11 +533,9 @@ void AudioData::CopyTo(const Napi::CallbackInfo& info) {
     for (uint32_t c = 0; c < number_of_channels_; c++) {
       src_data[c] = data_.data() + c * plane_size + frame_offset * bytes_per_sample;
     }
-    src_linesize = frame_count * bytes_per_sample;
   } else {
     // Source is interleaved: single data pointer.
     src_data[0] = data_.data() + frame_offset * number_of_channels_ * bytes_per_sample;
-    src_linesize = frame_count * number_of_channels_ * bytes_per_sample;
   }
 
   // Prepare destination data pointers.
