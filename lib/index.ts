@@ -3,9 +3,9 @@
  *
  * W3C WebCodecs Specification Compliance Notes:
  * - VideoEncoder, VideoDecoder, AudioEncoder, AudioDecoder extend EventTarget via CodecBase
+ * - VideoFrame visibleRect cropping implemented in native layer
+ * - ArrayBuffer transfer semantics implemented (uses structuredClone with transfer)
  * - TODO: VideoFrame constructor from CanvasImageSource not supported (Node.js limitation)
- * - TODO: visibleRect cropping not fully implemented in native layer
- * - TODO: ArrayBuffer transfer semantics not implemented
  * - TODO: High bit-depth pixel formats (P10/P12 variants) not supported in native layer
  */
 
@@ -63,6 +63,25 @@ import {ResourceManager} from './resource-manager';
 
 // Load native addon with type assertion
 const native: NativeModule = require('../build/Release/node_webcodecs.node');
+
+/**
+ * Detach ArrayBuffers per W3C WebCodecs transfer semantics.
+ * Uses structuredClone with transfer to detach, making the original buffer unusable.
+ */
+function detachArrayBuffers(buffers: ArrayBuffer[]): void {
+  for (const buffer of buffers) {
+    if (buffer.byteLength === 0) continue; // Already detached
+    try {
+      // Modern approach: use structuredClone with transfer to detach
+      // This makes the original buffer unusable (byteLength becomes 0)
+      structuredClone(buffer, {transfer: [buffer]});
+    } catch {
+      // Fallback for environments without transfer support
+      // We can't truly detach, but the data has been copied to native
+      console.warn('ArrayBuffer transfer not supported, data copied instead');
+    }
+  }
+}
 
 /**
  * Abstract base class for all WebCodecs codec classes.
@@ -127,7 +146,10 @@ export class VideoFrame {
   private _native: NativeVideoFrame;
   private _closed: boolean = false;
 
-  constructor(data: Buffer | Uint8Array | ArrayBuffer, init: VideoFrameBufferInit) {
+  constructor(
+    data: Buffer | Uint8Array | ArrayBuffer,
+    init: VideoFrameBufferInit,
+  ) {
     // Convert to Buffer if needed
     let dataBuffer: Buffer;
     if (data instanceof Buffer) {
@@ -140,6 +162,11 @@ export class VideoFrame {
       throw new TypeError('data must be Buffer, Uint8Array, or ArrayBuffer');
     }
     this._native = new native.VideoFrame(dataBuffer, init);
+
+    // Handle ArrayBuffer transfer semantics per W3C WebCodecs spec
+    if (init.transfer && Array.isArray(init.transfer)) {
+      detachArrayBuffers(init.transfer);
+    }
   }
 
   get codedWidth(): number {
@@ -187,8 +214,25 @@ export class VideoFrame {
   }
 
   get visibleRect(): DOMRectReadOnly {
-    // Default: no cropping, visibleRect equals codedRect
-    return this.codedRect;
+    this._throwIfClosed();
+    const rect = this._native.visibleRect;
+    // Return DOMRectReadOnly-compatible object with computed right/bottom/top/left
+    return {
+      x: rect.x,
+      y: rect.y,
+      width: rect.width,
+      height: rect.height,
+      top: rect.y,
+      left: rect.x,
+      right: rect.x + rect.width,
+      bottom: rect.y + rect.height,
+    };
+  }
+
+  private _throwIfClosed(): void {
+    if (this._closed) {
+      throw new DOMException('VideoFrame is closed', 'InvalidStateError');
+    }
   }
 
   get colorSpace(): VideoColorSpace {

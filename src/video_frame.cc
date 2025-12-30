@@ -138,6 +138,7 @@ Napi::Object VideoFrame::Init(Napi::Env env, Napi::Object exports) {
           InstanceAccessor("format", &VideoFrame::GetFormat, nullptr),
           InstanceAccessor("rotation", &VideoFrame::GetRotation, nullptr),
           InstanceAccessor("flip", &VideoFrame::GetFlip, nullptr),
+          InstanceAccessor("visibleRect", &VideoFrame::GetVisibleRect, nullptr),
           InstanceMethod("close", &VideoFrame::Close),
           InstanceMethod("getData", &VideoFrame::GetDataBuffer),
           InstanceMethod("clone", &VideoFrame::Clone),
@@ -205,6 +206,40 @@ VideoFrame::VideoFrame(const Napi::CallbackInfo& info)
   }
   if (opts.Has("flip")) {
     flip_ = opts.Get("flip").As<Napi::Boolean>().Value();
+  }
+
+  // Parse visibleRect from options
+  if (opts.Has("visibleRect") && opts.Get("visibleRect").IsObject()) {
+    Napi::Object rect = opts.Get("visibleRect").As<Napi::Object>();
+    if (rect.Has("x")) {
+      visible_rect_.x = rect.Get("x").As<Napi::Number>().Int32Value();
+    }
+    if (rect.Has("y")) {
+      visible_rect_.y = rect.Get("y").As<Napi::Number>().Int32Value();
+    }
+    if (rect.Has("width")) {
+      visible_rect_.width = rect.Get("width").As<Napi::Number>().Int32Value();
+    }
+    if (rect.Has("height")) {
+      visible_rect_.height = rect.Get("height").As<Napi::Number>().Int32Value();
+    }
+  }
+
+  // Default visibleRect to full coded dimensions if not specified
+  if (visible_rect_.width == 0) {
+    visible_rect_.width = coded_width_;
+  }
+  if (visible_rect_.height == 0) {
+    visible_rect_.height = coded_height_;
+  }
+
+  // Validate visibleRect bounds
+  if (visible_rect_.x < 0 || visible_rect_.y < 0 ||
+      visible_rect_.x + visible_rect_.width > coded_width_ ||
+      visible_rect_.y + visible_rect_.height > coded_height_) {
+    Napi::Error::New(env, "visibleRect exceeds coded dimensions")
+        .ThrowAsJavaScriptException();
+    return;
   }
 }
 
@@ -280,6 +315,19 @@ Napi::Value VideoFrame::GetFlip(const Napi::CallbackInfo& info) {
   return Napi::Boolean::New(info.Env(), flip_);
 }
 
+Napi::Value VideoFrame::GetVisibleRect(const Napi::CallbackInfo& info) {
+  if (closed_) {
+    throw Napi::Error::New(info.Env(), "VideoFrame is closed");
+  }
+  Napi::Env env = info.Env();
+  Napi::Object rect = Napi::Object::New(env);
+  rect.Set("x", Napi::Number::New(env, visible_rect_.x));
+  rect.Set("y", Napi::Number::New(env, visible_rect_.y));
+  rect.Set("width", Napi::Number::New(env, visible_rect_.width));
+  rect.Set("height", Napi::Number::New(env, visible_rect_.height));
+  return rect;
+}
+
 void VideoFrame::Close(const Napi::CallbackInfo& info) {
   if (!closed_) {
     // clear() + shrink_to_fit() actually releases memory
@@ -319,6 +367,14 @@ Napi::Value VideoFrame::Clone(const Napi::CallbackInfo& info) {
   init.Set("rotation", rotation_);
   init.Set("flip", flip_);
 
+  // Copy visibleRect
+  Napi::Object rect = Napi::Object::New(env);
+  rect.Set("x", visible_rect_.x);
+  rect.Set("y", visible_rect_.y);
+  rect.Set("width", visible_rect_.width);
+  rect.Set("height", visible_rect_.height);
+  init.Set("visibleRect", rect);
+
   // Copy data to new buffer.
   Napi::Buffer<uint8_t> data_buffer =
       Napi::Buffer<uint8_t>::Copy(env, data_.data(), data_.size());
@@ -334,6 +390,10 @@ Napi::Value VideoFrame::AllocationSize(const Napi::CallbackInfo& info) {
     throw Napi::Error::New(env, "VideoFrame is closed");
   }
 
+  // Use visible dimensions for allocation size
+  int width = visible_rect_.width > 0 ? visible_rect_.width : coded_width_;
+  int height = visible_rect_.height > 0 ? visible_rect_.height : coded_height_;
+
   PixelFormat target_format = format_;
 
   // Check if options object with format is provided
@@ -346,8 +406,7 @@ Napi::Value VideoFrame::AllocationSize(const Napi::CallbackInfo& info) {
     }
   }
 
-  size_t size =
-      CalculateAllocationSize(target_format, coded_width_, coded_height_);
+  size_t size = CalculateAllocationSize(target_format, width, height);
   return Napi::Number::New(env, size);
 }
 
@@ -540,18 +599,26 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
     }
   }
 
+  // Use visible dimensions for destination size
+  int dest_width = visible_rect_.width > 0 ? visible_rect_.width : coded_width_;
+  int dest_height = visible_rect_.height > 0 ? visible_rect_.height : coded_height_;
+
   // Verify buffer size
   size_t required_size =
-      CalculateAllocationSize(target_format, coded_width_, coded_height_);
+      CalculateAllocationSize(target_format, dest_width, dest_height);
   if (dest.Length() < required_size) {
     throw Napi::Error::New(env, "Destination buffer too small");
   }
 
-  // If same format, just copy the data directly
-  if (target_format == format_) {
+  // Check if we're doing a full copy (no cropping needed)
+  bool full_copy = (visible_rect_.x == 0 && visible_rect_.y == 0 &&
+                    dest_width == coded_width_ && dest_height == coded_height_);
+
+  // If same format and full copy, just copy the data directly
+  if (target_format == format_ && full_copy) {
     memcpy(dest.Data(), data_.data(), data_.size());
   } else {
-    // Perform format conversion using sws_scale
+    // Perform format conversion and/or cropping using sws_scale
     AVPixelFormat src_av_fmt = PixelFormatToAV(format_);
     AVPixelFormat dst_av_fmt = PixelFormatToAV(target_format);
 
@@ -559,35 +626,81 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
       throw Napi::Error::New(env, "Unsupported pixel format for conversion");
     }
 
+    // Create sws context with source=visible rect dimensions, dest=visible dimensions
     SwsContext* sws_ctx = sws_getContext(
-        coded_width_, coded_height_, src_av_fmt,
-        coded_width_, coded_height_, dst_av_fmt,
+        dest_width, dest_height, src_av_fmt,
+        dest_width, dest_height, dst_av_fmt,
         SWS_BILINEAR, nullptr, nullptr, nullptr);
 
     if (!sws_ctx) {
       throw Napi::Error::New(env, "Failed to create sws context");
     }
 
-    // Set up source planes
+    // Set up source planes with full coded dimensions
     const uint8_t* src_data[4];
     int src_linesize[4];
     SetupSourcePlanes(format_, data_.data(), coded_width_, coded_height_,
                       src_data, src_linesize);
 
-    // Set up destination planes
+    // Offset source planes for visibleRect cropping
+    const uint8_t* src_data_offset[4] = {nullptr, nullptr, nullptr, nullptr};
+    int src_offset_x = visible_rect_.x;
+    int src_offset_y = visible_rect_.y;
+
+    for (int i = 0; i < 4 && src_data[i]; i++) {
+      if (format_ == PixelFormat::RGBA || format_ == PixelFormat::RGBX ||
+          format_ == PixelFormat::BGRA || format_ == PixelFormat::BGRX) {
+        // For packed formats: offset = y * stride + x * bytes_per_pixel
+        src_data_offset[i] = src_data[i] + src_offset_y * src_linesize[i] + src_offset_x * 4;
+      } else if (format_ == PixelFormat::NV12) {
+        if (i == 0) {
+          // Y plane
+          src_data_offset[i] = src_data[i] + src_offset_y * src_linesize[i] + src_offset_x;
+        } else {
+          // UV plane (interleaved, 4:2:0 subsampling)
+          int chroma_x = src_offset_x;  // NV12 UV plane is interleaved, x offset is same
+          int chroma_y = src_offset_y / 2;
+          src_data_offset[i] = src_data[i] + chroma_y * src_linesize[i] + chroma_x;
+        }
+      } else {
+        // Planar formats (I420, I420A, I422, I444)
+        if (i == 0) {
+          // Y plane
+          src_data_offset[i] = src_data[i] + src_offset_y * src_linesize[i] + src_offset_x;
+        } else if (i == 3 && format_ == PixelFormat::I420A) {
+          // Alpha plane (same size as Y)
+          src_data_offset[i] = src_data[i] + src_offset_y * src_linesize[i] + src_offset_x;
+        } else {
+          // U/V planes - subsample based on format
+          int chroma_x = src_offset_x;
+          int chroma_y = src_offset_y;
+          if (format_ == PixelFormat::I420 || format_ == PixelFormat::I420A) {
+            chroma_x = src_offset_x / 2;
+            chroma_y = src_offset_y / 2;
+          } else if (format_ == PixelFormat::I422) {
+            chroma_x = src_offset_x / 2;
+            // chroma_y stays the same
+          }
+          // I444 has no subsampling
+          src_data_offset[i] = src_data[i] + chroma_y * src_linesize[i] + chroma_x;
+        }
+      }
+    }
+
+    // Set up destination planes with visible dimensions
     uint8_t* dst_data[4];
     int dst_linesize[4];
-    SetupDestPlanes(target_format, dest.Data(), coded_width_, coded_height_,
+    SetupDestPlanes(target_format, dest.Data(), dest_width, dest_height,
                     dst_data, dst_linesize);
 
-    // Perform the conversion
-    sws_scale(sws_ctx, src_data, src_linesize, 0, coded_height_,
+    // Perform the conversion/crop
+    sws_scale(sws_ctx, src_data_offset, src_linesize, 0, dest_height,
               dst_data, dst_linesize);
 
     sws_freeContext(sws_ctx);
   }
 
-  // Build plane layout array
+  // Build plane layout array using visible dimensions
   Napi::Array layout = Napi::Array::New(env);
 
   if (target_format == PixelFormat::RGBA ||
@@ -596,110 +709,110 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
       target_format == PixelFormat::BGRX) {
     Napi::Object plane = Napi::Object::New(env);
     plane.Set("offset", 0);
-    plane.Set("stride", coded_width_ * 4);
+    plane.Set("stride", dest_width * 4);
     layout.Set(static_cast<uint32_t>(0), plane);
   } else if (target_format == PixelFormat::I420) {
-    uint32_t ySize = coded_width_ * coded_height_;
-    uint32_t uvSize = (coded_width_ / 2) * (coded_height_ / 2);
+    uint32_t ySize = dest_width * dest_height;
+    uint32_t uvSize = (dest_width / 2) * (dest_height / 2);
 
     // Y plane
     Napi::Object yPlane = Napi::Object::New(env);
     yPlane.Set("offset", 0);
-    yPlane.Set("stride", coded_width_);
+    yPlane.Set("stride", dest_width);
     layout.Set(static_cast<uint32_t>(0), yPlane);
 
     // U plane
     Napi::Object uPlane = Napi::Object::New(env);
     uPlane.Set("offset", ySize);
-    uPlane.Set("stride", coded_width_ / 2);
+    uPlane.Set("stride", dest_width / 2);
     layout.Set(static_cast<uint32_t>(1), uPlane);
 
     // V plane
     Napi::Object vPlane = Napi::Object::New(env);
     vPlane.Set("offset", ySize + uvSize);
-    vPlane.Set("stride", coded_width_ / 2);
+    vPlane.Set("stride", dest_width / 2);
     layout.Set(static_cast<uint32_t>(2), vPlane);
   } else if (target_format == PixelFormat::I420A) {
-    uint32_t ySize = coded_width_ * coded_height_;
-    uint32_t uvSize = (coded_width_ / 2) * (coded_height_ / 2);
+    uint32_t ySize = dest_width * dest_height;
+    uint32_t uvSize = (dest_width / 2) * (dest_height / 2);
 
     // Y plane
     Napi::Object yPlane = Napi::Object::New(env);
     yPlane.Set("offset", 0);
-    yPlane.Set("stride", coded_width_);
+    yPlane.Set("stride", dest_width);
     layout.Set(static_cast<uint32_t>(0), yPlane);
 
     // U plane
     Napi::Object uPlane = Napi::Object::New(env);
     uPlane.Set("offset", ySize);
-    uPlane.Set("stride", coded_width_ / 2);
+    uPlane.Set("stride", dest_width / 2);
     layout.Set(static_cast<uint32_t>(1), uPlane);
 
     // V plane
     Napi::Object vPlane = Napi::Object::New(env);
     vPlane.Set("offset", ySize + uvSize);
-    vPlane.Set("stride", coded_width_ / 2);
+    vPlane.Set("stride", dest_width / 2);
     layout.Set(static_cast<uint32_t>(2), vPlane);
 
     // A plane
     Napi::Object aPlane = Napi::Object::New(env);
     aPlane.Set("offset", ySize + uvSize * 2);
-    aPlane.Set("stride", coded_width_);
+    aPlane.Set("stride", dest_width);
     layout.Set(static_cast<uint32_t>(3), aPlane);
   } else if (target_format == PixelFormat::I422) {
-    uint32_t ySize = coded_width_ * coded_height_;
-    uint32_t uvSize = (coded_width_ / 2) * coded_height_;
+    uint32_t ySize = dest_width * dest_height;
+    uint32_t uvSize = (dest_width / 2) * dest_height;
 
     // Y plane
     Napi::Object yPlane = Napi::Object::New(env);
     yPlane.Set("offset", 0);
-    yPlane.Set("stride", coded_width_);
+    yPlane.Set("stride", dest_width);
     layout.Set(static_cast<uint32_t>(0), yPlane);
 
     // U plane
     Napi::Object uPlane = Napi::Object::New(env);
     uPlane.Set("offset", ySize);
-    uPlane.Set("stride", coded_width_ / 2);
+    uPlane.Set("stride", dest_width / 2);
     layout.Set(static_cast<uint32_t>(1), uPlane);
 
     // V plane
     Napi::Object vPlane = Napi::Object::New(env);
     vPlane.Set("offset", ySize + uvSize);
-    vPlane.Set("stride", coded_width_ / 2);
+    vPlane.Set("stride", dest_width / 2);
     layout.Set(static_cast<uint32_t>(2), vPlane);
   } else if (target_format == PixelFormat::I444) {
-    uint32_t planeSize = coded_width_ * coded_height_;
+    uint32_t planeSize = dest_width * dest_height;
 
     // Y plane
     Napi::Object yPlane = Napi::Object::New(env);
     yPlane.Set("offset", 0);
-    yPlane.Set("stride", coded_width_);
+    yPlane.Set("stride", dest_width);
     layout.Set(static_cast<uint32_t>(0), yPlane);
 
     // U plane
     Napi::Object uPlane = Napi::Object::New(env);
     uPlane.Set("offset", planeSize);
-    uPlane.Set("stride", coded_width_);
+    uPlane.Set("stride", dest_width);
     layout.Set(static_cast<uint32_t>(1), uPlane);
 
     // V plane
     Napi::Object vPlane = Napi::Object::New(env);
     vPlane.Set("offset", planeSize * 2);
-    vPlane.Set("stride", coded_width_);
+    vPlane.Set("stride", dest_width);
     layout.Set(static_cast<uint32_t>(2), vPlane);
   } else if (target_format == PixelFormat::NV12) {
-    uint32_t ySize = coded_width_ * coded_height_;
+    uint32_t ySize = dest_width * dest_height;
 
     // Y plane
     Napi::Object yPlane = Napi::Object::New(env);
     yPlane.Set("offset", 0);
-    yPlane.Set("stride", coded_width_);
+    yPlane.Set("stride", dest_width);
     layout.Set(static_cast<uint32_t>(0), yPlane);
 
     // UV plane
     Napi::Object uvPlane = Napi::Object::New(env);
     uvPlane.Set("offset", ySize);
-    uvPlane.Set("stride", coded_width_);
+    uvPlane.Set("stride", dest_width);
     layout.Set(static_cast<uint32_t>(1), uvPlane);
   }
 

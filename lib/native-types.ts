@@ -35,6 +35,12 @@ export interface NativeVideoFrame {
   readonly flip: boolean;
   readonly colorSpace: VideoColorSpaceInit;
   readonly data: Buffer;
+  readonly visibleRect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 
   close(): void;
   getData(): Buffer;

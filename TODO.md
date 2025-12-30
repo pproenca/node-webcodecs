@@ -17,8 +17,8 @@
 
 - [ ] W3C spec requires VideoEncoder, VideoDecoder, AudioEncoder, AudioDecoder (line 5)
 - [ ] VideoFrame constructor from CanvasImageSource not supported - Node.js limitation (line 7)
-- [ ] visibleRect cropping not fully implemented in native layer (line 8)
-- [ ] ArrayBuffer transfer semantics not implemented (line 9)
+- [x] visibleRect cropping not fully implemented in native layer (line 8) - DONE
+- [x] ArrayBuffer transfer semantics not implemented (line 9) - DONE
 - [ ] High bit-depth pixel formats (P10/P12 variants) not supported in native layer (line 10)
 
 ## Types (`lib/types.ts`)

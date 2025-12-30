@@ -31,6 +31,14 @@ enum class PixelFormat {
   UNKNOWN
 };
 
+// Visible rectangle within coded frame (for cropping)
+struct VisibleRect {
+  int x = 0;
+  int y = 0;
+  int width = 0;   // 0 = use coded_width_
+  int height = 0;  // 0 = use coded_height_
+};
+
 PixelFormat ParsePixelFormat(const std::string& format_str);
 std::string PixelFormatToString(PixelFormat format);
 AVPixelFormat PixelFormatToAV(PixelFormat format);
@@ -78,6 +86,7 @@ class VideoFrame : public Napi::ObjectWrap<VideoFrame> {
   Napi::Value GetFormat(const Napi::CallbackInfo& info);
   Napi::Value GetRotation(const Napi::CallbackInfo& info);
   Napi::Value GetFlip(const Napi::CallbackInfo& info);
+  Napi::Value GetVisibleRect(const Napi::CallbackInfo& info);
 
   // Methods.
   void Close(const Napi::CallbackInfo& info);
@@ -98,6 +107,7 @@ class VideoFrame : public Napi::ObjectWrap<VideoFrame> {
   bool closed_;
   int rotation_;
   bool flip_;
+  VisibleRect visible_rect_;
 };
 
 #endif  // SRC_VIDEO_FRAME_H_
