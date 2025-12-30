@@ -6,7 +6,6 @@ coverage/
 .DS_Store
 output.h264
 *.mp4
-.claude/
-.serena/
-docs/plans/
+# Allow test fixtures mp4
+!test/fixtures/*.mp4
 examples/.demo-assets/
