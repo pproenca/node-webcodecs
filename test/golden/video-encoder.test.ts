@@ -332,4 +332,53 @@ describe('VideoEncoder', () => {
       expect(eventCalled).toBe(true);
     });
   });
+
+  describe('EncodedVideoChunkMetadata', () => {
+    it('should include complete decoderConfig on first keyframe', async () => {
+      const chunks: Array<{chunk: EncodedVideoChunk; metadata?: EncodedVideoChunkMetadata}> = [];
+
+      const encoder = new VideoEncoder({
+        output: (chunk, metadata) => {
+          chunks.push({chunk, metadata});
+        },
+        error: (e) => { throw e; },
+      });
+
+      encoder.configure({
+        codec: 'avc1.42E01E',
+        width: 640,
+        height: 480,
+        displayWidth: 800,
+        displayHeight: 600,
+      });
+
+      const frame = new VideoFrame(
+        new Uint8Array(640 * 480 * 4),
+        {
+          format: 'RGBA',
+          codedWidth: 640,
+          codedHeight: 480,
+          timestamp: 0,
+        }
+      );
+
+      encoder.encode(frame, {keyFrame: true});
+      frame.close();
+
+      await encoder.flush();
+      encoder.close();
+
+      expect(chunks.length).toBeGreaterThan(0);
+
+      const keyframeChunk = chunks.find(c => c.chunk.type === 'key');
+      expect(keyframeChunk).toBeDefined();
+      expect(keyframeChunk?.metadata?.decoderConfig).toBeDefined();
+      expect(keyframeChunk?.metadata?.decoderConfig?.codec).toContain('avc1');
+      expect(keyframeChunk?.metadata?.decoderConfig?.codedWidth).toBe(640);
+      expect(keyframeChunk?.metadata?.decoderConfig?.codedHeight).toBe(480);
+      // These are the new properties we're adding:
+      expect(keyframeChunk?.metadata?.decoderConfig?.displayAspectWidth).toBe(800);
+      expect(keyframeChunk?.metadata?.decoderConfig?.displayAspectHeight).toBe(600);
+    });
+  });
 });

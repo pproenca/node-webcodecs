@@ -55,6 +55,9 @@ VideoEncoder::VideoEncoder(const Napi::CallbackInfo& info)
       state_("unconfigured"),
       width_(0),
       height_(0),
+      display_width_(0),
+      display_height_(0),
+      codec_string_(""),
       frame_count_(0),
       encode_queue_size_(0) {
   Napi::Env env = info.Env();
@@ -114,6 +117,17 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
   width_ = config.Get("width").As<Napi::Number>().Int32Value();
   height_ = config.Get("height").As<Napi::Number>().Int32Value();
 
+  // Parse display dimensions (default to coded dimensions)
+  display_width_ = width_;
+  display_height_ = height_;
+  if (config.Has("displayWidth") && config.Get("displayWidth").IsNumber()) {
+    display_width_ = config.Get("displayWidth").As<Napi::Number>().Int32Value();
+  }
+  if (config.Has("displayHeight") && config.Get("displayHeight").IsNumber()) {
+    display_height_ =
+        config.Get("displayHeight").As<Napi::Number>().Int32Value();
+  }
+
   int bitrate = kDefaultBitrate;
   if (config.Has("bitrate")) {
     bitrate = config.Get("bitrate").As<Napi::Number>().Int32Value();
@@ -129,6 +143,7 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
   if (config.Has("codec") && config.Get("codec").IsString()) {
     codec_str = config.Get("codec").As<Napi::String>().Utf8Value();
   }
+  codec_string_ = codec_str;  // Store for metadata
 
   // Find encoder based on codec string
   AVCodecID codec_id = AV_CODEC_ID_NONE;
@@ -450,14 +465,40 @@ void VideoEncoder::EmitChunks(Napi::Env env) {
 
     // Create EncodedVideoChunk-like object.
     Napi::Object chunk = Napi::Object::New(env);
-    chunk.Set("type", (packet_->flags & AV_PKT_FLAG_KEY) ? "key" : "delta");
+    bool is_keyframe = (packet_->flags & AV_PKT_FLAG_KEY) != 0;
+    chunk.Set("type", is_keyframe ? "key" : "delta");
     chunk.Set("timestamp", Napi::Number::New(env, packet_->pts));
     chunk.Set("duration", Napi::Number::New(env, packet_->duration));
     chunk.Set("data",
               Napi::Buffer<uint8_t>::Copy(env, packet_->data, packet_->size));
 
-    // Call output callback.
-    output_callback_.Call({chunk, env.Null()});
+    // Create metadata object.
+    Napi::Object metadata = Napi::Object::New(env);
+
+    // Add decoderConfig for keyframes per W3C spec.
+    if (is_keyframe) {
+      Napi::Object decoder_config = Napi::Object::New(env);
+      decoder_config.Set("codec", codec_string_);
+      decoder_config.Set("codedWidth", Napi::Number::New(env, width_));
+      decoder_config.Set("codedHeight", Napi::Number::New(env, height_));
+      decoder_config.Set("displayAspectWidth",
+                         Napi::Number::New(env, display_width_));
+      decoder_config.Set("displayAspectHeight",
+                         Napi::Number::New(env, display_height_));
+
+      // Add description (extradata) if available.
+      if (codec_context_->extradata && codec_context_->extradata_size > 0) {
+        decoder_config.Set(
+            "description",
+            Napi::Buffer<uint8_t>::Copy(env, codec_context_->extradata,
+                                        codec_context_->extradata_size));
+      }
+
+      metadata.Set("decoderConfig", decoder_config);
+    }
+
+    // Call output callback with metadata.
+    output_callback_.Call({chunk, metadata});
 
     av_packet_unref(packet_);
 

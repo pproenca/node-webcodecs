@@ -233,7 +233,10 @@ export type VideoEncoderOutputCallback = (
       codec: string;
       codedWidth?: number;
       codedHeight?: number;
+      displayAspectWidth?: number;
+      displayAspectHeight?: number;
       description?: ArrayBuffer;
+      colorSpace?: VideoColorSpaceInit;
     };
     svc?: {temporalLayerId: number};
     alphaSideData?: ArrayBuffer;
