@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "src/audio_data.h"
+#include "src/common.h"
 #include "src/encoded_audio_chunk.h"
 
 Napi::Object InitAudioEncoder(Napi::Env env, Napi::Object exports) {
@@ -85,10 +86,7 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
   Napi::Object config = info[0].As<Napi::Object>();
 
   // Parse codec string.
-  std::string codec_str = "mp4a.40.2";  // Default to AAC-LC.
-  if (config.Has("codec") && config.Get("codec").IsString()) {
-    codec_str = config.Get("codec").As<Napi::String>().Utf8Value();
-  }
+  std::string codec_str = webcodecs::AttrAsStr(config, "codec", "mp4a.40.2");
 
   // Determine codec ID.
   AVCodecID codec_id = AV_CODEC_ID_AAC;
@@ -115,21 +113,11 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
   }
 
   // Parse sample rate.
-  if (config.Has("sampleRate") && config.Get("sampleRate").IsNumber()) {
-    sample_rate_ = config.Get("sampleRate").As<Napi::Number>().Uint32Value();
-  } else {
-    sample_rate_ = 48000;
-  }
+  sample_rate_ = static_cast<uint32_t>(webcodecs::AttrAsInt32(config, "sampleRate", 48000));
   codec_context_->sample_rate = sample_rate_;
 
   // Parse number of channels.
-  if (config.Has("numberOfChannels") &&
-      config.Get("numberOfChannels").IsNumber()) {
-    number_of_channels_ =
-        config.Get("numberOfChannels").As<Napi::Number>().Uint32Value();
-  } else {
-    number_of_channels_ = 2;
-  }
+  number_of_channels_ = static_cast<uint32_t>(webcodecs::AttrAsInt32(config, "numberOfChannels", 2));
 
   // Set channel layout based on number of channels.
   if (number_of_channels_ == 1) {
@@ -139,12 +127,7 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
   }
 
   // Parse bitrate.
-  if (config.Has("bitrate") && config.Get("bitrate").IsNumber()) {
-    codec_context_->bit_rate =
-        config.Get("bitrate").As<Napi::Number>().Int64Value();
-  } else {
-    codec_context_->bit_rate = 128000;
-  }
+  codec_context_->bit_rate = webcodecs::AttrAsInt64(config, "bitrate", 128000);
 
   // Set sample format based on codec.
   // Opus uses non-planar float (flt), AAC uses planar float (fltp).
@@ -158,16 +141,13 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
   codec_context_->time_base = AVRational{1, static_cast<int>(sample_rate_)};
 
   // Parse Opus-specific options per W3C WebCodecs spec.
-  if (codec_id == AV_CODEC_ID_OPUS && config.Has("opus") &&
-      config.Get("opus").IsObject()) {
+  if (codec_id == AV_CODEC_ID_OPUS && webcodecs::HasAttr(config, "opus")) {
     Napi::Object opus_config = config.Get("opus").As<Napi::Object>();
 
     // Parse 'application': 'audio' | 'lowdelay' | 'voip'
     // Maps to libopus "application" option.
-    if (opus_config.Has("application") &&
-        opus_config.Get("application").IsString()) {
-      std::string app =
-          opus_config.Get("application").As<Napi::String>().Utf8Value();
+    if (webcodecs::HasAttr(opus_config, "application")) {
+      std::string app = webcodecs::AttrAsStr(opus_config, "application");
       if (app == "voip") {
         av_opt_set(codec_context_->priv_data, "application", "voip", 0);
       } else if (app == "lowdelay") {
@@ -180,10 +160,8 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
 
     // Parse 'complexity': 0-10.
     // Maps to libopus "compression_level" option.
-    if (opus_config.Has("complexity") &&
-        opus_config.Get("complexity").IsNumber()) {
-      int complexity =
-          opus_config.Get("complexity").As<Napi::Number>().Int32Value();
+    if (webcodecs::HasAttr(opus_config, "complexity")) {
+      int complexity = webcodecs::AttrAsInt32(opus_config, "complexity");
       // Clamp to valid range 0-10.
       if (complexity < 0) complexity = 0;
       if (complexity > 10) complexity = 10;
@@ -193,10 +171,8 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
 
     // Parse 'frameDuration': microseconds.
     // Maps to libopus "frame_duration" option (in milliseconds).
-    if (opus_config.Has("frameDuration") &&
-        opus_config.Get("frameDuration").IsNumber()) {
-      int64_t frame_duration_us =
-          opus_config.Get("frameDuration").As<Napi::Number>().Int64Value();
+    if (webcodecs::HasAttr(opus_config, "frameDuration")) {
+      int64_t frame_duration_us = webcodecs::AttrAsInt64(opus_config, "frameDuration");
       // Convert microseconds to milliseconds.
       double frame_duration_ms = frame_duration_us / 1000.0;
       av_opt_set_double(codec_context_->priv_data, "frame_duration",
@@ -209,26 +185,22 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
 
     // Parse 'usedtx': boolean.
     // Maps to libopus "dtx" option (discontinuous transmission).
-    if (opus_config.Has("usedtx") && opus_config.Get("usedtx").IsBoolean()) {
-      bool use_dtx = opus_config.Get("usedtx").As<Napi::Boolean>().Value();
+    if (webcodecs::HasAttr(opus_config, "usedtx")) {
+      bool use_dtx = webcodecs::AttrAsBool(opus_config, "usedtx", false);
       av_opt_set_int(codec_context_->priv_data, "dtx", use_dtx ? 1 : 0, 0);
     }
 
     // Parse 'useinbandfec': boolean.
     // Maps to libopus "fec" option (forward error correction).
-    if (opus_config.Has("useinbandfec") &&
-        opus_config.Get("useinbandfec").IsBoolean()) {
-      bool use_fec =
-          opus_config.Get("useinbandfec").As<Napi::Boolean>().Value();
+    if (webcodecs::HasAttr(opus_config, "useinbandfec")) {
+      bool use_fec = webcodecs::AttrAsBool(opus_config, "useinbandfec", false);
       av_opt_set_int(codec_context_->priv_data, "fec", use_fec ? 1 : 0, 0);
     }
 
     // Parse 'packetlossperc': 0-100.
     // Maps to libopus "packet_loss" option.
-    if (opus_config.Has("packetlossperc") &&
-        opus_config.Get("packetlossperc").IsNumber()) {
-      int packet_loss =
-          opus_config.Get("packetlossperc").As<Napi::Number>().Int32Value();
+    if (webcodecs::HasAttr(opus_config, "packetlossperc")) {
+      int packet_loss = webcodecs::AttrAsInt32(opus_config, "packetlossperc");
       // Clamp to valid range 0-100.
       if (packet_loss < 0) packet_loss = 0;
       if (packet_loss > 100) packet_loss = 100;
@@ -349,18 +321,10 @@ Napi::Value AudioEncoder::Encode(const Napi::CallbackInfo& info) {
   Napi::Object audio_data_obj = info[0].As<Napi::Object>();
 
   // Get properties from AudioData.
-  uint32_t number_of_frames = 0;
-  if (audio_data_obj.Has("numberOfFrames") &&
-      audio_data_obj.Get("numberOfFrames").IsNumber()) {
-    number_of_frames =
-        audio_data_obj.Get("numberOfFrames").As<Napi::Number>().Uint32Value();
-  }
+  uint32_t number_of_frames = static_cast<uint32_t>(
+      webcodecs::AttrAsInt32(audio_data_obj, "numberOfFrames", 0));
 
-  int64_t timestamp = 0;
-  if (audio_data_obj.Has("timestamp") &&
-      audio_data_obj.Get("timestamp").IsNumber()) {
-    timestamp = audio_data_obj.Get("timestamp").As<Napi::Number>().Int64Value();
-  }
+  int64_t timestamp = webcodecs::AttrAsInt64(audio_data_obj, "timestamp", 0);
 
   // Get sample data - try to unwrap as native AudioData first.
   AudioData* native_audio_data = nullptr;
@@ -568,10 +532,10 @@ Napi::Value AudioEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   Napi::Object normalized_config = Napi::Object::New(env);
 
   // Check codec.
-  if (!config.Has("codec") || !config.Get("codec").IsString()) {
+  if (!webcodecs::HasAttr(config, "codec")) {
     supported = false;
   } else {
-    std::string codec = config.Get("codec").As<Napi::String>().Utf8Value();
+    std::string codec = webcodecs::AttrAsStr(config, "codec");
     normalized_config.Set("codec", codec);
 
     if (codec == "opus") {
@@ -590,21 +554,19 @@ Napi::Value AudioEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   }
 
   // Copy other recognized properties.
-  if (config.Has("sampleRate") && config.Get("sampleRate").IsNumber()) {
+  if (webcodecs::HasAttr(config, "sampleRate")) {
     normalized_config.Set("sampleRate", config.Get("sampleRate"));
   }
-  if (config.Has("numberOfChannels") &&
-      config.Get("numberOfChannels").IsNumber()) {
+  if (webcodecs::HasAttr(config, "numberOfChannels")) {
     normalized_config.Set("numberOfChannels", config.Get("numberOfChannels"));
   }
-  if (config.Has("bitrate") && config.Get("bitrate").IsNumber()) {
+  if (webcodecs::HasAttr(config, "bitrate")) {
     normalized_config.Set("bitrate", config.Get("bitrate"));
   }
 
   // Copy bitrateMode if present per W3C spec.
-  if (config.Has("bitrateMode") && config.Get("bitrateMode").IsString()) {
-    std::string bitrateMode =
-        config.Get("bitrateMode").As<Napi::String>().Utf8Value();
+  if (webcodecs::HasAttr(config, "bitrateMode")) {
+    std::string bitrateMode = webcodecs::AttrAsStr(config, "bitrateMode");
     // Validate bitrateMode per W3C spec: "constant" or "variable"
     if (bitrateMode == "constant" || bitrateMode == "variable") {
       normalized_config.Set("bitrateMode", bitrateMode);
@@ -612,37 +574,32 @@ Napi::Value AudioEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   }
 
   // Copy opus-specific config if present (for Opus codec).
-  if (config.Has("opus") && config.Get("opus").IsObject()) {
+  if (webcodecs::HasAttr(config, "opus")) {
     Napi::Object opus_config = config.Get("opus").As<Napi::Object>();
     Napi::Object normalized_opus = Napi::Object::New(env);
 
-    if (opus_config.Has("application") &&
-        opus_config.Get("application").IsString()) {
+    if (webcodecs::HasAttr(opus_config, "application")) {
       normalized_opus.Set("application", opus_config.Get("application"));
     }
-    if (opus_config.Has("complexity") &&
-        opus_config.Get("complexity").IsNumber()) {
+    if (webcodecs::HasAttr(opus_config, "complexity")) {
       normalized_opus.Set("complexity", opus_config.Get("complexity"));
     }
-    if (opus_config.Has("format") && opus_config.Get("format").IsString()) {
+    if (webcodecs::HasAttr(opus_config, "format")) {
       normalized_opus.Set("format", opus_config.Get("format"));
     }
-    if (opus_config.Has("frameDuration") &&
-        opus_config.Get("frameDuration").IsNumber()) {
+    if (webcodecs::HasAttr(opus_config, "frameDuration")) {
       normalized_opus.Set("frameDuration", opus_config.Get("frameDuration"));
     }
-    if (opus_config.Has("packetlossperc") &&
-        opus_config.Get("packetlossperc").IsNumber()) {
+    if (webcodecs::HasAttr(opus_config, "packetlossperc")) {
       normalized_opus.Set("packetlossperc", opus_config.Get("packetlossperc"));
     }
-    if (opus_config.Has("signal") && opus_config.Get("signal").IsString()) {
+    if (webcodecs::HasAttr(opus_config, "signal")) {
       normalized_opus.Set("signal", opus_config.Get("signal"));
     }
-    if (opus_config.Has("usedtx") && opus_config.Get("usedtx").IsBoolean()) {
+    if (webcodecs::HasAttr(opus_config, "usedtx")) {
       normalized_opus.Set("usedtx", opus_config.Get("usedtx"));
     }
-    if (opus_config.Has("useinbandfec") &&
-        opus_config.Get("useinbandfec").IsBoolean()) {
+    if (webcodecs::HasAttr(opus_config, "useinbandfec")) {
       normalized_opus.Set("useinbandfec", opus_config.Get("useinbandfec"));
     }
 
@@ -650,13 +607,12 @@ Napi::Value AudioEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   }
 
   // Copy aac-specific config if present (per W3C AAC codec registration).
-  if (config.Has("aac") && config.Get("aac").IsObject()) {
+  if (webcodecs::HasAttr(config, "aac")) {
     Napi::Object aac_config = config.Get("aac").As<Napi::Object>();
     Napi::Object normalized_aac = Napi::Object::New(env);
 
-    if (aac_config.Has("format") && aac_config.Get("format").IsString()) {
-      std::string format =
-          aac_config.Get("format").As<Napi::String>().Utf8Value();
+    if (webcodecs::HasAttr(aac_config, "format")) {
+      std::string format = webcodecs::AttrAsStr(aac_config, "format");
       // Validate per W3C spec: "aac" or "adts"
       if (format == "aac" || format == "adts") {
         normalized_aac.Set("format", format);
