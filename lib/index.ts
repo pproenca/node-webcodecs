@@ -856,6 +856,15 @@ export class AudioEncoder extends CodecBase {
 
   constructor(init: AudioEncoderInit) {
     super();
+
+    // W3C spec: output and error callbacks are required
+    if (!init || typeof init.output !== 'function') {
+      throw new TypeError('output callback is required');
+    }
+    if (typeof init.error !== 'function') {
+      throw new TypeError('error callback is required');
+    }
+
     this._controlQueue = new ControlMessageQueue();
     this._controlQueue.setErrorHandler(init.error);
 
@@ -891,22 +900,72 @@ export class AudioEncoder extends CodecBase {
   }
 
   configure(config: AudioEncoderConfig): void {
+    // W3C spec: throw if closed
+    if (this.state === 'closed') {
+      throw new DOMException('Encoder is closed', 'InvalidStateError');
+    }
+
+    // W3C spec: validate required fields with TypeError
+    if (config.codec === undefined || config.codec === null) {
+      throw new TypeError(
+        "Failed to execute 'configure' on 'AudioEncoder': required member codec is undefined."
+      );
+    }
+    if (config.sampleRate === undefined || config.sampleRate === null) {
+      throw new TypeError(
+        "Failed to execute 'configure' on 'AudioEncoder': required member sampleRate is undefined."
+      );
+    }
+    if (
+      config.numberOfChannels === undefined ||
+      config.numberOfChannels === null
+    ) {
+      throw new TypeError(
+        "Failed to execute 'configure' on 'AudioEncoder': required member numberOfChannels is undefined."
+      );
+    }
+
     // Configure synchronously to set state immediately per W3C spec
     this._native.configure(config);
   }
 
   encode(data: AudioData): void {
+    // W3C spec: throw InvalidStateError if not configured
+    if (this.state === 'unconfigured') {
+      throw new DOMException('Encoder is not configured', 'InvalidStateError');
+    }
+    if (this.state === 'closed') {
+      throw new DOMException('Encoder is closed', 'InvalidStateError');
+    }
+
     this._encodeQueueSize++;
     // Call native encode directly - data must be valid at call time
     this._native.encode(data._nativeAudioData);
   }
 
   async flush(): Promise<void> {
+    // W3C spec: reject if unconfigured or closed
+    if (this.state === 'unconfigured') {
+      return Promise.reject(
+        new DOMException('Encoder is not configured', 'InvalidStateError')
+      );
+    }
+    if (this.state === 'closed') {
+      return Promise.reject(
+        new DOMException('Encoder is closed', 'InvalidStateError')
+      );
+    }
+
     await this._controlQueue.flush();
     return this._native.flush();
   }
 
   reset(): void {
+    // W3C spec: reset() is a no-op when closed (does NOT throw)
+    if (this.state === 'closed') {
+      return;
+    }
+
     this._controlQueue.clear();
     this._encodeQueueSize = 0;
     this._native.reset();
