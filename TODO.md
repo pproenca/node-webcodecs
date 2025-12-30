@@ -1,554 +1,775 @@
-# WebCodecs API Implementation TODO
+# WebCodecs Implementation TODO
 
-Complete WebCodecs API specification extracted from W3C/MDN documentation.
+## Gap Analysis vs W3C WebCodecs Specification
 
----
+This document tracks all identified gaps between this implementation and the [W3C WebCodecs specification](https://www.w3.org/TR/webcodecs/).
 
-## Interfaces
-
-### 1. VideoEncoder
-
-**Constructor:**
-- `VideoEncoder(init)` - Creates a new VideoEncoder
-
-**VideoEncoderInit:**
-- `output` (VideoFrameOutputCallback) - required
-- `error` (WebCodecsErrorCallback) - required
-
-**Instance Properties (read-only):**
-- [x] `encodeQueueSize` - Number of pending encode requests
-- [x] `state` - CodecState: "unconfigured" | "configured" | "closed"
-
-**Events:**
-- [x] `dequeue` - Fires when encodeQueueSize decreases
-
-**Static Methods:**
-- [x] `isConfigSupported(config)` - Returns Promise<VideoEncoderSupport>
-
-**Instance Methods:**
-- [x] `configure(config)` - Configure encoder for encoding
-- [x] `encode(frame, options?)` - Encode a VideoFrame
-- [x] `flush()` - Returns Promise, resolves when pending encodes complete
-- [x] `reset()` - Cancels pending encodes and callbacks
-- [x] `close()` - Ends pending work, releases resources
-
-**VideoEncoderConfig:**
-- `codec` (string) - required, e.g. "avc1.42001E", "vp8", "vp09.00.10.08"
-- `width` (integer) - required, frame width in pixels
-- `height` (integer) - required, frame height in pixels
-- `displayWidth` (integer) - optional, display width
-- `displayHeight` (integer) - optional, display height
-- `bitrate` (integer) - optional, target bitrate in bits/second
-- `framerate` (number) - optional, target frame rate
-- `hardwareAcceleration` (HardwareAcceleration) - optional
-- `alpha` (AlphaOption) - optional, "discard" | "keep"
-- `scalabilityMode` (string) - optional, e.g. "L1T2"
-- `bitrateMode` (VideoEncoderBitrateMode) - optional
-- `latencyMode` (LatencyMode) - optional
-- `contentHint` (string) - optional
-
-**VideoEncoderEncodeOptions:**
-- `keyFrame` (boolean) - optional, force key frame
-
-**Codec-Specific Encode Options:**
-- `vp9.quantizer` (number) - 0-63
-- `av1.quantizer` (number) - 0-63
-- `avc.quantizer` (number) - 0-51
-- `hevc.quantizer` (number) - 0-51
+**Last Updated:** 2025-12-30
+**Total Gaps Identified:** 48 (47 original + 1 discovered via testing)
+**Test Verification:** `test/99_spec_verification.js` provides proof of functionality
 
 ---
 
-### 2. VideoDecoder
+## Priority Legend
 
-**Constructor:**
-- `VideoDecoder(init)` - Creates a new VideoDecoder
-
-**VideoDecoderInit:**
-- `output` (VideoFrameOutputCallback) - required
-- `error` (WebCodecsErrorCallback) - required
-
-**Instance Properties (read-only):**
-- [x] `decodeQueueSize` - Number of pending decode requests
-- [x] `state` - CodecState: "unconfigured" | "configured" | "closed"
-
-**Events:**
-- [x] `dequeue` - Fires when decodeQueueSize decreases
-
-**Static Methods:**
-- [x] `isConfigSupported(config)` - Returns Promise<VideoDecoderSupport>
-
-**Instance Methods:**
-- [x] `configure(config)` - Configure decoder for decoding
-- [x] `decode(chunk)` - Decode an EncodedVideoChunk
-- [x] `flush()` - Returns Promise, resolves when pending decodes complete
-- [x] `reset()` - Resets all states and pending callbacks
-- [x] `close()` - Ends pending work, releases resources
-
-**VideoDecoderConfig:**
-- `codec` (string) - required
-- `description` (BufferSource) - optional, codec-specific extradata
-- `codedWidth` (integer) - optional, coded width including padding
-- `codedHeight` (integer) - optional, coded height including padding
-- `displayAspectWidth` (integer) - optional
-- `displayAspectHeight` (integer) - optional
-- `colorSpace` (VideoColorSpaceInit) - optional
-- `hardwareAcceleration` (HardwareAcceleration) - optional
-- `optimizeForLatency` (boolean) - optional
-- `flip` (boolean) - optional, horizontal mirroring
-- `rotation` (integer) - optional, 0 | 90 | 180 | 270
+- 🔴 **CRITICAL** - Breaks spec compliance, data loss, or major functionality missing
+- 🟠 **HIGH** - Important features missing, affects common use cases
+- 🟡 **MEDIUM** - Missing options, incomplete support, edge cases
+- 🟢 **LOW** - Optimizations, convenience features, rare use cases
 
 ---
 
-### 3. AudioEncoder
+## 1. VideoEncoder Gaps
 
-**Constructor:**
-- `AudioEncoder(init)` - Creates a new AudioEncoder
+### 🔴 1.1 Missing Metadata Emission (TEST VERIFIED)
+**File:** `src/video_encoder.cc:383-393`, `lib/index.ts:210-226`
 
-**AudioEncoderInit:**
-- `output` (EncodedAudioChunkOutputCallback) - required
-- `error` (WebCodecsErrorCallback) - required
+**Test Evidence:** `test/99_spec_verification.js` test 1.1 fails - "Metadata should be emitted"
 
-**Instance Properties (read-only):**
-- [x] `encodeQueueSize` - Number of pending encode requests
-- [x] `state` - CodecState: "unconfigured" | "configured" | "closed"
+**W3C Requirement:** `EncodedVideoChunkOutputCallback` must receive `EncodedVideoChunkMetadata` containing:
+- `decoderConfig` with codec `description` (SPS/PPS for H.264, VPS/SPS/PPS for HEVC)
+- `temporalLayerId` for SVC/temporal scalability
+- `alphaSideData` when encoding with alpha
 
-**Events:**
-- [x] `dequeue` - Fires when encodeQueueSize decreases
+**Current State:** Only emits basic chunk. Metadata is always null/empty. Verified by test.
 
-**Static Methods:**
-- [x] `isConfigSupported(config)` - Returns Promise<AudioEncoderSupport>
-
-**Instance Methods:**
-- [x] `configure(config)` - Configure encoder
-- [x] `encode(data)` - Encode an AudioData
-- [x] `flush()` - Returns Promise
-- [x] `reset()` - Resets all states
-- [x] `close()` - Ends pending work, releases resources
-
-**AudioEncoderConfig:**
-- `codec` (string) - required, e.g. "opus", "mp3", "aac"
-- `sampleRate` (integer) - required, samples per second
-- `numberOfChannels` (integer) - required
-- `bitrate` (integer) - optional
-- `bitrateMode` (BitrateMode) - optional, "constant" | "variable"
-- `opus` (OpusEncoderConfig) - optional, Opus-specific options
-
-**OpusEncoderConfig:**
-- `application` (string) - "audio" | "lowdelay" | "voip"
-- `complexity` (number) - 0-10
-- `format` (string) - "opus" | "ogg"
-- `frameDuration` (number) - microseconds
-- `packetlossperc` (number) - 0-100
-- `signal` (string) - "auto" | "music" | "voice"
-- `usedtx` (boolean) - Discontinuous Transmission
-- `useinbandfec` (boolean) - Forward Error Correction
-
----
-
-### 4. AudioDecoder
-
-**Constructor:**
-- `AudioDecoder(init)` - Creates a new AudioDecoder
-
-**AudioDecoderInit:**
-- `output` (AudioDataOutputCallback) - required
-- `error` (WebCodecsErrorCallback) - required
-
-**Instance Properties (read-only):**
-- [x] `decodeQueueSize` - Number of pending decode requests
-- [x] `state` - CodecState: "unconfigured" | "configured" | "closed"
-
-**Events:**
-- [x] `dequeue` - Fires when decodeQueueSize decreases
-
-**Static Methods:**
-- [x] `isConfigSupported(config)` - Returns Promise<AudioDecoderSupport>
-
-**Instance Methods:**
-- [x] `configure(config)` - Configure decoder
-- [x] `decode(chunk)` - Decode an EncodedAudioChunk
-- [x] `flush()` - Returns Promise
-- [x] `reset()` - Resets all states
-- [x] `close()` - Ends pending work, releases resources
-
-**AudioDecoderConfig:**
-- `codec` (string) - required
-- `sampleRate` (integer) - required
-- `numberOfChannels` (integer) - required
-- `description` (BufferSource) - optional, codec-specific extradata
-
----
-
-### 5. VideoFrame
-
-**Constructor Overloads:**
-
-**From Image Source:**
-```
-new VideoFrame(image)
-new VideoFrame(image, init)
-```
-- `image` - CanvasImageSource | VideoFrame
-
-**From Buffer:**
-```
-new VideoFrame(data, init)
-```
-- `data` - BufferSource (ArrayBuffer, TypedArray, DataView)
-
-**VideoFrameInit (from image):**
-- `duration` (integer) - optional, microseconds
-- `timestamp` (integer) - optional, microseconds
-- `alpha` (AlphaOption) - optional, "keep" | "discard"
-- `visibleRect` (DOMRectInit) - optional, {x, y, width, height}
-- `displayWidth` (integer) - optional
-- `displayHeight` (integer) - optional
-- `flip` (boolean) - optional, horizontal mirroring
-- `rotation` (integer) - optional, 0 | 90 | 180 | 270
-
-**VideoFrameBufferInit (from buffer):**
-- `format` (VideoPixelFormat) - required
-- `codedWidth` (integer) - required
-- `codedHeight` (integer) - required
-- `timestamp` (integer) - required, microseconds
-- `duration` (integer) - optional, microseconds
-- `layout` (PlaneLayout[]) - optional, [{offset, stride}...]
-- `visibleRect` (DOMRectInit) - optional
-- `displayWidth` (integer) - optional
-- `displayHeight` (integer) - optional
-- `colorSpace` (VideoColorSpaceInit) - optional
-- `transfer` (ArrayBuffer[]) - optional, buffers to transfer
-- `flip` (boolean) - optional
-- `rotation` (integer) - optional
-
-**Instance Properties (read-only):**
-- [x] `format` - VideoPixelFormat
-- [x] `codedWidth` - Integer, width including padding
-- [x] `codedHeight` - Integer, height including padding
-- [x] `codedRect` - DOMRectReadOnly
-- [x] `visibleRect` - DOMRectReadOnly
-- [x] `displayWidth` - Integer
-- [x] `displayHeight` - Integer
-- [x] `duration` - Integer, microseconds (nullable)
-- [x] `timestamp` - Integer, microseconds
-- [x] `colorSpace` - VideoColorSpace
-- [x] `flip` (experimental) - Boolean
-- [x] `rotation` (experimental) - Integer (0, 90, 180, 270)
-
-**Instance Methods:**
-- [x] `allocationSize(options?)` - Returns byte size needed for copyTo
-- [x] `copyTo(destination, options?)` - Returns Promise<PlaneLayout[]>
-- [x] `clone()` - Returns new VideoFrame referencing same resource
-- [x] `close()` - Clears state, releases resource reference
-
-**VideoFrameCopyToOptions:**
-- `rect` (DOMRectInit) - optional, pixels to copy
-- `layout` (PlaneLayout[]) - optional, [{offset, stride}...]
-- `format` (VideoPixelFormat) - optional, output format
-- `colorSpace` (PredefinedColorSpace) - optional, "srgb" | "display-p3"
-
----
-
-### 6. AudioData
-
-**Constructor:**
-```
-new AudioData(init)
+**Fix Required:**
+```cpp
+// On first keyframe, emit decoder config with extradata
+if (packet_->flags & AV_PKT_FLAG_KEY && !description_emitted_) {
+    // Extract and emit codec_context_->extradata
+    description_emitted_ = true;
+}
 ```
 
-**AudioDataInit:**
-- `format` (AudioSampleFormat) - required
-- `sampleRate` (number) - required, Hz
-- `numberOfFrames` (integer) - required
-- `numberOfChannels` (integer) - required
-- `timestamp` (integer) - required, microseconds
-- `data` (BufferSource) - required
-- `transfer` (ArrayBuffer[]) - optional
-
-**Instance Properties (read-only):**
-- [x] `format` - AudioSampleFormat
-- [x] `sampleRate` - Number, Hz
-- [x] `numberOfFrames` - Integer
-- [x] `numberOfChannels` - Integer
-- [x] `duration` - Integer, microseconds
-- [x] `timestamp` - Integer, microseconds
-
-**Instance Methods:**
-- [x] `allocationSize(options)` - Returns byte size for plane
-- [x] `copyTo(destination, options)` - Copies plane data
-- [x] `clone()` - Returns new AudioData referencing same resource
-- [x] `close()` - Clears state, releases resource
-
-**AudioDataCopyToOptions:**
-- `planeIndex` (integer) - required
-- `frameOffset` (integer) - optional, default 0
-- `frameCount` (integer) - optional, all remaining frames
+- [ ] Extract extradata after first keyframe
+- [ ] Populate decoderConfig.description
+- [ ] Track temporalLayerId for SVC streams
+- [ ] Handle alphaSideData for YUVA formats
 
 ---
 
-### 7. EncodedVideoChunk
+### 🟠 1.2 Missing `alpha` Config Support
+**File:** `src/video_encoder.cc`, `lib/types.ts:22`
 
-**Constructor:**
-```
-new EncodedVideoChunk(init)
-```
+**W3C Requirement:** `VideoEncoderConfig.alpha: "keep" | "discard"` controls alpha channel preservation.
 
-**EncodedVideoChunkInit:**
-- `type` (EncodedVideoChunkType) - required, "key" | "delta"
-- `timestamp` (integer) - required, microseconds
-- `duration` (integer) - optional, microseconds
-- `data` (BufferSource) - required
-- `transfer` (ArrayBuffer[]) - optional
+**Current State:** Config field exists in types but is ignored in native encoder.
 
-**Instance Properties (read-only):**
-- [x] `type` - "key" | "delta"
-- [x] `timestamp` - Integer, microseconds
-- [x] `duration` - Integer, microseconds (nullable)
-- [x] `byteLength` - Integer
-
-**Instance Methods:**
-- [x] `copyTo(destination)` - Copies encoded data to buffer
+**Fix Required:**
+- [ ] Parse `alpha` config option
+- [ ] Use `AV_PIX_FMT_YUVA420P` when `alpha: "keep"`
+- [ ] Emit `alphaSideData` in metadata
 
 ---
 
-### 8. EncodedAudioChunk
+### 🟠 1.3 Missing `scalabilityMode` Support
+**File:** `src/video_encoder.cc`
 
-**Constructor:**
-```
-new EncodedAudioChunk(init)
+**W3C Requirement:** `scalabilityMode` enables temporal/spatial layer encoding (e.g., "L1T2", "L1T3", "L3T3").
+
+**Current State:** Not implemented.
+
+**Fix Required:**
+- [ ] Parse scalabilityMode string
+- [ ] Configure VP9/AV1 temporal layers via `av_opt_set()`
+- [ ] Track and emit `temporalLayerId` per chunk
+
+---
+
+### 🔴 1.4 VP9 Encoding Not Actually Working (TEST VERIFIED)
+**File:** `src/video_encoder.cc:127-131`
+
+**Test Evidence:** `test/99_spec_verification.js` test 1.2 fails - VP9 codec string accepted but outputs H.264 NAL units.
+
+**W3C Requirement:** When configured with VP9 codec string, should output VP9 bitstream.
+
+**Current State:** `configure()` always uses `AV_CODEC_ID_H264` regardless of codec string. The codec string parsing in `isConfigSupported()` is not used in `configure()`.
+
+**Proof:**
+```javascript
+// Configure with VP9
+encoder.configure({ codec: 'vp09.00.10.08', ... });
+// Output starts with 0x00 0x00 0x00/0x01 (H.264 NAL start codes)
+// Should be VP9 frame header, not H.264
 ```
 
-**EncodedAudioChunkInit:**
-- `type` (EncodedAudioChunkType) - required, "key" | "delta"
-- `timestamp` (integer) - required, microseconds
-- `duration` (integer) - optional, microseconds
-- `data` (BufferSource) - required
-- `transfer` (ArrayBuffer[]) - optional
-
-**Instance Properties (read-only):**
-- [x] `type` - "key" | "delta"
-- [x] `timestamp` - Integer, microseconds
-- [x] `duration` - Integer, microseconds (nullable)
-- [x] `byteLength` - Integer
-
-**Instance Methods:**
-- [x] `copyTo(destination)` - Copies encoded data to buffer
+**Fix Required:**
+- [ ] Parse codec string in configure() to select encoder
+- [ ] Map vp09.* to AV_CODEC_ID_VP9
+- [ ] Map av01.* to AV_CODEC_ID_AV1
+- [ ] Apply codec-specific options
 
 ---
 
-### 9. ImageDecoder
+### 🟡 1.5 Missing `contentHint` Handling
+**File:** `src/video_encoder.cc`
 
-**Constructor:**
-```
-new ImageDecoder(init)
-```
+**W3C Requirement:** `contentHint: "detail" | "text" | "motion"` optimizes encoding for content type.
 
-**ImageDecoderInit:**
-- `type` (string) - required, MIME type
-- `data` (BufferSource | ReadableStream) - required
-- `premultiplyAlpha` (PremultiplyAlpha) - optional, "none" | "premultiply" | "default"
-- `colorSpaceConversion` (ColorSpaceConversion) - optional, "none" | "default"
-- `desiredWidth` (integer) - optional
-- `desiredHeight` (integer) - optional
-- `preferAnimation` (boolean) - optional
-- `transfer` (ArrayBuffer[]) - optional
+**Current State:** Not implemented.
 
-**Instance Properties (read-only):**
-- [x] `complete` - Boolean, true when data fully buffered
-- [x] `completed` - Promise, resolves when complete is true
-- [x] `tracks` - ImageTrackList
-- [x] `type` - String, MIME type
-
-**Static Methods:**
-- [x] `isTypeSupported(type)` - Returns Promise<boolean>
-
-**Instance Methods:**
-- [x] `decode(options?)` - Returns Promise<ImageDecodeResult>
-- [x] `reset()` - Aborts pending decode operations
-- [x] `close()` - Ends pending work, releases resources
-
-**ImageDecodeOptions:**
-- `frameIndex` (integer) - optional, default 0
-- `completeFramesOnly` (boolean) - optional, default true
-
-**ImageDecodeResult:**
-- `image` - VideoFrame
-- `complete` - Boolean
+**Fix Required:**
+- [ ] Parse contentHint config
+- [ ] Map to encoder presets:
+  - `detail`/`text` → higher quality, preserve edges
+  - `motion` → optimize for movement, accept artifacts
 
 ---
 
-### 10. ImageTrackList
+### 🟡 1.5 Missing `displayAspectWidth/Height` in Metadata
+**File:** `src/video_encoder.cc`
 
-**Instance Properties (read-only):**
-- [x] `ready` - Promise, resolves when tracks populated
-- [x] `length` - Integer, number of tracks
-- [x] `selectedIndex` - Integer, index of selected track
-- [x] `selectedTrack` - ImageTrack
+**W3C Requirement:** Display aspect ratio should be preserved in output metadata for decoder consumption.
 
----
+**Current State:** Config accepts values but they're not propagated to output.
 
-### 11. ImageTrack
-
-**Instance Properties (read-only):**
-- [x] `animated` - Boolean, true if track has multiple frames
-- [x] `frameCount` - Integer
-- [x] `repetitionCount` - Integer, animation repeat count
-- [x] `selected` - Boolean, true if selected for decoding
+- [ ] Store displayAspect in encoder state
+- [ ] Include in decoderConfig metadata
 
 ---
 
-### 12. VideoColorSpace
+### 🔴 1.6 Encoder Only Creates H.264
+**File:** `src/video_encoder.cc:127-131`
 
-**Constructor:**
-```
-new VideoColorSpace(init?)
+**W3C Requirement:** Should support codecs based on codec string.
+
+**Current State:** `configure()` always uses `AV_CODEC_ID_H264` regardless of codec string. VP8/VP9/AV1 parsing exists in `isConfigSupported()` but not in `configure()`.
+
+**Fix Required:**
+- [ ] Parse codec string in configure() same as isConfigSupported()
+- [ ] Select appropriate encoder (VP8, VP9, AV1, H.264)
+- [ ] Apply codec-specific options
+
+---
+
+## 2. VideoDecoder Gaps
+
+### 🔴 2.1 Missing Color Space Propagation (TEST VERIFIED)
+**File:** `src/video_decoder.cc:531-534`
+
+**Test Evidence:** `test/99_spec_verification.js` test 2.2 fails - "colorSpace: {}" (empty object)
+
+**W3C Requirement:** Decoded `VideoFrame.colorSpace` must reflect the source video's color properties.
+
+**Current State:** Color space info from FFmpeg frame is discarded. VideoFrame.colorSpace returns empty `{}`.
+
+**FFmpeg provides:**
+```cpp
+frame->color_primaries    // → VideoColorSpace.primaries
+frame->color_trc          // → VideoColorSpace.transfer
+frame->colorspace         // → VideoColorSpace.matrix
+frame->color_range        // → VideoColorSpace.fullRange
 ```
 
-**VideoColorSpaceInit:**
-- `primaries` (VideoColorPrimaries) - optional
-- `transfer` (VideoTransferCharacteristics) - optional
-- `matrix` (VideoMatrixCoefficients) - optional
-- `fullRange` (boolean) - optional
-
-**Instance Properties (read-only):**
-- [x] `primaries` - VideoColorPrimaries (nullable)
-- [x] `transfer` - VideoTransferCharacteristics (nullable)
-- [x] `matrix` - VideoMatrixCoefficients (nullable)
-- [x] `fullRange` - Boolean (nullable)
-
-**Instance Methods:**
-- [x] `toJSON()` - Returns VideoColorSpaceInit
+**Fix Required:**
+- [ ] Map FFmpeg color enums to W3C enums
+- [ ] Pass color space to VideoFrame::CreateInstance()
+- [ ] Store in VideoFrame native object
 
 ---
 
-## Enumerations
+### 🔴 2.2 Missing `visibleRect` Support
+**File:** `src/video_frame.cc`, `lib/index.ts:110-113`
 
-### CodecState
-- [x] `"unconfigured"` - Not yet configured
-- [x] `"configured"` - Ready for encode/decode
-- [x] `"closed"` - Permanently closed
+**W3C Requirement:** `visibleRect` defines the visible region within `codedRect` (for cropping).
 
-### HardwareAcceleration
-- [x] `"no-preference"`
-- [x] `"prefer-hardware"`
-- [x] `"prefer-software"`
+**Current State:** Always equals `codedRect`, ignoring FFmpeg's crop info.
 
-### LatencyMode
-- [x] `"quality"` - Optimize for output quality
-- [x] `"realtime"` - Optimize for low latency
+**FFmpeg provides:**
+```cpp
+frame->crop_top, frame->crop_bottom
+frame->crop_left, frame->crop_right
+```
 
-### AlphaOption
-- [x] `"discard"` - Ignore alpha channel
-- [x] `"keep"` - Preserve alpha channel
-
-### VideoEncoderBitrateMode
-- [x] `"constant"` - Constant bitrate
-- [x] `"variable"` - Variable bitrate
-- [x] `"quantizer"` - Quantizer-based
-
-### VideoPixelFormat
-- [x] `"I420"` - Planar YUV 4:2:0
-- [x] `"I420A"` - Planar YUV 4:2:0 with alpha
-- [x] `"I422"` - Planar YUV 4:2:2
-- [x] `"I444"` - Planar YUV 4:4:4
-- [x] `"NV12"` - Semi-planar YUV 4:2:0
-- [x] `"RGBA"` - RGB with alpha
-- [x] `"RGBX"` - RGB with padding
-- [x] `"BGRA"` - BGR with alpha
-- [x] `"BGRX"` - BGR with padding
-
-### AudioSampleFormat
-- [x] `"u8"` - Unsigned 8-bit interleaved
-- [x] `"s16"` - Signed 16-bit interleaved
-- [x] `"s32"` - Signed 32-bit interleaved
-- [x] `"f32"` - Float 32-bit interleaved
-- [x] `"u8-planar"` - Unsigned 8-bit planar
-- [x] `"s16-planar"` - Signed 16-bit planar
-- [x] `"s32-planar"` - Signed 32-bit planar
-- [x] `"f32-planar"` - Float 32-bit planar
-
-### EncodedVideoChunkType / EncodedAudioChunkType
-- [x] `"key"` - Independent frame/chunk
-- [x] `"delta"` - Depends on previous data
-
-### VideoColorPrimaries
-- [x] `"bt709"`
-- [x] `"bt470bg"`
-- [x] `"smpte170m"`
-- [x] `"bt2020"`
-- [x] `"smpte432"`
-
-### VideoTransferCharacteristics
-- [x] `"bt709"`
-- [x] `"smpte170m"`
-- [x] `"iec61966-2-1"` (sRGB)
-- [x] `"linear"`
-- [x] `"pq"` (HDR10)
-- [x] `"hlg"` (HLG HDR)
-
-### VideoMatrixCoefficients
-- [x] `"rgb"`
-- [x] `"bt709"`
-- [x] `"bt470bg"`
-- [x] `"smpte170m"`
-- [x] `"bt2020-ncl"`
+**Fix Required:**
+- [ ] Extract crop values from decoded frame
+- [ ] Calculate visibleRect from crops
+- [ ] Store and expose via VideoFrame
 
 ---
 
-## Metadata Types
+### 🔴 2.3 Output Not in Presentation Order
+**File:** `src/video_decoder.cc`
 
-### EncodedVideoChunkMetadata
-- `decoderConfig` (VideoDecoderConfig) - optional
-- `svc` (SvcOutputMetadata) - optional
-- `alphaSideData` (BufferSource) - optional
+**W3C Requirement:** "Outputs must be in presentation order."
 
-### EncodedAudioChunkMetadata
-- `decoderConfig` (AudioDecoderConfig) - optional
+**Current State:** Frames emitted in decode order. B-frames cause out-of-order output.
 
-### SvcOutputMetadata
-- `temporalLayerId` (integer)
-
----
-
-## Support Types
-
-### VideoEncoderSupport
-- `supported` (boolean)
-- `config` (VideoEncoderConfig)
-
-### VideoDecoderSupport
-- `supported` (boolean)
-- `config` (VideoDecoderConfig)
-
-### AudioEncoderSupport
-- `supported` (boolean)
-- `config` (AudioEncoderConfig)
-
-### AudioDecoderSupport
-- `supported` (boolean)
-- `config` (AudioDecoderConfig)
+**Fix Required:**
+- [ ] Buffer decoded frames
+- [ ] Reorder by PTS before emission
+- [ ] Handle flush correctly with reordering
 
 ---
 
-## Callback Types
+### 🟠 2.4 Missing Duration Calculation
+**File:** `src/video_decoder.cc:531-534`
 
-- `VideoFrameOutputCallback` = (frame: VideoFrame, metadata?: EncodedVideoChunkMetadata) => void
-- `EncodedVideoChunkOutputCallback` = (chunk: EncodedVideoChunk, metadata?: EncodedVideoChunkMetadata) => void
-- `AudioDataOutputCallback` = (data: AudioData, metadata?: EncodedAudioChunkMetadata) => void
-- `EncodedAudioChunkOutputCallback` = (chunk: EncodedAudioChunk, metadata?: EncodedAudioChunkMetadata) => void
-- `WebCodecsErrorCallback` = (error: DOMException) => void
+**W3C Requirement:** Output VideoFrame should have accurate `duration`.
+
+**Current State:** Duration not set on decoded frames.
+
+**Fix Required:**
+- [ ] Calculate duration from frame timing or packet duration
+- [ ] Use `frame->duration` (FFmpeg 5.1+) when available
+- [ ] Fall back to `(next_pts - current_pts) * time_base`
 
 ---
 
-## PlaneLayout
+### ✅ 2.5 `decodeQueueSize` Works (TEST VERIFIED)
+**File:** `src/video_decoder.cc:265-268`, `src/async_decode_worker.cc`
 
-- `offset` (integer) - Byte offset where plane begins
-- `stride` (integer) - Bytes per row including padding
+**Test Evidence:** `test/99_spec_verification.js` test 2.1 passes - Queue shows 2 after 5 decodes
+
+**Status:** Actually works via async worker queue tracking.
+
+**Note:** The TODO comment in source code is outdated - the async worker properly tracks queue size.
+
+---
+
+### 🟠 2.6 Missing HEVC/H.265 Support
+**File:** `src/video_decoder.cc:151-163`
+
+**W3C Requirement:** HEVC is a core WebCodecs codec.
+
+**Current State:** Codec strings "hev1.*" and "hvc1.*" not parsed.
+
+**Fix Required:**
+- [ ] Add HEVC codec string parsing
+- [ ] Map to `AV_CODEC_ID_HEVC`
+- [ ] Handle HEVC-specific extradata
+
+---
+
+## 3. AudioEncoder Gaps
+
+### 🟡 3.1 Missing `flushInterval` Config
+**File:** `lib/types.ts`, `src/audio_encoder.cc`
+
+**W3C Requirement:** `flushInterval` triggers automatic flush after N encode calls.
+
+**Current State:** Not implemented.
+
+- [ ] Parse flushInterval from config
+- [ ] Track encode count
+- [ ] Auto-flush when interval reached
+
+---
+
+### ✅ 3.2 Opus Encoder Options (IMPLEMENTED + TEST VERIFIED)
+**File:** `src/audio_encoder.cc:188-265`
+
+**Test Evidence:** `test/99_spec_verification.js` tests 3.1 and 3.2 pass
+- Test 3.1: frameDuration produces expected 20000us chunks
+- Test 3.2: Both complexity levels (0 and 10) produce output
+
+**Status:** Most Opus options are implemented and working:
+- [x] `application` → `av_opt_set(priv_data, "application", ...)`
+- [x] `complexity` → `av_opt_set_int(..., "compression_level", ...)` ✓ TEST VERIFIED
+- [x] `packetlossperc` → `av_opt_set_int(..., "packet_loss", ...)`
+- [x] `useinbandfec` → `av_opt_set_int(..., "fec", ...)`
+- [x] `usedtx` → `av_opt_set_int(..., "dtx", ...)`
+- [x] `frameDuration` → `av_opt_set_double(..., "frame_duration", ...)` ✓ TEST VERIFIED
+- [ ] `signal` → Not mapped (FFmpeg libopus wrapper limitation)
+
+---
+
+### 🟡 3.3 Missing AAC Profile Selection
+**File:** `src/audio_encoder.cc`
+
+**W3C Requirement:** Codec string "mp4a.40.XX" indicates AAC profile.
+
+**Current State:** Always uses default AAC-LC.
+
+**Fix Required:**
+- [ ] Parse profile from codec string (mp4a.40.2=LC, mp4a.40.5=HE-AAC, mp4a.40.29=HE-AACv2)
+- [ ] Configure FFmpeg encoder profile accordingly
+
+---
+
+### 🟠 3.4 Missing Audio Metadata Emission
+**File:** `src/audio_encoder.cc`
+
+**W3C Requirement:** First chunk should include `EncodedAudioChunkMetadata.decoderConfig`.
+
+**Current State:** Metadata not emitted.
+
+**Fix Required:**
+- [ ] Extract AudioSpecificConfig for AAC
+- [ ] Extract OpusHead for Opus
+- [ ] Emit with first encoded chunk
+
+---
+
+## 4. AudioDecoder Gaps
+
+### 🟠 4.1 Limited Codec Support
+**File:** `src/audio_decoder.cc:127-136`
+
+**W3C Requirement:** Support common audio codecs.
+
+**Current State:** Only AAC and Opus.
+
+**Missing:**
+- [ ] MP3 (`"mp3"`)
+- [ ] FLAC (`"flac"`)
+- [ ] Vorbis (`"vorbis"`)
+- [ ] PCM variants (`"pcm-*"`)
+
+---
+
+### 🟡 4.2 Incorrect Default Codec Behavior
+**File:** `src/audio_decoder.cc:121`
+
+**W3C Requirement:** `codec` is required field.
+
+**Current State:** Defaults to AAC if not specified.
+
+**Fix Required:**
+- [ ] Throw TypeError if codec not provided
+
+---
+
+### 🟡 4.3 Missing Planar Audio Format Support
+**File:** `src/audio_decoder.cc:386`
+
+**W3C Requirement:** Support planar formats (f32-planar, s16-planar, etc.)
+
+**Current State:** Always converts to f32 interleaved.
+
+**Fix Required:**
+- [ ] Accept format preference in config or copyTo
+- [ ] Support planar output formats
+- [ ] Configure swresample accordingly
+
+---
+
+## 5. VideoFrame Gaps
+
+### 🔴 5.1 Missing `duration` Property Storage (TEST VERIFIED - CRITICAL)
+**File:** `src/video_frame.h`, `src/video_frame.cc`
+
+**Test Evidence:** `test/99_spec_verification.js` test 4.3 fails - "Original frame duration: undefined"
+
+**W3C Requirement:** `duration` should be stored and retrievable.
+
+**Current State:** `duration` is NOT parsed or stored in the native VideoFrame constructor at all!
+
+**Root Cause:** In `src/video_frame.cc:166-198`, the constructor parses `codedWidth`, `codedHeight`, `timestamp`, `displayWidth`, `displayHeight`, `format`, `rotation`, `flip` - but completely ignores `duration`. There is no `duration_` member variable.
+
+**Proof:**
+```javascript
+const frame = new VideoFrame(data, {
+    format: 'RGBA',
+    codedWidth: 320,
+    codedHeight: 240,
+    timestamp: 0,
+    duration: 33333  // <-- IGNORED!
+});
+console.log(frame.duration);  // undefined
+```
+
+**Fix Required:**
+- [ ] Add `int64_t duration_` member to `VideoFrame` class in header
+- [ ] Parse `duration` from options in constructor
+- [ ] Add `GetDuration` accessor method
+- [ ] Register "duration" in `InstanceAccessor` list in Init()
+- [ ] Ensure round-trip preservation through encode/decode
+
+---
+
+### 🟡 5.2 Incomplete `copyTo` rect Parameter (TEST VERIFIED)
+**File:** `src/video_frame.cc:493-564`
+
+**Test Evidence:** `test/99_spec_verification.js` test 4.2 fails - "copyTo rect parameter not supported"
+
+**W3C Requirement:** `VideoFrameCopyToOptions.rect` should crop output.
+
+**Current State:** rect parameter ignored, throws "Destination buffer too small" because it expects full frame size.
+
+**Fix Required:**
+- [ ] Parse rect from options
+- [ ] Apply cropping during copy
+- [ ] Validate rect within visibleRect bounds
+
+---
+
+### 🟡 5.3 Missing `layout` Parameter in copyTo
+**File:** `src/video_frame.cc`
+
+**W3C Requirement:** Custom plane layout via `options.layout`.
+
+**Current State:** Layout auto-calculated, custom layout ignored.
+
+- [ ] Accept layout array
+- [ ] Use provided offsets/strides
+
+---
+
+### 🟡 5.4 Missing NV21 Pixel Format
+**File:** `lib/types.ts:108`
+
+**W3C Requirement:** Support `"NV21"` (V/U reversed from NV12).
+
+**Current State:** Only NV12 supported.
+
+- [ ] Add NV21 to PixelFormat enum
+- [ ] Map to AV_PIX_FMT_NV21
+- [ ] Handle in conversion functions
+
+---
+
+### 🟡 5.5 Missing Stride Alignment Handling
+**File:** `src/video_frame.cc:85-120`
+
+**W3C Requirement:** Handle aligned plane strides.
+
+**Current State:** Assumes densely packed planes.
+
+**Fix Required:**
+- [ ] Accept stride information
+- [ ] Handle 16/32/64-byte aligned strides
+- [ ] Adjust allocation size calculations
+
+---
+
+## 6. AudioData Gaps
+
+### 🟡 6.1 Missing `transfer` Array Handling
+**File:** `lib/index.ts:466-483`
+
+**W3C Requirement:** `transfer` array enables zero-copy construction by detaching source buffers.
+
+**Current State:** Ignored.
+
+- [ ] Process transfer array
+- [ ] Detach transferred ArrayBuffers
+
+---
+
+### 🟡 6.2 Duration Calculation Verification
+**File:** Native vs TypeScript
+
+**W3C Requirement:** `duration = numberOfFrames / sampleRate * 1_000_000` (microseconds).
+
+- [ ] Verify native calculation matches spec
+- [ ] Ensure consistency between layers
+
+---
+
+## 7. EncodedChunk Gaps
+
+### 🟡 7.1 EncodedVideoChunk Mutability
+**File:** `lib/index.ts:308-341`
+
+**W3C Requirement:** Chunks are immutable.
+
+**Current State:** `data` exposes mutable Buffer.
+
+**Fix Required:**
+- [ ] Return frozen/readonly view
+- [ ] Or copy on access
+
+---
+
+### 🟡 7.2 Missing Structured Clone Support
+**File:** Both chunk classes
+
+**W3C Requirement:** Chunks are Transferable.
+
+**Current State:** Not implemented for Node.js.
+
+- [ ] Implement custom serialize/deserialize
+- [ ] Support worker transfer
+
+---
+
+## 8. ImageDecoder Gaps
+
+### 🟠 8.1 No ReadableStream Support
+**File:** `src/image_decoder.cc`
+
+**W3C Requirement:** `data` can be `ReadableStream<Uint8Array>` for progressive decoding.
+
+**Current State:** Only Buffer/TypedArray.
+
+- [ ] Accept ReadableStream
+- [ ] Implement progressive buffering
+- [ ] Decode as data arrives
+
+---
+
+### 🟠 8.2 Missing Animation Support
+**File:** `src/image_decoder.cc`
+
+**W3C Requirement:** GIF/WebP/APNG animations need multi-frame handling.
+
+**Current State:** Only decodes first frame.
+
+**Fix Required:**
+- [ ] Use `av_read_frame()` loop for animated formats
+- [ ] Track frame count accurately
+- [ ] Implement `decode({frameIndex: N})`
+- [ ] Read `repetitionCount` from metadata
+
+---
+
+### 🟡 8.3 Missing `preferAnimation` Config
+**File:** `src/image_decoder.cc`
+
+**W3C Requirement:** Select animated vs static track.
+
+- [ ] Parse preferAnimation
+- [ ] Affect track selection
+
+---
+
+### 🟡 8.4 Missing `colorSpaceConversion` Config
+**File:** `src/image_decoder.cc`
+
+**W3C Requirement:** `"none"` preserves original color space.
+
+**Current State:** Always converts to sRGB.
+
+- [ ] Parse colorSpaceConversion
+- [ ] Skip sws_scale when "none"
+
+---
+
+### ✅ 8.5 `isTypeSupported` Return Type (TEST VERIFIED)
+**File:** `src/image_decoder.cc:341-357`
+
+**Test Evidence:** `test/99_spec_verification.js` test 5.1 passes - returns Promise
+
+**W3C Requirement:** Returns `Promise<boolean>`.
+
+**Status:** Now returns Promise correctly.
+
+---
+
+## 9. FFmpeg Usage Issues
+
+### 🔴 9.1 Thread Safety Concerns
+**File:** All codec files
+
+**Issue:** Codec contexts accessed from multiple threads without synchronization.
+
+**Fix Required:**
+- [ ] Add mutex protection for codec_context_
+- [ ] Or ensure single-thread access pattern
+
+---
+
+### 🟠 9.2 Memory Leak: Extradata
+**File:** `src/video_decoder.cc:191-198`, `src/audio_decoder.cc:187-207`
+
+**Issue:** extradata allocated with av_malloc() may leak.
+
+**Fix Required:**
+- [ ] Call `av_freep(&codec_context_->extradata)` before freeing context
+- [ ] Or let FFmpeg manage via proper API
+
+---
+
+### 🟠 9.3 Packet Data Lifetime
+**File:** `src/video_decoder.cc:292-294`
+
+**Issue:** packet_->data points to chunk data that may be freed.
+
+**Fix Required:**
+- [ ] Copy packet data
+- [ ] Or use av_packet_ref()
+
+---
+
+### 🟡 9.4 Missing avcodec_flush_buffers
+**File:** `src/video_decoder.cc`, `src/audio_decoder.cc`
+
+**Issue:** reset() should flush buffers without destroying context.
+
+- [ ] Call avcodec_flush_buffers() on reset
+- [ ] Allows reconfigure without realloc
+
+---
+
+### 🟡 9.5 SwsContext Resolution Change
+**File:** `src/video_decoder.cc:504-516`
+
+**Issue:** sws_context_ not recreated on resolution change.
+
+- [ ] Check dimensions before reuse
+- [ ] Recreate if dimensions differ
+
+---
+
+### 🟡 9.6 Deprecated AVPacket Pattern
+**File:** Multiple files
+
+**Issue:** Direct packet_->data assignment is deprecated.
+
+- [ ] Use av_packet_from_data() or av_packet_ref()
+
+---
+
+## 10. Spec Compliance Issues
+
+### 🟠 10.1 State Machine Violations
+**File:** `lib/index.ts`
+
+**W3C Requirement:** Proper state checks and error types.
+
+**Issues:**
+- [ ] encode() should throw if frame.closed
+- [ ] decode() should throw if chunk detached
+- [ ] Use InvalidStateError consistently
+
+---
+
+### 🟠 10.2 Error Type Mismatches
+**File:** Throughout
+
+**W3C Requirement:** Specific DOMException types.
+
+**Fix Required:**
+- [ ] NotSupportedError for unsupported configs
+- [ ] InvalidStateError for wrong state
+- [ ] DataError for bad input
+- [ ] EncodingError for codec failures
+
+---
+
+### 🟡 10.3 Missing EventTarget Inheritance
+**File:** `lib/index.ts`
+
+**W3C Requirement:** Codecs extend EventTarget.
+
+**Current State:** Plain classes.
+
+- [ ] Extend EventTarget
+- [ ] Support addEventListener for dequeue
+
+---
+
+### 🟡 10.4 Dequeue Event Timing
+**File:** `lib/index.ts` - `_triggerDequeue()`
+
+**W3C Requirement:** Fire when queueSize decreases.
+
+**Current State:** Fires after output callback.
+
+- [ ] Fire on queue decrease, not output
+
+---
+
+### 🟠 10.5 `flush()` Promise Semantics
+**File:** Multiple files
+
+**W3C Requirement:** Resolve after all outputs emitted.
+
+**Current State:** Resolves immediately after native call.
+
+**Fix Required:**
+- [ ] Track pending outputs
+- [ ] Resolve only when all emitted
+
+---
+
+## 11. Missing W3C Enum Values
+
+### 🟡 11.1 VideoTransferCharacteristics
+**File:** `lib/types.ts:120`
+
+**Missing:**
+- [ ] `"gamma22curve"`
+- [ ] `"gamma28curve"`
+- [ ] `"smpte240m"`
+- [ ] `"log"`
+- [ ] `"logSqrt"`
+- [ ] `"iec61966-2-4"`
+- [ ] `"bt1361e"`
+- [ ] `"bt2020-10bit"`
+- [ ] `"bt2020-12bit"`
+
+---
+
+### 🟡 11.2 VideoColorPrimaries
+**File:** `lib/types.ts:117`
+
+**Missing:**
+- [ ] `"film"`
+
+---
+
+### 🟡 11.3 VideoMatrixCoefficients
+**File:** `lib/types.ts:123`
+
+**Missing:**
+- [ ] `"fcc"`
+- [ ] `"smpte240m"`
+- [ ] `"ycgco"`
+- [ ] `"bt2020-cl"`
+
+---
+
+## 12. Performance Issues
+
+### 🟢 12.1 Unnecessary Data Copies
+**File:** `lib/index.ts:143-168`
+
+**Issue:** Multiple copies in copyTo path.
+
+- [ ] Use SharedArrayBuffer where possible
+- [ ] Direct memory views
+
+---
+
+### 🟢 12.2 No Hardware Acceleration
+**File:** All encoder/decoder files
+
+**Issue:** `hardwareAcceleration` config ignored.
+
+**Fix Required:**
+- [ ] Implement VAAPI (Linux)
+- [ ] Implement VideoToolbox (macOS)
+- [ ] Implement NVENC/NVDEC (NVIDIA)
+- [ ] Implement QSV (Intel)
+
+---
+
+## Summary
+
+| Priority | Count | Status |
+|----------|-------|--------|
+| 🔴 CRITICAL | 7 | 0 fixed (5 test-verified broken) |
+| 🟠 HIGH | 14 | 0 fixed (decodeQueueSize works ✓) |
+| 🟡 MEDIUM | 21 | 0 fixed (1 actually works ✓) |
+| 🟢 LOW | 4 | 0 fixed |
+| ✅ VERIFIED WORKING | 4 | Opus options, queues, isTypeSupported |
+| **Total** | **48** | **4 verified working, 44 remaining** |
+
+### Test-Verified Findings (from `test/99_spec_verification.js`):
+
+**BROKEN (Confirmed by Tests):**
+1. 🔴 VP9 encoding - codec string ignored, always H.264
+2. 🔴 Metadata emission - null/undefined, no decoderConfig.description
+3. 🔴 ColorSpace propagation - returns empty `{}`
+4. 🔴 VideoFrame.duration - not parsed or stored at all
+5. 🟡 copyTo rect parameter - throws "buffer too small"
+6. 🟡 Animated GIF - only frame 0 decoded
+
+**WORKING (Confirmed by Tests):**
+1. ✅ encodeQueueSize/decodeQueueSize - properly tracks via async worker
+2. ✅ Opus frameDuration - produces correct 20000us chunks
+3. ✅ Opus complexity - both levels work
+4. ✅ copyTo format conversion - I420 output correct
+5. ✅ ImageDecoder.isTypeSupported - returns Promise
 
 ---
 
 ## References
 
 - [W3C WebCodecs Specification](https://www.w3.org/TR/webcodecs/)
-- [WebCodecs Codec Registry](https://w3c.github.io/webcodecs/codec_registry.html)
-- [MDN WebCodecs API](https://developer.mozilla.org/en-US/docs/Web/API/WebCodecs_API)
+- [W3C WebCodecs Codec Registry](https://www.w3.org/TR/webcodecs-codec-registry/)
+- [FFmpeg Documentation](https://ffmpeg.org/documentation.html)
+- [FFmpeg libavcodec API](https://ffmpeg.org/doxygen/trunk/group__lavc__decoding.html)

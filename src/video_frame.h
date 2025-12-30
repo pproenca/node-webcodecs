@@ -62,6 +62,7 @@ class VideoFrame : public Napi::ObjectWrap<VideoFrame> {
   int GetWidth() const { return coded_width_; }
   int GetHeight() const { return coded_height_; }
   int64_t GetTimestampValue() const { return timestamp_; }
+  PixelFormat GetFormat() const { return format_; }
 
   // Static constructor reference for clone().
   static Napi::FunctionReference constructor;
@@ -90,6 +91,8 @@ class VideoFrame : public Napi::ObjectWrap<VideoFrame> {
   int display_width_;
   int display_height_;
   int64_t timestamp_;
+  int64_t duration_;
+  bool has_duration_;
   PixelFormat format_;
   bool closed_;
   int rotation_;

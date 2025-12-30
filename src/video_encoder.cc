@@ -204,9 +204,9 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
   VideoFrame* video_frame =
       Napi::ObjectWrap<VideoFrame>::Unwrap(info[0].As<Napi::Object>());
 
-  // Validate buffer size matches configured dimensions.
-  size_t expected_size =
-      static_cast<size_t>(width_) * height_ * kBytesPerPixelRgba;
+  // Get frame format and calculate expected buffer size.
+  PixelFormat frame_format = video_frame->GetFormat();
+  size_t expected_size = CalculateAllocationSize(frame_format, width_, height_);
   size_t actual_size = video_frame->GetDataSize();
   if (actual_size < expected_size) {
     throw Napi::Error::New(env, "VideoFrame buffer too small: expected " +
@@ -264,12 +264,41 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
     }
   }
 
-  // Convert RGBA to YUV420P.
-  const uint8_t* src_data[] = {video_frame->GetData()};
-  int src_linesize[] = {video_frame->GetWidth() * kBytesPerPixelRgba};
+  // Convert input frame to YUV420P based on input format.
+  if (frame_format == PixelFormat::I420) {
+    // I420 is already YUV420P - copy planes directly.
+    const uint8_t* src = video_frame->GetData();
+    int y_size = width_ * height_;
+    int uv_stride = width_ / 2;
+    int uv_size = uv_stride * (height_ / 2);
 
-  sws_scale(sws_context_, src_data, src_linesize, 0, height_, frame_->data,
-            frame_->linesize);
+    // Copy Y plane.
+    for (int y = 0; y < height_; y++) {
+      memcpy(frame_->data[0] + y * frame_->linesize[0],
+             src + y * width_, width_);
+    }
+
+    // Copy U plane.
+    const uint8_t* u_src = src + y_size;
+    for (int y = 0; y < height_ / 2; y++) {
+      memcpy(frame_->data[1] + y * frame_->linesize[1],
+             u_src + y * uv_stride, uv_stride);
+    }
+
+    // Copy V plane.
+    const uint8_t* v_src = src + y_size + uv_size;
+    for (int y = 0; y < height_ / 2; y++) {
+      memcpy(frame_->data[2] + y * frame_->linesize[2],
+             v_src + y * uv_stride, uv_stride);
+    }
+  } else {
+    // Convert from RGBA (or other formats) to YUV420P using swscale.
+    const uint8_t* src_data[] = {video_frame->GetData()};
+    int src_linesize[] = {video_frame->GetWidth() * kBytesPerPixelRgba};
+
+    sws_scale(sws_context_, src_data, src_linesize, 0, height_, frame_->data,
+              frame_->linesize);
+  }
 
   frame_->pts = frame_count_++;
 

@@ -60,8 +60,19 @@ export class VideoFrame {
     private _native: any;
     private _closed: boolean = false;
 
-    constructor(data: Buffer, init: VideoFrameInit) {
-        this._native = new native.VideoFrame(data, init);
+    constructor(data: Buffer | Uint8Array | ArrayBuffer, init: VideoFrameInit) {
+        // Convert to Buffer if needed
+        let dataBuffer: Buffer;
+        if (data instanceof Buffer) {
+            dataBuffer = data;
+        } else if (data instanceof Uint8Array) {
+            dataBuffer = Buffer.from(data);
+        } else if (data instanceof ArrayBuffer) {
+            dataBuffer = Buffer.from(data);
+        } else {
+            throw new TypeError('data must be Buffer, Uint8Array, or ArrayBuffer');
+        }
+        this._native = new native.VideoFrame(dataBuffer, init);
     }
 
     get codedWidth(): number {
@@ -80,8 +91,8 @@ export class VideoFrame {
         return this._native.format;
     }
 
-    get duration(): number | undefined {
-        return this._native.duration;
+    get duration(): number | null {
+        return this._native.duration ?? null;
     }
 
     get displayWidth(): number {
@@ -202,6 +213,14 @@ export class VideoEncoder {
     private _resourceId: symbol;
 
     constructor(init: VideoEncoderInit) {
+        // W3C spec: output and error callbacks are required
+        if (!init || typeof init.output !== 'function') {
+            throw new TypeError('output callback is required');
+        }
+        if (typeof init.error !== 'function') {
+            throw new TypeError('error callback is required');
+        }
+
         this._controlQueue = new ControlMessageQueue();
         this._controlQueue.setErrorHandler(init.error);
         this._resourceId = ResourceManager.getInstance().register(this);
@@ -258,6 +277,11 @@ export class VideoEncoder {
     }
 
     configure(config: VideoEncoderConfig): void {
+        // W3C spec: throw if closed
+        if (this.state === 'closed') {
+            throw new DOMException('Encoder is closed', 'InvalidStateError');
+        }
+
         // Validate displayAspect pairing per W3C spec
         if ((config.displayAspectWidth !== undefined) !==
             (config.displayAspectHeight !== undefined)) {
@@ -278,6 +302,13 @@ export class VideoEncoder {
     }
 
     async flush(): Promise<void> {
+        // W3C spec: reject if unconfigured or closed
+        if (this.state === 'unconfigured') {
+            return Promise.reject(new DOMException('Encoder is not configured', 'InvalidStateError'));
+        }
+        if (this.state === 'closed') {
+            return Promise.reject(new DOMException('Encoder is closed', 'InvalidStateError'));
+        }
         await this._controlQueue.flush();
         return new Promise((resolve) => {
             this._native.flush();
@@ -308,14 +339,27 @@ export class VideoEncoder {
 export class EncodedVideoChunk {
     readonly type: 'key' | 'delta';
     readonly timestamp: number;
-    readonly duration?: number;
+    readonly duration: number | null;
     readonly data: Buffer;
 
-    constructor(init: { type: 'key' | 'delta'; timestamp: number; duration?: number; data: Buffer }) {
-        this.type = init.type;
+    constructor(init: { type: string; timestamp: number; duration?: number; data: Buffer | Uint8Array | ArrayBuffer }) {
+        // W3C spec: type must be 'key' or 'delta'
+        if (init.type !== 'key' && init.type !== 'delta') {
+            throw new TypeError(`Invalid type: ${init.type}`);
+        }
+        this.type = init.type as 'key' | 'delta';
         this.timestamp = init.timestamp;
-        this.duration = init.duration;
-        this.data = init.data;
+        this.duration = init.duration ?? null;
+        // Convert to Buffer if needed
+        if (init.data instanceof Buffer) {
+            this.data = init.data;
+        } else if (init.data instanceof Uint8Array) {
+            this.data = Buffer.from(init.data);
+        } else if (init.data instanceof ArrayBuffer) {
+            this.data = Buffer.from(init.data);
+        } else {
+            this.data = Buffer.from(init.data as any);
+        }
     }
 
     get byteLength(): number {
@@ -350,6 +394,14 @@ export class VideoDecoder {
     private _resourceId: symbol;
 
     constructor(init: VideoDecoderInit) {
+        // W3C spec: output and error callbacks are required
+        if (!init || typeof init.output !== 'function') {
+            throw new TypeError('output callback is required');
+        }
+        if (typeof init.error !== 'function') {
+            throw new TypeError('error callback is required');
+        }
+
         this._controlQueue = new ControlMessageQueue();
         this._errorCallback = init.error;
         this._controlQueue.setErrorHandler(init.error);
@@ -401,6 +453,10 @@ export class VideoDecoder {
     }
 
     configure(config: VideoDecoderConfig): void {
+        // W3C spec: throw if closed
+        if (this.state === 'closed') {
+            throw new DOMException('Decoder is closed', 'InvalidStateError');
+        }
         this._needsKeyFrame = true;
         // Configure synchronously to set state immediately per W3C spec
         this._native.configure(config);
@@ -434,6 +490,13 @@ export class VideoDecoder {
     }
 
     async flush(): Promise<void> {
+        // W3C spec: reject if unconfigured or closed
+        if (this.state === 'unconfigured') {
+            return Promise.reject(new DOMException('Decoder is not configured', 'InvalidStateError'));
+        }
+        if (this.state === 'closed') {
+            return Promise.reject(new DOMException('Decoder is closed', 'InvalidStateError'));
+        }
         await this._controlQueue.flush();
         return this._native.flush();
     }

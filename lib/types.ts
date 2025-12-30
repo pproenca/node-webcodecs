@@ -34,7 +34,7 @@ export interface VideoEncoderInit {
 export interface EncodedVideoChunk {
     type: 'key' | 'delta';
     timestamp: number;
-    duration?: number;
+    duration: number | null;
     data: Buffer;
     byteLength: number;
 }
