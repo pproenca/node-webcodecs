@@ -35,12 +35,12 @@ export type CodecState = 'unconfigured' | 'configured' | 'closed';
 
 /**
  * WebIDL:
- * enum HardwareAcceleration { "no-preference", "prefer-hardware", "prefer-software" };
+ * enum HardwareAcceleration { "allow", "deny", "prefer" };
+ *
+ * Note: Previous versions used "no-preference", "prefer-hardware", "prefer-software".
+ * Updated to match W3C WebCodecs spec for browser code portability.
  */
-export type HardwareAcceleration =
-  | 'no-preference'
-  | 'prefer-hardware'
-  | 'prefer-software';
+export type HardwareAcceleration = 'allow' | 'deny' | 'prefer';
 
 // =============================================================================
 // ALPHA OPTION
@@ -152,6 +152,8 @@ export type VideoPixelFormat =
   | 'NV12'
   | 'NV21'
   | 'NV12P10'
+  // 4:2:0 Y, UV, A (semi-planar with alpha) - W3C WebCodecs spec
+  | 'NV12A'
   // 4:4:4 RGB variants
   | 'RGBA'
   | 'RGBX'

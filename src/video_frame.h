@@ -27,9 +27,12 @@ enum class PixelFormat {
   I420,     // YUV420p planar
   I420A,    // YUV420p with alpha plane
   I422,     // YUV422p planar
+  I422A,    // YUV422p with alpha plane (W3C WebCodecs spec)
   I444,     // YUV444p planar
+  I444A,    // YUV444p with alpha plane (W3C WebCodecs spec)
   NV12,     // YUV420 semi-planar (Y plane + interleaved UV)
   NV21,     // YUV420 semi-planar (Y plane + interleaved VU)
+  NV12A,    // YUV420 semi-planar with alpha (W3C WebCodecs spec)
   // 10-bit formats
   I420P10,  // YUV420p 10-bit planar
   I422P10,  // YUV422p 10-bit planar

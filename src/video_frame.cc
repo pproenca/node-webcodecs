@@ -30,11 +30,16 @@ static const std::unordered_map<PixelFormat, PixelFormatInfo>& GetFormatRegistry
       {PixelFormat::I420A,   {"I420A",   AV_PIX_FMT_YUVA420P,     8, 4, 1, 1, true,  false}},
       // 8-bit YUV formats (4:2:2)
       {PixelFormat::I422,    {"I422",    AV_PIX_FMT_YUV422P,      8, 3, 1, 0, false, false}},
+      {PixelFormat::I422A,   {"I422A",   AV_PIX_FMT_YUVA422P,     8, 4, 1, 0, true,  false}},
       // 8-bit YUV formats (4:4:4)
       {PixelFormat::I444,    {"I444",    AV_PIX_FMT_YUV444P,      8, 3, 0, 0, false, false}},
+      {PixelFormat::I444A,   {"I444A",   AV_PIX_FMT_YUVA444P,     8, 4, 0, 0, true,  false}},
       // 8-bit semi-planar
       {PixelFormat::NV12,    {"NV12",    AV_PIX_FMT_NV12,         8, 2, 1, 1, false, true}},
       {PixelFormat::NV21,    {"NV21",    AV_PIX_FMT_NV21,         8, 2, 1, 1, false, true}},
+      // NV12A: NV12 with alpha plane (Y + interleaved UV + A) - W3C WebCodecs spec
+      // Note: FFmpeg doesn't have native NV12A, we treat as 3-plane semi-planar with alpha
+      {PixelFormat::NV12A,   {"NV12A",   AV_PIX_FMT_NV12,         8, 3, 1, 1, true,  true}},
       // 10-bit YUV formats
       {PixelFormat::I420P10, {"I420P10", AV_PIX_FMT_YUV420P10LE, 10, 3, 1, 1, false, false}},
       {PixelFormat::I422P10, {"I422P10", AV_PIX_FMT_YUV422P10LE, 10, 3, 1, 0, false, false}},
