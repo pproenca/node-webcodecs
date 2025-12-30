@@ -13,7 +13,6 @@
 
 import {
   VideoEncoder,
-  VideoDecoder,
   VideoFrame,
   EncodedVideoChunk,
   AudioEncoder,
@@ -33,7 +32,7 @@ interface BenchmarkResult {
 async function benchmark(
   name: string,
   fn: () => Promise<void> | void,
-  iterations: number = 100
+  iterations: number = 100,
 ): Promise<BenchmarkResult> {
   // Warmup
   for (let i = 0; i < Math.min(10, iterations / 10); i++) {
@@ -117,7 +116,7 @@ async function runVideoEncoderBenchmarks(): Promise<void> {
       await encoder.flush();
       encoder.close();
     },
-    50
+    50,
   );
   console.log(formatResult(result720p));
 
@@ -154,7 +153,7 @@ async function runVideoEncoderBenchmarks(): Promise<void> {
       await encoder.flush();
       encoder.close();
     },
-    20
+    20,
   );
   console.log(formatResult(result1080p));
 }
@@ -175,7 +174,7 @@ async function runVideoFrameBenchmarks(): Promise<void> {
       });
       frame.close();
     },
-    500
+    500,
   );
   console.log(formatResult(createResult));
 
@@ -194,7 +193,7 @@ async function runVideoFrameBenchmarks(): Promise<void> {
       frame.close();
       clone.close();
     },
-    200
+    200,
   );
   console.log(formatResult(cloneResult));
 
@@ -213,7 +212,7 @@ async function runVideoFrameBenchmarks(): Promise<void> {
       await frame.copyTo(dest);
       frame.close();
     },
-    200
+    200,
   );
   console.log(formatResult(copyToResult));
 }
@@ -253,7 +252,7 @@ async function runAudioEncoderBenchmarks(): Promise<void> {
       await encoder.flush();
       encoder.close();
     },
-    50
+    50,
   );
   console.log(formatResult(result));
 }
@@ -276,7 +275,7 @@ async function runConfigurationBenchmarks(): Promise<void> {
       });
       encoder.close();
     },
-    200
+    200,
   );
   console.log(formatResult(result));
 }
@@ -301,4 +300,4 @@ async function main(): Promise<void> {
   console.log('\nBenchmarks completed successfully.');
 }
 
-main();
+void main();

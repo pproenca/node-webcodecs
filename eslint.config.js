@@ -53,4 +53,13 @@ module.exports = [
       ],
     },
   },
+  {
+    // Bench files use their own tsconfig
+    files: ['bench/**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        project: './bench/tsconfig.json',
+      },
+    },
+  },
 ];
