@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>node-webcodecs Demo Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>node-webcodecs</h1>
+    <p>WebCodecs API implementation for Node.js</p>
+  </header>
+
+  <main>
+    <section id="demos">
+      <h2>Demo Examples</h2>
+      <div class="demo-grid" id="demo-grid">
+        <!-- Populated by JavaScript -->
+      </div>
+    </section>
+
+    <section id="outputs">
+      <h2>Output Files</h2>
+      <div id="output-list">
+        <!-- Populated by JavaScript -->
+      </div>
+    </section>
+
+    <section id="player">
+      <h2>Video Player</h2>
+      <video id="video-player" controls>
+        <p>Select an output file to play</p>
+      </video>
+    </section>
+  </main>
+
+  <script>
+    async function loadStatus() {
+      const res = await fetch('/api/status');
+      const data = await res.json();
+
+      const grid = document.getElementById('demo-grid');
+      grid.innerHTML = data.demos.map(demo => `
+        <div class="demo-card ${demo.status}">
+          <h3>Demo ${demo.id}: ${demo.name}</h3>
+          <span class="status">${demo.status}</span>
+          ${demo.outputUrl ? `<button onclick="playVideo('${demo.outputUrl}')">Play Output</button>` : ''}
+        </div>
+      `).join('');
+    }
+
+    async function loadOutputs() {
+      const res = await fetch('/api/outputs');
+      const data = await res.json();
+
+      const list = document.getElementById('output-list');
+      if (data.files.length === 0) {
+        list.innerHTML = '<p>No output files yet. Run the demos first.</p>';
+        return;
+      }
+
+      list.innerHTML = data.files.map(file => `
+        <div class="output-item">
+          <span>${file.name}</span>
+          <span>${(file.size / 1024).toFixed(1)} KB</span>
+          ${file.isVideo ? `<button onclick="playVideo('${file.url}')">Play</button>` : ''}
+          <a href="${file.url}" download>Download</a>
+        </div>
+      `).join('');
+    }
+
+    function playVideo(url) {
+      const player = document.getElementById('video-player');
+      // For raw H.264, we can't play directly - need MP4
+      if (url.endsWith('.h264')) {
+        alert('Raw H.264 files cannot be played in browser. Use the MP4 version or download and play with FFplay.');
+        return;
+      }
+      player.src = url;
+      player.play();
+      player.scrollIntoView({behavior: 'smooth'});
+    }
+
+    // Initial load
+    loadStatus();
+    loadOutputs();
+
+    // Refresh every 5 seconds
+    setInterval(() => {
+      loadStatus();
+      loadOutputs();
+    }, 5000);
+  </script>
+</body>
+</html>
