@@ -234,9 +234,8 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
           quantizer = q;
         }
       }
-    }
-    // Check for hevc (H.265) quantizer: 0-51
-    else if (options.Has("hevc") && options.Get("hevc").IsObject()) {
+    } else if (options.Has("hevc") && options.Get("hevc").IsObject()) {
+      // hevc (H.265) quantizer: 0-51
       Napi::Object hevc_opts = options.Get("hevc").As<Napi::Object>();
       if (hevc_opts.Has("quantizer") && hevc_opts.Get("quantizer").IsNumber()) {
         int q = hevc_opts.Get("quantizer").As<Napi::Number>().Int32Value();
@@ -244,9 +243,8 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
           quantizer = q;
         }
       }
-    }
-    // Check for vp9 quantizer: 0-63
-    else if (options.Has("vp9") && options.Get("vp9").IsObject()) {
+    } else if (options.Has("vp9") && options.Get("vp9").IsObject()) {
+      // vp9 quantizer: 0-63
       Napi::Object vp9_opts = options.Get("vp9").As<Napi::Object>();
       if (vp9_opts.Has("quantizer") && vp9_opts.Get("quantizer").IsNumber()) {
         int q = vp9_opts.Get("quantizer").As<Napi::Number>().Int32Value();
@@ -254,9 +252,8 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
           quantizer = q;
         }
       }
-    }
-    // Check for av1 quantizer: 0-63
-    else if (options.Has("av1") && options.Get("av1").IsObject()) {
+    } else if (options.Has("av1") && options.Get("av1").IsObject()) {
+      // av1 quantizer: 0-63
       Napi::Object av1_opts = options.Get("av1").As<Napi::Object>();
       if (av1_opts.Has("quantizer") && av1_opts.Get("quantizer").IsNumber()) {
         int q = av1_opts.Get("quantizer").As<Napi::Number>().Int32Value();

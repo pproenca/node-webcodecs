@@ -330,7 +330,8 @@ Napi::Value VideoFrame::AllocationSize(const Napi::CallbackInfo& info) {
 // Helper function to set up source data pointers and line sizes
 static void SetupSourcePlanes(PixelFormat format, const uint8_t* data,
                                int width, int height,
-                               const uint8_t* src_data[4], int src_linesize[4]) {
+                               const uint8_t* src_data[4],
+                               int src_linesize[4]) {
   src_data[0] = data;
   src_data[1] = nullptr;
   src_data[2] = nullptr;
