@@ -358,6 +358,110 @@ describe('VideoDecoder', () => {
     });
   });
 
+  describe('error handling', () => {
+    it('should throw InvalidStateError when decode called in unconfigured state', () => {
+      const decoder = new VideoDecoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      const chunk = new EncodedVideoChunk({
+        type: 'key',
+        timestamp: 0,
+        data: new Uint8Array([0, 0, 0, 1]),
+      });
+
+      try {
+        decoder.decode(chunk);
+        expect.fail('Should have thrown');
+      } catch (e: any) {
+        expect(e.name).toBe('InvalidStateError');
+      }
+      decoder.close();
+    });
+
+    it('should throw InvalidStateError when decode called in closed state', () => {
+      const decoder = new VideoDecoder({
+        output: () => {},
+        error: () => {},
+      });
+      decoder.close();
+
+      const chunk = new EncodedVideoChunk({
+        type: 'key',
+        timestamp: 0,
+        data: new Uint8Array([0, 0, 0, 1]),
+      });
+
+      try {
+        decoder.decode(chunk);
+        expect.fail('Should have thrown');
+      } catch (e: any) {
+        expect(e.name).toBe('InvalidStateError');
+      }
+    });
+
+    it('should throw InvalidStateError when configure called in closed state', () => {
+      const decoder = new VideoDecoder({
+        output: () => {},
+        error: () => {},
+      });
+      decoder.close();
+
+      try {
+        decoder.configure({ codec: 'avc1.42E01E' });
+        expect.fail('Should have thrown');
+      } catch (e: any) {
+        expect(e.name).toBe('InvalidStateError');
+      }
+    });
+
+    it('should throw InvalidStateError when reset called in closed state', () => {
+      const decoder = new VideoDecoder({
+        output: () => {},
+        error: () => {},
+      });
+      decoder.close();
+
+      try {
+        decoder.reset();
+        expect.fail('Should have thrown');
+      } catch (e: any) {
+        expect(e.name).toBe('InvalidStateError');
+      }
+    });
+
+    it('should reject with InvalidStateError when flush called in unconfigured state', async () => {
+      const decoder = new VideoDecoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      try {
+        await decoder.flush();
+        expect.fail('Should have rejected');
+      } catch (e: any) {
+        expect(e.name).toBe('InvalidStateError');
+      }
+      decoder.close();
+    });
+
+    it('should reject with InvalidStateError when flush called in closed state', async () => {
+      const decoder = new VideoDecoder({
+        output: () => {},
+        error: () => {},
+      });
+      decoder.close();
+
+      try {
+        await decoder.flush();
+        expect.fail('Should have rejected');
+      } catch (e: any) {
+        expect(e.name).toBe('InvalidStateError');
+      }
+    });
+  });
+
   describe('colorSpace', () => {
     it('should pass colorSpace from config to output VideoFrame', async () => {
       // Encode frame first (same pattern as above)
