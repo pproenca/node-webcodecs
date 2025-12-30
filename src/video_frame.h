@@ -8,6 +8,12 @@
 
 #include <napi.h>
 
+extern "C" {
+#include <libavutil/frame.h>
+#include <libavutil/pixfmt.h>
+#include <libswscale/swscale.h>
+}
+
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -27,6 +33,7 @@ enum class PixelFormat {
 
 PixelFormat ParsePixelFormat(const std::string& format_str);
 std::string PixelFormatToString(PixelFormat format);
+AVPixelFormat PixelFormatToAV(PixelFormat format);
 size_t CalculateAllocationSize(PixelFormat format, uint32_t width,
                                 uint32_t height);
 
@@ -37,6 +44,11 @@ class VideoFrame : public Napi::ObjectWrap<VideoFrame> {
                                      size_t data_size, int width, int height,
                                      int64_t timestamp,
                                      const std::string& format);
+  static Napi::Object CreateInstance(Napi::Env env, const uint8_t* data,
+                                     size_t data_size, int width, int height,
+                                     int64_t timestamp,
+                                     const std::string& format, int rotation,
+                                     bool flip);
   explicit VideoFrame(const Napi::CallbackInfo& info);
   ~VideoFrame();
 

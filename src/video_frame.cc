@@ -57,6 +57,31 @@ std::string PixelFormatToString(PixelFormat format) {
   }
 }
 
+AVPixelFormat PixelFormatToAV(PixelFormat format) {
+  switch (format) {
+    case PixelFormat::RGBA:
+      return AV_PIX_FMT_RGBA;
+    case PixelFormat::BGRA:
+      return AV_PIX_FMT_BGRA;
+    case PixelFormat::I420:
+      return AV_PIX_FMT_YUV420P;
+    case PixelFormat::I420A:
+      return AV_PIX_FMT_YUVA420P;
+    case PixelFormat::I422:
+      return AV_PIX_FMT_YUV422P;
+    case PixelFormat::I444:
+      return AV_PIX_FMT_YUV444P;
+    case PixelFormat::NV12:
+      return AV_PIX_FMT_NV12;
+    case PixelFormat::RGBX:
+      return AV_PIX_FMT_RGB0;
+    case PixelFormat::BGRX:
+      return AV_PIX_FMT_BGR0;
+    default:
+      return AV_PIX_FMT_NONE;
+  }
+}
+
 size_t CalculateAllocationSize(PixelFormat format, uint32_t width,
                                 uint32_t height) {
   switch (format) {
@@ -297,6 +322,168 @@ Napi::Value VideoFrame::AllocationSize(const Napi::CallbackInfo& info) {
   return Napi::Number::New(env, size);
 }
 
+// Helper function to set up source data pointers and line sizes
+static void SetupSourcePlanes(PixelFormat format, const uint8_t* data,
+                               int width, int height,
+                               const uint8_t* src_data[4], int src_linesize[4]) {
+  src_data[0] = data;
+  src_data[1] = nullptr;
+  src_data[2] = nullptr;
+  src_data[3] = nullptr;
+  src_linesize[0] = 0;
+  src_linesize[1] = 0;
+  src_linesize[2] = 0;
+  src_linesize[3] = 0;
+
+  switch (format) {
+    case PixelFormat::RGBA:
+    case PixelFormat::BGRA:
+    case PixelFormat::RGBX:
+    case PixelFormat::BGRX:
+      src_linesize[0] = width * 4;
+      break;
+    case PixelFormat::I420: {
+      int y_size = width * height;
+      int uv_stride = width / 2;
+      int uv_size = uv_stride * (height / 2);
+      src_data[0] = data;
+      src_data[1] = data + y_size;
+      src_data[2] = data + y_size + uv_size;
+      src_linesize[0] = width;
+      src_linesize[1] = uv_stride;
+      src_linesize[2] = uv_stride;
+      break;
+    }
+    case PixelFormat::I420A: {
+      int y_size = width * height;
+      int uv_stride = width / 2;
+      int uv_size = uv_stride * (height / 2);
+      src_data[0] = data;
+      src_data[1] = data + y_size;
+      src_data[2] = data + y_size + uv_size;
+      src_data[3] = data + y_size + uv_size * 2;
+      src_linesize[0] = width;
+      src_linesize[1] = uv_stride;
+      src_linesize[2] = uv_stride;
+      src_linesize[3] = width;
+      break;
+    }
+    case PixelFormat::I422: {
+      int y_size = width * height;
+      int uv_stride = width / 2;
+      int uv_size = uv_stride * height;
+      src_data[0] = data;
+      src_data[1] = data + y_size;
+      src_data[2] = data + y_size + uv_size;
+      src_linesize[0] = width;
+      src_linesize[1] = uv_stride;
+      src_linesize[2] = uv_stride;
+      break;
+    }
+    case PixelFormat::I444: {
+      int plane_size = width * height;
+      src_data[0] = data;
+      src_data[1] = data + plane_size;
+      src_data[2] = data + plane_size * 2;
+      src_linesize[0] = width;
+      src_linesize[1] = width;
+      src_linesize[2] = width;
+      break;
+    }
+    case PixelFormat::NV12: {
+      int y_size = width * height;
+      src_data[0] = data;
+      src_data[1] = data + y_size;
+      src_linesize[0] = width;
+      src_linesize[1] = width;
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+// Helper function to set up destination data pointers and line sizes
+static void SetupDestPlanes(PixelFormat format, uint8_t* data,
+                             int width, int height,
+                             uint8_t* dst_data[4], int dst_linesize[4]) {
+  dst_data[0] = data;
+  dst_data[1] = nullptr;
+  dst_data[2] = nullptr;
+  dst_data[3] = nullptr;
+  dst_linesize[0] = 0;
+  dst_linesize[1] = 0;
+  dst_linesize[2] = 0;
+  dst_linesize[3] = 0;
+
+  switch (format) {
+    case PixelFormat::RGBA:
+    case PixelFormat::BGRA:
+    case PixelFormat::RGBX:
+    case PixelFormat::BGRX:
+      dst_linesize[0] = width * 4;
+      break;
+    case PixelFormat::I420: {
+      int y_size = width * height;
+      int uv_stride = width / 2;
+      int uv_size = uv_stride * (height / 2);
+      dst_data[0] = data;
+      dst_data[1] = data + y_size;
+      dst_data[2] = data + y_size + uv_size;
+      dst_linesize[0] = width;
+      dst_linesize[1] = uv_stride;
+      dst_linesize[2] = uv_stride;
+      break;
+    }
+    case PixelFormat::I420A: {
+      int y_size = width * height;
+      int uv_stride = width / 2;
+      int uv_size = uv_stride * (height / 2);
+      dst_data[0] = data;
+      dst_data[1] = data + y_size;
+      dst_data[2] = data + y_size + uv_size;
+      dst_data[3] = data + y_size + uv_size * 2;
+      dst_linesize[0] = width;
+      dst_linesize[1] = uv_stride;
+      dst_linesize[2] = uv_stride;
+      dst_linesize[3] = width;
+      break;
+    }
+    case PixelFormat::I422: {
+      int y_size = width * height;
+      int uv_stride = width / 2;
+      int uv_size = uv_stride * height;
+      dst_data[0] = data;
+      dst_data[1] = data + y_size;
+      dst_data[2] = data + y_size + uv_size;
+      dst_linesize[0] = width;
+      dst_linesize[1] = uv_stride;
+      dst_linesize[2] = uv_stride;
+      break;
+    }
+    case PixelFormat::I444: {
+      int plane_size = width * height;
+      dst_data[0] = data;
+      dst_data[1] = data + plane_size;
+      dst_data[2] = data + plane_size * 2;
+      dst_linesize[0] = width;
+      dst_linesize[1] = width;
+      dst_linesize[2] = width;
+      break;
+    }
+    case PixelFormat::NV12: {
+      int y_size = width * height;
+      dst_data[0] = data;
+      dst_data[1] = data + y_size;
+      dst_linesize[0] = width;
+      dst_linesize[1] = width;
+      break;
+    }
+    default:
+      break;
+  }
+}
+
 Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
@@ -330,8 +517,45 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
     throw Napi::Error::New(env, "Destination buffer too small");
   }
 
-  // Copy data
-  memcpy(dest.Data(), data_.data(), data_.size());
+  // If same format, just copy the data directly
+  if (target_format == format_) {
+    memcpy(dest.Data(), data_.data(), data_.size());
+  } else {
+    // Perform format conversion using sws_scale
+    AVPixelFormat src_av_fmt = PixelFormatToAV(format_);
+    AVPixelFormat dst_av_fmt = PixelFormatToAV(target_format);
+
+    if (src_av_fmt == AV_PIX_FMT_NONE || dst_av_fmt == AV_PIX_FMT_NONE) {
+      throw Napi::Error::New(env, "Unsupported pixel format for conversion");
+    }
+
+    SwsContext* sws_ctx = sws_getContext(
+        coded_width_, coded_height_, src_av_fmt,
+        coded_width_, coded_height_, dst_av_fmt,
+        SWS_BILINEAR, nullptr, nullptr, nullptr);
+
+    if (!sws_ctx) {
+      throw Napi::Error::New(env, "Failed to create sws context");
+    }
+
+    // Set up source planes
+    const uint8_t* src_data[4];
+    int src_linesize[4];
+    SetupSourcePlanes(format_, data_.data(), coded_width_, coded_height_,
+                      src_data, src_linesize);
+
+    // Set up destination planes
+    uint8_t* dst_data[4];
+    int dst_linesize[4];
+    SetupDestPlanes(target_format, dest.Data(), coded_width_, coded_height_,
+                    dst_data, dst_linesize);
+
+    // Perform the conversion
+    sws_scale(sws_ctx, src_data, src_linesize, 0, coded_height_,
+              dst_data, dst_linesize);
+
+    sws_freeContext(sws_ctx);
+  }
 
   // Build plane layout array
   Napi::Array layout = Napi::Array::New(env);
@@ -462,6 +686,28 @@ Napi::Object VideoFrame::CreateInstance(Napi::Env env, const uint8_t* data,
   init.Set("codedHeight", height);
   init.Set("timestamp", Napi::Number::New(env, timestamp));
   init.Set("format", format);
+
+  // Copy data to buffer.
+  Napi::Buffer<uint8_t> data_buffer =
+      Napi::Buffer<uint8_t>::Copy(env, data, data_size);
+
+  // Create new VideoFrame instance.
+  return constructor.New({data_buffer, init});
+}
+
+Napi::Object VideoFrame::CreateInstance(Napi::Env env, const uint8_t* data,
+                                        size_t data_size, int width, int height,
+                                        int64_t timestamp,
+                                        const std::string& format, int rotation,
+                                        bool flip) {
+  // Create init object with properties.
+  Napi::Object init = Napi::Object::New(env);
+  init.Set("codedWidth", width);
+  init.Set("codedHeight", height);
+  init.Set("timestamp", Napi::Number::New(env, timestamp));
+  init.Set("format", format);
+  init.Set("rotation", rotation);
+  init.Set("flip", flip);
 
   // Copy data to buffer.
   Napi::Buffer<uint8_t> data_buffer =
