@@ -131,6 +131,8 @@ Napi::Value AudioDecoder::Configure(const Napi::CallbackInfo& info) {
     codec_id = AV_CODEC_ID_OPUS;
   } else if (codec_str.find("mp4a.40") == 0) {
     codec_id = AV_CODEC_ID_AAC;
+  } else if (codec_str == "mp3") {
+    codec_id = AV_CODEC_ID_MP3;
   } else {
     Napi::Error::New(env, "NotSupportedError: Unknown codec: " + codec_str)
         .ThrowAsJavaScriptException();
@@ -501,6 +503,11 @@ Napi::Value AudioDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
       }
     } else if (codec.find("mp4a.40") == 0) {
       const AVCodec* c = avcodec_find_decoder(AV_CODEC_ID_AAC);
+      if (!c) {
+        supported = false;
+      }
+    } else if (codec == "mp3") {
+      const AVCodec* c = avcodec_find_decoder(AV_CODEC_ID_MP3);
       if (!c) {
         supported = false;
       }

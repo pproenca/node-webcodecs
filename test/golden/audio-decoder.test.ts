@@ -165,6 +165,38 @@ describe('AudioDecoder', () => {
     });
   });
 
+  describe('MP3 codec support', () => {
+    it('should support mp3 codec string', async () => {
+      const result = await AudioDecoder.isConfigSupported({
+        codec: 'mp3',
+        sampleRate: 44100,
+        numberOfChannels: 2,
+      });
+
+      expect(result.supported).toBe(true);
+      expect(result.config.codec).toBe('mp3');
+    });
+
+    it('should configure with mp3 codec', () => {
+      const decoder = new AudioDecoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      expect(() => {
+        decoder.configure({
+          codec: 'mp3',
+          sampleRate: 44100,
+          numberOfChannels: 2,
+        });
+      }).not.toThrow();
+
+      expect(decoder.state).toBe('configured');
+
+      decoder.close();
+    });
+  });
+
   describe('decodeQueueSize tracking', () => {
     it('should track pending decode operations', async () => {
       const outputData: AudioData[] = [];
