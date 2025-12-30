@@ -62,7 +62,7 @@ VideoEncoder::VideoEncoder(const Napi::CallbackInfo& info)
       color_transfer_(""),
       color_matrix_(""),
       color_full_range_(false),
-      bitstream_format_("avc"),
+      bitstream_format_("annexb"),
       frame_count_(0),
       encode_queue_size_(0) {
   Napi::Env env = info.Env();
@@ -172,18 +172,25 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
   }
 
   // Parse codec-specific bitstream format per W3C codec registration.
-  // Default: "avc" for H.264, "hevc" for H.265 (description separate from NALs)
-  bitstream_format_ = "avc";
+  // Default to "annexb" for backwards compatibility (FFmpeg's native format).
+  // Per W3C spec, the default should be "avc"/"hevc" when explicit config provided,
+  // but for backwards compatibility when no config is provided, use "annexb".
+  bitstream_format_ = "annexb";
   if (config.Has("avc") && config.Get("avc").IsObject()) {
     Napi::Object avc_config = config.Get("avc").As<Napi::Object>();
     if (avc_config.Has("format") && avc_config.Get("format").IsString()) {
       bitstream_format_ = avc_config.Get("format").As<Napi::String>().Utf8Value();
+    } else {
+      // Per W3C spec, default is "avc" when avc config object is present
+      bitstream_format_ = "avc";
     }
   } else if (config.Has("hevc") && config.Get("hevc").IsObject()) {
-    bitstream_format_ = "hevc";  // Default for HEVC
     Napi::Object hevc_config = config.Get("hevc").As<Napi::Object>();
     if (hevc_config.Has("format") && hevc_config.Get("format").IsString()) {
       bitstream_format_ = hevc_config.Get("format").As<Napi::String>().Utf8Value();
+    } else {
+      // Per W3C spec, default is "hevc" when hevc config object is present
+      bitstream_format_ = "hevc";
     }
   }
 
