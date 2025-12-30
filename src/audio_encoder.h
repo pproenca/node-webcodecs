@@ -12,6 +12,7 @@ extern "C" {
 
 #include <napi.h>
 
+#include <atomic>
 #include <cstdint>
 #include <string>
 
@@ -59,6 +60,11 @@ class AudioEncoder : public Napi::ObjectWrap<AudioEncoder> {
   uint32_t number_of_channels_;
   int64_t timestamp_;
   int frame_count_;
+
+  // Queue tracking for W3C WebCodecs spec compliance
+  int encode_queue_size_ = 0;
+  std::atomic<bool> codec_saturated_{false};
+  static constexpr size_t kMaxQueueSize = 16;
 };
 
 #endif  // SRC_AUDIO_ENCODER_H_

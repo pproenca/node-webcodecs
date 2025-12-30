@@ -343,7 +343,7 @@ Napi::Value AudioEncoder::GetState(const Napi::CallbackInfo& info) {
 }
 
 Napi::Value AudioEncoder::GetEncodeQueueSize(const Napi::CallbackInfo& info) {
-  return Napi::Number::New(info.Env(), 0);
+  return Napi::Number::New(info.Env(), encode_queue_size_);
 }
 
 void AudioEncoder::Close(const Napi::CallbackInfo& info) {
@@ -499,6 +499,11 @@ Napi::Value AudioEncoder::Encode(const Napi::CallbackInfo& info) {
                    sample_rate_;  // pts in microseconds
   }
 
+  // Increment queue size after successful frame submission
+  encode_queue_size_++;
+  bool saturated = encode_queue_size_ >= static_cast<int>(kMaxQueueSize);
+  codec_saturated_.store(saturated);
+
   frame_count_++;
 
   return env.Undefined();
@@ -550,6 +555,13 @@ void AudioEncoder::EmitChunks(Napi::Env env) {
 
     // Call output callback.
     output_callback_.Call({chunk});
+
+    // Decrement queue size after chunk is emitted
+    if (encode_queue_size_ > 0) {
+      encode_queue_size_--;
+      bool saturated = encode_queue_size_ >= static_cast<int>(kMaxQueueSize);
+      codec_saturated_.store(saturated);
+    }
 
     av_packet_unref(packet_);
   }
