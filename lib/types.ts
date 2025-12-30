@@ -73,8 +73,29 @@ export interface VideoFrameInit {
     visibleRect?: { x: number; y: number; width: number; height: number };
 }
 
+// Codec-specific quantizer options per W3C WebCodecs spec
+export interface VideoEncoderEncodeOptionsForVp9 {
+    quantizer?: number;  // 0-63
+}
+
+export interface VideoEncoderEncodeOptionsForAv1 {
+    quantizer?: number;  // 0-63
+}
+
+export interface VideoEncoderEncodeOptionsForAvc {
+    quantizer?: number;  // 0-51
+}
+
+export interface VideoEncoderEncodeOptionsForHevc {
+    quantizer?: number;  // 0-51
+}
+
 export interface VideoEncoderEncodeOptions {
     keyFrame?: boolean;
+    vp9?: VideoEncoderEncodeOptionsForVp9;
+    av1?: VideoEncoderEncodeOptionsForAv1;
+    avc?: VideoEncoderEncodeOptionsForAvc;
+    hevc?: VideoEncoderEncodeOptionsForHevc;
 }
 
 export type CodecState = 'unconfigured' | 'configured' | 'closed';
@@ -140,12 +161,25 @@ export interface AudioDataInit {
     transfer?: ArrayBuffer[];
 }
 
+// Opus-specific encoder configuration per W3C WebCodecs spec
+export interface OpusEncoderConfig {
+    application?: 'audio' | 'lowdelay' | 'voip';
+    complexity?: number;        // 0-10
+    format?: 'opus' | 'ogg';
+    frameDuration?: number;     // microseconds
+    packetlossperc?: number;    // 0-100
+    signal?: 'auto' | 'music' | 'voice';
+    usedtx?: boolean;
+    useinbandfec?: boolean;
+}
+
 export interface AudioEncoderConfig {
     codec: string;
     sampleRate: number;
     numberOfChannels: number;
     bitrate?: number;
     bitrateMode?: 'constant' | 'variable';
+    opus?: OpusEncoderConfig;
 }
 
 export interface AudioEncoderInit {
