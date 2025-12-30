@@ -653,6 +653,16 @@ Napi::Value AudioEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
     normalized_config.Set("bitrate", config.Get("bitrate"));
   }
 
+  // Copy bitrateMode if present per W3C spec.
+  if (config.Has("bitrateMode") && config.Get("bitrateMode").IsString()) {
+    std::string bitrateMode =
+        config.Get("bitrateMode").As<Napi::String>().Utf8Value();
+    // Validate bitrateMode per W3C spec: "constant" or "variable"
+    if (bitrateMode == "constant" || bitrateMode == "variable") {
+      normalized_config.Set("bitrateMode", bitrateMode);
+    }
+  }
+
   // Copy opus-specific config if present (for Opus codec).
   if (config.Has("opus") && config.Get("opus").IsObject()) {
     Napi::Object opus_config = config.Get("opus").As<Napi::Object>();

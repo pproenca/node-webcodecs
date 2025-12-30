@@ -334,4 +334,52 @@ describe('AudioEncoder W3C Compliance', () => {
       encoder.close();
     });
   });
+
+  describe('bitrateMode support', () => {
+    it('should support bitrateMode in isConfigSupported', async () => {
+      const result = await AudioEncoder.isConfigSupported({
+        codec: 'opus',
+        sampleRate: 48000,
+        numberOfChannels: 2,
+        bitrate: 128000,
+        bitrateMode: 'constant',
+      });
+
+      expect(result.supported).toBe(true);
+      expect(result.config.bitrateMode).toBe('constant');
+    });
+
+    it('should support variable bitrateMode', async () => {
+      const result = await AudioEncoder.isConfigSupported({
+        codec: 'opus',
+        sampleRate: 48000,
+        numberOfChannels: 2,
+        bitrate: 128000,
+        bitrateMode: 'variable',
+      });
+
+      expect(result.supported).toBe(true);
+      expect(result.config.bitrateMode).toBe('variable');
+    });
+
+    it('should accept bitrateMode in configure()', () => {
+      const encoder = new AudioEncoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      expect(() => {
+        encoder.configure({
+          codec: 'opus',
+          sampleRate: 48000,
+          numberOfChannels: 2,
+          bitrate: 128000,
+          bitrateMode: 'constant',
+        });
+      }).not.toThrow();
+
+      expect(encoder.state).toBe('configured');
+      encoder.close();
+    });
+  });
 });
