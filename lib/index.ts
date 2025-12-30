@@ -974,6 +974,14 @@ export class AudioDecoder extends CodecBase {
   }
 
   decode(chunk: EncodedAudioChunk): void {
+    // W3C spec: throw InvalidStateError if not configured
+    if (this.state === 'unconfigured') {
+      throw new DOMException('Decoder is not configured', 'InvalidStateError');
+    }
+    if (this.state === 'closed') {
+      throw new DOMException('Decoder is closed', 'InvalidStateError');
+    }
+
     // Check if first chunk must be a key frame per W3C spec
     if (this._needsKeyFrame && chunk.type !== 'key') {
       this._errorCallback(
@@ -1008,6 +1016,10 @@ export class AudioDecoder extends CodecBase {
   }
 
   reset(): void {
+    // W3C spec: reset() is a no-op when closed (does NOT throw)
+    if (this.state === 'closed') {
+      return;
+    }
     this._controlQueue.clear();
     this._decodeQueueSize = 0;
     this._needsKeyFrame = true;

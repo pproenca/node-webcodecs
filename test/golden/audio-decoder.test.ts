@@ -82,6 +82,89 @@ describe('AudioDecoder', () => {
     });
   });
 
+  describe('decode() W3C compliance', () => {
+    it('should throw InvalidStateError when unconfigured', () => {
+      const decoder = new AudioDecoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      const chunk = new EncodedAudioChunk({
+        type: 'key',
+        timestamp: 0,
+        data: new Uint8Array([0, 0, 0, 0]),
+      });
+
+      expect(() => decoder.decode(chunk)).toThrow(DOMException);
+
+      try {
+        decoder.decode(chunk);
+      } catch (e) {
+        expect((e as DOMException).name).toBe('InvalidStateError');
+      }
+
+      decoder.close();
+    });
+
+    it('should throw InvalidStateError when closed', () => {
+      const decoder = new AudioDecoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      decoder.close();
+
+      const chunk = new EncodedAudioChunk({
+        type: 'key',
+        timestamp: 0,
+        data: new Uint8Array([0, 0, 0, 0]),
+      });
+
+      expect(() => decoder.decode(chunk)).toThrow(DOMException);
+
+      try {
+        decoder.decode(chunk);
+      } catch (e) {
+        expect((e as DOMException).name).toBe('InvalidStateError');
+      }
+    });
+  });
+
+  describe('reset() W3C compliance', () => {
+    it('should NOT throw when decoder is closed (W3C spec)', () => {
+      const decoder = new AudioDecoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      decoder.close();
+
+      // W3C spec: reset() should be a no-op when closed, not throw
+      expect(() => decoder.reset()).not.toThrow();
+    });
+
+    it('should transition to unconfigured state', () => {
+      const decoder = new AudioDecoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      decoder.configure({
+        codec: 'opus',
+        sampleRate: 48000,
+        numberOfChannels: 2,
+      });
+
+      expect(decoder.state).toBe('configured');
+
+      decoder.reset();
+
+      expect(decoder.state).toBe('unconfigured');
+
+      decoder.close();
+    });
+  });
+
   describe('decodeQueueSize tracking', () => {
     it('should track pending decode operations', async () => {
       const outputData: AudioData[] = [];
