@@ -659,6 +659,9 @@ export interface AudioEncoderConfig {
   numberOfChannels: number; // unsigned long
   bitrate?: number; // unsigned long long
   bitrateMode?: BitrateMode;
+  // Codec-specific configurations per W3C WebCodecs Codec Registry
+  opus?: OpusEncoderConfig;
+  aac?: AacEncoderConfig;
 }
 
 /**
@@ -673,6 +676,26 @@ export interface OpusEncoderConfig {
   signal?: 'auto' | 'music' | 'voice';
   usedtx?: boolean;
   useinbandfec?: boolean;
+}
+
+/**
+ * WebIDL:
+ * enum AacBitstreamFormat { "aac", "adts" };
+ *
+ * Per W3C AAC Codec Registration:
+ * - "aac": Raw AAC, metadata via description (MP4 container)
+ * - "adts": ADTS framing with inline metadata (streaming)
+ */
+export type AacBitstreamFormat = 'aac' | 'adts';
+
+/**
+ * WebIDL:
+ * dictionary AacEncoderConfig {
+ *   AacBitstreamFormat format = "aac";
+ * };
+ */
+export interface AacEncoderConfig {
+  format?: AacBitstreamFormat;
 }
 
 /**

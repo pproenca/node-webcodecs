@@ -4,6 +4,8 @@ import type {
   HevcEncoderConfig,
   AvcBitstreamFormat,
   HevcBitstreamFormat,
+  AacEncoderConfig,
+  AacBitstreamFormat,
 } from '../../lib/types';
 
 describe('Encoder Config Types', () => {
@@ -41,6 +43,22 @@ describe('Encoder Config Types', () => {
         format: 'hevc',
       };
       expect(config.format).toBe('hevc');
+    });
+  });
+
+  describe('AacEncoderConfig', () => {
+    it('should accept valid AAC config with aac format', () => {
+      const config: AacEncoderConfig = {
+        format: 'aac',
+      };
+      expect(config.format).toBe('aac');
+    });
+
+    it('should accept valid AAC config with adts format', () => {
+      const config: AacEncoderConfig = {
+        format: 'adts',
+      };
+      expect(config.format).toBe('adts');
     });
   });
 });
