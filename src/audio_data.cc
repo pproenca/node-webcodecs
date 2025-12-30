@@ -333,14 +333,13 @@ void AudioData::CopyTo(const Napi::CallbackInfo& info) {
     return;
   }
 
-  if (info.Length() < 1) {
-    Napi::TypeError::New(env, "copyTo requires destination buffer")
+  if (info.Length() < 2) {
+    Napi::TypeError::New(env, "copyTo requires destination and options")
         .ThrowAsJavaScriptException();
     return;
   }
 
-  // TODO(user): Handle options for planeIndex, frameOffset, frameCount, format.
-
+  // Extract destination buffer.
   Napi::Value dest_val = info[0];
   uint8_t* dest_data = nullptr;
   size_t dest_size = 0;
@@ -364,13 +363,103 @@ void AudioData::CopyTo(const Napi::CallbackInfo& info) {
     return;
   }
 
-  if (dest_size < data_.size()) {
+  // Parse options object.
+  if (!info[1].IsObject()) {
+    Napi::TypeError::New(env, "options must be an object")
+        .ThrowAsJavaScriptException();
+    return;
+  }
+  Napi::Object options = info[1].As<Napi::Object>();
+
+  // Required: planeIndex.
+  if (!options.Has("planeIndex") || !options.Get("planeIndex").IsNumber()) {
+    Napi::TypeError::New(env, "options.planeIndex is required")
+        .ThrowAsJavaScriptException();
+    return;
+  }
+  uint32_t plane_index =
+      options.Get("planeIndex").As<Napi::Number>().Uint32Value();
+
+  // Validate planeIndex.
+  bool is_planar = IsPlanar();
+  if (!is_planar && plane_index != 0) {
+    Napi::RangeError::New(env, "planeIndex must be 0 for interleaved formats")
+        .ThrowAsJavaScriptException();
+    return;
+  }
+  if (is_planar && plane_index >= number_of_channels_) {
+    Napi::RangeError::New(env, "planeIndex out of range")
+        .ThrowAsJavaScriptException();
+    return;
+  }
+
+  // Optional: frameOffset (default 0).
+  uint32_t frame_offset = 0;
+  if (options.Has("frameOffset") && options.Get("frameOffset").IsNumber()) {
+    frame_offset = options.Get("frameOffset").As<Napi::Number>().Uint32Value();
+  }
+  if (frame_offset >= number_of_frames_) {
+    Napi::RangeError::New(env, "frameOffset out of range")
+        .ThrowAsJavaScriptException();
+    return;
+  }
+
+  // Optional: frameCount (default remaining frames).
+  uint32_t frame_count = number_of_frames_ - frame_offset;
+  if (options.Has("frameCount") && options.Get("frameCount").IsNumber()) {
+    frame_count = options.Get("frameCount").As<Napi::Number>().Uint32Value();
+    if (frame_offset + frame_count > number_of_frames_) {
+      frame_count = number_of_frames_ - frame_offset;
+    }
+  }
+
+  // Optional: format (default current format).
+  std::string target_format = format_;
+  if (options.Has("format") && options.Get("format").IsString()) {
+    target_format = options.Get("format").As<Napi::String>().Utf8Value();
+  }
+
+  // Calculate required size.
+  size_t bytes_per_sample = GetBytesPerSample();
+  size_t target_bytes_per_sample = GetFormatBytesPerSample(target_format);
+  bool target_planar = IsPlanarFormat(target_format);
+
+  size_t required_size;
+  if (target_planar) {
+    required_size = frame_count * target_bytes_per_sample;
+  } else {
+    required_size = frame_count * number_of_channels_ * target_bytes_per_sample;
+  }
+
+  if (dest_size < required_size) {
     Napi::TypeError::New(env, "destination buffer too small")
         .ThrowAsJavaScriptException();
     return;
   }
 
-  std::memcpy(dest_data, data_.data(), data_.size());
+  // Same format: direct copy.
+  if (target_format == format_) {
+    size_t src_offset;
+    size_t copy_size;
+
+    if (is_planar) {
+      // Planar: each plane is numberOfFrames * bytesPerSample.
+      size_t plane_size = number_of_frames_ * bytes_per_sample;
+      src_offset = plane_index * plane_size + frame_offset * bytes_per_sample;
+      copy_size = frame_count * bytes_per_sample;
+    } else {
+      // Interleaved: samples are channel-interleaved.
+      src_offset = frame_offset * number_of_channels_ * bytes_per_sample;
+      copy_size = frame_count * number_of_channels_ * bytes_per_sample;
+    }
+
+    std::memcpy(dest_data, data_.data() + src_offset, copy_size);
+    return;
+  }
+
+  // Format conversion required - implemented in Task 6.
+  Napi::Error::New(env, "Format conversion not yet implemented")
+      .ThrowAsJavaScriptException();
 }
 
 Napi::Value AudioData::Clone(const Napi::CallbackInfo& info) {
