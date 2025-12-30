@@ -379,18 +379,70 @@ export class VideoFrame {
       throw new DOMException('VideoFrame is closed', 'InvalidStateError');
     }
 
+    // W3C spec: validate rect bounds before copying
+    if (options?.rect) {
+      const rect = options.rect;
+      const rectX = rect.x ?? 0;
+      const rectY = rect.y ?? 0;
+      const rectWidth = rect.width ?? this._native.codedWidth;
+      const rectHeight = rect.height ?? this._native.codedHeight;
+
+      if (
+        rectX < 0 ||
+        rectY < 0 ||
+        rectX + rectWidth > this._native.codedWidth ||
+        rectY + rectHeight > this._native.codedHeight
+      ) {
+        throw new RangeError('rect exceeds coded frame dimensions');
+      }
+    }
+
     // Convert ArrayBuffer to Buffer for native layer
     let destBuffer: Buffer;
+    let destLength: number;
     if (destination instanceof ArrayBuffer) {
       destBuffer = Buffer.from(destination);
+      destLength = destination.byteLength;
     } else if (destination instanceof Uint8Array) {
       destBuffer = Buffer.from(
         destination.buffer,
         destination.byteOffset,
         destination.byteLength,
       );
+      destLength = destination.byteLength;
     } else {
       throw new TypeError('Destination must be ArrayBuffer or Uint8Array');
+    }
+
+    // W3C spec: validate buffer size before copying
+    // When rect is specified, calculate size based on rect dimensions
+    let requiredSize: number;
+    if (options?.rect) {
+      const rect = options.rect;
+      const rectWidth = rect.width ?? this._native.codedWidth;
+      const rectHeight = rect.height ?? this._native.codedHeight;
+      // For buffer size validation with rect, calculate based on rect dimensions
+      // The native allocationSize doesn't accept rect, so we calculate here
+      const format = this._native.format;
+      if (
+        format === 'RGBA' ||
+        format === 'RGBX' ||
+        format === 'BGRA' ||
+        format === 'BGRX'
+      ) {
+        // Packed RGB formats: 4 bytes per pixel
+        requiredSize = rectWidth * rectHeight * 4;
+      } else {
+        // For planar formats, let native layer validate (it calculates correctly)
+        requiredSize = 0;
+      }
+    } else {
+      requiredSize = this._native.allocationSize(options || {});
+    }
+    if (requiredSize > 0 && destLength < requiredSize) {
+      throw new RangeError(
+        `Destination buffer too small: ${destLength} bytes provided, ${requiredSize} bytes required`,
+      );
     }
 
     // Call native copyTo
@@ -844,6 +896,20 @@ export class AudioData {
         "Failed to execute 'copyTo' on 'AudioData': required member planeIndex is undefined.",
       );
     }
+
+    // W3C spec: check destination buffer size before copying
+    // Must throw RangeError if buffer is too small
+    const requiredSize = this._native.allocationSize(options);
+    const destSize =
+      destination instanceof ArrayBuffer
+        ? destination.byteLength
+        : destination.byteLength;
+    if (destSize < requiredSize) {
+      throw new RangeError(
+        `destination buffer too small: requires ${requiredSize} bytes, got ${destSize}`,
+      );
+    }
+
     let destBuffer: Buffer;
     if (destination instanceof ArrayBuffer) {
       destBuffer = Buffer.from(destination);
