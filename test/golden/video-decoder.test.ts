@@ -76,6 +76,28 @@ describe('VideoDecoder', () => {
     });
   });
 
+  describe('configure', () => {
+    it('should accept config without codedWidth/codedHeight per W3C spec', async () => {
+      // W3C spec: codedWidth/codedHeight are optional in VideoDecoderConfig
+      // Decoder should accept config with only codec and use dimensions from bitstream
+      const decoder = new VideoDecoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      // This should NOT throw - per W3C spec, dimensions are optional
+      expect(() => {
+        decoder.configure({
+          codec: 'avc1.42001e',
+          // No codedWidth/codedHeight - decoder should infer from bitstream
+        });
+      }).not.toThrow();
+
+      expect(decoder.state).toBe('configured');
+      decoder.close();
+    });
+  });
+
   describe('state management', () => {
     let decoder: VideoDecoder;
 

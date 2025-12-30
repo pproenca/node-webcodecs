@@ -132,22 +132,20 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
   }
   std::string codec_str = config.Get("codec").As<Napi::String>().Utf8Value();
 
-  // Parse dimensions.
-  if (!config.Has("codedWidth") || !config.Get("codedWidth").IsNumber()) {
-    throw Napi::Error::New(env, "config.codedWidth is required");
+  // Parse dimensions (optional per W3C spec - decoder can infer from bitstream).
+  coded_width_ = 0;
+  coded_height_ = 0;
+  if (config.Has("codedWidth") && config.Get("codedWidth").IsNumber()) {
+    coded_width_ = config.Get("codedWidth").As<Napi::Number>().Int32Value();
+    if (coded_width_ < 0 || coded_width_ > kMaxDimension) {
+      throw Napi::Error::New(env, "codedWidth must be between 0 and 16384");
+    }
   }
-  if (!config.Has("codedHeight") || !config.Get("codedHeight").IsNumber()) {
-    throw Napi::Error::New(env, "config.codedHeight is required");
-  }
-
-  coded_width_ = config.Get("codedWidth").As<Napi::Number>().Int32Value();
-  coded_height_ = config.Get("codedHeight").As<Napi::Number>().Int32Value();
-
-  if (coded_width_ <= 0 || coded_width_ > kMaxDimension) {
-    throw Napi::Error::New(env, "codedWidth must be between 1 and 16384");
-  }
-  if (coded_height_ <= 0 || coded_height_ > kMaxDimension) {
-    throw Napi::Error::New(env, "codedHeight must be between 1 and 16384");
+  if (config.Has("codedHeight") && config.Get("codedHeight").IsNumber()) {
+    coded_height_ = config.Get("codedHeight").As<Napi::Number>().Int32Value();
+    if (coded_height_ < 0 || coded_height_ > kMaxDimension) {
+      throw Napi::Error::New(env, "codedHeight must be between 0 and 16384");
+    }
   }
 
   // Determine codec ID from codec string.
@@ -179,9 +177,13 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
     throw Napi::Error::New(env, "Could not allocate codec context");
   }
 
-  // Configure decoder.
-  codec_context_->width = coded_width_;
-  codec_context_->height = coded_height_;
+  // Set dimensions only if provided (decoder will use bitstream dimensions otherwise).
+  if (coded_width_ > 0) {
+    codec_context_->width = coded_width_;
+  }
+  if (coded_height_ > 0) {
+    codec_context_->height = coded_height_;
+  }
 
   // Handle optional description (extradata / SPS+PPS for H.264).
   if (config.Has("description") && config.Get("description").IsTypedArray()) {
