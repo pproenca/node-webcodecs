@@ -316,6 +316,131 @@ describe('AudioData', () => {
     });
   });
 
+  describe('copyTo', () => {
+    it('should throw if AudioData is closed', () => {
+      const data = new Float32Array(1024 * 2);
+      const audioData = new AudioData({
+        format: 'f32',
+        sampleRate: 48000,
+        numberOfFrames: 1024,
+        numberOfChannels: 2,
+        timestamp: 0,
+        data: data.buffer,
+      });
+
+      audioData.close();
+
+      const dest = new Float32Array(1024 * 2);
+      expect(() => audioData.copyTo(dest, { planeIndex: 0 })).toThrow(/InvalidStateError/);
+    });
+
+    it('should throw if destination buffer too small', () => {
+      const data = new Float32Array(1024 * 2);
+      const audioData = new AudioData({
+        format: 'f32',
+        sampleRate: 48000,
+        numberOfFrames: 1024,
+        numberOfChannels: 2,
+        timestamp: 0,
+        data: data.buffer,
+      });
+
+      const dest = new Float32Array(10); // Too small
+      expect(() => audioData.copyTo(dest, { planeIndex: 0 })).toThrow();
+
+      audioData.close();
+    });
+
+    it('should throw RangeError for invalid planeIndex on planar', () => {
+      const data = new Float32Array(1024 * 2);
+      const audioData = new AudioData({
+        format: 'f32-planar',
+        sampleRate: 48000,
+        numberOfFrames: 1024,
+        numberOfChannels: 2,
+        timestamp: 0,
+        data: data.buffer,
+      });
+
+      const dest = new Float32Array(1024);
+      expect(() => audioData.copyTo(dest, { planeIndex: 2 })).toThrow();
+
+      audioData.close();
+    });
+
+    it('should copy partial frames with frameOffset and frameCount', () => {
+      const numberOfFrames = 100;
+      const numberOfChannels = 2;
+      // Create data with recognizable pattern: frame index * 0.01
+      const data = new Float32Array(numberOfFrames * numberOfChannels);
+      for (let i = 0; i < numberOfFrames; i++) {
+        for (let c = 0; c < numberOfChannels; c++) {
+          data[i * numberOfChannels + c] = i * 0.01;
+        }
+      }
+
+      const audioData = new AudioData({
+        format: 'f32',
+        sampleRate: 48000,
+        numberOfFrames,
+        numberOfChannels,
+        timestamp: 0,
+        data: data.buffer,
+      });
+
+      // Copy frames 10-19 (10 frames)
+      const copySize = audioData.allocationSize({
+        planeIndex: 0,
+        frameOffset: 10,
+        frameCount: 10,
+      });
+      const dest = new Float32Array(copySize / 4);
+      audioData.copyTo(dest, { planeIndex: 0, frameOffset: 10, frameCount: 10 });
+
+      // Verify first sample is from frame 10
+      expect(dest[0]).toBeCloseTo(0.10, 5);
+      // Verify last sample is from frame 19
+      expect(dest[dest.length - 1]).toBeCloseTo(0.19, 5);
+
+      audioData.close();
+    });
+
+    it('should copy single plane from planar format', () => {
+      const numberOfFrames = 100;
+      const numberOfChannels = 2;
+      // Planar: all channel 0 samples, then all channel 1 samples
+      const data = new Float32Array(numberOfFrames * numberOfChannels);
+      // Channel 0: values 0.0 to 0.99
+      for (let i = 0; i < numberOfFrames; i++) {
+        data[i] = i * 0.01;
+      }
+      // Channel 1: values 1.0 to 1.99
+      for (let i = 0; i < numberOfFrames; i++) {
+        data[numberOfFrames + i] = 1.0 + i * 0.01;
+      }
+
+      const audioData = new AudioData({
+        format: 'f32-planar',
+        sampleRate: 48000,
+        numberOfFrames,
+        numberOfChannels,
+        timestamp: 0,
+        data: data.buffer,
+      });
+
+      // Copy plane 1 (channel 1)
+      const copySize = audioData.allocationSize({ planeIndex: 1 });
+      const dest = new Float32Array(copySize / 4);
+      audioData.copyTo(dest, { planeIndex: 1 });
+
+      // Verify values are from channel 1
+      expect(dest[0]).toBeCloseTo(1.0, 5);
+      expect(dest[99]).toBeCloseTo(1.99, 5);
+
+      audioData.close();
+    });
+  });
+
   describe('clone', () => {
     it('should create an independent copy', () => {
       const data = new Float32Array(1024 * 2);
