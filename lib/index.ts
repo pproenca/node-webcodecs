@@ -701,24 +701,36 @@ export class AudioData {
     return this._closed ? 0 : this._native.timestamp;
   }
 
-  allocationSize(options?: AudioDataCopyToOptions): number {
+  allocationSize(options: AudioDataCopyToOptions): number {
     if (this._closed) {
       throw new DOMException(
         'InvalidStateError: AudioData is closed',
         'InvalidStateError',
       );
     }
-    return this._native.allocationSize(options || {});
+    // W3C spec: planeIndex is required
+    if (options.planeIndex === undefined || options.planeIndex === null) {
+      throw new TypeError(
+        "Failed to execute 'allocationSize' on 'AudioData': required member planeIndex is undefined.",
+      );
+    }
+    return this._native.allocationSize(options);
   }
 
   copyTo(
     destination: ArrayBuffer | ArrayBufferView,
-    options?: AudioDataCopyToOptions,
+    options: AudioDataCopyToOptions,
   ): void {
     if (this._closed) {
       throw new DOMException(
         'InvalidStateError: AudioData is closed',
         'InvalidStateError',
+      );
+    }
+    // W3C spec: planeIndex is required
+    if (options.planeIndex === undefined || options.planeIndex === null) {
+      throw new TypeError(
+        "Failed to execute 'copyTo' on 'AudioData': required member planeIndex is undefined.",
       );
     }
     let destBuffer: Buffer;
@@ -731,7 +743,7 @@ export class AudioData {
         destination.byteLength,
       );
     }
-    this._native.copyTo(destBuffer, options || {});
+    this._native.copyTo(destBuffer, options);
     // Copy back to original if it was an ArrayBuffer
     if (destination instanceof ArrayBuffer) {
       new Uint8Array(destination).set(destBuffer);
