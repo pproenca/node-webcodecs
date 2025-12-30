@@ -7,7 +7,7 @@
 
 ## Native Layer - Video (`src/video_decoder.cc`)
 
-- [ ] Implement proper queue size tracking (line 266)
+- [x] Implement proper queue size tracking (line 266) - DONE (also AudioEncoder, AudioDecoder)
 
 ## TypeScript (`src/index.ts`)
 
@@ -23,8 +23,8 @@
 
 ## Types (`lib/types.ts`)
 
-- [ ] EventTarget inheritance not implemented for VideoEncoder (line 805)
-- [ ] EventTarget inheritance not implemented for VideoDecoder (line 830)
-- [ ] EventTarget inheritance not implemented for AudioEncoder (line 855)
-- [ ] EventTarget inheritance not implemented for AudioDecoder (line 880)
+- [x] EventTarget inheritance not implemented for VideoEncoder (line 805) - DONE
+- [x] EventTarget inheritance not implemented for VideoDecoder (line 830) - DONE
+- [x] EventTarget inheritance not implemented for AudioEncoder (line 855) - DONE
+- [x] EventTarget inheritance not implemented for AudioDecoder (line 880) - DONE
 - [ ] CanvasImageSource constructor not supported in Node.js (line 933)
