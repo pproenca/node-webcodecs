@@ -950,6 +950,24 @@ export class AudioDecoder extends CodecBase {
     if (this.state === 'closed') {
       throw new DOMException('Decoder is closed', 'InvalidStateError');
     }
+
+    // W3C spec: validate required fields with TypeError
+    if (config.codec === undefined || config.codec === null) {
+      throw new TypeError(
+        "Failed to execute 'configure' on 'AudioDecoder': required member codec is undefined."
+      );
+    }
+    if (config.sampleRate === undefined || config.sampleRate === null) {
+      throw new TypeError(
+        "Failed to execute 'configure' on 'AudioDecoder': required member sampleRate is undefined."
+      );
+    }
+    if (config.numberOfChannels === undefined || config.numberOfChannels === null) {
+      throw new TypeError(
+        "Failed to execute 'configure' on 'AudioDecoder': required member numberOfChannels is undefined."
+      );
+    }
+
     this._needsKeyFrame = true;
     // Configure synchronously to set state immediately per W3C spec
     this._native.configure(config);
