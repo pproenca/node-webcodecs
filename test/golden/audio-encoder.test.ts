@@ -383,3 +383,289 @@ describe('AudioEncoder W3C Compliance', () => {
     });
   });
 });
+
+describe('W3C Interface Compliance', () => {
+  describe('AudioEncoder interface', () => {
+    it('should have all required properties per W3C spec', () => {
+      const encoder = new AudioEncoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      // Required properties per W3C WebCodecs spec
+      expect(encoder).toHaveProperty('state');
+      expect(encoder).toHaveProperty('encodeQueueSize');
+
+      // State should be a string
+      expect(typeof encoder.state).toBe('string');
+
+      // encodeQueueSize should be a number
+      expect(typeof encoder.encodeQueueSize).toBe('number');
+
+      encoder.close();
+    });
+
+    it('should have all required methods per W3C spec', () => {
+      const encoder = new AudioEncoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      // Required methods per W3C WebCodecs spec
+      expect(typeof encoder.configure).toBe('function');
+      expect(typeof encoder.encode).toBe('function');
+      expect(typeof encoder.flush).toBe('function');
+      expect(typeof encoder.reset).toBe('function');
+      expect(typeof encoder.close).toBe('function');
+
+      encoder.close();
+    });
+
+    it('should have static isConfigSupported method', () => {
+      expect(typeof AudioEncoder.isConfigSupported).toBe('function');
+    });
+
+    it('should have ondequeue callback property', () => {
+      const encoder = new AudioEncoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      // ondequeue should exist and be settable
+      expect('ondequeue' in encoder).toBe(true);
+      expect(encoder.ondequeue).toBe(null);
+
+      const handler = () => {};
+      encoder.ondequeue = handler;
+      expect(encoder.ondequeue).toBe(handler);
+
+      encoder.close();
+    });
+
+    it('should extend EventTarget for dequeue event', () => {
+      const encoder = new AudioEncoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      // Per W3C spec, AudioEncoder extends EventTarget
+      expect(typeof encoder.addEventListener).toBe('function');
+      expect(typeof encoder.removeEventListener).toBe('function');
+      expect(typeof encoder.dispatchEvent).toBe('function');
+
+      encoder.close();
+    });
+  });
+
+  describe('state machine', () => {
+    it('should start in unconfigured state', () => {
+      const encoder = new AudioEncoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      expect(encoder.state).toBe('unconfigured');
+      encoder.close();
+    });
+
+    it('should transition to configured after configure()', () => {
+      const encoder = new AudioEncoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      encoder.configure({
+        codec: 'opus',
+        sampleRate: 48000,
+        numberOfChannels: 2,
+      });
+      expect(encoder.state).toBe('configured');
+
+      encoder.close();
+    });
+
+    it('should transition back to unconfigured after reset()', () => {
+      const encoder = new AudioEncoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      encoder.configure({
+        codec: 'opus',
+        sampleRate: 48000,
+        numberOfChannels: 2,
+      });
+      expect(encoder.state).toBe('configured');
+
+      encoder.reset();
+      expect(encoder.state).toBe('unconfigured');
+
+      encoder.close();
+    });
+
+    it('should transition to closed after close()', () => {
+      const encoder = new AudioEncoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      encoder.close();
+      expect(encoder.state).toBe('closed');
+    });
+
+    it('should allow reconfigure after reset', () => {
+      const encoder = new AudioEncoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      encoder.configure({
+        codec: 'opus',
+        sampleRate: 48000,
+        numberOfChannels: 2,
+      });
+      encoder.reset();
+      encoder.configure({
+        codec: 'mp4a.40.2',
+        sampleRate: 44100,
+        numberOfChannels: 2,
+      });
+      expect(encoder.state).toBe('configured');
+
+      encoder.close();
+    });
+  });
+
+  describe('AudioEncoderConfig properties', () => {
+    it('should echo core config properties in isConfigSupported result', async () => {
+      const config = {
+        codec: 'opus',
+        sampleRate: 48000,
+        numberOfChannels: 2,
+        bitrate: 128000,
+      };
+
+      const result = await AudioEncoder.isConfigSupported(config);
+      expect(result.supported).toBe(true);
+      expect(result.config.codec).toBe(config.codec);
+      expect(result.config.sampleRate).toBe(config.sampleRate);
+      expect(result.config.numberOfChannels).toBe(config.numberOfChannels);
+      expect(result.config.bitrate).toBe(config.bitrate);
+    });
+
+    it('should return supported=false for unsupported codecs', async () => {
+      const result = await AudioEncoder.isConfigSupported({
+        codec: 'invalid-codec-string',
+        sampleRate: 48000,
+        numberOfChannels: 2,
+      });
+      expect(result.supported).toBe(false);
+    });
+  });
+
+  describe('Opus codec support', () => {
+    it('should support opus codec string', async () => {
+      const result = await AudioEncoder.isConfigSupported({
+        codec: 'opus',
+        sampleRate: 48000,
+        numberOfChannels: 2,
+      });
+      expect(result.supported).toBe(true);
+      expect(result.config.codec).toBe('opus');
+    });
+  });
+
+  describe('AAC codec support', () => {
+    it('should support mp4a.40.2 codec string (AAC-LC)', async () => {
+      const result = await AudioEncoder.isConfigSupported({
+        codec: 'mp4a.40.2',
+        sampleRate: 48000,
+        numberOfChannels: 2,
+      });
+      expect(result.supported).toBe(true);
+      expect(result.config.codec).toBe('mp4a.40.2');
+    });
+  });
+
+  describe('dequeue event', () => {
+    it('should fire dequeue event after output callback', async () => {
+      let dequeueFired = false;
+
+      const encoder = new AudioEncoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      encoder.addEventListener('dequeue', () => {
+        dequeueFired = true;
+      });
+
+      encoder.configure({
+        codec: 'opus',
+        sampleRate: 48000,
+        numberOfChannels: 2,
+        bitrate: 128000,
+      });
+
+      const audioData = new AudioData({
+        format: 'f32',
+        sampleRate: 48000,
+        numberOfFrames: 960,
+        numberOfChannels: 2,
+        timestamp: 0,
+        data: new Float32Array(960 * 2),
+      });
+
+      encoder.encode(audioData);
+      await encoder.flush();
+      audioData.close();
+
+      // Give time for async events
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(dequeueFired).toBe(true);
+
+      encoder.close();
+    });
+
+    it('should call ondequeue callback after output', async () => {
+      let callbackCalled = false;
+
+      const encoder = new AudioEncoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      encoder.ondequeue = () => {
+        callbackCalled = true;
+      };
+
+      encoder.configure({
+        codec: 'opus',
+        sampleRate: 48000,
+        numberOfChannels: 2,
+        bitrate: 128000,
+      });
+
+      const audioData = new AudioData({
+        format: 'f32',
+        sampleRate: 48000,
+        numberOfFrames: 960,
+        numberOfChannels: 2,
+        timestamp: 0,
+        data: new Float32Array(960 * 2),
+      });
+
+      encoder.encode(audioData);
+      await encoder.flush();
+      audioData.close();
+
+      // Give time for async callbacks
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(callbackCalled).toBe(true);
+
+      encoder.close();
+    });
+  });
+});
