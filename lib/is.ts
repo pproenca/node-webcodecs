@@ -135,3 +135,92 @@ export function inRange(val: number, min: number, max: number): boolean {
 export function inArray<T>(val: T, list: readonly T[]): boolean {
   return list.includes(val);
 }
+
+//==============================================================================
+// Error Factories (following sharp pattern)
+//==============================================================================
+
+/**
+ * Create an Error with a message relating to an invalid parameter.
+ * Follows sharp's invalidParameterError pattern.
+ *
+ * @param name - Parameter name
+ * @param expected - Description of expected type/value/range
+ * @param actual - The value received
+ * @returns Error with formatted message
+ *
+ * @example
+ * throw invalidParameterError('width', 'positive integer', -5);
+ * // Error: Expected positive integer for width but received -5 of type number
+ */
+export function invalidParameterError(
+  name: string,
+  expected: string,
+  actual: unknown
+): Error {
+  let actualType: string;
+  if (actual === null) {
+    actualType = 'null';
+  } else if (actual === undefined) {
+    actualType = 'undefined';
+  } else {
+    actualType = typeof actual;
+  }
+
+  const actualStr =
+    typeof actual === 'string'
+      ? `'${actual}'`
+      : typeof actual === 'number' || typeof actual === 'boolean'
+        ? String(actual)
+        : actualType;
+
+  return new Error(
+    `Expected ${expected} for ${name} but received ${actualStr} of type ${actualType}`
+  );
+}
+
+/**
+ * Create an Error for a missing required parameter.
+ */
+export function missingParameterError(name: string): Error {
+  return new Error(`Missing required parameter: ${name}`);
+}
+
+/**
+ * Create an Error for an out-of-range value.
+ */
+export function rangeError(
+  name: string,
+  min: number,
+  max: number,
+  actual: number
+): Error {
+  return new Error(
+    `Expected ${name} between ${min} and ${max} but received ${actual}`
+  );
+}
+
+/**
+ * Create an Error for an invalid enum value.
+ */
+export function enumError(
+  name: string,
+  allowed: readonly string[],
+  actual: unknown
+): Error {
+  return new Error(
+    `Expected one of [${allowed.join(', ')}] for ${name} but received '${actual}'`
+  );
+}
+
+/**
+ * Ensures an Error from C++ native code contains a JS stack trace.
+ * Following sharp's nativeError pattern.
+ */
+export function nativeError(native: Error, context: Error): Error {
+  context.message = native.message;
+  if ('code' in native) {
+    (context as Error & {code: unknown}).code = native.code;
+  }
+  return context;
+}

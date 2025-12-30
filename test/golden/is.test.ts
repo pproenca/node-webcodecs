@@ -48,3 +48,53 @@ describe('lib/is - Type Guards', () => {
     });
   });
 });
+
+describe('lib/is - Error Factories', () => {
+  describe('invalidParameterError', () => {
+    it('formats error with expected/actual/type', () => {
+      const err = is.invalidParameterError('width', 'positive integer', -5);
+      expect(err.message).toBe(
+        'Expected positive integer for width but received -5 of type number'
+      );
+    });
+
+    it('quotes string values', () => {
+      const err = is.invalidParameterError('codec', 'valid codec string', 'bad');
+      expect(err.message).toContain("'bad'");
+      expect(err.message).toContain('of type string');
+    });
+
+    it('handles null and undefined', () => {
+      const errNull = is.invalidParameterError('config', 'object', null);
+      expect(errNull.message).toContain('of type null');
+
+      const errUndef = is.invalidParameterError('config', 'object', undefined);
+      expect(errUndef.message).toContain('of type undefined');
+    });
+  });
+
+  describe('missingParameterError', () => {
+    it('creates error with parameter name', () => {
+      const err = is.missingParameterError('codec');
+      expect(err.message).toBe('Missing required parameter: codec');
+    });
+  });
+
+  describe('rangeError', () => {
+    it('includes min, max, and actual value', () => {
+      const err = is.rangeError('quality', 1, 100, 150);
+      expect(err.message).toBe(
+        'Expected quality between 1 and 100 but received 150'
+      );
+    });
+  });
+
+  describe('enumError', () => {
+    it('lists allowed values', () => {
+      const err = is.enumError('latencyMode', ['quality', 'realtime'], 'fast');
+      expect(err.message).toBe(
+        "Expected one of [quality, realtime] for latencyMode but received 'fast'"
+      );
+    });
+  });
+});
