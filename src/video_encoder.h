@@ -63,6 +63,10 @@ class VideoEncoder : public Napi::ObjectWrap<VideoEncoder> {
   int display_width_;
   int display_height_;
   std::string codec_string_;
+  std::string color_primaries_;
+  std::string color_transfer_;
+  std::string color_matrix_;
+  bool color_full_range_;
   int64_t frame_count_;
   int encode_queue_size_;
   std::atomic<bool> codec_saturated_{false};

@@ -58,6 +58,10 @@ VideoEncoder::VideoEncoder(const Napi::CallbackInfo& info)
       display_width_(0),
       display_height_(0),
       codec_string_(""),
+      color_primaries_(""),
+      color_transfer_(""),
+      color_matrix_(""),
+      color_full_range_(false),
       frame_count_(0),
       encode_queue_size_(0) {
   Napi::Env env = info.Env();
@@ -144,6 +148,27 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
     codec_str = config.Get("codec").As<Napi::String>().Utf8Value();
   }
   codec_string_ = codec_str;  // Store for metadata
+
+  // Parse colorSpace config
+  color_primaries_ = "";
+  color_transfer_ = "";
+  color_matrix_ = "";
+  color_full_range_ = false;
+  if (config.Has("colorSpace") && config.Get("colorSpace").IsObject()) {
+    Napi::Object cs = config.Get("colorSpace").As<Napi::Object>();
+    if (cs.Has("primaries") && cs.Get("primaries").IsString()) {
+      color_primaries_ = cs.Get("primaries").As<Napi::String>().Utf8Value();
+    }
+    if (cs.Has("transfer") && cs.Get("transfer").IsString()) {
+      color_transfer_ = cs.Get("transfer").As<Napi::String>().Utf8Value();
+    }
+    if (cs.Has("matrix") && cs.Get("matrix").IsString()) {
+      color_matrix_ = cs.Get("matrix").As<Napi::String>().Utf8Value();
+    }
+    if (cs.Has("fullRange") && cs.Get("fullRange").IsBoolean()) {
+      color_full_range_ = cs.Get("fullRange").As<Napi::Boolean>().Value();
+    }
+  }
 
   // Find encoder based on codec string
   AVCodecID codec_id = AV_CODEC_ID_NONE;
@@ -501,6 +526,23 @@ void VideoEncoder::EmitChunks(Napi::Env env) {
                                         codec_context_->extradata_size));
       }
 
+      // Add colorSpace to decoderConfig if configured.
+      if (!color_primaries_.empty() || !color_transfer_.empty() ||
+          !color_matrix_.empty()) {
+        Napi::Object color_space = Napi::Object::New(env);
+        if (!color_primaries_.empty()) {
+          color_space.Set("primaries", color_primaries_);
+        }
+        if (!color_transfer_.empty()) {
+          color_space.Set("transfer", color_transfer_);
+        }
+        if (!color_matrix_.empty()) {
+          color_space.Set("matrix", color_matrix_);
+        }
+        color_space.Set("fullRange", color_full_range_);
+        decoder_config.Set("colorSpace", color_space);
+      }
+
       metadata.Set("decoderConfig", decoder_config);
     }
 
@@ -631,6 +673,16 @@ Napi::Value VideoEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   // Echo contentHint per W3C spec
   if (config.Has("contentHint") && config.Get("contentHint").IsString()) {
     normalized_config.Set("contentHint", config.Get("contentHint"));
+  }
+  // Echo colorSpace per W3C spec
+  if (config.Has("colorSpace") && config.Get("colorSpace").IsObject()) {
+    Napi::Object cs = config.Get("colorSpace").As<Napi::Object>();
+    Napi::Object cs_copy = Napi::Object::New(env);
+    if (cs.Has("primaries")) cs_copy.Set("primaries", cs.Get("primaries"));
+    if (cs.Has("transfer")) cs_copy.Set("transfer", cs.Get("transfer"));
+    if (cs.Has("matrix")) cs_copy.Set("matrix", cs.Get("matrix"));
+    if (cs.Has("fullRange")) cs_copy.Set("fullRange", cs.Get("fullRange"));
+    normalized_config.Set("colorSpace", cs_copy);
   }
 
   result.Set("supported", supported);

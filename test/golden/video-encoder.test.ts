@@ -422,4 +422,69 @@ describe('VideoEncoder', () => {
       expect(keyframeChunk?.metadata?.svc?.temporalLayerId).toBe(0);
     });
   });
+
+  describe('colorSpace support', () => {
+    it('should echo colorSpace in isConfigSupported', async () => {
+      const result = await VideoEncoder.isConfigSupported({
+        codec: 'avc1.42E01E',
+        width: 640,
+        height: 480,
+        colorSpace: {
+          primaries: 'bt709',
+          transfer: 'bt709',
+          matrix: 'bt709',
+          fullRange: false,
+        },
+      });
+      expect(result.supported).toBe(true);
+      expect(result.config.colorSpace).toBeDefined();
+      expect(result.config.colorSpace?.primaries).toBe('bt709');
+      expect(result.config.colorSpace?.transfer).toBe('bt709');
+      expect(result.config.colorSpace?.matrix).toBe('bt709');
+      expect(result.config.colorSpace?.fullRange).toBe(false);
+    });
+
+    it('should include colorSpace in decoderConfig metadata', async () => {
+      const chunks: Array<{chunk: EncodedVideoChunk; metadata?: EncodedVideoChunkMetadata}> = [];
+
+      const encoder = new VideoEncoder({
+        output: (chunk, metadata) => {
+          chunks.push({chunk, metadata});
+        },
+        error: (e) => { throw e; },
+      });
+
+      encoder.configure({
+        codec: 'avc1.42E01E',
+        width: 320,
+        height: 240,
+        colorSpace: {
+          primaries: 'bt709',
+          transfer: 'bt709',
+          matrix: 'bt709',
+          fullRange: false,
+        },
+      });
+
+      const frame = new VideoFrame(
+        new Uint8Array(320 * 240 * 4),
+        {
+          format: 'RGBA',
+          codedWidth: 320,
+          codedHeight: 240,
+          timestamp: 0,
+        }
+      );
+
+      encoder.encode(frame, {keyFrame: true});
+      frame.close();
+
+      await encoder.flush();
+      encoder.close();
+
+      const keyframe = chunks.find(c => c.chunk.type === 'key');
+      expect(keyframe?.metadata?.decoderConfig?.colorSpace).toBeDefined();
+      expect(keyframe?.metadata?.decoderConfig?.colorSpace?.primaries).toBe('bt709');
+    });
+  });
 });
