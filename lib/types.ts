@@ -163,18 +163,27 @@ export type VideoPixelFormat =
 
 /**
  * WebIDL:
- * enum VideoColorPrimaries { "bt709", "bt470bg", "smpte170m", "bt2020", "smpte432" };
+ * enum VideoColorPrimaries { "bt709", "bt470bg", "smpte170m", "bt2020", "smpte432",
+ *   "srgb", "bt470m", "smpte240m", "film", "xyz", "smpte431" };
  */
 export type VideoColorPrimaries =
   | 'bt709'
   | 'bt470bg'
   | 'smpte170m'
   | 'bt2020'
-  | 'smpte432';
+  | 'smpte432'
+  | 'srgb'
+  | 'bt470m'
+  | 'smpte240m'
+  | 'film'
+  | 'xyz'
+  | 'smpte431';
 
 /**
  * WebIDL:
- * enum VideoTransferCharacteristics { "bt709", "smpte170m", "iec61966-2-1", "linear", "pq", "hlg" };
+ * enum VideoTransferCharacteristics { "bt709", "smpte170m", "iec61966-2-1", "linear", "pq", "hlg",
+ *   "gamma22curve", "gamma28curve", "smpte240m", "log", "logrt", "iec61966-2-4", "bt1361",
+ *   "bt2020-10bit", "bt2020-12bit", "smpte2084", "smpte428", "arib-std-b67" };
  */
 export type VideoTransferCharacteristics =
   | 'bt709'
@@ -182,7 +191,19 @@ export type VideoTransferCharacteristics =
   | 'iec61966-2-1'
   | 'linear'
   | 'pq'
-  | 'hlg';
+  | 'hlg'
+  | 'gamma22curve'
+  | 'gamma28curve'
+  | 'smpte240m'
+  | 'log'
+  | 'logrt'
+  | 'iec61966-2-4'
+  | 'bt1361'
+  | 'bt2020-10bit'
+  | 'bt2020-12bit'
+  | 'smpte2084'
+  | 'smpte428'
+  | 'arib-std-b67';
 
 /**
  * WebIDL:
