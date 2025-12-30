@@ -275,8 +275,17 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
   hardware_acceleration_ = "no-preference";
   if (config.Has("hardwareAcceleration") &&
       config.Get("hardwareAcceleration").IsString()) {
-    hardware_acceleration_ =
+    std::string hw =
         config.Get("hardwareAcceleration").As<Napi::String>().Utf8Value();
+    // Validate W3C enum values per spec.
+    if (hw != "no-preference" && hw != "prefer-hardware" &&
+        hw != "prefer-software") {
+      throw Napi::TypeError::New(
+          env,
+          "hardwareAcceleration must be 'no-preference', 'prefer-hardware', "
+          "or 'prefer-software'");
+    }
+    hardware_acceleration_ = hw;
   }
 
   // Apply low-latency flags if requested (before opening codec).
@@ -542,8 +551,14 @@ Napi::Value VideoDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   // Handle hardwareAcceleration with default value per W3C spec.
   if (config.Has("hardwareAcceleration") &&
       config.Get("hardwareAcceleration").IsString()) {
-    normalized_config.Set("hardwareAcceleration",
-                          config.Get("hardwareAcceleration"));
+    std::string hw =
+        config.Get("hardwareAcceleration").As<Napi::String>().Utf8Value();
+    // Validate W3C enum values per spec.
+    if (hw != "no-preference" && hw != "prefer-hardware" &&
+        hw != "prefer-software") {
+      supported = false;
+    }
+    normalized_config.Set("hardwareAcceleration", hw);
   } else {
     // Default to "no-preference" per W3C spec.
     normalized_config.Set("hardwareAcceleration", "no-preference");

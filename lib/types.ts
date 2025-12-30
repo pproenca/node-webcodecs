@@ -35,12 +35,17 @@ export type CodecState = 'unconfigured' | 'configured' | 'closed';
 
 /**
  * WebIDL:
- * enum HardwareAcceleration { "allow", "deny", "prefer" };
+ * enum HardwareAcceleration { "no-preference", "prefer-hardware", "prefer-software" };
  *
- * Note: Previous versions used "no-preference", "prefer-hardware", "prefer-software".
- * Updated to match W3C WebCodecs spec for browser code portability.
+ * Per W3C WebCodecs spec: https://www.w3.org/TR/webcodecs/#hardware-acceleration
+ * - "no-preference": UA may use hardware acceleration if available
+ * - "prefer-hardware": UA should prefer hardware acceleration
+ * - "prefer-software": UA should prefer software implementation
  */
-export type HardwareAcceleration = 'allow' | 'deny' | 'prefer';
+export type HardwareAcceleration =
+  | 'no-preference'
+  | 'prefer-hardware'
+  | 'prefer-software';
 
 // =============================================================================
 // ALPHA OPTION

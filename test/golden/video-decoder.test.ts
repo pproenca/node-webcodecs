@@ -543,7 +543,7 @@ describe('VideoDecoder', () => {
           codec: 'avc1.42001e',
           codedWidth: 320,
           codedHeight: 240,
-          hardwareAcceleration: 'prefer' as const,
+          hardwareAcceleration: 'prefer-hardware' as const,
           optimizeForLatency: true,
         };
 
@@ -592,8 +592,12 @@ describe('VideoDecoder', () => {
         expect(resultFalse.config.optimizeForLatency).toBe(false);
       });
 
-      it('should echo hardwareAcceleration enum values', async () => {
-        const values: Array<'allow' | 'deny' | 'prefer'> = ['allow', 'deny', 'prefer'];
+      it('should echo hardwareAcceleration W3C enum values', async () => {
+        const values: Array<'no-preference' | 'prefer-hardware' | 'prefer-software'> = [
+          'no-preference',
+          'prefer-hardware',
+          'prefer-software',
+        ];
         for (const hw of values) {
           const result = await VideoDecoder.isConfigSupported({
             codec: 'avc1.42001e',
@@ -601,6 +605,30 @@ describe('VideoDecoder', () => {
           });
           expect(result.config.hardwareAcceleration).toBe(hw);
         }
+      });
+
+      it('should reject invalid hardwareAcceleration values in configure', () => {
+        const decoder = new VideoDecoder({
+          output: () => {},
+          error: () => {},
+        });
+
+        expect(() => {
+          decoder.configure({
+            codec: 'avc1.42001e',
+            hardwareAcceleration: 'invalid-value' as any,
+          });
+        }).toThrow(TypeError);
+
+        decoder.close();
+      });
+
+      it('should return supported=false for invalid hardwareAcceleration in isConfigSupported', async () => {
+        const result = await VideoDecoder.isConfigSupported({
+          codec: 'avc1.42001e',
+          hardwareAcceleration: 'allow' as any, // Old value, no longer valid
+        });
+        expect(result.supported).toBe(false);
       });
 
       it('should return supported=false for unsupported codecs', async () => {
