@@ -668,4 +668,29 @@ describe('W3C Interface Compliance', () => {
       encoder.close();
     });
   });
+
+  describe('AAC bitstream format', () => {
+    it('should support aac.format = aac in isConfigSupported', async () => {
+      const result = await AudioEncoder.isConfigSupported({
+        codec: 'mp4a.40.2',
+        sampleRate: 48000,
+        numberOfChannels: 2,
+        aac: {format: 'aac'},
+      });
+      expect(result.supported).toBe(true);
+      expect(result.config.aac).toBeDefined();
+      expect(result.config.aac?.format).toBe('aac');
+    });
+
+    it('should support aac.format = adts in isConfigSupported', async () => {
+      const result = await AudioEncoder.isConfigSupported({
+        codec: 'mp4a.40.2',
+        sampleRate: 48000,
+        numberOfChannels: 2,
+        aac: {format: 'adts'},
+      });
+      expect(result.supported).toBe(true);
+      expect(result.config.aac?.format).toBe('adts');
+    });
+  });
 });

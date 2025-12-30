@@ -701,6 +701,23 @@ Napi::Value AudioEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
     normalized_config.Set("opus", normalized_opus);
   }
 
+  // Copy aac-specific config if present (per W3C AAC codec registration).
+  if (config.Has("aac") && config.Get("aac").IsObject()) {
+    Napi::Object aac_config = config.Get("aac").As<Napi::Object>();
+    Napi::Object normalized_aac = Napi::Object::New(env);
+
+    if (aac_config.Has("format") && aac_config.Get("format").IsString()) {
+      std::string format =
+          aac_config.Get("format").As<Napi::String>().Utf8Value();
+      // Validate per W3C spec: "aac" or "adts"
+      if (format == "aac" || format == "adts") {
+        normalized_aac.Set("format", format);
+      }
+    }
+
+    normalized_config.Set("aac", normalized_aac);
+  }
+
   result.Set("supported", supported);
   result.Set("config", normalized_config);
 
