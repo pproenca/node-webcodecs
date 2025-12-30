@@ -20,7 +20,7 @@ describe('AudioData.copyTo() returns void per W3C spec', () => {
     audioData.close();
   });
 
-  it('should throw InvalidStateError when closed', () => {
+  it('should throw DOMException with InvalidStateError when closed', () => {
     const audioData = new AudioData({
       format: 'f32',
       sampleRate: 48000,
@@ -33,8 +33,13 @@ describe('AudioData.copyTo() returns void per W3C spec', () => {
 
     const destination = new ArrayBuffer(1024 * 2 * 4);
 
-    expect(() =>
-      audioData.copyTo(destination, {planeIndex: 0})
-    ).toThrow('InvalidStateError');
+    expect(() => audioData.copyTo(destination, {planeIndex: 0})).toThrow(
+      DOMException,
+    );
+    try {
+      audioData.copyTo(destination, {planeIndex: 0});
+    } catch (e) {
+      expect((e as DOMException).name).toBe('InvalidStateError');
+    }
   });
 });

@@ -317,7 +317,7 @@ describe('AudioData', () => {
   });
 
   describe('copyTo', () => {
-    it('should throw if AudioData is closed', async () => {
+    it('should throw DOMException with InvalidStateError if AudioData is closed', async () => {
       const data = new Float32Array(1024 * 2);
       const audioData = new AudioData({
         format: 'f32',
@@ -331,7 +331,12 @@ describe('AudioData', () => {
       audioData.close();
 
       const dest = new Float32Array(1024 * 2);
-      expect(() => audioData.copyTo(dest, { planeIndex: 0 })).toThrow(/InvalidStateError/);
+      expect(() => audioData.copyTo(dest, {planeIndex: 0})).toThrow(DOMException);
+      try {
+        audioData.copyTo(dest, {planeIndex: 0});
+      } catch (e) {
+        expect((e as DOMException).name).toBe('InvalidStateError');
+      }
     });
 
     it('should throw if destination buffer too small', () => {

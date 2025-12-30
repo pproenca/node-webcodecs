@@ -643,6 +643,12 @@ export class VideoFrame {
     wrapper._closed = false;
     // Preserve metadata through clone
     wrapper._metadata = {...this._metadata};
+    // Preserve override fields through clone
+    wrapper._timestampOverride = this._timestampOverride;
+    wrapper._durationOverride = this._durationOverride;
+    wrapper._visibleRectOverride = this._visibleRectOverride
+      ? {...this._visibleRectOverride}
+      : undefined;
     return wrapper;
   }
 
@@ -1033,10 +1039,7 @@ export class AudioData {
 
   allocationSize(options: AudioDataCopyToOptions): number {
     if (this._closed) {
-      throw new DOMException(
-        'InvalidStateError: AudioData is closed',
-        'InvalidStateError',
-      );
+      throw new DOMException('AudioData is closed', 'InvalidStateError');
     }
     // W3C spec: planeIndex is required
     if (options.planeIndex === undefined || options.planeIndex === null) {
@@ -1052,10 +1055,7 @@ export class AudioData {
     options: AudioDataCopyToOptions,
   ): void {
     if (this._closed) {
-      throw new DOMException(
-        'InvalidStateError: AudioData is closed',
-        'InvalidStateError',
-      );
+      throw new DOMException('AudioData is closed', 'InvalidStateError');
     }
     // W3C spec: planeIndex is required
     if (options.planeIndex === undefined || options.planeIndex === null) {
@@ -1067,10 +1067,7 @@ export class AudioData {
     // W3C spec: check destination buffer size before copying
     // Must throw RangeError if buffer is too small
     const requiredSize = this._native.allocationSize(options);
-    const destSize =
-      destination instanceof ArrayBuffer
-        ? destination.byteLength
-        : destination.byteLength;
+    const destSize = destination.byteLength;
     if (destSize < requiredSize) {
       throw new RangeError(
         `destination buffer too small: requires ${requiredSize} bytes, got ${destSize}`,
@@ -1096,10 +1093,7 @@ export class AudioData {
 
   clone(): AudioData {
     if (this._closed) {
-      throw new DOMException(
-        'InvalidStateError: AudioData is closed',
-        'InvalidStateError',
-      );
+      throw new DOMException('AudioData is closed', 'InvalidStateError');
     }
     const clonedNative = this._native.clone();
     const wrapper = Object.create(AudioData.prototype);
@@ -1465,8 +1459,8 @@ export class VideoFilter {
     return this._state;
   }
 
-  configure(_config: VideoFilterConfig): void {
-    // VideoFilter is configured at construction time
+  configure(config: VideoFilterConfig): void {
+    this._native.configure(config);
     this._state = 'configured';
   }
 
@@ -1478,16 +1472,19 @@ export class VideoFilter {
     if (this._state === 'closed') {
       throw new DOMException('VideoFilter is closed', 'InvalidStateError');
     }
-    // Pass the native VideoFrame data to applyBlur
-    const frameData = frame._nativeFrame.getData();
-    const resultData = this._native.applyBlur(frameData, regions, strength);
-    // Create a new VideoFrame with the blurred data
-    return new VideoFrame(resultData, {
-      codedWidth: frame.codedWidth,
-      codedHeight: frame.codedHeight,
-      timestamp: frame.timestamp,
-      format: frame.format as VideoPixelFormat,
-    });
+    // Pass the native VideoFrame to applyBlur, which returns a native VideoFrame
+    const resultNativeFrame = this._native.applyBlur(
+      frame._nativeFrame,
+      regions,
+      strength,
+    );
+    // Wrap the returned native VideoFrame in a TypeScript VideoFrame
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const wrapper = Object.create(VideoFrame.prototype) as any;
+    wrapper._native = resultNativeFrame;
+    wrapper._closed = false;
+    wrapper._metadata = {};
+    return wrapper as VideoFrame;
   }
 
   close(): void {
