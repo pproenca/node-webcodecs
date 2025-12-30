@@ -270,6 +270,15 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
         config.Get("optimizeForLatency").As<Napi::Boolean>().Value();
   }
 
+  // Parse optional hardwareAcceleration (per W3C spec).
+  // Note: This is a stub - FFmpeg uses software decoding.
+  hardware_acceleration_ = "no-preference";
+  if (config.Has("hardwareAcceleration") &&
+      config.Get("hardwareAcceleration").IsString()) {
+    hardware_acceleration_ =
+        config.Get("hardwareAcceleration").As<Napi::String>().Utf8Value();
+  }
+
   // Apply low-latency flags if requested (before opening codec).
   if (optimize_for_latency_) {
     codec_context_->flags |= AV_CODEC_FLAG_LOW_DELAY;
@@ -527,11 +536,17 @@ Napi::Value VideoDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   if (config.Has("description") && config.Get("description").IsTypedArray()) {
     normalized_config.Set("description", config.Get("description"));
   }
+
+  // Handle hardwareAcceleration with default value per W3C spec.
   if (config.Has("hardwareAcceleration") &&
       config.Get("hardwareAcceleration").IsString()) {
     normalized_config.Set("hardwareAcceleration",
                           config.Get("hardwareAcceleration"));
+  } else {
+    // Default to "no-preference" per W3C spec.
+    normalized_config.Set("hardwareAcceleration", "no-preference");
   }
+
   if (config.Has("optimizeForLatency") &&
       config.Get("optimizeForLatency").IsBoolean()) {
     normalized_config.Set("optimizeForLatency",
