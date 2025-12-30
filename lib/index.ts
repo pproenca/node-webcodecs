@@ -1223,11 +1223,46 @@ export class Demuxer {
 }
 
 export class ImageDecoder {
-  private _native: NativeImageDecoder;
+  private _native: NativeImageDecoder | null = null;
   private _closed: boolean = false;
   private _tracks: ImageTrackList | null = null;
+  private _type: string;
+  private _isStreaming: boolean = false;
+  private _completed: Promise<void>;
+  private _completedResolve!: () => void;
+  private _completedReject!: (error: Error) => void;
+  private _tracksReadyResolve!: () => void;
+  private _tracksReadyReject!: (error: Error) => void;
+  private _tracksReadyPromise: Promise<void>;
 
   constructor(init: ImageDecoderInit) {
+    // Store type immediately for the type getter
+    this._type = init.type;
+
+    // Create completed promise
+    this._completed = new Promise<void>((resolve, reject) => {
+      this._completedResolve = resolve;
+      this._completedReject = reject;
+    });
+
+    // Create tracks ready promise
+    this._tracksReadyPromise = new Promise<void>((resolve, reject) => {
+      this._tracksReadyResolve = resolve;
+      this._tracksReadyReject = reject;
+    });
+
+    // Handle ReadableStream
+    if (
+      init.data &&
+      typeof init.data === 'object' &&
+      'getReader' in init.data
+    ) {
+      this._isStreaming = true;
+      // Fire and forget - errors are captured by _completedReject
+      void this._consumeStream(init.data as ReadableStream<Uint8Array>);
+      return;
+    }
+
     // Convert data to Buffer if needed
     let dataBuffer: Buffer;
     if (init.data instanceof ArrayBuffer) {
@@ -1242,22 +1277,97 @@ export class ImageDecoder {
       throw new TypeError('data must be ArrayBuffer or ArrayBufferView');
     }
 
+    this._initializeNative(dataBuffer, init.type);
+  }
+
+  private _initializeNative(dataBuffer: Buffer, type: string): void {
     this._native = new native.ImageDecoder({
-      type: init.type,
+      type: type,
       data: dataBuffer,
     });
+    this._isStreaming = false;
+    this._completedResolve();
+    this._tracksReadyResolve();
+  }
+
+  private async _consumeStream(
+    stream: ReadableStream<Uint8Array>,
+  ): Promise<void> {
+    const reader = stream.getReader();
+    const chunks: Uint8Array[] = [];
+
+    try {
+      while (true) {
+        const {done, value} = await reader.read();
+        if (done) break;
+        if (value) {
+          chunks.push(value);
+        }
+      }
+
+      // Concatenate all chunks
+      const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+      const fullData = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        fullData.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      // Initialize native decoder with complete data
+      this._initializeNative(Buffer.from(fullData), this._type);
+    } catch (error) {
+      // Cancel the reader to properly clean up and prevent additional rejections
+      try {
+        await reader.cancel();
+      } catch {
+        // Ignore cancel errors
+      }
+      this._completedReject(error as Error);
+      this._tracksReadyReject(error as Error);
+    }
   }
 
   get type(): string {
-    return this._native.type;
+    return this._type;
   }
 
   get complete(): boolean {
-    return this._native.complete;
+    if (this._isStreaming) {
+      return false;
+    }
+    return this._native?.complete ?? false;
   }
 
   get tracks(): ImageTrackList {
     if (this._tracks === null) {
+      // For streaming, return empty list until ready
+      if (this._isStreaming || !this._native) {
+        this._tracks = new ImageTrackList([], this._tracksReadyPromise);
+        // Update tracks when stream completes - fire and forget
+        void this._tracksReadyPromise.then(() => {
+          if (this._native && this._tracks) {
+            const nativeTracks = this._native.tracks;
+            const tracks: ImageTrack[] = [];
+
+            for (let i = 0; i < nativeTracks.length; i++) {
+              const nt = nativeTracks[i];
+              tracks.push(
+                new ImageTrack({
+                  animated: nt.animated,
+                  frameCount: nt.frameCount,
+                  repetitionCount: nt.repetitionCount,
+                  selected: nt.selected,
+                }),
+              );
+            }
+            // Update the internal tracks array
+            (this._tracks as ImageTrackList)._updateTracks(tracks);
+          }
+        });
+        return this._tracks;
+      }
+
       const nativeTracks = this._native.tracks;
       const tracks: ImageTrack[] = [];
 
@@ -1279,13 +1389,19 @@ export class ImageDecoder {
   }
 
   get completed(): Promise<void> {
-    // Resolve immediately since we decode synchronously
-    return Promise.resolve();
+    return this._completed;
   }
 
   async decode(options?: ImageDecodeOptions): Promise<ImageDecodeResult> {
     if (this._closed) {
       throw new DOMException('ImageDecoder is closed', 'InvalidStateError');
+    }
+
+    // Wait for stream to complete if streaming
+    await this._completed;
+
+    if (!this._native) {
+      throw new DOMException('ImageDecoder failed to initialize', 'DataError');
     }
 
     const result = await this._native.decode(options || {});
@@ -1313,7 +1429,9 @@ export class ImageDecoder {
 
   close(): void {
     if (!this._closed) {
-      this._native.close();
+      if (this._native) {
+        this._native.close();
+      }
       this._closed = true;
     }
   }

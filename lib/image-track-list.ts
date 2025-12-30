@@ -73,4 +73,20 @@ export class ImageTrackList {
       yield track;
     }
   }
+
+  /**
+   * Internal method to update tracks after stream consumption.
+   * @internal
+   */
+  _updateTracks(tracks: ImageTrack[]): void {
+    this._tracks = tracks;
+    // Set up index accessors for the new tracks
+    for (let i = 0; i < tracks.length; i++) {
+      Object.defineProperty(this, i, {
+        get: () => this._tracks[i],
+        enumerable: true,
+        configurable: true, // Allow redefinition
+      });
+    }
+  }
 }
