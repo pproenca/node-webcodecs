@@ -45,22 +45,16 @@ AudioEncoder::AudioEncoder(const Napi::CallbackInfo& info)
   Napi::Env env = info.Env();
 
   if (info.Length() < 1 || !info[0].IsObject()) {
-    Napi::Error::New(env, "AudioEncoder requires init object")
-        .ThrowAsJavaScriptException();
-    return;
+    throw Napi::Error::New(env, "AudioEncoder requires init object");
   }
 
   Napi::Object init = info[0].As<Napi::Object>();
 
   if (!init.Has("output") || !init.Get("output").IsFunction()) {
-    Napi::Error::New(env, "init.output must be a function")
-        .ThrowAsJavaScriptException();
-    return;
+    throw Napi::Error::New(env, "init.output must be a function");
   }
   if (!init.Has("error") || !init.Get("error").IsFunction()) {
-    Napi::Error::New(env, "init.error must be a function")
-        .ThrowAsJavaScriptException();
-    return;
+    throw Napi::Error::New(env, "init.error must be a function");
   }
 
   output_callback_ = Napi::Persistent(init.Get("output").As<Napi::Function>());
@@ -81,15 +75,11 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
   if (state_ == "closed") {
-    Napi::Error::New(env, "InvalidStateError: Encoder is closed")
-        .ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "InvalidStateError: Encoder is closed");
   }
 
   if (info.Length() < 1 || !info[0].IsObject()) {
-    Napi::Error::New(env, "configure requires config object")
-        .ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "configure requires config object");
   }
 
   Napi::Object config = info[0].As<Napi::Object>();
@@ -111,9 +101,7 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
   // Find encoder.
   const AVCodec* encoder = avcodec_find_encoder(codec_id);
   if (!encoder) {
-    Napi::Error::New(env, "NotSupportedError: Encoder not found for codec")
-        .ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "NotSupportedError: Encoder not found for codec");
   }
 
   // Clean up any previous context.
@@ -123,9 +111,7 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
   codec_ = encoder;
   codec_context_ = ffmpeg::make_codec_context(codec_);
   if (!codec_context_) {
-    Napi::Error::New(env, "Could not allocate codec context")
-        .ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "Could not allocate codec context");
   }
 
   // Parse sample rate.
@@ -256,9 +242,7 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
     char errbuf[256];
     av_strerror(ret, errbuf, sizeof(errbuf));
     Cleanup();
-    Napi::Error::New(env, std::string("Could not open codec: ") + errbuf)
-        .ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, std::string("Could not open codec: ") + errbuf);
   }
 
   // Allocate frame and packet.
@@ -267,9 +251,7 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
 
   if (!frame_ || !packet_) {
     Cleanup();
-    Napi::Error::New(env, "Could not allocate frame/packet")
-        .ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "Could not allocate frame/packet");
   }
 
   // Set up frame parameters.
@@ -280,18 +262,14 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
   ret = av_frame_get_buffer(frame_.get(), 0);
   if (ret < 0) {
     Cleanup();
-    Napi::Error::New(env, "Could not allocate frame buffer")
-        .ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "Could not allocate frame buffer");
   }
 
   // Create resampler context for format conversion.
   swr_context_.reset(swr_alloc());
   if (!swr_context_) {
     Cleanup();
-    Napi::Error::New(env, "Could not allocate resampler context")
-        .ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "Could not allocate resampler context");
   }
 
   // Configure resampler: f32 interleaved -> encoder's format.
@@ -314,9 +292,7 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
     char errbuf[256];
     av_strerror(ret, errbuf, sizeof(errbuf));
     Cleanup();
-    Napi::Error::New(env, std::string("Could not init resampler: ") + errbuf)
-        .ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, std::string("Could not init resampler: ") + errbuf);
   }
 
   state_ = "configured";
@@ -346,9 +322,7 @@ Napi::Value AudioEncoder::Reset(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
   if (state_ == "closed") {
-    Napi::Error::New(env, "InvalidStateError: Cannot reset closed encoder")
-        .ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "InvalidStateError: Cannot reset closed encoder");
   }
 
   Cleanup();
@@ -364,15 +338,11 @@ Napi::Value AudioEncoder::Encode(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
   if (state_ != "configured") {
-    Napi::Error::New(env, "InvalidStateError: Encoder not configured")
-        .ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "InvalidStateError: Encoder not configured");
   }
 
   if (info.Length() < 1 || !info[0].IsObject()) {
-    Napi::Error::New(env, "encode requires AudioData")
-        .ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "encode requires AudioData");
   }
 
   // Get AudioData from wrapper or native object.
@@ -426,9 +396,7 @@ Napi::Value AudioEncoder::Encode(const Napi::CallbackInfo& info) {
   }
 
   if (!sample_data || sample_data_size == 0) {
-    Napi::Error::New(env, "Could not get audio data")
-        .ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw Napi::Error::New(env, "Could not get audio data");
   }
 
   // Calculate bytes per sample for interleaved f32 input.
@@ -444,9 +412,7 @@ Napi::Value AudioEncoder::Encode(const Napi::CallbackInfo& info) {
     // Make frame writable.
     int ret = av_frame_make_writable(frame_.get());
     if (ret < 0) {
-      Napi::Error::New(env, "Could not make frame writable")
-          .ThrowAsJavaScriptException();
-      return env.Undefined();
+      throw Napi::Error::New(env, "Could not make frame writable");
     }
 
     // Determine how many samples to convert in this iteration.
@@ -463,9 +429,7 @@ Napi::Value AudioEncoder::Encode(const Napi::CallbackInfo& info) {
     if (ret < 0) {
       char errbuf[256];
       av_strerror(ret, errbuf, sizeof(errbuf));
-      Napi::Error::New(env, std::string("Resample error: ") + errbuf)
-          .ThrowAsJavaScriptException();
-      return env.Undefined();
+      throw Napi::Error::New(env, std::string("Resample error: ") + errbuf);
     }
 
     // Update frame pts based on samples processed.
