@@ -12,8 +12,20 @@ Napi::FunctionReference VideoFrame::constructor;
 PixelFormat ParsePixelFormat(const std::string& format_str) {
   if (format_str == "RGBA") {
     return PixelFormat::RGBA;
+  } else if (format_str == "RGBX") {
+    return PixelFormat::RGBX;
+  } else if (format_str == "BGRA") {
+    return PixelFormat::BGRA;
+  } else if (format_str == "BGRX") {
+    return PixelFormat::BGRX;
   } else if (format_str == "I420") {
     return PixelFormat::I420;
+  } else if (format_str == "I420A") {
+    return PixelFormat::I420A;
+  } else if (format_str == "I422") {
+    return PixelFormat::I422;
+  } else if (format_str == "I444") {
+    return PixelFormat::I444;
   } else if (format_str == "NV12") {
     return PixelFormat::NV12;
   }
@@ -24,8 +36,20 @@ std::string PixelFormatToString(PixelFormat format) {
   switch (format) {
     case PixelFormat::RGBA:
       return "RGBA";
+    case PixelFormat::RGBX:
+      return "RGBX";
+    case PixelFormat::BGRA:
+      return "BGRA";
+    case PixelFormat::BGRX:
+      return "BGRX";
     case PixelFormat::I420:
       return "I420";
+    case PixelFormat::I420A:
+      return "I420A";
+    case PixelFormat::I422:
+      return "I422";
+    case PixelFormat::I444:
+      return "I444";
     case PixelFormat::NV12:
       return "NV12";
     default:
@@ -37,12 +61,30 @@ size_t CalculateAllocationSize(PixelFormat format, uint32_t width,
                                 uint32_t height) {
   switch (format) {
     case PixelFormat::RGBA:
+    case PixelFormat::RGBX:
+    case PixelFormat::BGRA:
+    case PixelFormat::BGRX:
+      // 4 bytes per pixel (RGB + alpha or padding)
       return width * height * 4;
     case PixelFormat::I420:
       // Y plane: width * height
       // U plane: (width/2) * (height/2)
       // V plane: (width/2) * (height/2)
       return width * height + (width / 2) * (height / 2) * 2;
+    case PixelFormat::I420A:
+      // Y plane: width * height
+      // U plane: (width/2) * (height/2)
+      // V plane: (width/2) * (height/2)
+      // A plane: width * height
+      return width * height * 2 + (width / 2) * (height / 2) * 2;
+    case PixelFormat::I422:
+      // Y plane: width * height
+      // U plane: (width/2) * height
+      // V plane: (width/2) * height
+      return width * height + (width / 2) * height * 2;
+    case PixelFormat::I444:
+      // Y, U, V planes all full size
+      return width * height * 3;
     case PixelFormat::NV12:
       // Y plane: width * height
       // UV plane: width * (height/2)

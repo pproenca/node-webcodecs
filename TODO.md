@@ -448,14 +448,14 @@ new VideoColorSpace(init?)
 
 ### VideoPixelFormat
 - [x] `"I420"` - Planar YUV 4:2:0
-- [ ] `"I420A"` - Planar YUV 4:2:0 with alpha
-- [ ] `"I422"` - Planar YUV 4:2:2
-- [ ] `"I444"` - Planar YUV 4:4:4
+- [x] `"I420A"` - Planar YUV 4:2:0 with alpha
+- [x] `"I422"` - Planar YUV 4:2:2
+- [x] `"I444"` - Planar YUV 4:4:4
 - [x] `"NV12"` - Semi-planar YUV 4:2:0
 - [x] `"RGBA"` - RGB with alpha
-- [ ] `"RGBX"` - RGB with padding
+- [x] `"RGBX"` - RGB with padding
 - [x] `"BGRA"` - BGR with alpha
-- [ ] `"BGRX"` - BGR with padding
+- [x] `"BGRX"` - BGR with padding
 
 ### AudioSampleFormat
 - [x] `"u8"` - Unsigned 8-bit interleaved

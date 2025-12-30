@@ -67,7 +67,7 @@ export interface VideoFrameInit {
     duration?: number;
     displayWidth?: number;
     displayHeight?: number;
-    format?: 'RGBA' | 'BGRA' | 'I420' | 'NV12';
+    format?: VideoPixelFormat;
     rotation?: 0 | 90 | 180 | 270;
     flip?: boolean;
     visibleRect?: { x: number; y: number; width: number; height: number };
@@ -84,7 +84,7 @@ export interface PlaneLayout {
     stride: number;
 }
 
-export type VideoPixelFormat = 'RGBA' | 'BGRA' | 'I420' | 'NV12';
+export type VideoPixelFormat = 'RGBA' | 'RGBX' | 'BGRA' | 'BGRX' | 'I420' | 'I420A' | 'I422' | 'I444' | 'NV12';
 
 export interface VideoFrameCopyToOptions {
     rect?: { x: number; y: number; width: number; height: number };
