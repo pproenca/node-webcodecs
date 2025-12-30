@@ -3,11 +3,40 @@
 
 #include "src/audio_data.h"
 
+extern "C" {
+#include <libswresample/swresample.h>
+}
+
 #include <cstring>
 #include <string>
 
 namespace {
 constexpr int kMicrosecondsPerSecond = 1000000;
+
+// Map WebCodecs format string to FFmpeg AVSampleFormat.
+AVSampleFormat ParseAudioFormat(const std::string& format) {
+  if (format == "u8") return AV_SAMPLE_FMT_U8;
+  if (format == "s16") return AV_SAMPLE_FMT_S16;
+  if (format == "s32") return AV_SAMPLE_FMT_S32;
+  if (format == "f32") return AV_SAMPLE_FMT_FLT;
+  if (format == "u8-planar") return AV_SAMPLE_FMT_U8P;
+  if (format == "s16-planar") return AV_SAMPLE_FMT_S16P;
+  if (format == "s32-planar") return AV_SAMPLE_FMT_S32P;
+  if (format == "f32-planar") return AV_SAMPLE_FMT_FLTP;
+  return AV_SAMPLE_FMT_NONE;
+}
+
+// Get bytes per sample for a format string.
+size_t GetFormatBytesPerSample(const std::string& format) {
+  if (format == "u8" || format == "u8-planar") return 1;
+  if (format == "s16" || format == "s16-planar") return 2;
+  return 4;  // s32, f32, and their planar variants
+}
+
+// Check if format is planar.
+bool IsPlanarFormat(const std::string& format) {
+  return format.find("-planar") != std::string::npos;
+}
 }  // namespace
 
 Napi::FunctionReference AudioData::constructor_;
