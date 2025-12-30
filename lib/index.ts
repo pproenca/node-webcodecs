@@ -67,6 +67,7 @@ import type {
 import {ControlMessageQueue} from './control-message-queue';
 import {ResourceManager} from './resource-manager';
 import {binding, platformInfo} from './binding';
+import * as is from './is';
 
 // Load native addon with type assertion
 const native = binding as NativeModule;
@@ -350,12 +351,9 @@ export class VideoEncoder extends CodecBase {
   constructor(init: VideoEncoderInit) {
     super();
     // W3C spec: output and error callbacks are required
-    if (!init || typeof init.output !== 'function') {
-      throw new TypeError('output callback is required');
-    }
-    if (typeof init.error !== 'function') {
-      throw new TypeError('error callback is required');
-    }
+    is.assertPlainObject(init, 'init');
+    is.assertFunction(init.output, 'init.output');
+    is.assertFunction(init.error, 'init.error');
 
     this._controlQueue = new ControlMessageQueue();
     this._controlQueue.setErrorHandler(init.error);
@@ -538,12 +536,9 @@ export class VideoDecoder extends CodecBase {
   constructor(init: VideoDecoderInit) {
     super();
     // W3C spec: output and error callbacks are required
-    if (!init || typeof init.output !== 'function') {
-      throw new TypeError('output callback is required');
-    }
-    if (typeof init.error !== 'function') {
-      throw new TypeError('error callback is required');
-    }
+    is.assertPlainObject(init, 'init');
+    is.assertFunction(init.output, 'init.output');
+    is.assertFunction(init.error, 'init.error');
 
     this._controlQueue = new ControlMessageQueue();
     this._errorCallback = init.error;
@@ -863,12 +858,9 @@ export class AudioEncoder extends CodecBase {
     super();
 
     // W3C spec: output and error callbacks are required
-    if (!init || typeof init.output !== 'function') {
-      throw new TypeError('output callback is required');
-    }
-    if (typeof init.error !== 'function') {
-      throw new TypeError('error callback is required');
-    }
+    is.assertPlainObject(init, 'init');
+    is.assertFunction(init.output, 'init.output');
+    is.assertFunction(init.error, 'init.error');
 
     this._controlQueue = new ControlMessageQueue();
     this._controlQueue.setErrorHandler(init.error);
@@ -911,24 +903,9 @@ export class AudioEncoder extends CodecBase {
     }
 
     // W3C spec: validate required fields with TypeError
-    if (config.codec === undefined || config.codec === null) {
-      throw new TypeError(
-        "Failed to execute 'configure' on 'AudioEncoder': required member codec is undefined.",
-      );
-    }
-    if (config.sampleRate === undefined || config.sampleRate === null) {
-      throw new TypeError(
-        "Failed to execute 'configure' on 'AudioEncoder': required member sampleRate is undefined.",
-      );
-    }
-    if (
-      config.numberOfChannels === undefined ||
-      config.numberOfChannels === null
-    ) {
-      throw new TypeError(
-        "Failed to execute 'configure' on 'AudioEncoder': required member numberOfChannels is undefined.",
-      );
-    }
+    is.assertDefined(config.codec, 'config.codec');
+    is.assertDefined(config.sampleRate, 'config.sampleRate');
+    is.assertDefined(config.numberOfChannels, 'config.numberOfChannels');
 
     // Configure synchronously to set state immediately per W3C spec
     this._native.configure(config);
@@ -1037,24 +1014,9 @@ export class AudioDecoder extends CodecBase {
     }
 
     // W3C spec: validate required fields with TypeError
-    if (config.codec === undefined || config.codec === null) {
-      throw new TypeError(
-        "Failed to execute 'configure' on 'AudioDecoder': required member codec is undefined.",
-      );
-    }
-    if (config.sampleRate === undefined || config.sampleRate === null) {
-      throw new TypeError(
-        "Failed to execute 'configure' on 'AudioDecoder': required member sampleRate is undefined.",
-      );
-    }
-    if (
-      config.numberOfChannels === undefined ||
-      config.numberOfChannels === null
-    ) {
-      throw new TypeError(
-        "Failed to execute 'configure' on 'AudioDecoder': required member numberOfChannels is undefined.",
-      );
-    }
+    is.assertDefined(config.codec, 'config.codec');
+    is.assertDefined(config.sampleRate, 'config.sampleRate');
+    is.assertDefined(config.numberOfChannels, 'config.numberOfChannels');
 
     this._needsKeyFrame = true;
     // Configure synchronously to set state immediately per W3C spec

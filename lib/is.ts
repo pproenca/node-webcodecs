@@ -157,7 +157,7 @@ export function invalidParameterError(
   name: string,
   expected: string,
   actual: unknown,
-): Error {
+): TypeError {
   let actualType: string;
   if (actual === null) {
     actualType = 'null';
@@ -174,16 +174,16 @@ export function invalidParameterError(
         ? String(actual)
         : actualType;
 
-  return new Error(
+  return new TypeError(
     `Expected ${expected} for ${name} but received ${actualStr} of type ${actualType}`,
   );
 }
 
 /**
- * Create an Error for a missing required parameter.
+ * Create a TypeError for a missing required parameter.
  */
-export function missingParameterError(name: string): Error {
-  return new Error(`Missing required parameter: ${name}`);
+export function missingParameterError(name: string): TypeError {
+  return new TypeError(`Missing required parameter: ${name}`);
 }
 
 /**
