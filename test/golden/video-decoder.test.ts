@@ -586,8 +586,26 @@ describe('VideoDecoder', () => {
         expect(result.config.displayAspectHeight).toBe(9);
       });
 
-      // W3C compliance gap: colorSpace not echoed
-      it.todo('should echo colorSpace configuration (W3C compliance gap)');
+      it('should echo colorSpace configuration', async () => {
+        const colorSpace = {
+          primaries: 'bt709' as const,
+          transfer: 'bt709' as const,
+          matrix: 'bt709' as const,
+          fullRange: false,
+        };
+
+        const result = await VideoDecoder.isConfigSupported({
+          codec: 'avc1.42001e',
+          colorSpace,
+        });
+
+        expect(result.supported).toBe(true);
+        expect(result.config.colorSpace).toBeDefined();
+        expect(result.config.colorSpace?.primaries).toBe('bt709');
+        expect(result.config.colorSpace?.transfer).toBe('bt709');
+        expect(result.config.colorSpace?.matrix).toBe('bt709');
+        expect(result.config.colorSpace?.fullRange).toBe(false);
+      });
 
       it('should echo optimizeForLatency boolean', async () => {
         const resultTrue = await VideoDecoder.isConfigSupported({

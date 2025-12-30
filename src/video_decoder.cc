@@ -568,6 +568,31 @@ Napi::Value VideoDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
     normalized_config.Set("description", config.Get("description"));
   }
 
+  // Copy colorSpace if present (per W3C spec).
+  if (config.Has("colorSpace") && config.Get("colorSpace").IsObject()) {
+    Napi::Object cs = config.Get("colorSpace").As<Napi::Object>();
+    Napi::Object normalized_cs = Napi::Object::New(env);
+
+    if (cs.Has("primaries") && !cs.Get("primaries").IsNull() &&
+        !cs.Get("primaries").IsUndefined()) {
+      normalized_cs.Set("primaries", cs.Get("primaries"));
+    }
+    if (cs.Has("transfer") && !cs.Get("transfer").IsNull() &&
+        !cs.Get("transfer").IsUndefined()) {
+      normalized_cs.Set("transfer", cs.Get("transfer"));
+    }
+    if (cs.Has("matrix") && !cs.Get("matrix").IsNull() &&
+        !cs.Get("matrix").IsUndefined()) {
+      normalized_cs.Set("matrix", cs.Get("matrix"));
+    }
+    if (cs.Has("fullRange") && !cs.Get("fullRange").IsNull() &&
+        !cs.Get("fullRange").IsUndefined()) {
+      normalized_cs.Set("fullRange", cs.Get("fullRange"));
+    }
+
+    normalized_config.Set("colorSpace", normalized_cs);
+  }
+
   // Handle hardwareAcceleration with default value per W3C spec.
   if (config.Has("hardwareAcceleration") &&
       config.Get("hardwareAcceleration").IsString()) {
