@@ -180,6 +180,65 @@ describe('VideoEncoder', () => {
     });
   });
 
+  describe('configure validation', () => {
+    it('should throw TypeError if displayWidth provided without displayHeight', () => {
+      const encoder = new VideoEncoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      expect(() => {
+        encoder.configure({
+          codec: 'avc1.42E01E',
+          width: 640,
+          height: 480,
+          displayWidth: 640,
+          // displayHeight intentionally omitted
+        } as any);
+      }).toThrow(TypeError);
+
+      encoder.close();
+    });
+
+    it('should throw TypeError if displayHeight provided without displayWidth', () => {
+      const encoder = new VideoEncoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      expect(() => {
+        encoder.configure({
+          codec: 'avc1.42E01E',
+          width: 640,
+          height: 480,
+          // displayWidth intentionally omitted
+          displayHeight: 480,
+        } as any);
+      }).toThrow(TypeError);
+
+      encoder.close();
+    });
+
+    it('should accept config with both displayWidth and displayHeight', () => {
+      const encoder = new VideoEncoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      expect(() => {
+        encoder.configure({
+          codec: 'avc1.42E01E',
+          width: 640,
+          height: 480,
+          displayWidth: 640,
+          displayHeight: 480,
+        });
+      }).not.toThrow();
+
+      encoder.close();
+    });
+  });
+
   describe('EventTarget', () => {
     it('should support addEventListener for dequeue', async () => {
       let dequeueCount = 0;
