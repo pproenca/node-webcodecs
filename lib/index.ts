@@ -27,11 +27,28 @@ import type {
   ImageDecodeResult,
   ImageTrackList,
 } from './types';
+import type {
+  NativeModule,
+  NativeVideoFrame,
+  NativeVideoEncoder,
+  NativeVideoDecoder,
+  NativeAudioData,
+  NativeEncodedAudioChunk,
+  NativeAudioEncoder,
+  NativeAudioDecoder,
+  NativeVideoFilter,
+  NativeDemuxer,
+  NativeImageDecoder,
+  VideoEncoderOutputCallback,
+  VideoDecoderOutputCallback,
+  AudioEncoderOutputCallback,
+  AudioDecoderOutputCallback,
+} from './native-types';
 import {ControlMessageQueue} from './control-message-queue';
 import {ResourceManager} from './resource-manager';
 
-// Load native addon
-const native = require('../build/Release/node_webcodecs.node');
+// Load native addon with type assertion
+const native: NativeModule = require('../build/Release/node_webcodecs.node');
 
 export class VideoColorSpace {
   readonly primaries: string | null;
@@ -57,7 +74,7 @@ export class VideoColorSpace {
 }
 
 export class VideoFrame {
-  private _native: any;
+  private _native: NativeVideoFrame;
   private _closed: boolean = false;
 
   constructor(data: Buffer | Uint8Array | ArrayBuffer, init: VideoFrameInit) {
