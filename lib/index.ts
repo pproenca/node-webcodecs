@@ -223,7 +223,7 @@ export class VideoFrame {
   }
 
   // Internal access for native binding
-  get _nativeFrame(): any {
+  get _nativeFrame(): NativeVideoFrame {
     return this._native;
   }
 }
