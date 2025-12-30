@@ -64,9 +64,13 @@ import type {
 } from './native-types';
 import {ControlMessageQueue} from './control-message-queue';
 import {ResourceManager} from './resource-manager';
+import {binding, platformInfo} from './binding';
 
 // Load native addon with type assertion
-const native: NativeModule = require('../build/Release/node_webcodecs.node');
+const native = binding as NativeModule;
+
+// Export platform info for debugging
+export {platformInfo};
 
 /**
  * Detach ArrayBuffers per W3C WebCodecs transfer semantics.
@@ -1268,3 +1272,18 @@ export type {
 
 // Re-export ResourceManager
 export {ResourceManager} from './resource-manager';
+
+// Re-export error classes and codes
+export {
+  ErrorCode,
+  WebCodecsError,
+  ConfigurationError,
+  UnsupportedCodecError,
+  InvalidStateError,
+  EncodingError,
+  DecodingError,
+  InvalidDataError,
+  AllocationError,
+  ffmpegErrorMessage,
+} from './errors';
+export type {ErrorCodeType} from './errors';

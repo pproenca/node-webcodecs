@@ -9,3 +9,22 @@ output.h264
 # Allow test fixtures mp4
 !test/fixtures/*.mp4
 examples/.demo-assets/
+
+# TypeScript incremental compilation cache
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# CMake generated files
+compile_commands.json
+CMakeCache.txt
+CMakeFiles/
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sanitizer/profiler output
+*.profraw
+*.profdata
