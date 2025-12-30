@@ -1,12 +1,29 @@
+// Hardware acceleration hint
+export type HardwareAcceleration = 'no-preference' | 'prefer-hardware' | 'prefer-software';
+
+// Alpha handling
+export type AlphaOption = 'keep' | 'discard';
+
+// Latency mode
+export type LatencyMode = 'quality' | 'realtime';
+
+// Bitrate mode
+export type VideoEncoderBitrateMode = 'constant' | 'variable' | 'quantizer';
+
 export interface VideoEncoderConfig {
     codec: string;
     width: number;
     height: number;
     bitrate?: number;
     framerate?: number;
-    hardwareAcceleration?: 'no-preference' | 'prefer-hardware' | 'prefer-software';
-    latencyMode?: 'quality' | 'realtime';
-    bitrateMode?: 'constant' | 'variable' | 'quantizer';
+    hardwareAcceleration?: HardwareAcceleration;
+    latencyMode?: LatencyMode;
+    bitrateMode?: VideoEncoderBitrateMode;
+    alpha?: AlphaOption;
+    scalabilityMode?: string;
+    displayAspectWidth?: number;
+    displayAspectHeight?: number;
+    contentHint?: string;
 }
 
 export interface VideoEncoderInit {
@@ -23,12 +40,24 @@ export interface EncodedVideoChunk {
 }
 
 export interface EncodedVideoChunkMetadata {
-    decoderConfig?: {
-        codec: string;
-        codedWidth: number;
-        codedHeight: number;
+    decoderConfig?: VideoDecoderConfig & {
         description?: ArrayBuffer;
     };
+    svc?: {
+        temporalLayerId: number;
+    };
+    alphaSideData?: BufferSource;
+}
+
+export interface DOMRectReadOnly {
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly height: number;
+    readonly top: number;
+    readonly right: number;
+    readonly bottom: number;
+    readonly left: number;
 }
 
 export interface VideoFrameInit {
@@ -36,7 +65,12 @@ export interface VideoFrameInit {
     codedHeight: number;
     timestamp: number;
     duration?: number;
+    displayWidth?: number;
+    displayHeight?: number;
     format?: 'RGBA' | 'BGRA' | 'I420' | 'NV12';
+    rotation?: 0 | 90 | 180 | 270;
+    flip?: boolean;
+    visibleRect?: { x: number; y: number; width: number; height: number };
 }
 
 export interface VideoEncoderEncodeOptions {
@@ -71,8 +105,12 @@ export interface VideoDecoderConfig {
     codedHeight?: number;
     description?: ArrayBuffer | ArrayBufferView;
     colorSpace?: VideoColorSpaceInit;
-    hardwareAcceleration?: 'no-preference' | 'prefer-hardware' | 'prefer-software';
+    hardwareAcceleration?: HardwareAcceleration;
     optimizeForLatency?: boolean;
+    displayAspectWidth?: number;
+    displayAspectHeight?: number;
+    rotation?: 0 | 90 | 180 | 270;
+    flip?: boolean;
 }
 
 export interface VideoDecoderInit {
@@ -163,4 +201,56 @@ export interface TrackInfo {
     sampleRate?: number;
     channels?: number;
     extradata?: Uint8Array;
+}
+
+// High-resolution timestamp
+export type DOMHighResTimeStamp = number;
+
+// VideoFrameMetadata
+export interface VideoFrameMetadata {
+    captureTime?: DOMHighResTimeStamp;
+    receiveTime?: DOMHighResTimeStamp;
+    rtpTimestamp?: number;
+}
+
+// ImageDecoder types
+export interface ImageDecodeOptions {
+    frameIndex?: number;
+    completeFramesOnly?: boolean;
+}
+
+export interface ImageDecodeResult {
+    image: any; // VideoFrame
+    complete: boolean;
+}
+
+export interface ImageDecoderInit {
+    type: string;
+    data: ReadableStream<Uint8Array> | BufferSource;
+    colorSpaceConversion?: 'default' | 'none';
+    desiredWidth?: number;
+    desiredHeight?: number;
+    preferAnimation?: boolean;
+}
+
+export interface ImageTrack {
+    readonly animated: boolean;
+    readonly frameCount: number;
+    readonly repetitionCount: number;
+    selected: boolean;
+}
+
+export interface ImageTrackList {
+    readonly length: number;
+    readonly selectedIndex: number;
+    readonly selectedTrack: ImageTrack | null;
+    readonly ready: Promise<void>;
+    [index: number]: ImageTrack;
+}
+
+// Enhanced audio encoder metadata
+export interface EncodedAudioChunkMetadata {
+    decoderConfig?: AudioDecoderConfig & {
+        description?: ArrayBuffer;
+    };
 }
