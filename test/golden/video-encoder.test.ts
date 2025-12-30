@@ -380,5 +380,46 @@ describe('VideoEncoder', () => {
       expect(keyframeChunk?.metadata?.decoderConfig?.displayAspectWidth).toBe(800);
       expect(keyframeChunk?.metadata?.decoderConfig?.displayAspectHeight).toBe(600);
     });
+
+    it('should include svc metadata with temporalLayerId', async () => {
+      const chunks: Array<{chunk: EncodedVideoChunk; metadata?: EncodedVideoChunkMetadata}> = [];
+
+      const encoder = new VideoEncoder({
+        output: (chunk, metadata) => {
+          chunks.push({chunk, metadata});
+        },
+        error: (e) => { throw e; },
+      });
+
+      encoder.configure({
+        codec: 'avc1.42E01E',
+        width: 320,
+        height: 240,
+        bitrate: 500_000,
+      });
+
+      // Encode a keyframe
+      const frame = new VideoFrame(
+        new Uint8Array(320 * 240 * 4),
+        {
+          format: 'RGBA',
+          codedWidth: 320,
+          codedHeight: 240,
+          timestamp: 0,
+        }
+      );
+      encoder.encode(frame, {keyFrame: true});
+      frame.close();
+
+      await encoder.flush();
+      encoder.close();
+
+      expect(chunks.length).toBeGreaterThan(0);
+
+      // Verify svc metadata is present on keyframe
+      const keyframeChunk = chunks.find(c => c.chunk.type === 'key');
+      expect(keyframeChunk?.metadata?.svc).toBeDefined();
+      expect(keyframeChunk?.metadata?.svc?.temporalLayerId).toBe(0);
+    });
   });
 });
