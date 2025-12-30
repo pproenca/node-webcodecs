@@ -138,6 +138,65 @@ describe('VideoEncoder', () => {
         expect(result.config.hevc?.format).toBe('annexb');
       }
     });
+
+    it('should echo all recognized VideoEncoderConfig properties', async () => {
+      const inputConfig = {
+        codec: 'avc1.42E01E',
+        width: 1920,
+        height: 1080,
+        displayWidth: 1920,
+        displayHeight: 1080,
+        bitrate: 5_000_000,
+        framerate: 30,
+        hardwareAcceleration: 'prefer-software' as const,
+        alpha: 'discard' as const,
+        scalabilityMode: 'L1T2',
+        bitrateMode: 'variable' as const,
+        latencyMode: 'quality' as const,
+        contentHint: 'motion',
+        avc: {format: 'annexb' as const},
+        colorSpace: {
+          primaries: 'bt709',
+          transfer: 'bt709',
+          matrix: 'bt709',
+          fullRange: false,
+        },
+      };
+
+      const result = await VideoEncoder.isConfigSupported(inputConfig);
+
+      expect(result.supported).toBe(true);
+      expect(result.config.codec).toBe(inputConfig.codec);
+      expect(result.config.width).toBe(inputConfig.width);
+      expect(result.config.height).toBe(inputConfig.height);
+      expect(result.config.displayWidth).toBe(inputConfig.displayWidth);
+      expect(result.config.displayHeight).toBe(inputConfig.displayHeight);
+      expect(result.config.bitrate).toBe(inputConfig.bitrate);
+      expect(result.config.framerate).toBe(inputConfig.framerate);
+      expect(result.config.hardwareAcceleration).toBe(inputConfig.hardwareAcceleration);
+      expect(result.config.alpha).toBe(inputConfig.alpha);
+      expect(result.config.scalabilityMode).toBe(inputConfig.scalabilityMode);
+      expect(result.config.bitrateMode).toBe(inputConfig.bitrateMode);
+      expect(result.config.latencyMode).toBe(inputConfig.latencyMode);
+      expect(result.config.contentHint).toBe(inputConfig.contentHint);
+      expect(result.config.avc?.format).toBe(inputConfig.avc.format);
+      expect(result.config.colorSpace?.primaries).toBe(inputConfig.colorSpace.primaries);
+      expect(result.config.colorSpace?.transfer).toBe(inputConfig.colorSpace.transfer);
+      expect(result.config.colorSpace?.matrix).toBe(inputConfig.colorSpace.matrix);
+      expect(result.config.colorSpace?.fullRange).toBe(inputConfig.colorSpace.fullRange);
+    });
+
+    it('should not echo unrecognized properties', async () => {
+      const result = await VideoEncoder.isConfigSupported({
+        codec: 'avc1.42E01E',
+        width: 640,
+        height: 480,
+        unknownProperty: 'should-not-appear',
+      } as any);
+
+      expect(result.supported).toBe(true);
+      expect((result.config as any).unknownProperty).toBeUndefined();
+    });
   });
 
   describe('constructor', () => {
