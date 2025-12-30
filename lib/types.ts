@@ -67,7 +67,7 @@ export interface VideoFrameInit {
     duration?: number;
     displayWidth?: number;
     displayHeight?: number;
-    format?: 'RGBA' | 'BGRA' | 'I420' | 'NV12';
+    format?: VideoPixelFormat;
     rotation?: 0 | 90 | 180 | 270;
     flip?: boolean;
     visibleRect?: { x: number; y: number; width: number; height: number };
@@ -84,7 +84,7 @@ export interface PlaneLayout {
     stride: number;
 }
 
-export type VideoPixelFormat = 'RGBA' | 'BGRA' | 'I420' | 'NV12';
+export type VideoPixelFormat = 'RGBA' | 'BGRA' | 'I420' | 'I420A' | 'I422' | 'I444' | 'NV12' | 'RGBX' | 'BGRX';
 
 export interface VideoFrameCopyToOptions {
     rect?: { x: number; y: number; width: number; height: number };
@@ -92,10 +92,19 @@ export interface VideoFrameCopyToOptions {
     format?: VideoPixelFormat;
 }
 
+// W3C VideoColorPrimaries enum values
+export type VideoColorPrimaries = 'bt709' | 'bt470bg' | 'smpte170m' | 'bt2020' | 'smpte432';
+
+// W3C VideoTransferCharacteristics enum values
+export type VideoTransferCharacteristics = 'bt709' | 'smpte170m' | 'iec61966-2-1' | 'linear' | 'pq' | 'hlg';
+
+// W3C VideoMatrixCoefficients enum values
+export type VideoMatrixCoefficients = 'rgb' | 'bt709' | 'bt470bg' | 'smpte170m' | 'bt2020-ncl';
+
 export interface VideoColorSpaceInit {
-    primaries?: string;
-    transfer?: string;
-    matrix?: string;
+    primaries?: VideoColorPrimaries | string;
+    transfer?: VideoTransferCharacteristics | string;
+    matrix?: VideoMatrixCoefficients | string;
     fullRange?: boolean;
 }
 
