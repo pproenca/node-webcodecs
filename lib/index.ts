@@ -1,3 +1,15 @@
+/**
+ * node-webcodecs - WebCodecs API implementation for Node.js
+ *
+ * W3C WebCodecs Specification Compliance Notes:
+ * - TODO: W3C spec requires VideoEncoder, VideoDecoder, AudioEncoder, AudioDecoder
+ *   to extend EventTarget. Currently using callback-based ondequeue instead of events.
+ * - TODO: VideoFrame constructor from CanvasImageSource not supported (Node.js limitation)
+ * - TODO: visibleRect cropping not fully implemented in native layer
+ * - TODO: ArrayBuffer transfer semantics not implemented
+ * - TODO: High bit-depth pixel formats (P10/P12 variants) not supported in native layer
+ */
+
 import type {
   VideoEncoderConfig,
   VideoEncoderInit,
@@ -5,6 +17,9 @@ import type {
   VideoDecoderInit,
   VideoFrameInit,
   VideoColorSpaceInit,
+  VideoColorPrimaries,
+  VideoTransferCharacteristics,
+  VideoMatrixCoefficients,
   CodecState,
   PlaneLayout,
   VideoFrameCopyToOptions,
@@ -51,24 +66,25 @@ import {ResourceManager} from './resource-manager';
 const native: NativeModule = require('../build/Release/node_webcodecs.node');
 
 export class VideoColorSpace {
-  readonly primaries: string | null;
-  readonly transfer: string | null;
-  readonly matrix: string | null;
+  readonly primaries: VideoColorPrimaries | null;
+  readonly transfer: VideoTransferCharacteristics | null;
+  readonly matrix: VideoMatrixCoefficients | null;
   readonly fullRange: boolean | null;
 
   constructor(init?: VideoColorSpaceInit) {
-    this.primaries = init?.primaries ?? null;
-    this.transfer = init?.transfer ?? null;
-    this.matrix = init?.matrix ?? null;
+    // Cast to enum types - values from native layer should match W3C enums
+    this.primaries = (init?.primaries as VideoColorPrimaries) ?? null;
+    this.transfer = (init?.transfer as VideoTransferCharacteristics) ?? null;
+    this.matrix = (init?.matrix as VideoMatrixCoefficients) ?? null;
     this.fullRange = init?.fullRange ?? null;
   }
 
   toJSON(): VideoColorSpaceInit {
     return {
-      primaries: this.primaries ?? undefined,
-      transfer: this.transfer ?? undefined,
-      matrix: this.matrix ?? undefined,
-      fullRange: this.fullRange ?? undefined,
+      primaries: this.primaries,
+      transfer: this.transfer,
+      matrix: this.matrix,
+      fullRange: this.fullRange,
     };
   }
 }
@@ -104,8 +120,9 @@ export class VideoFrame {
     return this._native.timestamp;
   }
 
-  get format(): string {
-    return this._native.format;
+  get format(): VideoPixelFormat | null {
+    // Cast native format string to VideoPixelFormat enum
+    return (this._native.format as VideoPixelFormat) ?? null;
   }
 
   get duration(): number | null {
@@ -449,13 +466,11 @@ export class VideoDecoder {
       this._decodeQueueSize = Math.max(0, this._decodeQueueSize - 1);
 
       // Wrap the native frame as a VideoFrame
-      const wrapper = Object.create(VideoFrame.prototype) as VideoFrame & {
-        _native: NativeVideoFrame;
-        _closed: boolean;
-      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const wrapper = Object.create(VideoFrame.prototype) as any;
       wrapper._native = nativeFrame;
       wrapper._closed = false;
-      init.output(wrapper);
+      init.output(wrapper as VideoFrame);
 
       // Fire ondequeue after output
       this._triggerDequeue();
@@ -704,8 +719,8 @@ export class EncodedAudioChunk {
     return this._native.timestamp;
   }
 
-  get duration(): number | undefined {
-    return this._native.duration ?? undefined;
+  get duration(): number | null {
+    return this._native.duration ?? null;
   }
 
   get byteLength(): number {
@@ -713,7 +728,17 @@ export class EncodedAudioChunk {
   }
 
   copyTo(destination: ArrayBuffer | ArrayBufferView): void {
-    this._native.copyTo(destination);
+    // Convert ArrayBufferView to Uint8Array for native layer
+    if (destination instanceof ArrayBuffer) {
+      this._native.copyTo(destination);
+    } else {
+      const uint8 = new Uint8Array(
+        destination.buffer,
+        destination.byteOffset,
+        destination.byteLength,
+      );
+      this._native.copyTo(uint8);
+    }
   }
 
   get _nativeChunk(): NativeEncodedAudioChunk {
@@ -735,13 +760,10 @@ export class AudioEncoder {
       // Decrement queue size when output received
       this._encodeQueueSize = Math.max(0, this._encodeQueueSize - 1);
 
-      const wrapper = Object.create(
-        EncodedAudioChunk.prototype,
-      ) as EncodedAudioChunk & {
-        _native: NativeEncodedAudioChunk;
-      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const wrapper = Object.create(EncodedAudioChunk.prototype) as any;
       wrapper._native = chunk as unknown as NativeEncodedAudioChunk;
-      init.output(wrapper, metadata);
+      init.output(wrapper as EncodedAudioChunk, metadata);
 
       // Fire ondequeue after output
       this._triggerDequeue();
@@ -832,13 +854,11 @@ export class AudioDecoder {
       // Decrement queue size when output received
       this._decodeQueueSize = Math.max(0, this._decodeQueueSize - 1);
 
-      const wrapper = Object.create(AudioData.prototype) as AudioData & {
-        _native: NativeAudioData;
-        _closed: boolean;
-      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const wrapper = Object.create(AudioData.prototype) as any;
       wrapper._native = nativeData;
       wrapper._closed = false;
-      init.output(wrapper);
+      init.output(wrapper as AudioData);
 
       // Fire ondequeue after output
       this._triggerDequeue();
@@ -1097,27 +1117,20 @@ export class ImageDecoder {
 
     const result = await this._native.decode(options || {});
 
-    // Wrap the image as a VideoFrame
-    if (result.image) {
-      const wrapper = Object.create(VideoFrame.prototype);
-      wrapper._native = {
-        codedWidth: result.image.codedWidth,
-        codedHeight: result.image.codedHeight,
-        timestamp: result.image.timestamp || 0,
-        format: result.image.format || 'RGBA',
-        displayWidth: result.image.codedWidth,
-        displayHeight: result.image.codedHeight,
-        data: result.image.data,
-        close: () => {},
-      };
-      wrapper._closed = false;
-      return {
-        image: wrapper,
-        complete: result.complete,
-      };
+    if (!result.image) {
+      throw new DOMException('Failed to decode image', 'EncodingError');
     }
 
-    return result;
+    // Wrap the native frame as a VideoFrame
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const wrapper = Object.create(VideoFrame.prototype) as any;
+    wrapper._native = result.image;
+    wrapper._closed = false;
+
+    return {
+      image: wrapper as VideoFrame,
+      complete: result.complete,
+    };
   }
 
   reset(): void {
@@ -1136,34 +1149,108 @@ export class ImageDecoder {
   }
 }
 
-// Re-export types
+// Re-export all types from types.ts (W3C WebCodecs API types)
 export type {
-  VideoEncoderConfig,
-  VideoEncoderInit,
-  VideoDecoderConfig,
-  VideoDecoderInit,
-  VideoColorSpaceInit,
-  VideoFrameInit,
+  // Fundamental types
+  AllowSharedBufferSource,
+  BufferSource,
+  DOMHighResTimeStamp,
+  // Codec state
   CodecState,
-  PlaneLayout,
-  VideoFrameCopyToOptions,
-  VideoPixelFormat,
+  // Hardware/quality hints
+  HardwareAcceleration,
+  AlphaOption,
+  LatencyMode,
+  // Bitrate modes
+  VideoEncoderBitrateMode,
+  BitrateMode,
+  // Chunk types
+  EncodedAudioChunkType,
+  EncodedVideoChunkType,
+  // Audio sample format
   AudioSampleFormat,
+  // Video pixel format
+  VideoPixelFormat,
+  // Video color space
+  VideoColorPrimaries,
+  VideoTransferCharacteristics,
+  VideoMatrixCoefficients,
+  VideoColorSpaceInit,
+  // DOM rect types
+  DOMRectInit,
+  DOMRectReadOnly,
+  // Plane layout
+  PlaneLayout,
+  // Video frame metadata
+  VideoFrameMetadata,
+  // Video frame
+  VideoFrameInit,
+  VideoFrameBufferInit,
+  VideoFrameCopyToOptions,
+  ColorSpaceConversion,
+  PredefinedColorSpace,
+  // Encoded video chunk
+  EncodedVideoChunkInit,
+  EncodedVideoChunkMetadata,
+  SvcOutputMetadata,
+  // Encoded audio chunk
+  EncodedAudioChunkInit,
+  EncodedAudioChunkMetadata,
+  // Audio data
   AudioDataInit,
   AudioDataCopyToOptions,
+  // Video encoder
+  VideoEncoderConfig,
+  VideoEncoderEncodeOptions,
+  VideoEncoderEncodeOptionsForVp9,
+  VideoEncoderEncodeOptionsForAv1,
+  VideoEncoderEncodeOptionsForAvc,
+  VideoEncoderEncodeOptionsForHevc,
+  VideoEncoderSupport,
+  EncodedVideoChunkOutputCallback,
+  VideoEncoderInit,
+  // Video decoder
+  VideoDecoderConfig,
+  VideoDecoderSupport,
+  VideoFrameOutputCallback,
+  VideoDecoderInit,
+  // Audio encoder
   AudioEncoderConfig,
+  OpusEncoderConfig,
+  AudioEncoderSupport,
+  EncodedAudioChunkOutputCallback,
   AudioEncoderInit,
+  // Audio decoder
   AudioDecoderConfig,
+  AudioDecoderSupport,
+  AudioDataOutputCallback,
   AudioDecoderInit,
-  EncodedAudioChunkInit,
-  BlurRegion,
-  VideoFilterConfig,
-  DemuxerInit,
-  TrackInfo,
+  // Error callback
+  WebCodecsErrorCallback,
+  // Image decoder
+  ImageBufferSource,
   ImageDecoderInit,
   ImageDecodeOptions,
   ImageDecodeResult,
+  ImageTrack,
   ImageTrackList,
+  // Constructor interfaces
+  VideoEncoderConstructor,
+  VideoDecoderConstructor,
+  AudioEncoderConstructor,
+  AudioDecoderConstructor,
+  ImageDecoderConstructor,
+  VideoFrameConstructor,
+  VideoColorSpaceConstructor,
+  EncodedVideoChunkConstructor,
+  EncodedAudioChunkConstructor,
+  AudioDataConstructor,
+  // Additional types (not in W3C spec)
+  BlurRegion,
+  VideoFilterConfig,
+  DemuxerChunk,
+  TrackInfo,
+  DemuxerInit,
 } from './types';
 
 // Re-export ResourceManager

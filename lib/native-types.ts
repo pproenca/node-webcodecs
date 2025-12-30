@@ -12,6 +12,8 @@ import type {
   VideoFilterConfig,
   BlurRegion,
   TrackInfo,
+  CodecState,
+  AudioSampleFormat,
 } from './types';
 
 // Branded type for closed resources
@@ -53,7 +55,7 @@ export interface PlaneLayoutResult {
  * Native VideoEncoder object from C++ addon
  */
 export interface NativeVideoEncoder {
-  readonly state: string;
+  readonly state: CodecState;
   readonly encodeQueueSize: number;
   readonly codecSaturated: boolean;
 
@@ -68,12 +70,12 @@ export interface NativeVideoEncoder {
  * Native VideoDecoder object from C++ addon
  */
 export interface NativeVideoDecoder {
-  readonly state: string;
+  readonly state: CodecState;
   readonly decodeQueueSize: number;
 
   configure(config: VideoDecoderConfig): void;
   decode(chunk: NativeEncodedVideoChunk): void;
-  flush(): void;
+  flush(): Promise<void>;
   reset(): void;
   close(): void;
 }
@@ -94,7 +96,7 @@ export interface NativeEncodedVideoChunk {
  * Native AudioData object from C++ addon
  */
 export interface NativeAudioData {
-  readonly format: string;
+  readonly format: AudioSampleFormat;
   readonly sampleRate: number;
   readonly numberOfFrames: number;
   readonly numberOfChannels: number;
@@ -126,12 +128,12 @@ export interface NativeEncodedAudioChunk {
  * Native AudioEncoder object from C++ addon
  */
 export interface NativeAudioEncoder {
-  readonly state: string;
+  readonly state: CodecState;
   readonly encodeQueueSize: number;
 
   configure(config: AudioEncoderConfig): void;
   encode(data: NativeAudioData): void;
-  flush(): void;
+  flush(): Promise<void>;
   reset(): void;
   close(): void;
 }
@@ -140,12 +142,12 @@ export interface NativeAudioEncoder {
  * Native AudioDecoder object from C++ addon
  */
 export interface NativeAudioDecoder {
-  readonly state: string;
+  readonly state: CodecState;
   readonly decodeQueueSize: number;
 
   configure(config: AudioDecoderConfig): void;
   decode(chunk: NativeEncodedAudioChunk): void;
-  flush(): void;
+  flush(): Promise<void>;
   reset(): void;
   close(): void;
 }
