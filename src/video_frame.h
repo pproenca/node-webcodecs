@@ -54,6 +54,8 @@ class VideoFrame : public Napi::ObjectWrap<VideoFrame> {
   Napi::Value GetCodedHeight(const Napi::CallbackInfo& info);
   Napi::Value GetTimestamp(const Napi::CallbackInfo& info);
   Napi::Value GetFormat(const Napi::CallbackInfo& info);
+  Napi::Value GetRotation(const Napi::CallbackInfo& info);
+  Napi::Value GetFlip(const Napi::CallbackInfo& info);
 
   // Methods.
   void Close(const Napi::CallbackInfo& info);
@@ -68,6 +70,8 @@ class VideoFrame : public Napi::ObjectWrap<VideoFrame> {
   int64_t timestamp_;
   PixelFormat format_;
   bool closed_;
+  int rotation_;
+  bool flip_;
 };
 
 #endif  // SRC_VIDEO_FRAME_H_

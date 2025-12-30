@@ -113,6 +113,21 @@ export class VideoFrame {
         return new VideoColorSpace(nativeColorSpace);
     }
 
+    get rotation(): number {
+        return this._native.rotation ?? 0;
+    }
+
+    get flip(): boolean {
+        return this._native.flip ?? false;
+    }
+
+    metadata(): Record<string, unknown> {
+        if (this._closed) {
+            throw new DOMException('VideoFrame is closed', 'InvalidStateError');
+        }
+        return {};
+    }
+
     close(): void {
         if (!this._closed) {
             this._native.close();
@@ -321,15 +336,29 @@ export class EncodedVideoChunk {
 export class VideoDecoder {
     private _native: any;
     private _ondequeue: (() => void) | null = null;
+    private _controlQueue: ControlMessageQueue;
+    private _decodeQueueSize: number = 0;
+    private _needsKeyFrame: boolean = true;
+    private _errorCallback: (error: DOMException) => void;
 
     constructor(init: VideoDecoderInit) {
+        this._controlQueue = new ControlMessageQueue();
+        this._errorCallback = init.error;
+        this._controlQueue.setErrorHandler(init.error);
+
         this._native = new native.VideoDecoder({
             output: (nativeFrame: any) => {
+                // Decrement queue size when output received
+                this._decodeQueueSize = Math.max(0, this._decodeQueueSize - 1);
+
                 // Wrap the native frame as a VideoFrame
                 const wrapper = Object.create(VideoFrame.prototype);
                 wrapper._native = nativeFrame;
                 wrapper._closed = false;
                 init.output(wrapper);
+
+                // Fire ondequeue after output
+                this._triggerDequeue();
             },
             error: init.error
         });
@@ -340,7 +369,7 @@ export class VideoDecoder {
     }
 
     get decodeQueueSize(): number {
-        return this._native.decodeQueueSize;
+        return this._decodeQueueSize;
     }
 
     get ondequeue(): (() => void) | null {
@@ -351,36 +380,66 @@ export class VideoDecoder {
         this._ondequeue = handler;
     }
 
-    configure(config: VideoDecoderConfig): void {
-        this._native.configure(config);
-    }
-
-    decode(chunk: EncodedVideoChunk | any): void {
-        // Handle both wrapped EncodedVideoChunk and raw native chunks
-        if (chunk instanceof EncodedVideoChunk) {
-            // Create a native EncodedVideoChunk from our TypeScript wrapper
-            const nativeChunk = new native.EncodedVideoChunk({
-                type: chunk.type,
-                timestamp: chunk.timestamp,
-                duration: chunk.duration,
-                data: chunk.data
+    // Internal: triggers dequeue event with proper microtask timing
+    _triggerDequeue(): void {
+        if (this._ondequeue) {
+            queueMicrotask(() => {
+                if (this._ondequeue) {
+                    this._ondequeue();
+                }
             });
-            this._native.decode(nativeChunk);
-        } else {
-            // Assume it's already a native chunk
-            this._native.decode(chunk);
         }
     }
 
+    configure(config: VideoDecoderConfig): void {
+        this._needsKeyFrame = true;
+        this._controlQueue.enqueue(() => {
+            this._native.configure(config);
+        });
+    }
+
+    decode(chunk: EncodedVideoChunk | any): void {
+        // Check if first chunk must be a key frame per W3C spec
+        const chunkType = chunk instanceof EncodedVideoChunk ? chunk.type : chunk.type;
+        if (this._needsKeyFrame && chunkType !== 'key') {
+            this._errorCallback(new DOMException('First chunk after configure/reset must be a key frame', 'DataError'));
+            return;
+        }
+        this._needsKeyFrame = false;
+
+        this._decodeQueueSize++;
+        this._controlQueue.enqueue(() => {
+            // Handle both wrapped EncodedVideoChunk and raw native chunks
+            if (chunk instanceof EncodedVideoChunk) {
+                // Create a native EncodedVideoChunk from our TypeScript wrapper
+                const nativeChunk = new native.EncodedVideoChunk({
+                    type: chunk.type,
+                    timestamp: chunk.timestamp,
+                    duration: chunk.duration,
+                    data: chunk.data
+                });
+                this._native.decode(nativeChunk);
+            } else {
+                // Assume it's already a native chunk
+                this._native.decode(chunk);
+            }
+        });
+    }
+
     async flush(): Promise<void> {
+        await this._controlQueue.flush();
         return this._native.flush();
     }
 
     reset(): void {
+        this._controlQueue.clear();
+        this._decodeQueueSize = 0;
+        this._needsKeyFrame = true;
         this._native.reset();
     }
 
     close(): void {
+        this._controlQueue.clear();
         this._native.close();
     }
 

@@ -64,6 +64,8 @@ Napi::Object VideoFrame::Init(Napi::Env env, Napi::Object exports) {
           InstanceAccessor("codedHeight", &VideoFrame::GetCodedHeight, nullptr),
           InstanceAccessor("timestamp", &VideoFrame::GetTimestamp, nullptr),
           InstanceAccessor("format", &VideoFrame::GetFormat, nullptr),
+          InstanceAccessor("rotation", &VideoFrame::GetRotation, nullptr),
+          InstanceAccessor("flip", &VideoFrame::GetFlip, nullptr),
           InstanceMethod("close", &VideoFrame::Close),
           InstanceMethod("getData", &VideoFrame::GetDataBuffer),
           InstanceMethod("clone", &VideoFrame::Clone),
@@ -102,6 +104,15 @@ VideoFrame::VideoFrame(const Napi::CallbackInfo& info)
   } else {
     format_ = PixelFormat::RGBA;
   }
+
+  rotation_ = 0;
+  flip_ = false;
+  if (opts.Has("rotation")) {
+    rotation_ = opts.Get("rotation").As<Napi::Number>().Int32Value();
+  }
+  if (opts.Has("flip")) {
+    flip_ = opts.Get("flip").As<Napi::Boolean>().Value();
+  }
 }
 
 VideoFrame::~VideoFrame() {
@@ -137,6 +148,14 @@ Napi::Value VideoFrame::GetFormat(const Napi::CallbackInfo& info) {
   return Napi::String::New(info.Env(), PixelFormatToString(format_));
 }
 
+Napi::Value VideoFrame::GetRotation(const Napi::CallbackInfo& info) {
+  return Napi::Number::New(info.Env(), rotation_);
+}
+
+Napi::Value VideoFrame::GetFlip(const Napi::CallbackInfo& info) {
+  return Napi::Boolean::New(info.Env(), flip_);
+}
+
 void VideoFrame::Close(const Napi::CallbackInfo& info) {
   if (!closed_) {
     // clear() + shrink_to_fit() actually releases memory
@@ -168,6 +187,8 @@ Napi::Value VideoFrame::Clone(const Napi::CallbackInfo& info) {
   init.Set("codedHeight", coded_height_);
   init.Set("timestamp", Napi::Number::New(env, timestamp_));
   init.Set("format", PixelFormatToString(format_));
+  init.Set("rotation", rotation_);
+  init.Set("flip", flip_);
 
   // Copy data to new buffer.
   Napi::Buffer<uint8_t> data_buffer =
