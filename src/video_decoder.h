@@ -76,6 +76,10 @@ class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
   int rotation_ = 0;      // 0, 90, 180, 270
   bool flip_ = false;     // horizontal flip
 
+  // Display aspect ratio (per W3C spec).
+  int display_aspect_width_ = 0;
+  int display_aspect_height_ = 0;
+
   // Track last frame format/dimensions for sws_context recreation.
   AVPixelFormat last_frame_format_ = AV_PIX_FMT_NONE;
   int last_frame_width_ = 0;

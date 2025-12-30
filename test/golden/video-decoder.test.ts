@@ -222,4 +222,72 @@ describe('VideoDecoder', () => {
       decoder.close();
     });
   });
+
+  describe('displayAspectWidth/displayAspectHeight', () => {
+    it('should pass displayAspectWidth/displayAspectHeight to VideoFrame output', async () => {
+      // Encode a frame first
+      const encodedChunks: EncodedVideoChunk[] = [];
+      const encoder = new VideoEncoder({
+        output: (chunk, metadata) => {
+          const data = new Uint8Array(chunk.byteLength);
+          chunk.copyTo(data);
+          encodedChunks.push(new EncodedVideoChunk({
+            type: chunk.type,
+            timestamp: chunk.timestamp,
+            duration: chunk.duration ?? undefined,
+            data: data,
+          }));
+        },
+        error: (e) => { throw e; },
+      });
+
+      encoder.configure({
+        codec: 'avc1.42001e',
+        width: 320,
+        height: 240,
+        bitrate: 500_000,
+        framerate: 30,
+      });
+
+      const frameData = new Uint8Array(320 * 240 * 4).fill(128);
+      const frame = new VideoFrame(frameData, {
+        format: 'RGBA',
+        codedWidth: 320,
+        codedHeight: 240,
+        timestamp: 0,
+      });
+
+      encoder.encode(frame, { keyFrame: true });
+      await encoder.flush();
+      frame.close();
+      encoder.close();
+
+      // Decode with display aspect ratio specified
+      const outputFrames: VideoFrame[] = [];
+      const decoder = new VideoDecoder({
+        output: (outputFrame) => {
+          outputFrames.push(outputFrame);
+        },
+        error: (e) => { throw e; },
+      });
+
+      decoder.configure({
+        codec: 'avc1.42001e',
+        codedWidth: 320,
+        codedHeight: 240,
+        displayAspectWidth: 16,
+        displayAspectHeight: 9,
+      });
+
+      decoder.decode(encodedChunks[0]);
+      await decoder.flush();
+
+      expect(outputFrames.length).toBeGreaterThan(0);
+      expect(outputFrames[0].displayWidth).toBe(Math.round(240 * 16 / 9)); // ~427
+      expect(outputFrames[0].displayHeight).toBe(240);
+
+      outputFrames.forEach(f => f.close());
+      decoder.close();
+    });
+  });
 });

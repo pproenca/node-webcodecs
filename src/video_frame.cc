@@ -760,3 +760,28 @@ Napi::Object VideoFrame::CreateInstance(Napi::Env env, const uint8_t* data,
   // Create new VideoFrame instance.
   return constructor.New({data_buffer, init});
 }
+
+Napi::Object VideoFrame::CreateInstance(Napi::Env env, const uint8_t* data,
+                                        size_t data_size, int width, int height,
+                                        int64_t timestamp,
+                                        const std::string& format, int rotation,
+                                        bool flip, int display_width,
+                                        int display_height) {
+  // Create init object with properties.
+  Napi::Object init = Napi::Object::New(env);
+  init.Set("codedWidth", width);
+  init.Set("codedHeight", height);
+  init.Set("displayWidth", display_width);
+  init.Set("displayHeight", display_height);
+  init.Set("timestamp", Napi::Number::New(env, timestamp));
+  init.Set("format", format);
+  init.Set("rotation", rotation);
+  init.Set("flip", flip);
+
+  // Copy data to buffer.
+  Napi::Buffer<uint8_t> data_buffer =
+      Napi::Buffer<uint8_t>::Copy(env, data, data_size);
+
+  // Create new VideoFrame instance.
+  return constructor.New({data_buffer, init});
+}

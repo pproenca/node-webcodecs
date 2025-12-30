@@ -3,6 +3,7 @@
 
 #include "src/video_decoder.h"
 
+#include <cmath>
 #include <cstring>
 #include <memory>
 #include <string>
@@ -221,6 +222,20 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
   flip_ = false;
   if (config.Has("flip") && config.Get("flip").IsBoolean()) {
     flip_ = config.Get("flip").As<Napi::Boolean>().Value();
+  }
+
+  // Parse optional displayAspectWidth/displayAspectHeight (per W3C spec).
+  display_aspect_width_ = 0;
+  display_aspect_height_ = 0;
+  if (config.Has("displayAspectWidth") &&
+      config.Get("displayAspectWidth").IsNumber()) {
+    display_aspect_width_ =
+        config.Get("displayAspectWidth").As<Napi::Number>().Int32Value();
+  }
+  if (config.Has("displayAspectHeight") &&
+      config.Get("displayAspectHeight").IsNumber()) {
+    display_aspect_height_ =
+        config.Get("displayAspectHeight").As<Napi::Number>().Int32Value();
   }
 
   // Open codec.
@@ -562,10 +577,24 @@ void VideoDecoder::EmitFrames(Napi::Env env) {
     sws_scale(sws_context_, frame_->data, frame_->linesize, 0, frame_->height,
               dst_data, dst_linesize);
 
-    // Create VideoFrame with rotation and flip from decoder config.
+    // Calculate display dimensions based on aspect ratio (per W3C spec).
+    // If displayAspectWidth/displayAspectHeight are set, compute display
+    // dimensions maintaining the height and adjusting width to match ratio.
+    int display_width = frame_->width;
+    int display_height = frame_->height;
+    if (display_aspect_width_ > 0 && display_aspect_height_ > 0) {
+      // Per W3C spec: displayWidth = codedHeight * aspectWidth / aspectHeight
+      display_width = static_cast<int>(
+          std::round(static_cast<double>(frame_->height) *
+                     static_cast<double>(display_aspect_width_) /
+                     static_cast<double>(display_aspect_height_)));
+      display_height = frame_->height;
+    }
+
+    // Create VideoFrame with rotation, flip, and display dimensions.
     Napi::Object video_frame = VideoFrame::CreateInstance(
         env, rgba_data.data(), rgba_data.size(), frame_->width, frame_->height,
-        frame_->pts, "RGBA", rotation_, flip_);
+        frame_->pts, "RGBA", rotation_, flip_, display_width, display_height);
 
     // Call output callback.
     output_callback_.Call({video_frame});

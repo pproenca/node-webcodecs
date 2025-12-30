@@ -92,6 +92,12 @@ class VideoFrame : public Napi::ObjectWrap<VideoFrame> {
                                      int64_t timestamp,
                                      const std::string& format, int rotation,
                                      bool flip);
+  static Napi::Object CreateInstance(Napi::Env env, const uint8_t* data,
+                                     size_t data_size, int width, int height,
+                                     int64_t timestamp,
+                                     const std::string& format, int rotation,
+                                     bool flip, int display_width,
+                                     int display_height);
   explicit VideoFrame(const Napi::CallbackInfo& info);
   ~VideoFrame();
 
