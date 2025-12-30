@@ -908,12 +908,12 @@ export class AudioEncoder extends CodecBase {
     // W3C spec: validate required fields with TypeError
     if (config.codec === undefined || config.codec === null) {
       throw new TypeError(
-        "Failed to execute 'configure' on 'AudioEncoder': required member codec is undefined."
+        "Failed to execute 'configure' on 'AudioEncoder': required member codec is undefined.",
       );
     }
     if (config.sampleRate === undefined || config.sampleRate === null) {
       throw new TypeError(
-        "Failed to execute 'configure' on 'AudioEncoder': required member sampleRate is undefined."
+        "Failed to execute 'configure' on 'AudioEncoder': required member sampleRate is undefined.",
       );
     }
     if (
@@ -921,7 +921,7 @@ export class AudioEncoder extends CodecBase {
       config.numberOfChannels === null
     ) {
       throw new TypeError(
-        "Failed to execute 'configure' on 'AudioEncoder': required member numberOfChannels is undefined."
+        "Failed to execute 'configure' on 'AudioEncoder': required member numberOfChannels is undefined.",
       );
     }
 
@@ -947,12 +947,12 @@ export class AudioEncoder extends CodecBase {
     // W3C spec: reject if unconfigured or closed
     if (this.state === 'unconfigured') {
       return Promise.reject(
-        new DOMException('Encoder is not configured', 'InvalidStateError')
+        new DOMException('Encoder is not configured', 'InvalidStateError'),
       );
     }
     if (this.state === 'closed') {
       return Promise.reject(
-        new DOMException('Encoder is closed', 'InvalidStateError')
+        new DOMException('Encoder is closed', 'InvalidStateError'),
       );
     }
 
@@ -1034,17 +1034,20 @@ export class AudioDecoder extends CodecBase {
     // W3C spec: validate required fields with TypeError
     if (config.codec === undefined || config.codec === null) {
       throw new TypeError(
-        "Failed to execute 'configure' on 'AudioDecoder': required member codec is undefined."
+        "Failed to execute 'configure' on 'AudioDecoder': required member codec is undefined.",
       );
     }
     if (config.sampleRate === undefined || config.sampleRate === null) {
       throw new TypeError(
-        "Failed to execute 'configure' on 'AudioDecoder': required member sampleRate is undefined."
+        "Failed to execute 'configure' on 'AudioDecoder': required member sampleRate is undefined.",
       );
     }
-    if (config.numberOfChannels === undefined || config.numberOfChannels === null) {
+    if (
+      config.numberOfChannels === undefined ||
+      config.numberOfChannels === null
+    ) {
       throw new TypeError(
-        "Failed to execute 'configure' on 'AudioDecoder': required member numberOfChannels is undefined."
+        "Failed to execute 'configure' on 'AudioDecoder': required member numberOfChannels is undefined.",
       );
     }
 
