@@ -41,9 +41,9 @@ struct EncodedChunk {
 
 class AsyncEncodeWorker {
  public:
-  AsyncEncodeWorker(VideoEncoder* encoder,
-                    Napi::ThreadSafeFunction output_tsfn,
-                    Napi::ThreadSafeFunction error_tsfn);
+  explicit AsyncEncodeWorker(VideoEncoder* encoder,
+                             Napi::ThreadSafeFunction output_tsfn,
+                             Napi::ThreadSafeFunction error_tsfn);
   ~AsyncEncodeWorker();
 
   void Start();

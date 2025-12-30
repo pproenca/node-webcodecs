@@ -40,9 +40,9 @@ struct DecodedFrame {
 
 class AsyncDecodeWorker {
  public:
-  AsyncDecodeWorker(VideoDecoder* decoder,
-                    Napi::ThreadSafeFunction output_tsfn,
-                    Napi::ThreadSafeFunction error_tsfn);
+  explicit AsyncDecodeWorker(VideoDecoder* decoder,
+                             Napi::ThreadSafeFunction output_tsfn,
+                             Napi::ThreadSafeFunction error_tsfn);
   ~AsyncDecodeWorker();
 
   void Start();
