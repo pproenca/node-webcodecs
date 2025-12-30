@@ -540,6 +540,7 @@ export class VideoDecoder extends CodecBase {
       const wrapper = Object.create(VideoFrame.prototype) as any;
       wrapper._native = nativeFrame;
       wrapper._closed = false;
+      wrapper._metadata = {};  // Initialize empty metadata for decoded frames
       init.output(wrapper as VideoFrame);
 
       // Fire ondequeue after output
@@ -1139,6 +1140,7 @@ export class ImageDecoder {
     const wrapper = Object.create(VideoFrame.prototype) as any;
     wrapper._native = result.image;
     wrapper._closed = false;
+    wrapper._metadata = {};  // Initialize empty metadata for decoded images
 
     return {
       image: wrapper as VideoFrame,
