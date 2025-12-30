@@ -240,7 +240,7 @@ Napi::Value AudioDecoder::GetState(const Napi::CallbackInfo& info) {
 }
 
 Napi::Value AudioDecoder::GetDecodeQueueSize(const Napi::CallbackInfo& info) {
-  return Napi::Number::New(info.Env(), 0);
+  return Napi::Number::New(info.Env(), decode_queue_size_);
 }
 
 void AudioDecoder::Close(const Napi::CallbackInfo& info) {
@@ -309,6 +309,11 @@ Napi::Value AudioDecoder::Decode(const Napi::CallbackInfo& info) {
              .Value()});
     return env.Undefined();
   }
+
+  // Increment queue size after successful packet submission
+  decode_queue_size_++;
+  bool saturated = decode_queue_size_ >= static_cast<int>(kMaxQueueSize);
+  codec_saturated_.store(saturated);
 
   // Emit any available decoded audio data.
   EmitAudioData(env);
@@ -443,6 +448,13 @@ void AudioDecoder::EmitAudioData(Napi::Env env) {
 
     // Call output callback.
     output_callback_.Call({audio_data});
+
+    // Decrement queue size after audio data is emitted
+    if (decode_queue_size_ > 0) {
+      decode_queue_size_--;
+      bool saturated = decode_queue_size_ >= static_cast<int>(kMaxQueueSize);
+      codec_saturated_.store(saturated);
+    }
 
     av_frame_unref(frame_);
   }
