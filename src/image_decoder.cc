@@ -3,10 +3,12 @@
 //
 // ImageDecoder implementation wrapping FFmpeg image decoders.
 
-#include "image_decoder.h"
-#include "video_frame.h"
+#include "src/image_decoder.h"
 
 #include <algorithm>
+#include <string>
+
+#include "src/video_frame.h"
 
 Napi::Object ImageDecoder::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(env, "ImageDecoder", {
@@ -262,7 +264,8 @@ Napi::Value ImageDecoder::Decode(const Napi::CallbackInfo& info) {
     image.Set("timestamp", Napi::Number::New(env, 0));
     image.Set("format", Napi::String::New(env, "RGBA"));
     image.Set("data", buffer);
-    image.Set("close", Napi::Function::New(env, [](const Napi::CallbackInfo&) {}));
+    auto closeFn = [](const Napi::CallbackInfo&) {};
+    image.Set("close", Napi::Function::New(env, closeFn));
     result.Set("image", image);
     result.Set("complete", Napi::Boolean::New(env, complete_));
 
@@ -330,7 +333,7 @@ Napi::Value ImageDecoder::GetTracks(const Napi::CallbackInfo& info) {
   trackList.Set("ready", deferred.Promise());
 
   // Make trackList indexable like an array (tracks[0] should work)
-  trackList.Set((uint32_t)0, selectedTrack);
+  trackList.Set(static_cast<uint32_t>(0), selectedTrack);
 
   return trackList;
 }
