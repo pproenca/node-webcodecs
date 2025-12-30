@@ -159,7 +159,12 @@ export class VideoFrame {
   private _metadata: VideoFrameMetadata;
   private _timestampOverride?: number;
   private _durationOverride?: number;
-  private _visibleRectOverride?: {x: number; y: number; width: number; height: number};
+  private _visibleRectOverride?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 
   /**
    * Constructs a VideoFrame from raw data or from an existing VideoFrame.
@@ -168,7 +173,10 @@ export class VideoFrame {
    * 1. Raw buffer data with VideoFrameBufferInit
    * 2. An existing VideoFrame with optional VideoFrameInit overrides
    */
-  constructor(data: Buffer | Uint8Array | ArrayBuffer, init: VideoFrameBufferInit);
+  constructor(
+    data: Buffer | Uint8Array | ArrayBuffer,
+    init: VideoFrameBufferInit,
+  );
   constructor(source: VideoFrame, init?: VideoFrameInit);
   constructor(
     dataOrSource: Buffer | Uint8Array | ArrayBuffer | VideoFrame,
@@ -211,8 +219,10 @@ export class VideoFrame {
           this._visibleRectOverride = {
             x: frameInit.visibleRect.x ?? 0,
             y: frameInit.visibleRect.y ?? 0,
-            width: frameInit.visibleRect.width ?? this._native.visibleRect.width,
-            height: frameInit.visibleRect.height ?? this._native.visibleRect.height,
+            width:
+              frameInit.visibleRect.width ?? this._native.visibleRect.width,
+            height:
+              frameInit.visibleRect.height ?? this._native.visibleRect.height,
           };
         }
 
