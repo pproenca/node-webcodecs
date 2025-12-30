@@ -11,13 +11,11 @@
 // - Writing output file
 
 const fs = require('fs');
-const path = require('path');
 const {
   Demuxer,
   VideoDecoder,
   VideoEncoder,
   VideoFrame,
-  EncodedVideoChunk,
 } = require('../dist/index.js');
 
 const inputPath = process.argv[2];

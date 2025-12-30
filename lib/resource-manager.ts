@@ -5,8 +5,16 @@
  * Inactive codecs (no progress in 10 seconds) may be reclaimed.
  */
 
+/**
+ * Minimal interface for codecs managed by ResourceManager.
+ */
+interface ManagedCodec {
+  readonly state: string;
+  close(): void;
+}
+
 interface CodecEntry {
-  codec: any;
+  codec: ManagedCodec;
   lastActivity: number;
   isBackground: boolean;
 }
@@ -31,7 +39,7 @@ export class ResourceManager {
   /**
    * Register a codec for tracking.
    */
-  register(codec: any): symbol {
+  register(codec: ManagedCodec): symbol {
     const id = Symbol('codec');
     this.codecs.set(id, {
       codec,
@@ -79,9 +87,9 @@ export class ResourceManager {
    * Get codecs eligible for reclamation.
    * Per spec: inactive (no progress in 10s) OR background codecs.
    */
-  getReclaimableCodecs(): any[] {
+  getReclaimableCodecs(): ManagedCodec[] {
     const now = Date.now();
-    const reclaimable: any[] = [];
+    const reclaimable: ManagedCodec[] = [];
 
     for (const [, entry] of this.codecs) {
       const inactive = now - entry.lastActivity > this.inactivityTimeout;
@@ -109,7 +117,7 @@ export class ResourceManager {
           codec.close();
           reclaimed++;
         }
-      } catch (e) {
+      } catch {
         // Ignore errors during reclamation
       }
     }

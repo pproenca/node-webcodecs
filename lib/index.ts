@@ -229,7 +229,7 @@ export class VideoFrame {
 }
 
 export class VideoEncoder {
-  private _native: any;
+  private _native: NativeVideoEncoder;
   private _state: CodecState = 'unconfigured';
   private _ondequeue: (() => void) | null = null;
   private _controlQueue: ControlMessageQueue;
@@ -249,22 +249,24 @@ export class VideoEncoder {
     this._controlQueue.setErrorHandler(init.error);
     this._resourceId = ResourceManager.getInstance().register(this);
 
+    const outputCallback: VideoEncoderOutputCallback = (chunk, metadata) => {
+      // Decrement queue size when output received
+      this._encodeQueueSize = Math.max(0, this._encodeQueueSize - 1);
+
+      const wrappedChunk = new EncodedVideoChunk({
+        type: chunk.type,
+        timestamp: chunk.timestamp,
+        duration: chunk.duration ?? undefined,
+        data: chunk.data,
+      });
+      init.output(wrappedChunk, metadata);
+
+      // Fire ondequeue after output
+      this._triggerDequeue();
+    };
+
     this._native = new native.VideoEncoder({
-      output: (chunk: any, metadata: any) => {
-        // Decrement queue size when output received
-        this._encodeQueueSize = Math.max(0, this._encodeQueueSize - 1);
-
-        const wrappedChunk = new EncodedVideoChunk({
-          type: chunk.type,
-          timestamp: chunk.timestamp,
-          duration: chunk.duration,
-          data: chunk.data,
-        });
-        init.output(wrappedChunk, metadata);
-
-        // Fire ondequeue after output
-        this._triggerDequeue();
-      },
+      output: outputCallback,
       error: init.error,
     });
   }
@@ -393,7 +395,7 @@ export class EncodedVideoChunk {
     } else if (init.data instanceof ArrayBuffer) {
       this.data = Buffer.from(init.data);
     } else {
-      this.data = Buffer.from(init.data as any);
+      throw new TypeError('data must be Buffer, Uint8Array, or ArrayBuffer');
     }
   }
 
@@ -420,7 +422,7 @@ export class EncodedVideoChunk {
 }
 
 export class VideoDecoder {
-  private _native: any;
+  private _native: NativeVideoDecoder;
   private _ondequeue: (() => void) | null = null;
   private _controlQueue: ControlMessageQueue;
   private _decodeQueueSize: number = 0;
@@ -442,20 +444,25 @@ export class VideoDecoder {
     this._controlQueue.setErrorHandler(init.error);
     this._resourceId = ResourceManager.getInstance().register(this);
 
+    const outputCallback: VideoDecoderOutputCallback = nativeFrame => {
+      // Decrement queue size when output received
+      this._decodeQueueSize = Math.max(0, this._decodeQueueSize - 1);
+
+      // Wrap the native frame as a VideoFrame
+      const wrapper = Object.create(VideoFrame.prototype) as VideoFrame & {
+        _native: NativeVideoFrame;
+        _closed: boolean;
+      };
+      wrapper._native = nativeFrame;
+      wrapper._closed = false;
+      init.output(wrapper);
+
+      // Fire ondequeue after output
+      this._triggerDequeue();
+    };
+
     this._native = new native.VideoDecoder({
-      output: (nativeFrame: any) => {
-        // Decrement queue size when output received
-        this._decodeQueueSize = Math.max(0, this._decodeQueueSize - 1);
-
-        // Wrap the native frame as a VideoFrame
-        const wrapper = Object.create(VideoFrame.prototype);
-        wrapper._native = nativeFrame;
-        wrapper._closed = false;
-        init.output(wrapper);
-
-        // Fire ondequeue after output
-        this._triggerDequeue();
-      },
+      output: outputCallback,
       error: init.error,
     });
   }
@@ -497,11 +504,9 @@ export class VideoDecoder {
     this._native.configure(config);
   }
 
-  decode(chunk: EncodedVideoChunk | any): void {
+  decode(chunk: EncodedVideoChunk): void {
     // Check if first chunk must be a key frame per W3C spec
-    const chunkType =
-      chunk instanceof EncodedVideoChunk ? chunk.type : chunk.type;
-    if (this._needsKeyFrame && chunkType !== 'key') {
+    if (this._needsKeyFrame && chunk.type !== 'key') {
       this._errorCallback(
         new DOMException(
           'First chunk after configure/reset must be a key frame',
@@ -514,20 +519,14 @@ export class VideoDecoder {
 
     ResourceManager.getInstance().recordActivity(this._resourceId);
     this._decodeQueueSize++;
-    // Call native decode directly - chunk must be valid at call time
-    if (chunk instanceof EncodedVideoChunk) {
-      // Create a native EncodedVideoChunk from our TypeScript wrapper
-      const nativeChunk = new native.EncodedVideoChunk({
-        type: chunk.type,
-        timestamp: chunk.timestamp,
-        duration: chunk.duration,
-        data: chunk.data,
-      });
-      this._native.decode(nativeChunk);
-    } else {
-      // Assume it's already a native chunk
-      this._native.decode(chunk);
-    }
+    // Create a native EncodedVideoChunk from our TypeScript wrapper
+    const nativeChunk = new native.EncodedVideoChunk({
+      type: chunk.type,
+      timestamp: chunk.timestamp,
+      duration: chunk.duration ?? undefined,
+      data: chunk.data,
+    });
+    this._native.decode(nativeChunk);
   }
 
   async flush(): Promise<void> {
@@ -568,7 +567,7 @@ export class VideoDecoder {
 }
 
 export class AudioData {
-  private _native: any;
+  private _native: NativeAudioData;
   private _closed: boolean = false;
 
   constructor(init: AudioDataInit) {
@@ -667,20 +666,38 @@ export class AudioData {
     }
   }
 
-  get _nativeAudioData(): any {
+  get _nativeAudioData(): NativeAudioData {
     return this._native;
   }
 }
 
 export class EncodedAudioChunk {
-  private _native: any;
+  private _native: NativeEncodedAudioChunk;
 
   constructor(init: EncodedAudioChunkInit) {
-    this._native = new native.EncodedAudioChunk(init);
+    // Convert BufferSource to Buffer for native
+    let dataBuffer: Buffer;
+    if (init.data instanceof ArrayBuffer) {
+      dataBuffer = Buffer.from(init.data);
+    } else if (ArrayBuffer.isView(init.data)) {
+      dataBuffer = Buffer.from(
+        init.data.buffer,
+        init.data.byteOffset,
+        init.data.byteLength,
+      );
+    } else {
+      throw new TypeError('data must be ArrayBuffer or ArrayBufferView');
+    }
+    this._native = new native.EncodedAudioChunk({
+      type: init.type,
+      timestamp: init.timestamp,
+      duration: init.duration,
+      data: dataBuffer,
+    });
   }
 
   get type(): 'key' | 'delta' {
-    return this._native.type;
+    return this._native.type as 'key' | 'delta';
   }
 
   get timestamp(): number {
@@ -688,7 +705,7 @@ export class EncodedAudioChunk {
   }
 
   get duration(): number | undefined {
-    return this._native.duration;
+    return this._native.duration ?? undefined;
   }
 
   get byteLength(): number {
@@ -699,13 +716,13 @@ export class EncodedAudioChunk {
     this._native.copyTo(destination);
   }
 
-  get _nativeChunk(): any {
+  get _nativeChunk(): NativeEncodedAudioChunk {
     return this._native;
   }
 }
 
 export class AudioEncoder {
-  private _native: any;
+  private _native: NativeAudioEncoder;
   private _ondequeue: (() => void) | null = null;
   private _controlQueue: ControlMessageQueue;
   private _encodeQueueSize: number = 0;
@@ -714,18 +731,24 @@ export class AudioEncoder {
     this._controlQueue = new ControlMessageQueue();
     this._controlQueue.setErrorHandler(init.error);
 
+    const outputCallback: AudioEncoderOutputCallback = (chunk, metadata) => {
+      // Decrement queue size when output received
+      this._encodeQueueSize = Math.max(0, this._encodeQueueSize - 1);
+
+      const wrapper = Object.create(
+        EncodedAudioChunk.prototype,
+      ) as EncodedAudioChunk & {
+        _native: NativeEncodedAudioChunk;
+      };
+      wrapper._native = chunk as unknown as NativeEncodedAudioChunk;
+      init.output(wrapper, metadata);
+
+      // Fire ondequeue after output
+      this._triggerDequeue();
+    };
+
     this._native = new native.AudioEncoder({
-      output: (chunk: any, metadata?: any) => {
-        // Decrement queue size when output received
-        this._encodeQueueSize = Math.max(0, this._encodeQueueSize - 1);
-
-        const wrapper = Object.create(EncodedAudioChunk.prototype);
-        wrapper._native = chunk;
-        init.output(wrapper, metadata);
-
-        // Fire ondequeue after output
-        this._triggerDequeue();
-      },
+      output: outputCallback,
       error: init.error,
     });
   }
@@ -793,7 +816,7 @@ export class AudioEncoder {
 }
 
 export class AudioDecoder {
-  private _native: any;
+  private _native: NativeAudioDecoder;
   private _ondequeue: (() => void) | null = null;
   private _controlQueue: ControlMessageQueue;
   private _decodeQueueSize: number = 0;
@@ -805,19 +828,24 @@ export class AudioDecoder {
     this._errorCallback = init.error;
     this._controlQueue.setErrorHandler(init.error);
 
+    const outputCallback: AudioDecoderOutputCallback = nativeData => {
+      // Decrement queue size when output received
+      this._decodeQueueSize = Math.max(0, this._decodeQueueSize - 1);
+
+      const wrapper = Object.create(AudioData.prototype) as AudioData & {
+        _native: NativeAudioData;
+        _closed: boolean;
+      };
+      wrapper._native = nativeData;
+      wrapper._closed = false;
+      init.output(wrapper);
+
+      // Fire ondequeue after output
+      this._triggerDequeue();
+    };
+
     this._native = new native.AudioDecoder({
-      output: (data: any) => {
-        // Decrement queue size when output received
-        this._decodeQueueSize = Math.max(0, this._decodeQueueSize - 1);
-
-        const wrapper = Object.create(AudioData.prototype);
-        wrapper._native = data;
-        wrapper._closed = false;
-        init.output(wrapper);
-
-        // Fire ondequeue after output
-        this._triggerDequeue();
-      },
+      output: outputCallback,
       error: init.error,
     });
   }
@@ -899,19 +927,20 @@ export class AudioDecoder {
 }
 
 export class VideoFilter {
-  private _native: any;
+  private _native: NativeVideoFilter;
   private _state: CodecState = 'unconfigured';
 
-  constructor() {
-    this._native = new native.VideoFilter();
+  constructor(config: VideoFilterConfig) {
+    this._native = new native.VideoFilter(config);
   }
 
   get state(): CodecState {
-    return this._native.state;
+    return this._state;
   }
 
-  configure(config: VideoFilterConfig): void {
-    this._native.configure(config);
+  configure(_config: VideoFilterConfig): void {
+    // VideoFilter is configured at construction time
+    this._state = 'configured';
   }
 
   applyBlur(
@@ -919,34 +948,42 @@ export class VideoFilter {
     regions: BlurRegion[],
     strength: number = 20,
   ): VideoFrame {
-    if (this._native.state === 'closed') {
+    if (this._state === 'closed') {
       throw new DOMException('VideoFilter is closed', 'InvalidStateError');
     }
-    // Pass the native VideoFrame object to applyBlur
-    const nativeResult = this._native.applyBlur(
-      (frame as any)._native,
-      regions,
-      strength,
-    );
-    // Wrap the returned native frame as a VideoFrame
-    const wrapper = Object.create(VideoFrame.prototype);
-    wrapper._native = nativeResult;
-    wrapper._closed = false;
-    return wrapper;
+    // Pass the native VideoFrame data to applyBlur
+    const frameData = frame._nativeFrame.getData();
+    const resultData = this._native.applyBlur(frameData, regions, strength);
+    // Create a new VideoFrame with the blurred data
+    return new VideoFrame(resultData, {
+      codedWidth: frame.codedWidth,
+      codedHeight: frame.codedHeight,
+      timestamp: frame.timestamp,
+      format: frame.format as VideoPixelFormat,
+    });
   }
 
   close(): void {
     this._native.close();
+    this._state = 'closed';
   }
 }
 
 export class Demuxer {
-  private _native: any;
+  private _native: NativeDemuxer;
 
   constructor(init: DemuxerInit) {
     this._native = new native.Demuxer({
       onTrack: init.onTrack,
-      onChunk: (chunk: any, trackIndex: number) => {
+      onChunk: (
+        chunk: {
+          type: string;
+          timestamp: number;
+          duration?: number;
+          data: Buffer;
+        },
+        trackIndex: number,
+      ) => {
         if (init.onChunk) {
           // Wrap raw chunk in EncodedVideoChunk for consistency
           const wrappedChunk = new EncodedVideoChunk({
@@ -984,7 +1021,7 @@ export class Demuxer {
 }
 
 export class ImageDecoder {
-  private _native: any;
+  private _native: NativeImageDecoder;
   private _closed: boolean = false;
 
   constructor(init: ImageDecoderInit) {

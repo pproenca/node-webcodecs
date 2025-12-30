@@ -66,6 +66,14 @@ export interface DOMRectReadOnly {
   readonly left: number;
 }
 
+// W3C DOMRectInit - mutable version for input parameters
+export interface DOMRectInit {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+}
+
 export interface VideoFrameInit {
   codedWidth: number;
   codedHeight: number;
@@ -74,9 +82,27 @@ export interface VideoFrameInit {
   displayWidth?: number;
   displayHeight?: number;
   format?: VideoPixelFormat;
-  rotation?: 0 | 90 | 180 | 270;
+  rotation?: number; // 0, 90, 180, or 270 degrees per W3C spec
   flip?: boolean;
-  visibleRect?: {x: number; y: number; width: number; height: number};
+  visibleRect?: DOMRectInit;
+}
+
+// W3C VideoFrameBufferInit - for constructing VideoFrame from BufferSource
+export interface VideoFrameBufferInit {
+  format: VideoPixelFormat;
+  codedWidth: number;
+  codedHeight: number;
+  timestamp: number;
+  duration?: number;
+  layout?: PlaneLayout[];
+  visibleRect?: DOMRectInit;
+  displayWidth?: number;
+  displayHeight?: number;
+  colorSpace?: VideoColorSpaceInit;
+  transfer?: ArrayBuffer[]; // TODO: ArrayBuffer transfer not implemented
+  metadata?: VideoFrameMetadata;
+  rotation?: number; // 0, 90, 180, or 270 degrees per W3C spec
+  flip?: boolean;
 }
 
 // Codec-specific quantizer options per W3C WebCodecs spec
@@ -111,16 +137,40 @@ export interface PlaneLayout {
   stride: number;
 }
 
+// W3C VideoPixelFormat - all formats from the spec
+// Note: High bit-depth formats (P10/P12) marked but may not be fully supported in native layer
 export type VideoPixelFormat =
+  // 4:2:0 Y, U, V
+  | 'I420'
+  | 'I420P10' // TODO: 10-bit not implemented in native
+  | 'I420P12' // TODO: 12-bit not implemented in native
+  // 4:2:0 Y, U, V, A
+  | 'I420A'
+  | 'I420AP10' // TODO: 10-bit not implemented in native
+  | 'I420AP12' // TODO: 12-bit not implemented in native
+  // 4:2:2 Y, U, V
+  | 'I422'
+  | 'I422P10' // TODO: 10-bit not implemented in native
+  | 'I422P12' // TODO: 12-bit not implemented in native
+  // 4:2:2 Y, U, V, A
+  | 'I422A' // TODO: Not implemented in native
+  | 'I422AP10' // TODO: Not implemented in native
+  | 'I422AP12' // TODO: Not implemented in native
+  // 4:4:4 Y, U, V
+  | 'I444'
+  | 'I444P10' // TODO: 10-bit not implemented in native
+  | 'I444P12' // TODO: 12-bit not implemented in native
+  // 4:4:4 Y, U, V, A
+  | 'I444A' // TODO: Not implemented in native
+  | 'I444AP10' // TODO: Not implemented in native
+  | 'I444AP12' // TODO: Not implemented in native
+  // 4:2:0 Y, UV (interleaved)
+  | 'NV12'
+  // 4:4:4 RGB variants
   | 'RGBA'
   | 'RGBX'
   | 'BGRA'
-  | 'BGRX'
-  | 'I420'
-  | 'I420A'
-  | 'I422'
-  | 'I444'
-  | 'NV12';
+  | 'BGRX';
 
 export interface VideoFrameCopyToOptions {
   rect?: {x: number; y: number; width: number; height: number};
@@ -170,12 +220,28 @@ export interface VideoDecoderConfig {
   optimizeForLatency?: boolean;
   displayAspectWidth?: number;
   displayAspectHeight?: number;
-  rotation?: 0 | 90 | 180 | 270;
+  rotation?: number; // 0, 90, 180, or 270 degrees per W3C spec
   flip?: boolean;
 }
 
+/**
+ * Shape of VideoFrame objects passed to decoder output callbacks.
+ */
+export interface VideoFrameOutput {
+  readonly codedWidth: number;
+  readonly codedHeight: number;
+  readonly displayWidth: number;
+  readonly displayHeight: number;
+  readonly timestamp: number;
+  readonly duration: number | null;
+  readonly format: string | null;
+  readonly colorSpace: VideoColorSpaceInit;
+  close(): void;
+  clone(): VideoFrameOutput;
+}
+
 export interface VideoDecoderInit {
-  output: (frame: any) => void;
+  output: (frame: VideoFrameOutput) => void;
   error: (error: Error) => void;
 }
 
@@ -221,8 +287,22 @@ export interface AudioEncoderConfig {
   opus?: OpusEncoderConfig;
 }
 
+/**
+ * Shape of EncodedAudioChunk objects passed to encoder output callbacks.
+ */
+export interface EncodedAudioChunkOutput {
+  readonly type: 'key' | 'delta';
+  readonly timestamp: number;
+  readonly duration: number | null;
+  readonly byteLength: number;
+  copyTo(dest: BufferSource): void;
+}
+
 export interface AudioEncoderInit {
-  output: (chunk: any, metadata?: any) => void;
+  output: (
+    chunk: EncodedAudioChunkOutput,
+    metadata?: EncodedAudioChunkMetadata,
+  ) => void;
   error: (error: Error) => void;
 }
 
@@ -233,8 +313,22 @@ export interface AudioDecoderConfig {
   description?: ArrayBuffer | ArrayBufferView;
 }
 
+/**
+ * Shape of AudioData objects passed to decoder output callbacks.
+ */
+export interface AudioDataOutput {
+  readonly format: AudioSampleFormat | null;
+  readonly sampleRate: number;
+  readonly numberOfFrames: number;
+  readonly numberOfChannels: number;
+  readonly timestamp: number;
+  readonly duration: number;
+  close(): void;
+  clone(): AudioDataOutput;
+}
+
 export interface AudioDecoderInit {
-  output: (data: any) => void;
+  output: (data: AudioDataOutput) => void;
   error: (error: Error) => void;
 }
 
@@ -268,9 +362,19 @@ export interface VideoFilterConfig {
 }
 
 // Demuxer types
+/**
+ * Shape of chunk objects passed to demuxer onChunk callbacks.
+ */
+export interface DemuxerChunk {
+  readonly type: 'key' | 'delta';
+  readonly timestamp: number;
+  readonly duration?: number;
+  readonly data: Buffer;
+}
+
 export interface DemuxerInit {
   onTrack?: (track: TrackInfo) => void;
-  onChunk?: (chunk: any, trackIndex: number) => void;
+  onChunk?: (chunk: DemuxerChunk, trackIndex: number) => void;
   onError?: (error: Error) => void;
 }
 
@@ -302,7 +406,7 @@ export interface ImageDecodeOptions {
 }
 
 export interface ImageDecodeResult {
-  image: any; // VideoFrame
+  image: VideoFrameOutput;
   complete: boolean;
 }
 

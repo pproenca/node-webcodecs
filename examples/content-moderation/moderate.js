@@ -10,14 +10,7 @@
  * Usage: node moderate.js
  */
 
-const {
-  VideoEncoder,
-  VideoDecoder,
-  VideoFrame,
-  VideoFilter,
-  EncodedVideoChunk,
-} = require('../../dist');
-const fs = require('fs');
+const {VideoEncoder, VideoFrame, VideoFilter} = require('../../dist');
 
 // Mock AI detector - in production, this would call ONNX/TensorFlow
 function mockDetectContent(frame, frameIndex) {

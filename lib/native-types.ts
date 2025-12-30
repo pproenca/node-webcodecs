@@ -31,7 +31,8 @@ export interface NativeVideoFrame {
   readonly format: string;
   readonly rotation: number;
   readonly flip: boolean;
-  readonly colorSpace?: VideoColorSpaceInit;
+  readonly colorSpace: VideoColorSpaceInit;
+  readonly data: Buffer;
 
   close(): void;
   getData(): Buffer;
@@ -39,7 +40,7 @@ export interface NativeVideoFrame {
   allocationSize(options?: {format?: string}): number;
   copyTo(
     dest: Uint8Array | ArrayBuffer,
-    options?: {format?: string}
+    options?: {format?: string},
   ): Promise<PlaneLayoutResult[]>;
 }
 
@@ -54,6 +55,7 @@ export interface PlaneLayoutResult {
 export interface NativeVideoEncoder {
   readonly state: string;
   readonly encodeQueueSize: number;
+  readonly codecSaturated: boolean;
 
   configure(config: VideoEncoderConfig): void;
   encode(frame: NativeVideoFrame, options?: {keyFrame?: boolean}): void;
@@ -104,7 +106,7 @@ export interface NativeAudioData {
   allocationSize(options?: {planeIndex?: number; format?: string}): number;
   copyTo(
     dest: Uint8Array | ArrayBuffer,
-    options?: {planeIndex?: number; format?: string}
+    options?: {planeIndex?: number; format?: string},
   ): void;
 }
 
@@ -155,7 +157,7 @@ export interface NativeVideoFilter {
   applyBlur(
     frameData: Buffer,
     regions: BlurRegion[],
-    blurRadius: number
+    blurRadius: number,
   ): Buffer;
   close(): void;
 }
@@ -167,6 +169,8 @@ export interface NativeDemuxer {
   open(path: string): void;
   demux(): void;
   close(): void;
+  getVideoTrack(): TrackInfo | null;
+  getAudioTrack(): TrackInfo | null;
 }
 
 /**
@@ -223,7 +227,7 @@ export type VideoEncoderOutputCallback = (
     };
     svc?: {temporalLayerId: number};
     alphaSideData?: ArrayBuffer;
-  }
+  },
 ) => void;
 
 export type VideoDecoderOutputCallback = (frame: NativeVideoFrame) => void;
@@ -237,7 +241,7 @@ export type AudioEncoderOutputCallback = (
   },
   metadata?: {
     decoderConfig?: AudioDecoderConfig & {description?: ArrayBuffer};
-  }
+  },
 ) => void;
 export type AudioDecoderOutputCallback = (data: NativeAudioData) => void;
 export type ErrorCallback = (error: Error) => void;
@@ -249,24 +253,27 @@ export type DemuxerChunkCallback = (
     duration?: number;
     data: Buffer;
   },
-  trackIndex: number
+  trackIndex: number,
 ) => void;
 
 /**
  * Constructor types for native classes
  */
 export interface NativeVideoFrameConstructor {
-  new (data: Buffer, init: {
-    codedWidth: number;
-    codedHeight: number;
-    timestamp: number;
-    duration?: number;
-    displayWidth?: number;
-    displayHeight?: number;
-    format?: string;
-    rotation?: number;
-    flip?: boolean;
-  }): NativeVideoFrame;
+  new (
+    data: Buffer,
+    init: {
+      codedWidth: number;
+      codedHeight: number;
+      timestamp: number;
+      duration?: number;
+      displayWidth?: number;
+      displayHeight?: number;
+      format?: string;
+      rotation?: number;
+      flip?: boolean;
+    },
+  ): NativeVideoFrame;
 }
 
 export interface NativeVideoEncoderConstructor {
@@ -275,7 +282,7 @@ export interface NativeVideoEncoderConstructor {
     error: ErrorCallback;
   }): NativeVideoEncoder;
   isConfigSupported(
-    config: VideoEncoderConfig
+    config: VideoEncoderConfig,
   ): Promise<{supported: boolean; config: VideoEncoderConfig}>;
 }
 
@@ -285,7 +292,7 @@ export interface NativeVideoDecoderConstructor {
     error: ErrorCallback;
   }): NativeVideoDecoder;
   isConfigSupported(
-    config: VideoDecoderConfig
+    config: VideoDecoderConfig,
   ): Promise<{supported: boolean; config: VideoDecoderConfig}>;
 }
 
@@ -296,8 +303,17 @@ export interface NativeAudioDataConstructor {
     numberOfFrames: number;
     numberOfChannels: number;
     timestamp: number;
-    data: ArrayBuffer;
+    data: Buffer;
   }): NativeAudioData;
+}
+
+export interface NativeEncodedVideoChunkConstructor {
+  new (init: {
+    type: string;
+    timestamp: number;
+    duration?: number;
+    data: Buffer;
+  }): NativeEncodedVideoChunk;
 }
 
 export interface NativeEncodedAudioChunkConstructor {
@@ -315,7 +331,7 @@ export interface NativeAudioEncoderConstructor {
     error: ErrorCallback;
   }): NativeAudioEncoder;
   isConfigSupported(
-    config: AudioEncoderConfig
+    config: AudioEncoderConfig,
   ): Promise<{supported: boolean; config: AudioEncoderConfig}>;
 }
 
@@ -325,7 +341,7 @@ export interface NativeAudioDecoderConstructor {
     error: ErrorCallback;
   }): NativeAudioDecoder;
   isConfigSupported(
-    config: AudioDecoderConfig
+    config: AudioDecoderConfig,
   ): Promise<{supported: boolean; config: AudioDecoderConfig}>;
 }
 
@@ -353,6 +369,7 @@ export interface NativeModule {
   VideoFrame: NativeVideoFrameConstructor;
   VideoEncoder: NativeVideoEncoderConstructor;
   VideoDecoder: NativeVideoDecoderConstructor;
+  EncodedVideoChunk: NativeEncodedVideoChunkConstructor;
   AudioData: NativeAudioDataConstructor;
   EncodedAudioChunk: NativeEncodedAudioChunkConstructor;
   AudioEncoder: NativeAudioEncoderConstructor;

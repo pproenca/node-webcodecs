@@ -7,7 +7,7 @@ let totalBytes = 0;
 
 // Create encoder
 const encoder = new VideoEncoder({
-  output: (chunk, metadata) => {
+  output: (chunk, _metadata) => {
     console.log(
       `[${chunk.type}] ts=${chunk.timestamp} size=${chunk.byteLength}`,
     );
