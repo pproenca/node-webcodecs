@@ -459,6 +459,97 @@ describe('VideoEncoder', () => {
     });
   });
 
+  describe('AVC bitstream format', () => {
+    it('should produce annexb bitstream with start codes when avc.format = annexb', async () => {
+      const chunks: Array<{chunk: EncodedVideoChunk; metadata?: EncodedVideoChunkMetadata}> = [];
+
+      const encoder = new VideoEncoder({
+        output: (chunk, metadata) => {
+          chunks.push({chunk, metadata});
+        },
+        error: (e) => { throw e; },
+      });
+
+      encoder.configure({
+        codec: 'avc1.42001e',
+        width: 320,
+        height: 240,
+        bitrate: 1_000_000,
+        avc: {format: 'annexb'},
+      });
+
+      const frame = new VideoFrame(
+        new Uint8Array(320 * 240 * 4),
+        {
+          format: 'RGBA',
+          codedWidth: 320,
+          codedHeight: 240,
+          timestamp: 0,
+        }
+      );
+
+      encoder.encode(frame, {keyFrame: true});
+      frame.close();
+
+      await encoder.flush();
+      encoder.close();
+
+      expect(chunks.length).toBeGreaterThan(0);
+      // For annexb, keyframe should contain NAL units with start codes
+      const keyChunk = chunks[0];
+      const data = new Uint8Array(keyChunk.chunk.byteLength);
+      keyChunk.chunk.copyTo(data);
+
+      // Check for Annex B start code (0x00 0x00 0x00 0x01 or 0x00 0x00 0x01)
+      const hasStartCode =
+        (data[0] === 0 && data[1] === 0 && data[2] === 0 && data[3] === 1) ||
+        (data[0] === 0 && data[1] === 0 && data[2] === 1);
+      expect(hasStartCode).toBe(true);
+    });
+
+    it('should store bitstream format and apply it in encoding', async () => {
+      const chunks: Array<{chunk: EncodedVideoChunk; metadata?: EncodedVideoChunkMetadata}> = [];
+
+      const encoder = new VideoEncoder({
+        output: (chunk, metadata) => {
+          chunks.push({chunk, metadata});
+        },
+        error: (e) => { throw e; },
+      });
+
+      // Test with default (avc format)
+      encoder.configure({
+        codec: 'avc1.42001e',
+        width: 320,
+        height: 240,
+        bitrate: 1_000_000,
+        avc: {format: 'avc'},
+      });
+
+      const frame = new VideoFrame(
+        new Uint8Array(320 * 240 * 4),
+        {
+          format: 'RGBA',
+          codedWidth: 320,
+          codedHeight: 240,
+          timestamp: 0,
+        }
+      );
+
+      encoder.encode(frame, {keyFrame: true});
+      frame.close();
+
+      await encoder.flush();
+      encoder.close();
+
+      expect(chunks.length).toBeGreaterThan(0);
+      // decoderConfig should have description for avc format
+      const keyframe = chunks.find(c => c.chunk.type === 'key');
+      expect(keyframe?.metadata?.decoderConfig).toBeDefined();
+      expect(keyframe?.metadata?.decoderConfig?.description).toBeDefined();
+    });
+  });
+
   describe('colorSpace support', () => {
     it('should echo colorSpace in isConfigSupported', async () => {
       const result = await VideoEncoder.isConfigSupported({

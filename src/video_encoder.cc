@@ -62,6 +62,7 @@ VideoEncoder::VideoEncoder(const Napi::CallbackInfo& info)
       color_transfer_(""),
       color_matrix_(""),
       color_full_range_(false),
+      bitstream_format_("avc"),
       frame_count_(0),
       encode_queue_size_(0) {
   Napi::Env env = info.Env();
@@ -170,6 +171,22 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
     }
   }
 
+  // Parse codec-specific bitstream format per W3C codec registration.
+  // Default: "avc" for H.264, "hevc" for H.265 (description separate from NALs)
+  bitstream_format_ = "avc";
+  if (config.Has("avc") && config.Get("avc").IsObject()) {
+    Napi::Object avc_config = config.Get("avc").As<Napi::Object>();
+    if (avc_config.Has("format") && avc_config.Get("format").IsString()) {
+      bitstream_format_ = avc_config.Get("format").As<Napi::String>().Utf8Value();
+    }
+  } else if (config.Has("hevc") && config.Get("hevc").IsObject()) {
+    bitstream_format_ = "hevc";  // Default for HEVC
+    Napi::Object hevc_config = config.Get("hevc").As<Napi::Object>();
+    if (hevc_config.Has("format") && hevc_config.Get("format").IsString()) {
+      bitstream_format_ = hevc_config.Get("format").As<Napi::String>().Utf8Value();
+    }
+  }
+
   // Find encoder based on codec string
   AVCodecID codec_id = AV_CODEC_ID_NONE;
   if (codec_str.find("avc1") == 0 || codec_str == "h264") {
@@ -206,6 +223,13 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
   codec_context_->bit_rate = bitrate;
   codec_context_->gop_size = kDefaultGopSize;
   codec_context_->max_b_frames = kDefaultMaxBFrames;
+
+  // Set global header flag for non-annexb bitstream formats.
+  // This puts SPS/PPS/VPS in codec_context_->extradata instead of in the stream.
+  // Per W3C: "avc"/"hevc" formats provide description separately from NAL units.
+  if (bitstream_format_ != "annexb") {
+    codec_context_->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+  }
 
   // Codec-specific options.
   if (codec_id == AV_CODEC_ID_H264) {
