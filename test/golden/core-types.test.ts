@@ -439,6 +439,137 @@ describe('AudioData', () => {
 
       audioData.close();
     });
+
+    it('should convert f32 to s16 format', () => {
+      const numberOfFrames = 100;
+      const numberOfChannels = 1;
+      // Create f32 data with values that map nicely to s16
+      const data = new Float32Array(numberOfFrames);
+      for (let i = 0; i < numberOfFrames; i++) {
+        // Range -1.0 to ~1.0
+        data[i] = (i / numberOfFrames) * 2 - 1;
+      }
+
+      const audioData = new AudioData({
+        format: 'f32',
+        sampleRate: 48000,
+        numberOfFrames,
+        numberOfChannels,
+        timestamp: 0,
+        data: data.buffer,
+      });
+
+      // Convert to s16
+      const allocSize = audioData.allocationSize({ planeIndex: 0, format: 's16' });
+      expect(allocSize).toBe(numberOfFrames * 2); // 2 bytes per s16 sample
+
+      const dest = new Int16Array(numberOfFrames);
+      audioData.copyTo(dest, { planeIndex: 0, format: 's16' });
+
+      // First sample should be near -32768 (min s16)
+      expect(dest[0]).toBeLessThan(-30000);
+      // Last sample should be near +32767 (max s16)
+      expect(dest[numberOfFrames - 1]).toBeGreaterThan(30000);
+
+      audioData.close();
+    });
+
+    it('should convert s16 to f32 format', () => {
+      const numberOfFrames = 100;
+      const numberOfChannels = 1;
+      // Create s16 data
+      const data = new Int16Array(numberOfFrames);
+      for (let i = 0; i < numberOfFrames; i++) {
+        data[i] = Math.floor((i / numberOfFrames) * 65535 - 32768);
+      }
+
+      const audioData = new AudioData({
+        format: 's16',
+        sampleRate: 48000,
+        numberOfFrames,
+        numberOfChannels,
+        timestamp: 0,
+        data: new Uint8Array(data.buffer),
+      });
+
+      const allocSize = audioData.allocationSize({ planeIndex: 0, format: 'f32' });
+      expect(allocSize).toBe(numberOfFrames * 4);
+
+      const dest = new Float32Array(numberOfFrames);
+      audioData.copyTo(dest, { planeIndex: 0, format: 'f32' });
+
+      // Values should be in -1.0 to 1.0 range
+      expect(dest[0]).toBeCloseTo(-1.0, 1);
+      expect(dest[numberOfFrames - 1]).toBeCloseTo(1.0, 1);
+
+      audioData.close();
+    });
+
+    it('should convert interleaved to planar format', () => {
+      const numberOfFrames = 100;
+      const numberOfChannels = 2;
+      // Interleaved: L0 R0 L1 R1 ...
+      const data = new Float32Array(numberOfFrames * numberOfChannels);
+      for (let i = 0; i < numberOfFrames; i++) {
+        data[i * 2] = 0.5;      // Left channel: all 0.5
+        data[i * 2 + 1] = -0.5; // Right channel: all -0.5
+      }
+
+      const audioData = new AudioData({
+        format: 'f32',
+        sampleRate: 48000,
+        numberOfFrames,
+        numberOfChannels,
+        timestamp: 0,
+        data: data.buffer,
+      });
+
+      // Convert to f32-planar and get plane 0 (left channel)
+      const allocSize = audioData.allocationSize({ planeIndex: 0, format: 'f32-planar' });
+      expect(allocSize).toBe(numberOfFrames * 4); // Single channel
+
+      const dest = new Float32Array(numberOfFrames);
+      audioData.copyTo(dest, { planeIndex: 0, format: 'f32-planar' });
+
+      // All values should be 0.5 (left channel)
+      expect(dest[0]).toBeCloseTo(0.5, 5);
+      expect(dest[numberOfFrames - 1]).toBeCloseTo(0.5, 5);
+
+      audioData.close();
+    });
+
+    it('should convert planar to interleaved format', () => {
+      const numberOfFrames = 100;
+      const numberOfChannels = 2;
+      // Planar: plane 0 all 0.25, plane 1 all 0.75
+      const data = new Float32Array(numberOfFrames * numberOfChannels);
+      for (let i = 0; i < numberOfFrames; i++) {
+        data[i] = 0.25;                  // Plane 0
+        data[numberOfFrames + i] = 0.75; // Plane 1
+      }
+
+      const audioData = new AudioData({
+        format: 'f32-planar',
+        sampleRate: 48000,
+        numberOfFrames,
+        numberOfChannels,
+        timestamp: 0,
+        data: data.buffer,
+      });
+
+      // Convert to interleaved f32
+      const allocSize = audioData.allocationSize({ planeIndex: 0, format: 'f32' });
+      expect(allocSize).toBe(numberOfFrames * numberOfChannels * 4);
+
+      const dest = new Float32Array(numberOfFrames * numberOfChannels);
+      audioData.copyTo(dest, { planeIndex: 0, format: 'f32' });
+
+      // Interleaved: L0 R0 L1 R1 ...
+      expect(dest[0]).toBeCloseTo(0.25, 5);  // L0
+      expect(dest[1]).toBeCloseTo(0.75, 5);  // R0
+
+      audioData.close();
+    });
   });
 
   describe('clone', () => {
