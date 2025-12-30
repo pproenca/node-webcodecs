@@ -124,10 +124,32 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
     framerate = config.Get("framerate").As<Napi::Number>().Int32Value();
   }
 
-  // Find H.264 encoder.
-  codec_ = avcodec_find_encoder(AV_CODEC_ID_H264);
+  // Parse codec string
+  std::string codec_str = "h264";  // Default
+  if (config.Has("codec") && config.Get("codec").IsString()) {
+    codec_str = config.Get("codec").As<Napi::String>().Utf8Value();
+  }
+
+  // Find encoder based on codec string
+  AVCodecID codec_id = AV_CODEC_ID_NONE;
+  if (codec_str.find("avc1") == 0 || codec_str == "h264") {
+    codec_id = AV_CODEC_ID_H264;
+  } else if (codec_str == "vp8") {
+    codec_id = AV_CODEC_ID_VP8;
+  } else if (codec_str.find("vp09") == 0 || codec_str == "vp9") {
+    codec_id = AV_CODEC_ID_VP9;
+  } else if (codec_str.find("av01") == 0 || codec_str == "av1") {
+    codec_id = AV_CODEC_ID_AV1;
+  } else if (codec_str.find("hev1") == 0 || codec_str.find("hvc1") == 0 ||
+             codec_str == "hevc") {
+    codec_id = AV_CODEC_ID_HEVC;
+  } else {
+    throw Napi::Error::New(env, "Unsupported codec: " + codec_str);
+  }
+
+  codec_ = avcodec_find_encoder(codec_id);
   if (!codec_) {
-    throw Napi::Error::New(env, "H.264 encoder not found");
+    throw Napi::Error::New(env, "Encoder not found for codec: " + codec_str);
   }
 
   codec_context_ = avcodec_alloc_context3(codec_);
@@ -145,9 +167,26 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
   codec_context_->gop_size = kDefaultGopSize;
   codec_context_->max_b_frames = kDefaultMaxBFrames;
 
-  // H.264 specific options.
-  av_opt_set(codec_context_->priv_data, "preset", "fast", 0);
-  av_opt_set(codec_context_->priv_data, "tune", "zerolatency", 0);
+  // Codec-specific options.
+  if (codec_id == AV_CODEC_ID_H264) {
+    av_opt_set(codec_context_->priv_data, "preset", "fast", 0);
+    av_opt_set(codec_context_->priv_data, "tune", "zerolatency", 0);
+  } else if (codec_id == AV_CODEC_ID_VP8 || codec_id == AV_CODEC_ID_VP9) {
+    // VP8/VP9 specific: set quality (crf) and speed
+    av_opt_set(codec_context_->priv_data, "quality", "realtime", 0);
+    av_opt_set(codec_context_->priv_data, "speed", "6", 0);
+    // VP8/VP9 don't support B-frames
+    codec_context_->max_b_frames = 0;
+  } else if (codec_id == AV_CODEC_ID_AV1) {
+    // AV1 specific options
+    av_opt_set(codec_context_->priv_data, "preset", "8", 0);
+  } else if (codec_id == AV_CODEC_ID_HEVC) {
+    // libx265 specific options
+    av_opt_set(codec_context_->priv_data, "preset", "fast", 0);
+    // Note: libx265 tune options are different from libx264 (grain, animation, psnr, ssim)
+    // "zerolatency" is not valid for x265, using x265-params instead
+    av_opt_set(codec_context_->priv_data, "x265-params", "bframes=0", 0);
+  }
 
   int ret = avcodec_open2(codec_context_, codec_, nullptr);
   if (ret < 0) {

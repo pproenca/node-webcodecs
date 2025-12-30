@@ -158,6 +158,9 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
     codec_id = AV_CODEC_ID_VP9;
   } else if (codec_str.find("av01") == 0 || codec_str == "av1") {
     codec_id = AV_CODEC_ID_AV1;
+  } else if (codec_str.find("hev1") == 0 || codec_str.find("hvc1") == 0 ||
+             codec_str == "hevc") {
+    codec_id = AV_CODEC_ID_HEVC;
   } else {
     throw Napi::Error::New(env, "Unsupported codec: " + codec_str);
   }
@@ -429,6 +432,12 @@ Napi::Value VideoDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
       if (!c) {
         supported = false;
       }
+    } else if (codec.find("hev1") == 0 || codec.find("hvc1") == 0 ||
+               codec == "hevc") {
+      const AVCodec* c = avcodec_find_decoder(AV_CODEC_ID_HEVC);
+      if (!c) {
+        supported = false;
+      }
     } else {
       supported = false;
     }
@@ -505,20 +514,32 @@ void VideoDecoder::EmitFrames(Napi::Env env) {
       break;
     }
 
-    // Initialize SwsContext if needed (convert from decoder's pixel format to
-    // RGBA).
-    if (!sws_context_) {
+    // Initialize or recreate SwsContext if frame format/dimensions change
+    // (convert from decoder's pixel format to RGBA).
+    AVPixelFormat frame_format = static_cast<AVPixelFormat>(frame_->format);
+
+    if (!sws_context_ || last_frame_format_ != frame_format ||
+        last_frame_width_ != frame_->width ||
+        last_frame_height_ != frame_->height) {
+      if (sws_context_) {
+        sws_freeContext(sws_context_);
+      }
+
       sws_context_ =
-          sws_getContext(frame_->width, frame_->height,
-                         static_cast<AVPixelFormat>(frame_->format),
+          sws_getContext(frame_->width, frame_->height, frame_format,
                          frame_->width, frame_->height, AV_PIX_FMT_RGBA,
                          SWS_BILINEAR, nullptr, nullptr, nullptr);
+
       if (!sws_context_) {
         error_callback_.Call(
             {Napi::Error::New(env, "Could not create sws context").Value()});
         av_frame_unref(frame_);
         break;
       }
+
+      last_frame_format_ = frame_format;
+      last_frame_width_ = frame_->width;
+      last_frame_height_ = frame_->height;
     }
 
     // Allocate RGBA buffer.

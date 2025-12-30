@@ -75,6 +75,11 @@ class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
   int rotation_ = 0;      // 0, 90, 180, 270
   bool flip_ = false;     // horizontal flip
 
+  // Track last frame format/dimensions for sws_context recreation.
+  AVPixelFormat last_frame_format_ = AV_PIX_FMT_NONE;
+  int last_frame_width_ = 0;
+  int last_frame_height_ = 0;
+
   // Friend declaration
   friend class AsyncDecodeWorker;
 };
