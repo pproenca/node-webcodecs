@@ -36,6 +36,8 @@ Napi::Object VideoEncoder::Init(Napi::Env env, Napi::Object exports) {
           InstanceAccessor("state", &VideoEncoder::GetState, nullptr),
           InstanceAccessor("encodeQueueSize", &VideoEncoder::GetEncodeQueueSize,
                            nullptr),
+          InstanceAccessor("codecSaturated", &VideoEncoder::GetCodecSaturated,
+                           nullptr),
           StaticMethod("isConfigSupported", &VideoEncoder::IsConfigSupported),
       });
 
@@ -183,6 +185,10 @@ Napi::Value VideoEncoder::GetEncodeQueueSize(const Napi::CallbackInfo& info) {
   return Napi::Number::New(info.Env(), encode_queue_size_);
 }
 
+Napi::Value VideoEncoder::GetCodecSaturated(const Napi::CallbackInfo& info) {
+  return Napi::Boolean::New(info.Env(), codec_saturated_.load());
+}
+
 Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
@@ -234,9 +240,15 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
     frame_->pict_type = AV_PICTURE_TYPE_NONE;
   }
 
+  // Track queue size and saturation
+  encode_queue_size_++;
+  codec_saturated_.store(encode_queue_size_ >= static_cast<int>(kMaxQueueSize));
+
   // Send frame to encoder.
   int ret = avcodec_send_frame(codec_context_, frame_);
   if (ret < 0) {
+    encode_queue_size_--;
+    codec_saturated_.store(encode_queue_size_ >= static_cast<int>(kMaxQueueSize));
     char errbuf[256];
     av_strerror(ret, errbuf, sizeof(errbuf));
     throw Napi::Error::New(env, std::string("Error sending frame: ") + errbuf);
@@ -260,6 +272,10 @@ Napi::Value VideoEncoder::Flush(const Napi::CallbackInfo& info) {
 
   // Get remaining packets.
   EmitChunks(env);
+
+  // Reset queue after flush
+  encode_queue_size_ = 0;
+  codec_saturated_.store(false);
 
   return env.Undefined();
 }
@@ -286,6 +302,8 @@ Napi::Value VideoEncoder::Reset(const Napi::CallbackInfo& info) {
   // Reset state.
   state_ = "unconfigured";
   frame_count_ = 0;
+  encode_queue_size_ = 0;
+  codec_saturated_.store(false);
 
   return env.Undefined();
 }
@@ -322,6 +340,12 @@ void VideoEncoder::EmitChunks(Napi::Env env) {
     output_callback_.Call({chunk, env.Null()});
 
     av_packet_unref(packet_);
+
+    // Decrement queue after emitting chunk
+    if (encode_queue_size_ > 0) {
+      encode_queue_size_--;
+      codec_saturated_.store(encode_queue_size_ >= static_cast<int>(kMaxQueueSize));
+    }
   }
 }
 

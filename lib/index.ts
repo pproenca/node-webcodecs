@@ -4,6 +4,7 @@ import type {
     VideoDecoderConfig,
     VideoDecoderInit,
     VideoFrameInit,
+    VideoColorSpaceInit,
     CodecState,
     PlaneLayout,
     VideoFrameCopyToOptions,
@@ -19,11 +20,35 @@ import type {
     BlurRegion,
     VideoFilterConfig,
     DemuxerInit,
-    TrackInfo
+    TrackInfo,
+    DOMRectReadOnly
 } from './types';
 
 // Load native addon
 const native = require('../build/Release/node_webcodecs.node');
+
+export class VideoColorSpace {
+    readonly primaries: string | null;
+    readonly transfer: string | null;
+    readonly matrix: string | null;
+    readonly fullRange: boolean | null;
+
+    constructor(init?: VideoColorSpaceInit) {
+        this.primaries = init?.primaries ?? null;
+        this.transfer = init?.transfer ?? null;
+        this.matrix = init?.matrix ?? null;
+        this.fullRange = init?.fullRange ?? null;
+    }
+
+    toJSON(): VideoColorSpaceInit {
+        return {
+            primaries: this.primaries ?? undefined,
+            transfer: this.transfer ?? undefined,
+            matrix: this.matrix ?? undefined,
+            fullRange: this.fullRange ?? undefined
+        };
+    }
+}
 
 export class VideoFrame {
     private _native: any;
@@ -47,6 +72,44 @@ export class VideoFrame {
 
     get format(): string {
         return this._native.format;
+    }
+
+    get duration(): number | undefined {
+        return this._native.duration;
+    }
+
+    get displayWidth(): number {
+        return this._native.displayWidth;
+    }
+
+    get displayHeight(): number {
+        return this._native.displayHeight;
+    }
+
+    get codedRect(): DOMRectReadOnly {
+        const w = this.codedWidth;
+        const h = this.codedHeight;
+        return {
+            x: 0,
+            y: 0,
+            width: w,
+            height: h,
+            top: 0,
+            left: 0,
+            right: w,
+            bottom: h
+        };
+    }
+
+    get visibleRect(): DOMRectReadOnly {
+        // Default: no cropping, visibleRect equals codedRect
+        return this.codedRect;
+    }
+
+    get colorSpace(): VideoColorSpace {
+        // Return VideoColorSpace from native colorSpace data if available
+        const nativeColorSpace = this._native.colorSpace;
+        return new VideoColorSpace(nativeColorSpace);
     }
 
     close(): void {
@@ -137,6 +200,10 @@ export class VideoEncoder {
         return this._native.encodeQueueSize;
     }
 
+    get codecSaturated(): boolean {
+        return this._native.codecSaturated;
+    }
+
     get ondequeue(): (() => void) | null {
         return this._ondequeue;
     }
@@ -224,6 +291,7 @@ export class EncodedVideoChunk {
 
 export class VideoDecoder {
     private _native: any;
+    private _ondequeue: (() => void) | null = null;
 
     constructor(init: VideoDecoderInit) {
         this._native = new native.VideoDecoder({
@@ -244,6 +312,14 @@ export class VideoDecoder {
 
     get decodeQueueSize(): number {
         return this._native.decodeQueueSize;
+    }
+
+    get ondequeue(): (() => void) | null {
+        return this._ondequeue;
+    }
+
+    set ondequeue(handler: (() => void) | null) {
+        this._ondequeue = handler;
     }
 
     configure(config: VideoDecoderConfig): void {
@@ -415,6 +491,7 @@ export class EncodedAudioChunk {
 
 export class AudioEncoder {
     private _native: any;
+    private _ondequeue: (() => void) | null = null;
 
     constructor(init: AudioEncoderInit) {
         this._native = new native.AudioEncoder({
@@ -433,6 +510,14 @@ export class AudioEncoder {
 
     get encodeQueueSize(): number {
         return this._native.encodeQueueSize;
+    }
+
+    get ondequeue(): (() => void) | null {
+        return this._ondequeue;
+    }
+
+    set ondequeue(handler: (() => void) | null) {
+        this._ondequeue = handler;
     }
 
     configure(config: AudioEncoderConfig): void {
@@ -465,6 +550,7 @@ export class AudioEncoder {
 
 export class AudioDecoder {
     private _native: any;
+    private _ondequeue: (() => void) | null = null;
 
     constructor(init: AudioDecoderInit) {
         this._native = new native.AudioDecoder({
@@ -484,6 +570,14 @@ export class AudioDecoder {
 
     get decodeQueueSize(): number {
         return this._native.decodeQueueSize;
+    }
+
+    get ondequeue(): (() => void) | null {
+        return this._ondequeue;
+    }
+
+    set ondequeue(handler: (() => void) | null) {
+        this._ondequeue = handler;
     }
 
     configure(config: AudioDecoderConfig): void {

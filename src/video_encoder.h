@@ -15,6 +15,7 @@ extern "C" {
 
 #include <napi.h>
 
+#include <atomic>
 #include <cstdint>
 #include <string>
 
@@ -38,6 +39,7 @@ class VideoEncoder : public Napi::ObjectWrap<VideoEncoder> {
   void Close(const Napi::CallbackInfo& info);
   Napi::Value GetState(const Napi::CallbackInfo& info);
   Napi::Value GetEncodeQueueSize(const Napi::CallbackInfo& info);
+  Napi::Value GetCodecSaturated(const Napi::CallbackInfo& info);
 
   // Internal helpers.
   void Cleanup();
@@ -60,6 +62,11 @@ class VideoEncoder : public Napi::ObjectWrap<VideoEncoder> {
   int height_;
   int64_t frame_count_;
   int encode_queue_size_;
+  std::atomic<bool> codec_saturated_{false};
+  static constexpr size_t kMaxQueueSize = 16;  // Saturation threshold
+
+  // Saturation status accessor
+  bool IsCodecSaturated() const { return codec_saturated_.load(); }
 };
 
 #endif  // SRC_VIDEO_ENCODER_H_
