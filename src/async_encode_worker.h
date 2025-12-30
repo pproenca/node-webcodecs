@@ -46,6 +46,10 @@ class AsyncEncodeWorker {
                              Napi::ThreadSafeFunction error_tsfn);
   ~AsyncEncodeWorker();
 
+  // Disallow copy and assign.
+  AsyncEncodeWorker(const AsyncEncodeWorker&) = delete;
+  AsyncEncodeWorker& operator=(const AsyncEncodeWorker&) = delete;
+
   void Start();
   void Stop();
   void Enqueue(EncodeTask task);
