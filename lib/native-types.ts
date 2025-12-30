@@ -78,6 +78,7 @@ export interface NativeVideoEncoder {
 export interface NativeVideoDecoder {
   readonly state: CodecState;
   readonly decodeQueueSize: number;
+  readonly codecSaturated: boolean;
 
   configure(config: VideoDecoderConfig): void;
   decode(chunk: NativeEncodedVideoChunk): void;
@@ -136,6 +137,7 @@ export interface NativeEncodedAudioChunk {
 export interface NativeAudioEncoder {
   readonly state: CodecState;
   readonly encodeQueueSize: number;
+  readonly codecSaturated: boolean;
 
   configure(config: AudioEncoderConfig): void;
   encode(data: NativeAudioData): void;
@@ -150,6 +152,7 @@ export interface NativeAudioEncoder {
 export interface NativeAudioDecoder {
   readonly state: CodecState;
   readonly decodeQueueSize: number;
+  readonly codecSaturated: boolean;
 
   configure(config: AudioDecoderConfig): void;
   decode(chunk: NativeEncodedAudioChunk): void;

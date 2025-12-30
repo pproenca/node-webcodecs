@@ -25,6 +25,8 @@ Napi::Object AudioEncoder::Init(Napi::Env env, Napi::Object exports) {
           InstanceAccessor("state", &AudioEncoder::GetState, nullptr),
           InstanceAccessor("encodeQueueSize", &AudioEncoder::GetEncodeQueueSize,
                            nullptr),
+          InstanceAccessor("codecSaturated", &AudioEncoder::GetCodecSaturated,
+                           nullptr),
           StaticMethod("isConfigSupported", &AudioEncoder::IsConfigSupported),
       });
 
@@ -344,6 +346,10 @@ Napi::Value AudioEncoder::GetState(const Napi::CallbackInfo& info) {
 
 Napi::Value AudioEncoder::GetEncodeQueueSize(const Napi::CallbackInfo& info) {
   return Napi::Number::New(info.Env(), encode_queue_size_);
+}
+
+Napi::Value AudioEncoder::GetCodecSaturated(const Napi::CallbackInfo& info) {
+  return Napi::Boolean::New(info.Env(), codec_saturated_.load());
 }
 
 void AudioEncoder::Close(const Napi::CallbackInfo& info) {

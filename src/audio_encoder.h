@@ -35,6 +35,7 @@ class AudioEncoder : public Napi::ObjectWrap<AudioEncoder> {
   void Close(const Napi::CallbackInfo& info);
   Napi::Value GetState(const Napi::CallbackInfo& info);
   Napi::Value GetEncodeQueueSize(const Napi::CallbackInfo& info);
+  Napi::Value GetCodecSaturated(const Napi::CallbackInfo& info);
 
   // Static methods.
   static Napi::Value IsConfigSupported(const Napi::CallbackInfo& info);

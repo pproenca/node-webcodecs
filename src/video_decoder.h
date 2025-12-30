@@ -41,6 +41,7 @@ class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
   void Close(const Napi::CallbackInfo& info);
   Napi::Value GetState(const Napi::CallbackInfo& info);
   Napi::Value GetDecodeQueueSize(const Napi::CallbackInfo& info);
+  Napi::Value GetCodecSaturated(const Napi::CallbackInfo& info);
 
   // Internal helpers.
   void Cleanup();

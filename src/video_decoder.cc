@@ -35,6 +35,8 @@ Napi::Object VideoDecoder::Init(Napi::Env env, Napi::Object exports) {
           InstanceAccessor("state", &VideoDecoder::GetState, nullptr),
           InstanceAccessor("decodeQueueSize", &VideoDecoder::GetDecodeQueueSize,
                            nullptr),
+          InstanceAccessor("codecSaturated", &VideoDecoder::GetCodecSaturated,
+                           nullptr),
           StaticMethod("isConfigSupported", &VideoDecoder::IsConfigSupported),
       });
 
@@ -267,6 +269,10 @@ Napi::Value VideoDecoder::GetState(const Napi::CallbackInfo& info) {
 
 Napi::Value VideoDecoder::GetDecodeQueueSize(const Napi::CallbackInfo& info) {
   return Napi::Number::New(info.Env(), decode_queue_size_);
+}
+
+Napi::Value VideoDecoder::GetCodecSaturated(const Napi::CallbackInfo& info) {
+  return Napi::Boolean::New(info.Env(), codec_saturated_.load());
 }
 
 Napi::Value VideoDecoder::Decode(const Napi::CallbackInfo& info) {

@@ -36,6 +36,8 @@ Napi::Object AudioDecoder::Init(Napi::Env env, Napi::Object exports) {
           InstanceAccessor("state", &AudioDecoder::GetState, nullptr),
           InstanceAccessor("decodeQueueSize", &AudioDecoder::GetDecodeQueueSize,
                            nullptr),
+          InstanceAccessor("codecSaturated", &AudioDecoder::GetCodecSaturated,
+                           nullptr),
           StaticMethod("isConfigSupported", &AudioDecoder::IsConfigSupported),
       });
 
@@ -241,6 +243,10 @@ Napi::Value AudioDecoder::GetState(const Napi::CallbackInfo& info) {
 
 Napi::Value AudioDecoder::GetDecodeQueueSize(const Napi::CallbackInfo& info) {
   return Napi::Number::New(info.Env(), decode_queue_size_);
+}
+
+Napi::Value AudioDecoder::GetCodecSaturated(const Napi::CallbackInfo& info) {
+  return Napi::Boolean::New(info.Env(), codec_saturated_.load());
 }
 
 void AudioDecoder::Close(const Napi::CallbackInfo& info) {

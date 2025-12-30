@@ -506,9 +506,7 @@ export class EncodedVideoChunk {
         destination.byteLength,
       );
     } else {
-      throw new TypeError(
-        'Destination must be ArrayBuffer or ArrayBufferView',
-      );
+      throw new TypeError('Destination must be ArrayBuffer or ArrayBufferView');
     }
     if (targetView.byteLength < this.data.length) {
       throw new TypeError('Destination buffer too small');
@@ -549,7 +547,7 @@ export class VideoDecoder extends CodecBase {
       const wrapper = Object.create(VideoFrame.prototype) as any;
       wrapper._native = nativeFrame;
       wrapper._closed = false;
-      wrapper._metadata = {};  // Initialize empty metadata for decoded frames
+      wrapper._metadata = {}; // Initialize empty metadata for decoded frames
       init.output(wrapper as VideoFrame);
 
       // Fire ondequeue after output
@@ -568,6 +566,10 @@ export class VideoDecoder extends CodecBase {
 
   get decodeQueueSize(): number {
     return this._decodeQueueSize;
+  }
+
+  get codecSaturated(): boolean {
+    return this._native.codecSaturated;
   }
 
   configure(config: VideoDecoderConfig): void {
@@ -853,6 +855,10 @@ export class AudioEncoder extends CodecBase {
     return this._encodeQueueSize;
   }
 
+  get codecSaturated(): boolean {
+    return this._native.codecSaturated;
+  }
+
   configure(config: AudioEncoderConfig): void {
     // Configure synchronously to set state immediately per W3C spec
     this._native.configure(config);
@@ -929,7 +935,15 @@ export class AudioDecoder extends CodecBase {
     return this._decodeQueueSize;
   }
 
+  get codecSaturated(): boolean {
+    return this._native.codecSaturated;
+  }
+
   configure(config: AudioDecoderConfig): void {
+    // W3C spec: throw if closed
+    if (this.state === 'closed') {
+      throw new DOMException('Decoder is closed', 'InvalidStateError');
+    }
     this._needsKeyFrame = true;
     // Configure synchronously to set state immediately per W3C spec
     this._native.configure(config);
@@ -954,6 +968,17 @@ export class AudioDecoder extends CodecBase {
   }
 
   async flush(): Promise<void> {
+    // W3C spec: reject if unconfigured or closed
+    if (this.state === 'unconfigured') {
+      return Promise.reject(
+        new DOMException('Decoder is not configured', 'InvalidStateError'),
+      );
+    }
+    if (this.state === 'closed') {
+      return Promise.reject(
+        new DOMException('Decoder is closed', 'InvalidStateError'),
+      );
+    }
     await this._controlQueue.flush();
     return this._native.flush();
   }
@@ -1158,7 +1183,7 @@ export class ImageDecoder {
     const wrapper = Object.create(VideoFrame.prototype) as any;
     wrapper._native = result.image;
     wrapper._closed = false;
-    wrapper._metadata = {};  // Initialize empty metadata for decoded images
+    wrapper._metadata = {}; // Initialize empty metadata for decoded images
 
     return {
       image: wrapper as VideoFrame,
