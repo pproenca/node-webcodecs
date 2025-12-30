@@ -263,8 +263,7 @@ Napi::Value VideoDecoder::GetState(const Napi::CallbackInfo& info) {
 }
 
 Napi::Value VideoDecoder::GetDecodeQueueSize(const Napi::CallbackInfo& info) {
-  // TODO(user): Implement proper queue size tracking.
-  return Napi::Number::New(info.Env(), 0);
+  return Napi::Number::New(info.Env(), decode_queue_size_);
 }
 
 Napi::Value VideoDecoder::Decode(const Napi::CallbackInfo& info) {
@@ -309,6 +308,11 @@ Napi::Value VideoDecoder::Decode(const Napi::CallbackInfo& info) {
              .Value()});
     return env.Undefined();
   }
+
+  // Increment queue size after successful packet submission
+  decode_queue_size_++;
+  bool saturated = decode_queue_size_ >= static_cast<int>(kMaxQueueSize);
+  codec_saturated_.store(saturated);
 
   // Emit any available decoded frames.
   EmitFrames(env);
@@ -530,6 +534,13 @@ void VideoDecoder::EmitFrames(Napi::Env env) {
 
     // Call output callback.
     output_callback_.Call({video_frame});
+
+    // Decrement queue size after frame is emitted
+    if (decode_queue_size_ > 0) {
+      decode_queue_size_--;
+      bool saturated = decode_queue_size_ >= static_cast<int>(kMaxQueueSize);
+      codec_saturated_.store(saturated);
+    }
 
     av_frame_unref(frame_);
   }

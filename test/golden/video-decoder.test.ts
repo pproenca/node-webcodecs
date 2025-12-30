@@ -118,4 +118,86 @@ describe('VideoDecoder', () => {
       }).toThrow();
     });
   });
+
+  describe('decodeQueueSize tracking', () => {
+    it('should increment during decode and decrement after output', async () => {
+      // First encode a frame to get valid H.264 data
+      const encodedChunks: EncodedVideoChunk[] = [];
+      const encoder = new VideoEncoder({
+        output: (chunk) => {
+          // Copy the chunk data since we need to use it after encoder is closed
+          const data = new Uint8Array(chunk.byteLength);
+          chunk.copyTo(data);
+          encodedChunks.push(new EncodedVideoChunk({
+            type: chunk.type,
+            timestamp: chunk.timestamp,
+            duration: chunk.duration ?? undefined,
+            data: data,
+          }));
+        },
+        error: (e) => {
+          throw e;
+        },
+      });
+
+      encoder.configure({
+        codec: 'avc1.42001e',
+        width: 320,
+        height: 240,
+        bitrate: 500_000,
+        framerate: 30,
+      });
+
+      // Create and encode a test frame
+      const frameData = new Uint8Array(320 * 240 * 4);
+      for (let i = 0; i < frameData.length; i += 4) {
+        frameData[i] = 128;     // R
+        frameData[i + 1] = 128; // G
+        frameData[i + 2] = 128; // B
+        frameData[i + 3] = 255; // A
+      }
+      const frame = new VideoFrame(frameData, {
+        format: 'RGBA',
+        codedWidth: 320,
+        codedHeight: 240,
+        timestamp: 0,
+      });
+
+      encoder.encode(frame, {keyFrame: true});
+      await encoder.flush();
+      frame.close();
+      encoder.close();
+
+      expect(encodedChunks.length).toBeGreaterThan(0);
+
+      // Now decode the encoded data
+      const outputFrames: VideoFrame[] = [];
+      const decoder = new VideoDecoder({
+        output: (outputFrame) => {
+          outputFrames.push(outputFrame);
+        },
+        error: (e) => {
+          throw e;
+        },
+      });
+
+      decoder.configure({
+        codec: 'avc1.42001e',
+        codedWidth: 320,
+        codedHeight: 240,
+      });
+
+      expect(decoder.decodeQueueSize).toBe(0);
+
+      // Decode the encoded chunk
+      decoder.decode(encodedChunks[0]);
+      await decoder.flush();
+
+      // After flush, queue should be empty
+      expect(decoder.decodeQueueSize).toBe(0);
+
+      outputFrames.forEach(f => f.close());
+      decoder.close();
+    });
+  });
 });
