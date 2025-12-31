@@ -160,6 +160,13 @@ void AsyncEncodeWorker::ProcessFrame(const EncodeTask& task) {
 
   frame_->pts = task.timestamp;
 
+  // Apply per-frame quantizer if specified (matches sync path)
+  if (task.quantizer >= 0) {
+    frame_->quality = task.quantizer * FF_QP2LAMBDA;
+  } else {
+    frame_->quality = 0;  // Let encoder decide
+  }
+
   int ret = avcodec_send_frame(codec_context_, frame_);
   if (ret < 0 && ret != AVERROR(EAGAIN)) {
     std::string error_msg = "Encode error: " + std::to_string(ret);

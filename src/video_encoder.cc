@@ -380,6 +380,7 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
     task.timestamp = video_frame->GetTimestampValue();
     task.duration = video_frame->GetDurationValue();
     task.key_frame = force_key_frame;
+    task.quantizer = quantizer;
 
     // Get RGBA data from frame
     size_t data_size = task.width * task.height * 4;

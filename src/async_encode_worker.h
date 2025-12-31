@@ -31,6 +31,7 @@ struct EncodeTask {
   int64_t duration;
   bool key_frame;
   bool is_flush = false;  // When true, flush the encoder instead of encoding
+  int quantizer = -1;     // -1 means not specified, otherwise 0-63 range
 };
 
 struct EncodedChunk {
@@ -51,7 +52,7 @@ struct EncoderMetadataConfig {
   std::string color_transfer;
   std::string color_matrix;
   bool color_full_range = false;
-  std::vector<uint8_t> extradata;  // codec description
+  // Note: extradata is copied from codec_context at emit time (may be set after configure)
 };
 
 class AsyncEncodeWorker {
