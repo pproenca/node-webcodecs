@@ -11,11 +11,10 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 
-const {Demuxer, VideoDecoder, VideoEncoder, VideoFrame} = require('../dist/index.js');
+const {Demuxer, Muxer, VideoDecoder, VideoEncoder, VideoFrame} = require('../dist/index.js');
 
 const DEMO_DIR = path.join(__dirname, '.demo-assets');
 const TEST_VIDEO = path.join(DEMO_DIR, 'test-input.mp4');
-const OUTPUT_H264 = path.join(DEMO_DIR, 'watermarked.h264');
 const OUTPUT_MP4 = path.join(DEMO_DIR, 'watermarked.mp4');
 
 const rl = readline.createInterface({
@@ -116,7 +115,9 @@ async function processVideo(inputPath, outputPath) {
   console.log(`Output: ${outputPath}`);
   console.log('');
 
+  // Collect encoded chunks for sorting before muxing (to handle B-frame reordering)
   const encodedChunks = [];
+  let codecDescription = null;
   let videoTrack = null;
   let framesProcessed = 0;
   let totalChunks = 0;
@@ -169,18 +170,32 @@ async function processVideo(inputPath, outputPath) {
         });
 
         encoder = new VideoEncoder({
-          output: chunk => {
-            encodedChunks.push(chunk);
+          output: (chunk, metadata) => {
+            // Capture codec description (extradata) for MP4 container
+            if (metadata?.decoderConfig?.description && !codecDescription) {
+              codecDescription = metadata.decoderConfig.description;
+            }
+            // Store chunk data for later sorting and muxing
+            const data = new Uint8Array(chunk.byteLength);
+            chunk.copyTo(data);
+            encodedChunks.push({
+              type: chunk.type,
+              timestamp: chunk.timestamp,
+              duration: chunk.duration || 33333,
+              data,
+            });
           },
           error: e => console.error('Encoder error:', e),
         });
 
+        // Use avc format to get proper extradata for MP4 container
         encoder.configure({
           codec: 'avc1.42001e',
           width: track.width,
           height: track.height,
           bitrate: 2_000_000,
           framerate: 30,
+          avc: {format: 'avc'},
         });
       }
     },
@@ -217,17 +232,32 @@ async function processVideo(inputPath, outputPath) {
     `\nProcessed ${framesProcessed} frames from ${totalChunks} chunks`,
   );
 
-  const outputData = Buffer.concat(
-    encodedChunks.map(chunk => {
-      const buf = new Uint8Array(chunk.byteLength);
-      chunk.copyTo(buf);
-      return Buffer.from(buf);
-    }),
-  );
+  // Sort chunks by timestamp to handle B-frame reordering
+  const sortedChunks = [...encodedChunks].sort((a, b) => a.timestamp - b.timestamp);
 
-  fs.writeFileSync(outputPath, outputData);
+  // Create MP4 using Muxer
+  console.log('\nWriting MP4 with Muxer...');
+  const muxer = new Muxer({filename: outputPath});
+
+  muxer.addVideoTrack({
+    codec: 'avc1.42001e',
+    width: videoTrack.width,
+    height: videoTrack.height,
+    bitrate: 2_000_000,
+    framerate: 30,
+    description: codecDescription,
+  });
+
+  for (const chunk of sortedChunks) {
+    muxer.writeVideoChunk(chunk);
+  }
+
+  muxer.finalize();
+  muxer.close();
+
+  const stats = fs.statSync(outputPath);
   console.log(
-    `\nWritten: ${outputPath} (${(outputData.length / 1024).toFixed(2)} KB)`,
+    `\nWritten: ${outputPath} (${(stats.size / 1024).toFixed(2)} KB)`,
   );
 }
 
@@ -242,7 +272,7 @@ async function main() {
   print('  2. Demux the MP4 container');
   print('  3. Decode H.264 frames');
   print('  4. Add a bouncing watermark overlay');
-  print('  5. Re-encode to H.264');
+  print('  5. Re-encode to H.264 and mux to MP4');
   print('  6. View the result');
   print();
 
@@ -321,7 +351,7 @@ async function main() {
   print('  - Open the MP4 and detect tracks');
   print('  - Decode each video frame to RGBA pixels');
   print('  - Draw a bouncing yellow box on each frame');
-  print('  - Re-encode frames to H.264');
+  print('  - Re-encode frames to H.264 and mux directly to MP4');
   print();
 
   // Reset watermark position for fresh run
@@ -330,31 +360,17 @@ async function main() {
   boxDX = 3;
   boxDY = 2;
 
-  await processVideo(TEST_VIDEO, OUTPUT_H264);
+  await processVideo(TEST_VIDEO, OUTPUT_MP4);
 
-  if (!fs.existsSync(OUTPUT_H264)) {
+  if (!fs.existsSync(OUTPUT_MP4)) {
     print('\n[ERROR] Watermarker failed to produce output');
     rl.close();
     process.exit(1);
   }
 
-  await ask('\nPress Enter to wrap in MP4 container...');
-
-  // Wrap in MP4
-  printStep(4, 'Creating Playable MP4');
-
-  print('The watermarker outputs raw H.264 NAL units.');
-  print('Wrapping in MP4 container for playback...\n');
-
-  run(`ffmpeg -y -i "${OUTPUT_H264}" -c copy "${OUTPUT_MP4}"`);
-
-  const mp4Stats = fs.statSync(OUTPUT_MP4);
-  print(`\nCreated: ${OUTPUT_MP4}`);
-  print(`Size: ${(mp4Stats.size / 1024).toFixed(2)} KB`);
-
   // Play result
   if (hasFFplay) {
-    printStep(5, 'Playing Result');
+    printStep(4, 'Playing Result');
 
     print('Opening video in FFplay...');
     print('(Close the player window to continue)\n');
@@ -381,11 +397,10 @@ async function main() {
   print('  3. VideoDecoder decoded H.264 to RGBA frames');
   print('  4. JavaScript modified pixels (bouncing yellow box)');
   print('  5. VideoEncoder re-encoded to H.264');
-  print('  6. FFmpeg wrapped the H.264 in an MP4 container');
+  print('  6. Muxer wrapped the H.264 in an MP4 container');
   print();
   print('Files created:');
   print(`  Input:  ${TEST_VIDEO}`);
-  print(`  H.264:  ${OUTPUT_H264}`);
   print(`  Output: ${OUTPUT_MP4}`);
   print();
 
