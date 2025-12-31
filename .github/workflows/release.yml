@@ -1,69 +1,120 @@
 name: Release
+
 on:
   push:
     tags:
       - "v**"
+
 permissions: {}
+
 jobs:
-  build-and-test:
+  # First, build FFmpeg for all platforms
+  build-ffmpeg:
     permissions:
       contents: read
-    name: "build-${{ matrix.platform }} [Node.js ${{ matrix.nodejs_version_major }}]"
+    name: "ffmpeg-${{ matrix.platform }}"
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-24.04
-            nodejs_version: "^22.9.0"
-            nodejs_version_major: 22
-            platform: linux-x64
-          - os: macos-13
-            nodejs_version: "^22.9.0"
-            nodejs_version_major: 22
-            platform: darwin-x64
-          - os: macos-latest
-            nodejs_version: "^22.9.0"
-            nodejs_version_major: 22
+          - os: macos-14
             platform: darwin-arm64
-
+          - os: macos-13
+            platform: darwin-x64
+          - os: ubuntu-22.04
+            platform: linux-x64
+          # Add more platforms as needed
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: ${{ matrix.nodejs_version }}
-          cache: 'npm'
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install nasm pkg-config
 
-      - name: Install FFmpeg (Ubuntu)
+      - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libavcodec-dev \
-            libavformat-dev \
-            libavutil-dev \
-            libswscale-dev \
-            libswresample-dev \
-            libavfilter-dev \
-            pkg-config
+          sudo apt-get install -y nasm yasm pkg-config
 
-      - name: Install FFmpeg (macOS)
-        if: runner.os == 'macOS'
-        run: brew install ffmpeg pkg-config
+      - name: Download and build FFmpeg
+        run: |
+          curl -L https://ffmpeg.org/releases/ffmpeg-7.1.tar.xz | tar xJ
+          cd ffmpeg-7.1
+          ./configure \
+            --prefix=${{ github.workspace }}/ffmpeg-install \
+            --enable-shared \
+            --disable-static \
+            --disable-programs \
+            --disable-doc
+          make -j$(nproc || sysctl -n hw.ncpu)
+          make install
 
-      - name: Install dependencies
-        run: npm install
+      - name: Package FFmpeg
+        run: |
+          mkdir -p ffmpeg-${{ matrix.platform }}/lib
+          cp -P ffmpeg-install/lib/*.{dylib,so}* ffmpeg-${{ matrix.platform }}/lib/ 2>/dev/null || true
+          cp -r ffmpeg-install/include ffmpeg-${{ matrix.platform }}/
+          echo '{"ffmpeg": "7.1"}' > ffmpeg-${{ matrix.platform }}/versions.json
 
-      - name: Build
-        run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-${{ matrix.platform }}
+          path: ffmpeg-${{ matrix.platform }}
+          retention-days: 1
 
-      - name: Test
-        run: npm test
+  # Build native addon for each platform
+  build-addon:
+    needs: build-ffmpeg
+    permissions:
+      contents: read
+    name: "addon-${{ matrix.platform }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            platform: darwin-arm64
+          - os: macos-13
+            platform: darwin-x64
+          - os: ubuntu-22.04
+            platform: linux-x64
+    steps:
+      - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ffmpeg-${{ matrix.platform }}
+          path: ffmpeg-${{ matrix.platform }}
+
+      - name: Setup FFmpeg paths
+        run: |
+          echo "PKG_CONFIG_PATH=${{ github.workspace }}/ffmpeg-${{ matrix.platform }}/lib/pkgconfig" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=${{ github.workspace }}/ffmpeg-${{ matrix.platform }}/lib" >> $GITHUB_ENV
+          echo "DYLD_LIBRARY_PATH=${{ github.workspace }}/ffmpeg-${{ matrix.platform }}/lib" >> $GITHUB_ENV
+
+      - run: npm install
+      - run: npm run build
+      - run: npm test
+
+      - name: Package addon
+        run: npm run package-from-local-build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: addon-${{ matrix.platform }}
+          path: npm/${{ matrix.platform }}
+          retention-days: 1
+
+  # Publish all packages
   publish:
-    needs: build-and-test
+    needs: build-addon
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -71,33 +122,54 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
-          cache: 'npm'
 
-      - name: Install FFmpeg
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      # Populate FFmpeg packages
+      - name: Populate FFmpeg packages
+        run: |
+          for platform in darwin-arm64 darwin-x64 linux-x64; do
+            FFMPEG_ARTIFACT_DIR=artifacts/ffmpeg-$platform node ffmpeg/from-ci-build.js $platform
+          done
+
+      # Populate addon packages
+      - name: Populate addon packages
+        run: |
+          for platform in darwin-arm64 darwin-x64 linux-x64; do
+            cp -r artifacts/addon-$platform/* npm/$platform/
+          done
+
+      # Publish FFmpeg packages first
+      - name: Publish FFmpeg packages
+        run: |
+          cd ffmpeg
+          npm publish --workspaces --tag=${{ contains(github.ref, '-rc') && 'next' || 'latest' }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Publish addon packages
+      - name: Publish addon packages
+        run: |
+          cd npm
+          npm publish --workspaces --tag=${{ contains(github.ref, '-rc') && 'next' || 'latest' }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Publish main package
+      - name: Install deps and build for publish
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libavcodec-dev \
-            libavformat-dev \
-            libavutil-dev \
-            libswscale-dev \
-            libswresample-dev \
-            libavfilter-dev \
-            pkg-config
+          sudo apt-get install -y libavcodec-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev pkg-config
+          npm install
+          npm run build
 
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build
-        run: npm run build
-
-      - name: Test
-        run: npm test
-
-      - name: Publish to npm
+      - name: Publish main package
         run: npm publish --provenance --access public --tag=${{ contains(github.ref, '-rc') && 'next' || 'latest' }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
