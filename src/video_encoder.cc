@@ -343,10 +343,23 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
                  strstr(codec_->name, "vaapi") != nullptr ||
                  strstr(codec_->name, "amf") != nullptr);
 
+  // Detect specific software encoder libraries.
+  // Different encoders support different options, so we must check the encoder
+  // name before setting library-specific options.
+  bool is_libx264 = codec_ && strcmp(codec_->name, "libx264") == 0;
+  bool is_libx265 = codec_ && strcmp(codec_->name, "libx265") == 0;
+  bool is_libvpx =
+      codec_ && (strcmp(codec_->name, "libvpx") == 0 ||
+                 strcmp(codec_->name, "libvpx-vp9") == 0);
+  bool is_libaom = codec_ && strcmp(codec_->name, "libaom-av1") == 0;
+  bool is_libsvtav1 = codec_ && strcmp(codec_->name, "libsvtav1") == 0;
+
   // Codec-specific options (only for software encoders).
   // Hardware encoders have their own internal quality/speed settings.
+  // Only set options when the specific encoder library is detected.
   if (!is_hw_encoder) {
-    if (codec_id == AV_CODEC_ID_H264) {
+    if (codec_id == AV_CODEC_ID_H264 && is_libx264) {
+      // libx264-specific options
       av_opt_set(codec_context_->priv_data, "preset", "fast", 0);
       av_opt_set(codec_context_->priv_data, "tune", "zerolatency", 0);
       // For bitrateMode=quantizer, enable CQP mode in libx264.
@@ -356,23 +369,29 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
       if (bitrate_mode == "quantizer") {
         av_opt_set_int(codec_context_->priv_data, "qp", 23, 0);
       }
-    } else if (codec_id == AV_CODEC_ID_VP8 || codec_id == AV_CODEC_ID_VP9) {
-      // VP8/VP9 specific: set quality (crf) and speed
+    } else if ((codec_id == AV_CODEC_ID_VP8 || codec_id == AV_CODEC_ID_VP9) &&
+               is_libvpx) {
+      // libvpx-specific options
       av_opt_set(codec_context_->priv_data, "quality", "realtime", 0);
       av_opt_set(codec_context_->priv_data, "speed", "6", 0);
       // VP8/VP9 don't support B-frames
       codec_context_->max_b_frames = 0;
-    } else if (codec_id == AV_CODEC_ID_AV1) {
-      // AV1 specific options
+    } else if (codec_id == AV_CODEC_ID_AV1 && is_libaom) {
+      // libaom-av1 uses "cpu-used" for speed preset (0-8, higher = faster)
+      av_opt_set(codec_context_->priv_data, "cpu-used", "8", 0);
+    } else if (codec_id == AV_CODEC_ID_AV1 && is_libsvtav1) {
+      // SVT-AV1 uses "preset" for speed (0-13, higher = faster)
       av_opt_set(codec_context_->priv_data, "preset", "8", 0);
-    } else if (codec_id == AV_CODEC_ID_HEVC) {
-      // libx265 specific options
+    } else if (codec_id == AV_CODEC_ID_HEVC && is_libx265) {
+      // libx265-specific options
       av_opt_set(codec_context_->priv_data, "preset", "fast", 0);
       // Note: libx265 tune options are different from libx264 (grain,
       // animation, psnr, ssim) "zerolatency" is not valid for x265, using
       // x265-params instead
       av_opt_set(codec_context_->priv_data, "x265-params", "bframes=0", 0);
     }
+    // For unrecognized encoders, skip library-specific options entirely.
+    // The encoder will use its default settings.
   }
 
   int ret = avcodec_open2(codec_context_.get(), codec_, nullptr);
