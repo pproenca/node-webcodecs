@@ -6,6 +6,8 @@
 #include <cstring>
 #include <string>
 
+#include "src/common.h"
+
 Napi::FunctionReference Demuxer::constructor;
 
 Napi::Object InitDemuxer(Napi::Env env, Napi::Object exports) {
@@ -37,22 +39,20 @@ Demuxer::Demuxer(const Napi::CallbackInfo& info)
   Napi::Env env = info.Env();
 
   if (info.Length() < 1 || !info[0].IsObject()) {
-    Napi::TypeError::New(env, "Options object required")
-        .ThrowAsJavaScriptException();
-    return;
+    throw webcodecs::InvalidParameterError(env, "init", "object", info[0]);
   }
 
   Napi::Object options = info[0].As<Napi::Object>();
 
-  if (options.Has("onTrack")) {
+  if (webcodecs::HasAttr(options, "onTrack")) {
     on_track_callback_ =
         Napi::Persistent(options.Get("onTrack").As<Napi::Function>());
   }
-  if (options.Has("onChunk")) {
+  if (webcodecs::HasAttr(options, "onChunk")) {
     on_chunk_callback_ =
         Napi::Persistent(options.Get("onChunk").As<Napi::Function>());
   }
-  if (options.Has("onError")) {
+  if (webcodecs::HasAttr(options, "onError")) {
     on_error_callback_ =
         Napi::Persistent(options.Get("onError").As<Napi::Function>());
   }
@@ -71,9 +71,7 @@ Napi::Value Demuxer::Open(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
   if (info.Length() < 1 || !info[0].IsString()) {
-    Napi::TypeError::New(env, "File path required")
-        .ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw webcodecs::InvalidParameterError(env, "path", "string", info[0]);
   }
 
   std::string path = info[0].As<Napi::String>().Utf8Value();
@@ -82,11 +80,7 @@ Napi::Value Demuxer::Open(const Napi::CallbackInfo& info) {
   AVFormatContext* raw_ctx = nullptr;
   int ret = avformat_open_input(&raw_ctx, path.c_str(), nullptr, nullptr);
   if (ret < 0) {
-    char err[AV_ERROR_MAX_STRING_SIZE];
-    av_strerror(ret, err, sizeof(err));
-    Napi::Error::New(env, std::string("Failed to open file: ") + err)
-        .ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw webcodecs::FFmpegError(env, "open file", ret);
   }
   format_context_.reset(raw_ctx);
 
@@ -94,9 +88,7 @@ Napi::Value Demuxer::Open(const Napi::CallbackInfo& info) {
   ret = avformat_find_stream_info(format_context_.get(), nullptr);
   if (ret < 0) {
     Cleanup();
-    Napi::Error::New(env, "Failed to find stream info")
-        .ThrowAsJavaScriptException();
-    return env.Undefined();
+    throw webcodecs::FFmpegError(env, "find stream info", ret);
   }
 
   // Enumerate tracks.
