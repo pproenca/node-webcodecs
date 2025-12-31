@@ -40,10 +40,19 @@ CMakeFiles/
 *.profraw
 *.profdata
 
-# npm platform package generated files (not templates)
-npm/*/lib/
-npm/*/LICENSE
-npm/*/README.md
+# Platform packages (generated during CI, not committed)
+packages/darwin-arm64/
+packages/darwin-x64/
+packages/linux-x64/
+packages/linuxmusl-x64/
+# Keep the template
+!packages/platform-template.json
+
+# Prebuilds (generated during CI)
+prebuilds/
+
+# Binary directory (local development)
+binary/
 
 # Generated API docs
 docs/api/

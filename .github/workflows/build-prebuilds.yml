@@ -1,0 +1,141 @@
+name: Build Prebuilds
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  workflow_call:
+  push:
+    paths:
+      - "src/**"
+      - "binding.gyp"
+      - ".github/workflows/build-prebuilds.yml"
+
+permissions: {}
+
+jobs:
+  build-prebuilds:
+    permissions:
+      contents: read
+    name: "prebuild-${{ matrix.platform }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            platform: darwin-arm64
+            arch: arm64
+          - os: macos-13
+            platform: darwin-x64
+            arch: x64
+          - os: ubuntu-22.04
+            platform: linux-x64
+            arch: x64
+          - os: ubuntu-22.04
+            platform: linuxmusl-x64
+            arch: x64
+            container: alpine:3.19
+
+    container: ${{ matrix.container || '' }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        if: ${{ !matrix.container }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+
+      - name: Setup Node.js (Alpine)
+        if: ${{ matrix.container }}
+        run: |
+          apk add --no-cache nodejs npm
+
+      - name: Install FFmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install x264 x265 libvpx aom lame pkg-config
+          brew install ffmpeg
+
+      - name: Install FFmpeg (Ubuntu)
+        if: runner.os == 'Linux' && !matrix.container
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ffmpeg \
+            libavcodec-dev \
+            libavformat-dev \
+            libavutil-dev \
+            libswscale-dev \
+            libswresample-dev \
+            libavfilter-dev \
+            libx264-dev \
+            libx265-dev \
+            libvpx-dev \
+            libaom-dev \
+            libmp3lame-dev \
+            pkg-config
+
+      - name: Install FFmpeg (Alpine)
+        if: ${{ matrix.container }}
+        run: |
+          apk add --no-cache \
+            build-base \
+            python3 \
+            ffmpeg-dev \
+            x264-dev \
+            x265-dev \
+            libvpx-dev \
+            opus-dev \
+            aom-dev \
+            lame-dev \
+            pkgconf
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Build with prebuildify
+        run: |
+          npx prebuildify --napi --strip --arch=${{ matrix.arch }}
+
+          # Rename the built file to node_webcodecs.node for consistency
+          BUILT_FILE=$(find prebuilds -name "*.node" -type f | head -1)
+          if [ -n "$BUILT_FILE" ]; then
+            DIR=$(dirname "$BUILT_FILE")
+            mv "$BUILT_FILE" "$DIR/node_webcodecs.node"
+            echo "Renamed $(basename $BUILT_FILE) -> node_webcodecs.node"
+          else
+            echo "Error: No .node file found in prebuilds directory"
+            exit 1
+          fi
+
+          # Copy binary for tests
+          mkdir -p binary
+          cp "$DIR/node_webcodecs.node" binary/node_webcodecs.node
+          echo "Copied binary for tests"
+
+      - name: Build TypeScript
+        run: npm run build:ts
+
+      - name: Run Tests
+        env:
+          WEBCODECS_FROM_SOURCE: "1"
+        run: npm run test-fast
+
+      - name: Prepare prebuild artifact
+        run: |
+          mkdir -p prebuild-${{ matrix.platform }}
+          cp prebuilds/*/node_webcodecs.node prebuild-${{ matrix.platform }}/node-webcodecs.node
+          echo "Prepared prebuild for ${{ matrix.platform }}"
+          ls -la prebuild-${{ matrix.platform }}/
+
+      - name: Upload prebuild
+        uses: actions/upload-artifact@v4
+        with:
+          name: prebuild-${{ matrix.platform }}
+          path: prebuild-${{ matrix.platform }}/
+          retention-days: 7

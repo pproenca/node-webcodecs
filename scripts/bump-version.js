@@ -43,7 +43,7 @@ function updateJson(filePath, updater) {
 
 console.log(`\nBumping version to ${version}\n`);
 
-// 1. Update main package.json
+// Update main package.json (includes optionalDependencies for platform packages)
 updateJson(join(ROOT, 'package.json'), (pkg) => {
   pkg.version = version;
   // Update optionalDependencies to match
@@ -55,14 +55,10 @@ updateJson(join(ROOT, 'package.json'), (pkg) => {
   }
 });
 
-// 2. Update each platform package
-for (const platform of platforms) {
-  updateJson(join(ROOT, 'npm', platform, 'package.json'), (pkg) => {
-    pkg.version = version;
-  });
-}
+// Note: Platform packages (packages/*) are generated dynamically during CI
+// and get their version from the release workflow, not from files in the repo.
 
-console.log(`\nVersion bumped to ${version} in ${1 + platforms.length} files`);
+console.log(`\nVersion bumped to ${version}`);
 console.log('\nNext steps:');
 console.log('  git add -A');
 console.log(`  git commit -m "chore: bump version to ${version}"`);

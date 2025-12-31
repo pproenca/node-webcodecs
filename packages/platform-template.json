@@ -1,0 +1,30 @@
+{
+  "name": "@pproenca/node-webcodecs-PLATFORM",
+  "version": "0.0.1",
+  "description": "node-webcodecs (PLATFORM binary)",
+  "author": "Pedro Proenca",
+  "type": "module",
+  "files": ["node-webcodecs.node.zip", "node-webcodecs.node", "install.js"],
+  "main": "node-webcodecs.node",
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "dependencies": {
+    "unzipper": "^0.12.3"
+  },
+  "os": ["OS_VALUE"],
+  "cpu": ["CPU_VALUE"],
+  "engines": {
+    "node": "^20.17.0 || ^22.9.0 || >=24"
+  },
+  "bugs": {
+    "url": "https://github.com/pproenca/node-webcodecs/issues"
+  },
+  "homepage": "https://github.com/pproenca/node-webcodecs#readme",
+  "keywords": ["webcodecs", "video", "encoder", "ffmpeg", "nodejs", "binary"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pproenca/node-webcodecs.git"
+  }
+}

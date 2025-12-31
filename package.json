@@ -33,9 +33,8 @@
     "test-coverage": "vitest run --config test/vitest.config.ts --coverage",
     "lint": "cpplint --quiet src/*.h src/*.cc && biome lint && tsd && prettier --check \"**/*.md\"",
     "format": "prettier --write \"**/*.md\"",
-    "package-from-local-build": "node npm/from-local-build.js",
-    "package-release-notes": "node npm/release-notes.js",
     "version:bump": "node scripts/bump-version.js",
+    "create-platform-packages": "node scripts/create-platform-packages.js",
     "compliance": "npx tsx scripts/fetch-webcodecs-specs.ts --process && echo '✓ Specs updated. Run /check-compliance to analyze'"
   },
   "type": "commonjs",
@@ -66,8 +65,7 @@
     "directory": "test/types"
   },
   "dependencies": {
-    "detect-libc": "^2.1.2",
-    "node-gyp-build": "^4.8.4"
+    "detect-libc": "^2.1.2"
   },
   "optionalDependencies": {
     "@pproenca/node-webcodecs-darwin-arm64": "0.1.1-alpha.3",
@@ -85,6 +83,7 @@
     "mediabunny": "^1.27.3",
     "node-addon-api": "^8.5.0",
     "node-gyp": "^12.1.0",
+    "prebuildify": "^6.0.1",
     "prettier": "^3.7.4",
     "tsd": "^0.33.0",
     "tsx": "^4.21.0",
