@@ -46,7 +46,7 @@ class Muxer : public Napi::ObjectWrap<Muxer> {
   Napi::Value AddAudioTrack(const Napi::CallbackInfo& info);
   Napi::Value WriteVideoChunk(const Napi::CallbackInfo& info);
   Napi::Value WriteAudioChunk(const Napi::CallbackInfo& info);
-  Napi::Value Finalize(const Napi::CallbackInfo& info);
+  Napi::Value FinalizeOutput(const Napi::CallbackInfo& info);
   Napi::Value Close(const Napi::CallbackInfo& info);
 
   void Cleanup();

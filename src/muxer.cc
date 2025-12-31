@@ -22,7 +22,7 @@ Napi::Object Muxer::Init(Napi::Env env, Napi::Object exports) {
           InstanceMethod("addAudioTrack", &Muxer::AddAudioTrack),
           InstanceMethod("writeVideoChunk", &Muxer::WriteVideoChunk),
           InstanceMethod("writeAudioChunk", &Muxer::WriteAudioChunk),
-          InstanceMethod("finalize", &Muxer::Finalize),
+          InstanceMethod("finalize", &Muxer::FinalizeOutput),
           InstanceMethod("close", &Muxer::Close),
       });
 
@@ -128,7 +128,9 @@ Napi::Value Muxer::AddVideoTrack(const Napi::CallbackInfo& info) {
   int width = webcodecs::AttrAsInt32(config, "width");
   int height = webcodecs::AttrAsInt32(config, "height");
   int bitrate = webcodecs::AttrAsInt32(config, "bitrate", 2000000);
-  int framerate = webcodecs::AttrAsInt32(config, "framerate", 30);
+  // Note: framerate is accepted for API compatibility but not used in muxing.
+  // MP4 container gets timing from individual packet PTS/DTS values.
+  (void)webcodecs::AttrAsInt32(config, "framerate", 30);
 
   AVCodecID codec_id = CodecIdFromString(codec);
   if (codec_id == AV_CODEC_ID_NONE) {
@@ -424,7 +426,7 @@ Napi::Value Muxer::WriteAudioChunk(const Napi::CallbackInfo& info) {
   return env.Undefined();
 }
 
-Napi::Value Muxer::Finalize(const Napi::CallbackInfo& info) {
+Napi::Value Muxer::FinalizeOutput(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
   if (finalized_) {

@@ -15,6 +15,7 @@
         "src/encoded_audio_chunk.cc",
         "src/video_filter.cc",
         "src/demuxer.cc",
+        "src/muxer.cc",
         "src/image_decoder.cc",
         "src/async_encode_worker.cc",
         "src/async_decode_worker.cc",
