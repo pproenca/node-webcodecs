@@ -276,6 +276,12 @@ VideoFrame::VideoFrame(const Napi::CallbackInfo& info)
   Napi::Buffer<uint8_t> buffer = info[0].As<Napi::Buffer<uint8_t>>();
   data_.assign(buffer.Data(), buffer.Data() + buffer.Length());
 
+  // Inform V8 of external memory allocation for GC pressure calculation.
+  // Without this, V8 sees this wrapper as ~64 bytes while the actual buffer
+  // can be 8MB+ for 1080p RGBA frames.
+  Napi::MemoryManagement::AdjustExternalMemory(env,
+                                                static_cast<int64_t>(data_.size()));
+
   // Get options.
   Napi::Object opts = info[1].As<Napi::Object>();
   // Required parameters - keep direct access to preserve error-throwing
@@ -350,8 +356,14 @@ VideoFrame::VideoFrame(const Napi::CallbackInfo& info)
     sws_scale(sws.get(), src_data, src_linesize, 0, coded_height_, dst_data,
               dst_linesize);
 
-    // Replace data with converted buffer
+    // Replace data with converted buffer.
+    // Adjust external memory tracking for the size difference.
+    size_t old_size = data_.size();
     data_ = std::move(dst_buffer);
+    if (old_size != data_.size()) {
+      Napi::MemoryManagement::AdjustExternalMemory(
+          env, static_cast<int64_t>(data_.size()) - static_cast<int64_t>(old_size));
+    }
     format_ = AVToPixelFormat(dst_fmt);
   }
 
@@ -410,6 +422,13 @@ VideoFrame::VideoFrame(const Napi::CallbackInfo& info)
 }
 
 VideoFrame::~VideoFrame() {
+  // If close() wasn't called, we still need to release external memory.
+  // Note: If close() was called, data_ is already empty, so this is a no-op.
+  if (!data_.empty()) {
+    // Env() is available in destructor via ObjectWrap.
+    Napi::MemoryManagement::AdjustExternalMemory(
+        Env(), -static_cast<int64_t>(data_.size()));
+  }
   data_.clear();
   data_.shrink_to_fit();
 }
@@ -540,6 +559,11 @@ Napi::Value VideoFrame::GetColorSpace(const Napi::CallbackInfo& info) {
 
 void VideoFrame::Close(const Napi::CallbackInfo& info) {
   if (!closed_) {
+    // Release external memory tracking before clearing data.
+    if (!data_.empty()) {
+      Napi::MemoryManagement::AdjustExternalMemory(
+          info.Env(), -static_cast<int64_t>(data_.size()));
+    }
     // clear() + shrink_to_fit() actually releases memory
     // (clear() alone keeps capacity allocated).
     data_.clear();
