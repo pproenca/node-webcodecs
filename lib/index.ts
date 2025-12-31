@@ -47,6 +47,9 @@ export const ErrorBuilder = native.ErrorBuilder;
 export const testAttrAsEnum = native.testAttrAsEnum;
 export const createEncoderConfigDescriptor = native.createEncoderConfigDescriptor;
 
+// Export instance counters for monitoring and leak detection
+export const getCounters = native.getCounters;
+
 export type { ErrorCodeType } from './errors';
 // Re-export error classes and codes
 export {

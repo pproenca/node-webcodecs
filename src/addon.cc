@@ -57,9 +57,26 @@ Napi::Value GetCounterFramesJS(const Napi::CallbackInfo& info) {
 Napi::Value GetCountersJS(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   Napi::Object counters = Napi::Object::New(env);
+
+  // New per-class counters
+  counters.Set("videoFrames",
+               static_cast<double>(webcodecs::counterVideoFrames.load()));
+  counters.Set("audioData",
+               static_cast<double>(webcodecs::counterAudioData.load()));
+  counters.Set("videoEncoders",
+               static_cast<double>(webcodecs::counterVideoEncoders.load()));
+  counters.Set("videoDecoders",
+               static_cast<double>(webcodecs::counterVideoDecoders.load()));
+  counters.Set("audioEncoders",
+               static_cast<double>(webcodecs::counterAudioEncoders.load()));
+  counters.Set("audioDecoders",
+               static_cast<double>(webcodecs::counterAudioDecoders.load()));
+
+  // Legacy counters (for backwards compatibility)
   counters.Set("queue", webcodecs::counterQueue.load());
   counters.Set("process", webcodecs::counterProcess.load());
   counters.Set("frames", webcodecs::counterFrames.load());
+
   return counters;
 }
 

@@ -518,6 +518,19 @@ export interface NativeModule {
   // Test helpers
   testAttrAsEnum: (obj: object, attr: string) => string;
 
+  // Instance counters for monitoring and leak detection
+  getCounters: () => {
+    videoFrames: number;
+    audioData: number;
+    videoEncoders: number;
+    videoDecoders: number;
+    audioEncoders: number;
+    audioDecoders: number;
+    queue: number;
+    process: number;
+    frames: number;
+  };
+
   // Descriptor factories
   createEncoderConfigDescriptor: (config: object) => {
     codec: string;
