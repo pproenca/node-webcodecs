@@ -1,6 +1,6 @@
 {
   "name": "@pproenca/node-webcodecs-darwin-x64",
-  "version": "0.1.1-alpha.1",
+  "version": "0.1.1-alpha.2",
   "description": "Prebuilt node-webcodecs native addon for macOS x64",
   "license": "MIT",
   "author": "Pedro Proenca",
