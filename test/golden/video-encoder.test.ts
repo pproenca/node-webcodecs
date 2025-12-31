@@ -3,6 +3,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { TEST_CONSTANTS } from '../fixtures/test-helpers';
 
 describe('VideoEncoder', () => {
   describe('isConfigSupported', () => {
@@ -246,11 +247,12 @@ describe('VideoEncoder', () => {
     });
 
     it('should throw if encode called when unconfigured', () => {
-      const data = new Uint8Array(640 * 480 * 4);
+      const { width, height } = TEST_CONSTANTS.MEDIUM_FRAME;
+      const data = new Uint8Array(width * height * TEST_CONSTANTS.RGBA_BPP);
       const frame = new VideoFrame(data, {
         format: 'RGBA',
-        codedWidth: 640,
-        codedHeight: 480,
+        codedWidth: width,
+        codedHeight: height,
         timestamp: 0,
       });
 
@@ -348,17 +350,18 @@ describe('VideoEncoder', () => {
         dequeueCount++;
       });
 
+      const { width, height } = TEST_CONSTANTS.MEDIUM_FRAME;
       encoder.configure({
         codec: 'avc1.42001e',
-        width: 320,
-        height: 240,
+        width,
+        height,
         bitrate: 1_000_000,
       });
 
-      const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+      const frame = new VideoFrame(new Uint8Array(width * height * TEST_CONSTANTS.RGBA_BPP), {
         format: 'RGBA',
-        codedWidth: 320,
-        codedHeight: 240,
+        codedWidth: width,
+        codedHeight: height,
         timestamp: 0,
       });
 
@@ -407,17 +410,18 @@ describe('VideoEncoder', () => {
         eventCalled = true;
       });
 
+      const { width, height } = TEST_CONSTANTS.MEDIUM_FRAME;
       encoder.configure({
         codec: 'avc1.42001e',
-        width: 320,
-        height: 240,
+        width,
+        height,
         bitrate: 1_000_000,
       });
 
-      const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+      const frame = new VideoFrame(new Uint8Array(width * height * TEST_CONSTANTS.RGBA_BPP), {
         format: 'RGBA',
-        codedWidth: 320,
-        codedHeight: 240,
+        codedWidth: width,
+        codedHeight: height,
         timestamp: 0,
       });
 
@@ -491,18 +495,19 @@ describe('VideoEncoder', () => {
         },
       });
 
+      const { width, height } = TEST_CONSTANTS.MEDIUM_FRAME;
       encoder.configure({
         codec: 'avc1.42E01E',
-        width: 320,
-        height: 240,
+        width,
+        height,
         bitrate: 500_000,
       });
 
       // Encode a keyframe
-      const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+      const frame = new VideoFrame(new Uint8Array(width * height * TEST_CONSTANTS.RGBA_BPP), {
         format: 'RGBA',
-        codedWidth: 320,
-        codedHeight: 240,
+        codedWidth: width,
+        codedHeight: height,
         timestamp: 0,
       });
       encoder.encode(frame, { keyFrame: true });
@@ -533,18 +538,19 @@ describe('VideoEncoder', () => {
         },
       });
 
+      const { width, height } = TEST_CONSTANTS.MEDIUM_FRAME;
       encoder.configure({
         codec: 'avc1.42001e',
-        width: 320,
-        height: 240,
+        width,
+        height,
         bitrate: 1_000_000,
         avc: { format: 'annexb' },
       });
 
-      const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+      const frame = new VideoFrame(new Uint8Array(width * height * TEST_CONSTANTS.RGBA_BPP), {
         format: 'RGBA',
-        codedWidth: 320,
-        codedHeight: 240,
+        codedWidth: width,
+        codedHeight: height,
         timestamp: 0,
       });
 
@@ -579,19 +585,20 @@ describe('VideoEncoder', () => {
         },
       });
 
+      const { width, height } = TEST_CONSTANTS.MEDIUM_FRAME;
       // Test with default (avc format)
       encoder.configure({
         codec: 'avc1.42001e',
-        width: 320,
-        height: 240,
+        width,
+        height,
         bitrate: 1_000_000,
         avc: { format: 'avc' },
       });
 
-      const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+      const frame = new VideoFrame(new Uint8Array(width * height * TEST_CONSTANTS.RGBA_BPP), {
         format: 'RGBA',
-        codedWidth: 320,
-        codedHeight: 240,
+        codedWidth: width,
+        codedHeight: height,
         timestamp: 0,
       });
 
@@ -642,10 +649,11 @@ describe('VideoEncoder', () => {
         },
       });
 
+      const { width, height } = TEST_CONSTANTS.MEDIUM_FRAME;
       encoder.configure({
         codec: 'avc1.42E01E',
-        width: 320,
-        height: 240,
+        width,
+        height,
         colorSpace: {
           primaries: 'bt709',
           transfer: 'bt709',
@@ -654,10 +662,10 @@ describe('VideoEncoder', () => {
         },
       });
 
-      const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+      const frame = new VideoFrame(new Uint8Array(width * height * TEST_CONSTANTS.RGBA_BPP), {
         format: 'RGBA',
-        codedWidth: 320,
-        codedHeight: 240,
+        codedWidth: width,
+        codedHeight: height,
         timestamp: 0,
       });
 
@@ -682,19 +690,20 @@ describe('VideoEncoder', () => {
         },
       });
 
+      const { width, height } = TEST_CONSTANTS.MEDIUM_FRAME;
       encoder.configure({
         codec: 'avc1.42001e',
-        width: 320,
-        height: 240,
+        width,
+        height,
       });
 
       // Encode frames
       for (let i = 0; i < 100; i++) {
-        const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+        const frame = new VideoFrame(new Uint8Array(width * height * TEST_CONSTANTS.RGBA_BPP), {
           format: 'RGBA',
-          codedWidth: 320,
-          codedHeight: 240,
-          timestamp: i * 33333,
+          codedWidth: width,
+          codedHeight: height,
+          timestamp: i * TEST_CONSTANTS.FPS_30_TIMESTAMP_DELTA,
         });
         encoder.encode(frame);
         frame.close();
@@ -754,10 +763,11 @@ describe('VideoEncoder', () => {
         },
       });
 
+      const { width, height } = TEST_CONSTANTS.MEDIUM_FRAME;
       encoder.configure({
         codec: 'avc1.42001e',
-        width: 320,
-        height: 240,
+        width,
+        height,
         hardwareAcceleration: 'prefer-hardware',
       });
 
@@ -774,10 +784,11 @@ describe('VideoEncoder', () => {
         },
       });
 
+      const { width, height } = TEST_CONSTANTS.MEDIUM_FRAME;
       encoder.configure({
         codec: 'avc1.42001e',
-        width: 320,
-        height: 240,
+        width,
+        height,
         hardwareAcceleration: 'prefer-software',
       });
 
@@ -794,10 +805,11 @@ describe('VideoEncoder', () => {
         },
       });
 
+      const { width, height } = TEST_CONSTANTS.MEDIUM_FRAME;
       encoder.configure({
         codec: 'avc1.42001e',
-        width: 320,
-        height: 240,
+        width,
+        height,
         hardwareAcceleration: 'no-preference',
       });
 
@@ -823,20 +835,21 @@ describe('VideoEncoder', () => {
         },
       });
 
+      const { width, height } = TEST_CONSTANTS.MEDIUM_FRAME;
       encoder.configure({
         codec: 'avc1.42E01E',
-        width: 320,
-        height: 240,
+        width,
+        height,
         scalabilityMode: 'L1T2',
       });
 
       // Encode 4 frames
       for (let i = 0; i < 4; i++) {
-        const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+        const frame = new VideoFrame(new Uint8Array(width * height * TEST_CONSTANTS.RGBA_BPP), {
           format: 'RGBA',
-          codedWidth: 320,
-          codedHeight: 240,
-          timestamp: i * 33333,
+          codedWidth: width,
+          codedHeight: height,
+          timestamp: i * TEST_CONSTANTS.FPS_30_TIMESTAMP_DELTA,
         });
         encoder.encode(frame);
         frame.close();
@@ -870,20 +883,21 @@ describe('VideoEncoder', () => {
         },
       });
 
+      const { width, height } = TEST_CONSTANTS.MEDIUM_FRAME;
       encoder.configure({
         codec: 'avc1.42E01E',
-        width: 320,
-        height: 240,
+        width,
+        height,
         scalabilityMode: 'L1T3',
       });
 
       // Encode 8 frames to see full L1T3 pattern
       for (let i = 0; i < 8; i++) {
-        const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+        const frame = new VideoFrame(new Uint8Array(width * height * TEST_CONSTANTS.RGBA_BPP), {
           format: 'RGBA',
-          codedWidth: 320,
-          codedHeight: 240,
-          timestamp: i * 33333,
+          codedWidth: width,
+          codedHeight: height,
+          timestamp: i * TEST_CONSTANTS.FPS_30_TIMESTAMP_DELTA,
         });
         encoder.encode(frame);
         frame.close();
@@ -914,19 +928,20 @@ describe('VideoEncoder', () => {
         },
       });
 
+      const { width, height } = TEST_CONSTANTS.MEDIUM_FRAME;
       encoder.configure({
         codec: 'avc1.42E01E',
-        width: 320,
-        height: 240,
+        width,
+        height,
         // No scalabilityMode - should default to all layer 0
       });
 
       for (let i = 0; i < 4; i++) {
-        const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+        const frame = new VideoFrame(new Uint8Array(width * height * TEST_CONSTANTS.RGBA_BPP), {
           format: 'RGBA',
-          codedWidth: 320,
-          codedHeight: 240,
-          timestamp: i * 33333,
+          codedWidth: width,
+          codedHeight: height,
+          timestamp: i * TEST_CONSTANTS.FPS_30_TIMESTAMP_DELTA,
         });
         encoder.encode(frame);
         frame.close();
