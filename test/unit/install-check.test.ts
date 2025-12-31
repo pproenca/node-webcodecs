@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, } from 'vitest';
 
 // We'll test the exported functions
 describe('install/check.js', () => {

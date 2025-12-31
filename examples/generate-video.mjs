@@ -169,6 +169,7 @@ async function main() {
     height: HEIGHT,
     bitrate: 2_000_000,
     framerate: FPS,
+    latencyMode: 'realtime',  // Disable B-frames for correct MP4 muxing
     avc: { format: 'avc' },  // AVCC format for MP4 container
   });
 
@@ -196,7 +197,7 @@ async function main() {
   encoder.close();
   console.log(`\r  ${TOTAL_FRAMES}/${TOTAL_FRAMES} frames encoded ✓\n`);
 
-  // Sort chunks by timestamp (handle B-frame reordering)
+  // Sort chunks by timestamp (with latencyMode: 'realtime', no B-frame reordering needed)
   chunks.sort((a, b) => a.timestamp - b.timestamp);
 
   // Mux to MP4

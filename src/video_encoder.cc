@@ -181,6 +181,12 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
     }
   }
 
+  // Parse latencyMode per W3C WebCodecs spec.
+  // "realtime" = disable B-frames for low latency (no reordering)
+  // "quality" = allow B-frames for better compression (default)
+  std::string latency_mode =
+      webcodecs::AttrAsStr(config, "latencyMode", "quality");
+
   // Parse codec-specific bitstream format per W3C codec registration.
   // Default to "annexb" for backwards compatibility (FFmpeg's native format).
   // Per W3C spec, the default should be "avc"/"hevc" when explicit config
@@ -233,7 +239,15 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
   codec_context_->pix_fmt = AV_PIX_FMT_YUV420P;
   codec_context_->bit_rate = bitrate;
   codec_context_->gop_size = kDefaultGopSize;
-  codec_context_->max_b_frames = kDefaultMaxBFrames;
+  // Per W3C WebCodecs spec: latencyMode "realtime" disables B-frames for low
+  // latency encoding (no frame reordering). This is critical for correct MP4
+  // muxing as B-frames require proper DTS calculation which isn't available
+  // from WebCodecs chunk timestamps.
+  if (latency_mode == "realtime") {
+    codec_context_->max_b_frames = 0;
+  } else {
+    codec_context_->max_b_frames = kDefaultMaxBFrames;
+  }
 
   // Set global header flag for non-annexb bitstream formats.
   // This puts SPS/PPS/VPS in codec_context_->extradata instead of in the

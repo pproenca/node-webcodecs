@@ -4,7 +4,7 @@
 // FFmpeg library loading following sharp's lib/libvips.js pattern.
 
 import * as path from 'node:path';
-import { runtimePlatformArch, prebuiltPlatforms, PrebuiltPlatform } from './platform';
+import { runtimePlatformArch, prebuiltPlatforms, type PrebuiltPlatform } from './platform';
 
 const runtimePlatform = runtimePlatformArch();
 

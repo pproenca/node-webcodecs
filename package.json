@@ -47,6 +47,7 @@
     "directory": "test/types"
   },
   "dependencies": {
+    "@pproenca/node-webcodecs": "^0.1.1-alpha.0",
     "detect-libc": "^2.0.3",
     "node-gyp-build": "^4.8.0"
   },

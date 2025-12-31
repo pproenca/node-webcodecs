@@ -190,6 +190,7 @@ async function main() {
         height: videoHeight,
         bitrate: 1_000_000,
         framerate: 30,
+        latencyMode: 'realtime',  // Disable B-frames for correct MP4 muxing
         avc: {format: 'avc'},
       });
     }

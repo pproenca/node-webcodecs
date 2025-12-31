@@ -4,10 +4,10 @@
 //
 // Populate FFmpeg packages from CI build artifacts.
 
-'use strict';
+
 
 const { copyFileSync, cpSync, existsSync, mkdirSync, writeFileSync } = require('node:fs');
-const { join, dirname } = require('node:path');
+const { join } = require('node:path');
 
 const platform = process.argv[2];
 if (!platform) {

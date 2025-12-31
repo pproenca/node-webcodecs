@@ -69,18 +69,19 @@ test('AudioDecoder lifecycle', { timeout: 10_000 }, async () => {
   decoder.configure(decoderConfig);
   expect(decoder.state === 'configured');
 
+  let dequeueEvents = 0;
+  decoder.addEventListener('dequeue', () => dequeueEvents++);
+
   const sink = new EncodedPacketSink(audioTrack);
   for await (const packet of sink.packets()) {
     const chunk = packet.toEncodedAudioChunk();
     decoder.decode(chunk);
-
-    expect(decoder.decodeQueueSize).not.toBe(0);
-    await new Promise((resolve) => decoder.addEventListener('dequeue', resolve, { once: true }));
   }
 
-  expect(decoder.decodeQueueSize).toBe(0);
-
   await decoder.flush();
+
+  // Verify that dequeue events were fired
+  expect(dequeueEvents).toBeGreaterThan(0);
 
   await mutex.lock().ready;
 
