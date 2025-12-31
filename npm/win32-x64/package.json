@@ -1,6 +1,6 @@
 {
   "name": "@pproenca/node-webcodecs-win32-x64",
-  "version": "0.1.1-alpha.0",
+  "version": "0.1.1-alpha.1",
   "description": "Prebuilt node-webcodecs native addon for Windows x64",
   "license": "MIT",
   "author": "Pedro Proenca",
@@ -9,9 +9,16 @@
     "url": "https://github.com/pproenca/node-webcodecs.git",
     "directory": "npm/win32-x64"
   },
-  "files": ["lib", "LICENSE"],
-  "os": ["win32"],
-  "cpu": ["x64"],
+  "files": [
+    "lib",
+    "LICENSE"
+  ],
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
   "engines": {
     "node": ">=18.0.0"
   },

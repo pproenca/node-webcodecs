@@ -1,6 +1,6 @@
 {
   "name": "@pproenca/node-webcodecs-linux-x64",
-  "version": "0.1.1-alpha.0",
+  "version": "0.1.1-alpha.1",
   "description": "Prebuilt node-webcodecs native addon for Linux x64",
   "license": "MIT",
   "author": "Pedro Proenca",
@@ -9,10 +9,19 @@
     "url": "https://github.com/pproenca/node-webcodecs.git",
     "directory": "npm/linux-x64"
   },
-  "files": ["lib", "LICENSE"],
-  "os": ["linux"],
-  "cpu": ["x64"],
-  "libc": ["glibc"],
+  "files": [
+    "lib",
+    "LICENSE"
+  ],
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "libc": [
+    "glibc"
+  ],
   "engines": {
     "node": ">=18.0.0"
   },

@@ -1,7 +1,7 @@
 {
   "name": "@pproenca/node-webcodecs",
   "description": "WebCodecs API implementation for Node.js using FFmpeg",
-  "version": "0.1.1-alpha.0",
+  "version": "0.1.1-alpha.1",
   "author": "Pedro Proenca",
   "homepage": "https://github.com/pproenca/node-webcodecs",
   "repository": {
@@ -25,7 +25,8 @@
     "lint-js": "biome lint",
     "lint-types": "tsd",
     "package-from-local-build": "node npm/from-local-build.js",
-    "package-release-notes": "node npm/release-notes.js"
+    "package-release-notes": "node npm/release-notes.js",
+    "version:bump": "node scripts/bump-version.js"
   },
   "type": "commonjs",
   "main": "dist/index.js",
@@ -51,11 +52,11 @@
     "node-gyp-build": "^4.8.0"
   },
   "optionalDependencies": {
-    "@pproenca/node-webcodecs-darwin-arm64": "0.1.1-alpha.0",
-    "@pproenca/node-webcodecs-darwin-x64": "0.1.1-alpha.0",
-    "@pproenca/node-webcodecs-linux-x64": "0.1.1-alpha.0",
-    "@pproenca/node-webcodecs-linuxmusl-x64": "0.1.1-alpha.0",
-    "@pproenca/node-webcodecs-win32-x64": "0.1.1-alpha.0"
+    "@pproenca/node-webcodecs-darwin-arm64": "0.1.1-alpha.1",
+    "@pproenca/node-webcodecs-darwin-x64": "0.1.1-alpha.1",
+    "@pproenca/node-webcodecs-linux-x64": "0.1.1-alpha.1",
+    "@pproenca/node-webcodecs-linuxmusl-x64": "0.1.1-alpha.1",
+    "@pproenca/node-webcodecs-win32-x64": "0.1.1-alpha.1"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.10",
