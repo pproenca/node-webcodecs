@@ -208,6 +208,11 @@ void AsyncEncodeWorker::ProcessFrame(const EncodeTask& task) {
     error_tsfn_.NonBlockingCall(
         new std::string(error_msg),
         [](Napi::Env env, Napi::Function fn, std::string* msg) {
+          // If env is null, TSFN is closing during teardown. Just cleanup.
+          if (env == nullptr) {
+            delete msg;
+            return;
+          }
           fn.Call({Napi::Error::New(env, *msg).Value()});
           delete msg;
         });
@@ -270,6 +275,14 @@ void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
 
   output_tsfn_.NonBlockingCall(cb_data, [](Napi::Env env, Napi::Function fn,
                                            ChunkCallbackData* info) {
+    // CRITICAL: If env is null, the TSFN is being destroyed (environment teardown).
+    // Must still clean up data and counters, then return to avoid crashing.
+    if (env == nullptr) {
+      info->pending->fetch_sub(1);
+      delete info;
+      return;
+    }
+
     // Decrement pending count before any operations
     info->pending->fetch_sub(1);
     webcodecs::counterQueue--;  // Decrement global queue counter
