@@ -125,6 +125,57 @@ std::tuple<const uint8_t*, size_t> AttrAsBuffer(Napi::Object obj,
 }
 
 //==============================================================================
+// Template Enum Mappings
+//==============================================================================
+
+const std::unordered_map<std::string, AVColorPrimaries> kColorPrimariesMap = {
+    {"bt709", AVCOL_PRI_BT709},
+    {"bt470bg", AVCOL_PRI_BT470BG},
+    {"smpte170m", AVCOL_PRI_SMPTE170M},
+    {"bt2020", AVCOL_PRI_BT2020},
+    {"smpte432", AVCOL_PRI_SMPTE432},
+};
+
+const std::unordered_map<std::string, AVColorTransferCharacteristic>
+    kTransferMap = {
+        {"bt709", AVCOL_TRC_BT709},
+        {"smpte170m", AVCOL_TRC_SMPTE170M},
+        {"iec61966-2-1", AVCOL_TRC_IEC61966_2_1},  // sRGB
+        {"linear", AVCOL_TRC_LINEAR},
+        {"pq", AVCOL_TRC_SMPTE2084},
+        {"hlg", AVCOL_TRC_ARIB_STD_B67},
+};
+
+const std::unordered_map<std::string, AVColorSpace> kMatrixMap = {
+    {"bt709", AVCOL_SPC_BT709},
+    {"bt470bg", AVCOL_SPC_BT470BG},
+    {"smpte170m", AVCOL_SPC_SMPTE170M},
+    {"bt2020-ncl", AVCOL_SPC_BT2020_NCL},
+    {"rgb", AVCOL_SPC_RGB},
+};
+
+std::string ColorPrimariesToString(AVColorPrimaries primaries) {
+  for (const auto& [name, val] : kColorPrimariesMap) {
+    if (val == primaries) return name;
+  }
+  return "bt709";
+}
+
+std::string TransferToString(AVColorTransferCharacteristic transfer) {
+  for (const auto& [name, val] : kTransferMap) {
+    if (val == transfer) return name;
+  }
+  return "bt709";
+}
+
+std::string MatrixToString(AVColorSpace matrix) {
+  for (const auto& [name, val] : kMatrixMap) {
+    if (val == matrix) return name;
+  }
+  return "bt709";
+}
+
+//==============================================================================
 // Validation Helpers
 //==============================================================================
 

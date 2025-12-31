@@ -454,4 +454,7 @@ export interface NativeModule {
   // FFmpeg logging functions
   getFFmpegWarnings: () => string[];
   clearFFmpegWarnings: () => void;
+
+  // Test helpers
+  testAttrAsEnum: (obj: object, attr: string) => string;
 }

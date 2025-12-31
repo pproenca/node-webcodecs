@@ -1904,3 +1904,6 @@ export const ErrorBuilder = native.ErrorBuilder;
 // Export FFmpeg logging functions
 export const getFFmpegWarnings = native.getFFmpegWarnings;
 export const clearFFmpegWarnings = native.clearFFmpegWarnings;
+
+// Export test helpers for internal testing
+export const testAttrAsEnum = native.testAttrAsEnum;
