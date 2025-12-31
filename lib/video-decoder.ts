@@ -75,6 +75,21 @@ export class VideoDecoder extends CodecBase {
     if (this.state === 'closed') {
       throw new DOMException('Decoder is closed', 'InvalidStateError');
     }
+
+    // Validate rotation (node-webcodecs extension)
+    if ('rotation' in config && config.rotation !== undefined) {
+      if (![0, 90, 180, 270].includes(config.rotation)) {
+        throw new TypeError(`rotation must be 0, 90, 180, or 270, got ${config.rotation}`);
+      }
+    }
+
+    // Validate flip (node-webcodecs extension)
+    if ('flip' in config && config.flip !== undefined) {
+      if (typeof config.flip !== 'boolean') {
+        throw new TypeError('flip must be a boolean');
+      }
+    }
+
     this._needsKeyFrame = true;
     // Configure synchronously to set state immediately per W3C spec
     this._native.configure(config);

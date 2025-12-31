@@ -6,6 +6,54 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { expectDOMException, expectDOMExceptionAsync, TEST_CONSTANTS } from '../fixtures/test-helpers';
 
 describe('VideoDecoder', () => {
+  describe('VideoDecoderConfig validation', () => {
+    it('should throw TypeError for invalid rotation value', () => {
+      const decoder = new VideoDecoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      expect(() =>
+        decoder.configure({
+          codec: 'avc1.42E01E',
+          rotation: 45 as any, // Invalid - must be 0, 90, 180, or 270
+        }),
+      ).toThrow(TypeError);
+
+      decoder.close();
+    });
+
+    it('should throw TypeError for non-boolean flip value', () => {
+      const decoder = new VideoDecoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      expect(() =>
+        decoder.configure({
+          codec: 'avc1.42E01E',
+          flip: 'yes' as any, // Invalid - must be boolean
+        }),
+      ).toThrow(TypeError);
+
+      decoder.close();
+    });
+
+    it('should accept valid rotation values', () => {
+      const decoder = new VideoDecoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      for (const rotation of [0, 90, 180, 270]) {
+        decoder.configure({ codec: 'avc1.42E01E', rotation } as any);
+        decoder.reset();
+      }
+
+      decoder.close();
+    });
+  });
+
   describe('isConfigSupported', () => {
     it('should support H.264 baseline profile', async () => {
       const result = await VideoDecoder.isConfigSupported({
