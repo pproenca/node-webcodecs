@@ -26,4 +26,36 @@ describe('EncodedAudioChunk', () => {
       expect(deltaChunk.type).toBe('delta');
     });
   });
+
+  describe('transfer semantics', () => {
+    it('should detach transferred ArrayBuffer after construction', () => {
+      const buffer = new ArrayBuffer(100);
+      const data = new Uint8Array(buffer);
+      data.fill(42);
+
+      const chunk = new EncodedAudioChunk({
+        type: 'key',
+        timestamp: 0,
+        data: buffer,
+        transfer: [buffer],
+      });
+
+      // ArrayBuffer should be detached (byteLength becomes 0)
+      expect(buffer.byteLength).toBe(0);
+      expect(chunk.byteLength).toBe(100);
+    });
+
+    it('should work without transfer option', () => {
+      const buffer = new ArrayBuffer(100);
+
+      const chunk = new EncodedAudioChunk({
+        type: 'key',
+        timestamp: 0,
+        data: buffer,
+      });
+
+      expect(buffer.byteLength).toBe(100);
+      expect(chunk.byteLength).toBe(100);
+    });
+  });
 });
