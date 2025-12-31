@@ -602,10 +602,11 @@ void VideoEncoder::EmitChunks(Napi::Env env) {
     Napi::Object metadata = Napi::Object::New(env);
 
     // Add SVC metadata per W3C spec.
-    // TODO(pproenca): Implement actual temporal/spatial layer tracking. For
-    // now, always report layer 0 (base layer).
+    // Compute temporal layer ID based on frame position and scalabilityMode.
     Napi::Object svc = Napi::Object::New(env);
-    svc.Set("temporalLayerId", Napi::Number::New(env, 0));
+    int temporal_layer =
+        ComputeTemporalLayerId(packet_->pts, temporal_layer_count_);
+    svc.Set("temporalLayerId", Napi::Number::New(env, temporal_layer));
     metadata.Set("svc", svc);
 
     // Add decoderConfig for keyframes per W3C spec.
