@@ -31,9 +31,9 @@ struct EncodeTask {
   int64_t timestamp;
   int64_t duration;
   bool key_frame;
-  bool is_flush = false;   // When true, flush the encoder instead of encoding
-  int quantizer = -1;      // -1 means not specified, otherwise 0-63 range
-  int64_t frame_index = 0; // Sequential frame index for SVC layer computation
+  bool is_flush = false;    // When true, flush the encoder instead of encoding
+  int quantizer = -1;       // -1 means not specified, otherwise 0-63 range
+  int64_t frame_index = 0;  // Sequential frame index for SVC layer computation
 };
 
 struct EncodedChunk {

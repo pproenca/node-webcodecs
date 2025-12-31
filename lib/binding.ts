@@ -25,11 +25,11 @@ const candidates: LoadCandidate[] = [
     }
   },
 
-  // Prebuilt from platform package
+  // Prebuilt from platform package (sharp pattern: @scope/pkg-platform/binding.node)
   () => {
     const pkg = getPrebuiltPackageName();
-
-    return require(pkg);
+    const bindingPath = `${pkg}/node-webcodecs.node`;
+    return require(bindingPath);
   },
 ];
 

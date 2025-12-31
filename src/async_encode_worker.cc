@@ -165,8 +165,9 @@ void AsyncEncodeWorker::ProcessFrame(const EncodeTask& task) {
   if (task.is_flush) {
     avcodec_send_frame(codec_context_, nullptr);
     // Drain all remaining packets
+    // For flush, use packet pts as proxy for frame_index (set during encode)
     while (avcodec_receive_packet(codec_context_, packet_) == 0) {
-      EmitChunk(packet_);
+      EmitChunk(packet_, packet_->pts);
       av_packet_unref(packet_);
     }
     return;
@@ -179,7 +180,9 @@ void AsyncEncodeWorker::ProcessFrame(const EncodeTask& task) {
   sws_scale(sws_context_, src_data, src_linesize, 0, height_, frame_->data,
             frame_->linesize);
 
-  frame_->pts = task.timestamp;
+  // Use frame_index as pts for consistent SVC layer computation
+  // The original timestamp is preserved in the task and passed through
+  frame_->pts = task.frame_index;
 
   // Apply per-frame quantizer if specified (matches sync path)
   if (task.quantizer >= 0) {
