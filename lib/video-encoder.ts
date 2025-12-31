@@ -106,7 +106,7 @@ export class VideoEncoder extends CodecBase {
     // Poll for pending TSFN callbacks to complete.
     // This allows the event loop to run (delivering callbacks) while we wait.
     while (this._native.pendingChunks > 0) {
-      await new Promise((resolve) => setImmediate(resolve));
+      await new Promise((resolve) => setTimeout(resolve, 1)); // 1ms poll
     }
   }
 
