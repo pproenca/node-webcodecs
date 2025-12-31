@@ -388,6 +388,15 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
     // The encoder will use its default settings.
   }
 
+  // Hardware encoder-specific options.
+  if (is_hw_encoder) {
+    // VideoToolbox: allow software fallback when hardware encoding is unavailable
+    // (e.g., in CI/headless environments without GPU access)
+    if (strstr(codec_->name, "videotoolbox") != nullptr) {
+      av_opt_set(codec_context_->priv_data, "allow_sw", "1", 0);
+    }
+  }
+
   int ret = avcodec_open2(codec_context_.get(), codec_, nullptr);
   if (ret < 0) {
     char errbuf[256];
