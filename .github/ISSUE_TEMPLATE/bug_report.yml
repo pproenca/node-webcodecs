@@ -57,3 +57,11 @@ body:
         - Windows
     validations:
       required: true
+
+  - type: textarea
+    id: envinfo
+    attributes:
+      label: Environment info
+      description: |
+        Run: `npx envinfo --system --binaries --npmPackages=node-webcodecs`
+      render: shell

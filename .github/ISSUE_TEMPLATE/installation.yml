@@ -1,0 +1,66 @@
+name: Installation problem
+description: Installation or build failed
+labels: ["installation", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening an issue, please try:
+        1. `npm cache clean --force`
+        2. Delete `node_modules` and `package-lock.json`
+        3. Run `npm install` again
+
+  - type: checkboxes
+    id: prereqs
+    attributes:
+      label: Prerequisites
+      options:
+        - label: I have read the [installation guide](https://github.com/pproenca/node-webcodecs#installation)
+          required: true
+        - label: I have searched for existing issues
+          required: true
+
+  - type: textarea
+    id: error
+    attributes:
+      label: Error message
+      description: Full error output from `npm install`
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: ffmpeg
+    attributes:
+      label: FFmpeg version
+      description: |
+        Run: `pkg-config --modversion libavcodec` (Linux/macOS)
+        Or: `ffmpeg -version` (Windows)
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: envinfo
+    attributes:
+      label: Environment info
+      description: |
+        Run: `npx envinfo --system --binaries --npmPackages=node-webcodecs`
+      render: shell
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS (Intel)
+        - macOS (Apple Silicon)
+        - Ubuntu/Debian
+        - Fedora/RHEL
+        - Alpine Linux
+        - Windows
+        - Other
+    validations:
+      required: true

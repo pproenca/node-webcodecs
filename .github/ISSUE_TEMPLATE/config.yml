@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Documentation
-    url: https://github.com/aspect-build/node-webcodecs#readme
-    about: Please read the README before opening an issue
+    url: https://github.com/pproenca/node-webcodecs#readme
+    about: Please read the documentation before opening an issue
+  - name: Stack Overflow
+    url: https://stackoverflow.com/questions/tagged/webcodecs
+    about: Ask questions on Stack Overflow
