@@ -93,17 +93,18 @@ jobs:
             libx265-dev \
             libvpx-dev \
             libaom-dev \
+            libmp3lame-dev \
             pkg-config
           # Verify encoder availability
-          ffmpeg -encoders 2>/dev/null | grep -E "libx26|libaom" || true
+          ffmpeg -encoders 2>/dev/null | grep -E "libx26|libaom|libmp3lame" || true
 
       - name: Install FFmpeg (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install x264 x265 libvpx aom pkg-config
+          brew install x264 x265 libvpx aom lame pkg-config
           brew install ffmpeg
           # Verify encoder availability
-          ffmpeg -encoders 2>/dev/null | grep -E "libx26|libaom" || true
+          ffmpeg -encoders 2>/dev/null | grep -E "libx26|libaom|libmp3lame" || true
 
       - name: Install dependencies
         run: npm install

@@ -66,7 +66,7 @@ FFmpeg is licensed under the GNU Lesser General Public License (LGPL) version 2.
 
 This package contains prebuilt FFmpeg shared libraries compiled with the following configuration:
 - --enable-shared --disable-static
-- --enable-gpl --enable-libx264 --enable-libx265 --enable-libvpx --enable-libopus --enable-libaom
+- --enable-gpl --enable-libx264 --enable-libx265 --enable-libvpx --enable-libopus --enable-libaom --enable-libmp3lame
 
 For FFmpeg source code and full license terms, see:
 https://ffmpeg.org/

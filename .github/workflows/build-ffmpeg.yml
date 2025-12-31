@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       ffmpeg_version:
-        description: "FFmpeg version to build"
+        description: "FFmpeg version to build (e.g., 7.1.3, 8.0.1)"
         required: true
-        default: "7.1"
+        default: "7.1.3"
       publish:
         description: "Publish to npm after build"
         type: boolean
@@ -49,24 +49,26 @@ jobs:
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install nasm pkg-config x264 x265 libvpx opus aom
+          brew install nasm pkg-config x264 x265 libvpx opus aom lame
 
       - name: Install dependencies (Linux glibc)
         if: runner.os == 'Linux' && !matrix.container
         run: |
           sudo apt-get update
           sudo apt-get install -y nasm yasm pkg-config \
-            libx264-dev libx265-dev libvpx-dev libopus-dev libaom-dev
+            libx264-dev libx265-dev libvpx-dev libopus-dev libaom-dev libmp3lame-dev
 
       - name: Install dependencies (Linux musl)
         if: matrix.container == 'alpine:3.19'
         run: |
           apk add --no-cache build-base nasm yasm pkgconf curl \
-            x264-dev x265-dev libvpx-dev opus-dev aom-dev
+            x264-dev x265-dev libvpx-dev opus-dev aom-dev lame-dev
 
       - name: Download FFmpeg source
+        env:
+          FFMPEG_VERSION: ${{ github.event.inputs.ffmpeg_version || '7.1.3' }}
         run: |
-          curl -L https://ffmpeg.org/releases/ffmpeg-${{ github.event.inputs.ffmpeg_version || '7.1' }}.tar.xz | tar xJ
+          curl -L https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz | tar xJ
           mv ffmpeg-* ffmpeg-src
 
       - name: Configure FFmpeg
@@ -84,6 +86,7 @@ jobs:
             --enable-libvpx \
             --enable-libopus \
             --enable-libaom \
+            --enable-libmp3lame \
             ${{ matrix.configure_flags }}
 
       - name: Build FFmpeg
@@ -95,12 +98,14 @@ jobs:
         run: make install
 
       - name: Package libraries and headers
+        env:
+          FFMPEG_VERSION: ${{ github.event.inputs.ffmpeg_version || '7.1.3' }}
         run: |
           mkdir -p ffmpeg-${{ matrix.platform }}/lib
           mkdir -p ffmpeg-${{ matrix.platform }}/include
           cp -P ffmpeg-install/lib/*.{dylib,so}* ffmpeg-${{ matrix.platform }}/lib/ 2>/dev/null || true
           cp -r ffmpeg-install/include/* ffmpeg-${{ matrix.platform }}/include/
-          echo '{"ffmpeg": "${{ github.event.inputs.ffmpeg_version || '7.1' }}"}' > ffmpeg-${{ matrix.platform }}/versions.json
+          echo "{\"ffmpeg\": \"${FFMPEG_VERSION}\"}" > ffmpeg-${{ matrix.platform }}/versions.json
 
       - uses: actions/upload-artifact@v4
         with:
@@ -133,9 +138,21 @@ jobs:
           path: ffmpeg-${{ matrix.platform }}
 
       - name: Populate package
+        env:
+          FFMPEG_VERSION: ${{ github.event.inputs.ffmpeg_version || '7.1.3' }}
         run: |
           FFMPEG_ARTIFACT_DIR=${{ github.workspace }}/ffmpeg-${{ matrix.platform }} \
             node ffmpeg/from-ci-build.js ${{ matrix.platform }}
+
+      - name: Update package version
+        env:
+          FFMPEG_VERSION: ${{ github.event.inputs.ffmpeg_version || '7.1.3' }}
+        working-directory: ffmpeg/${{ matrix.platform }}
+        run: |
+          # Convert FFmpeg version to npm-compatible version (e.g., 7.1.3 -> 7.1.3)
+          NPM_VERSION="${FFMPEG_VERSION}"
+          echo "Setting package version to ${NPM_VERSION}"
+          npm version "${NPM_VERSION}" --no-git-tag-version --allow-same-version
 
       - name: Publish to npm
         working-directory: ffmpeg/${{ matrix.platform }}
