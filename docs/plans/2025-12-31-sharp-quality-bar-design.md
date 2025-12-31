@@ -1,14 +1,15 @@
-# Sharp Quality Bar Adoption Design
+# Sharp Quality Bar Adoption Design (v2)
 
 ## Overview
 
-This document captures repository structure, documentation, and code organization patterns from lovell/sharp that should be adopted in node-webcodecs to achieve production-grade quality.
+Comprehensive pass to match lovell/sharp's production quality bar.
 
-**Scope:** This design focuses on areas NOT already covered in existing plans:
-- `2024-12-31-sharp-patterns-adoption-design.md` (async workers, prebuilts)
-- `2024-12-31-sharp-patterns-implementation.md` (implementation details)
+**Scope:** Full platform matrix CI, release automation, install infrastructure, package polish.
 
-This design addresses: code organization, documentation, dev workflow, and cleanup.
+**User Selections:**
+- License: MIT (add LICENSE file)
+- CI matrix: Full sharp-style (~20 jobs covering Linux/macOS/Windows × Node 18/20/22)
+- Release automation: Yes (npm publish on v* tags)
 
 ---
 
@@ -496,51 +497,186 @@ jobs:
 
 ---
 
+## Part 8: Full CI Platform Matrix
+
+### Sharp's Matrix Strategy
+
+Sharp tests on 20+ platform combinations:
+
+| Platform | Container/Runner | Node Versions |
+|----------|------------------|---------------|
+| linux-x64 | rockylinux:8 | 18, 20, 22 |
+| linux-arm64 | arm64v8/rockylinux:8 | 18, 20 |
+| linuxmusl-x64 | node:XX-alpine | 18, 20, 22 |
+| linuxmusl-arm64 | node:XX-alpine (ARM) | 18, 20 |
+| darwin-x64 | macos-15-intel | 18, 20, 22 |
+| darwin-arm64 | macos-15 | 18, 20, 22 |
+| win32-x64 | windows-2022 | 18, 20, 22 |
+| win32-arm64 | windows-11-arm | 20, 22 |
+
+### FFmpeg Installation Per Platform
+
+| Platform | FFmpeg Install |
+|----------|----------------|
+| Rocky Linux | `dnf install -y epel-release && dnf install -y ffmpeg-free-devel` |
+| Alpine | `apk add ffmpeg-dev` |
+| macOS | `brew install ffmpeg` |
+| Windows | vcpkg or download prebuilt FFmpeg |
+
+### Recommended node-webcodecs Matrix
+
+Start with essential platforms, expand over time:
+
+**Phase 1 (immediate):**
+- linux-x64: Ubuntu 24.04 × Node 18, 20, 22
+- darwin-x64: macos-15-intel × Node 18, 20, 22
+- darwin-arm64: macos-15 × Node 18, 20, 22
+
+**Phase 2 (after stabilization):**
+- win32-x64: windows-2022 × Node 18, 20, 22
+- linux-arm64: ubuntu-24.04-arm × Node 18, 20
+
+**Phase 3 (stretch):**
+- linuxmusl-x64: Alpine × Node 20, 22
+- win32-arm64: windows-11-arm × Node 22
+
+---
+
+## Part 9: Release Automation
+
+### Workflow: .github/workflows/release.yml
+
+```yaml
+name: Release
+
+on:
+  push:
+    tags:
+      - "v**"
+
+permissions: {}
+
+jobs:
+  build-and-test:
+    # Same as ci.yml matrix
+
+  publish:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - name: Publish to npm
+        run: npm publish --tag=${{ contains(github.ref, '-rc') && 'next' || 'latest' }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+```
+
+### Required Secrets
+
+- `NPM_TOKEN`: npm access token with publish permissions
+
+---
+
+## Part 10: Install Infrastructure
+
+### Current install/check.js
+
+Only checks for FFmpeg presence via pkg-config.
+
+### Enhanced Pattern (from sharp)
+
+```javascript
+// install/check.js
+try {
+  // 1. Check for prebuilt binary
+  const binding = require('../build/Release/node_webcodecs.node');
+  if (binding) process.exit(0); // Prebuilt found, skip build
+} catch {
+  // No prebuilt, check for FFmpeg
+  const { execSync } = require('child_process');
+  try {
+    execSync('pkg-config --exists libavcodec', { stdio: 'ignore' });
+    process.exit(1); // FFmpeg found, trigger build
+  } catch {
+    console.error('FFmpeg development libraries not found');
+    console.error('See: https://github.com/pproenca/node-webcodecs#installation');
+    process.exit(1);
+  }
+}
+```
+
+### New install/build.js
+
+```javascript
+// install/build.js
+const { spawnSync } = require('child_process');
+
+console.log('Building node-webcodecs from source...');
+
+// Verify node-gyp available
+try {
+  require('node-gyp');
+} catch {
+  console.error('node-gyp required for source build');
+  process.exit(1);
+}
+
+const result = spawnSync('npx', ['node-gyp', 'rebuild'], {
+  stdio: 'inherit',
+  shell: true
+});
+
+process.exit(result.status);
+```
+
+---
+
 ## Implementation Phases
 
-### Phase 1: File Cleanup (Low Risk)
+### Phase 1: Quick Wins (Low Risk) ✅ DONE
+- [x] Delete orphaned files (Makefile, TODO.md, etc.)
+- [x] Add biome.json, remove eslint/prettier
+- [x] Add README.md, CONTRIBUTING.md
+- [x] Split lib/index.ts
 
-1. Delete `Makefile`, `progress.txt`
-2. Create GitHub Issues from `TODO.md`, then delete
-3. Move `plan.md` to docs/plans if needed, then delete
-4. Update `.gitignore` if needed
+### Phase 2: Package Polish
+1. Add LICENSE file (MIT)
+2. Update package.json with homepage, repository, files, funding
+3. Improve install/check.js with better error messages
 
-### Phase 2: Package.json & Tooling
+### Phase 3: CI Hardening
+1. Add explicit `permissions: {}` to workflows
+2. Expand platform matrix (darwin-arm64, etc.)
+3. Add Windows CI (requires FFmpeg setup)
 
-1. Replace eslint+prettier with biome
-2. Flatten package.json scripts
-3. Add `lint-types` with tsd
-4. Add `prepublishOnly` script
+### Phase 4: Release Automation
+1. Create release.yml workflow
+2. Add npm-smoke.yml for post-release testing
+3. Set up NPM_TOKEN secret
 
-### Phase 3: Documentation
-
-1. Create README.md with examples
-2. Create .github/CONTRIBUTING.md
-3. Create .github/ISSUE_TEMPLATE/ structure
-4. Set up TypeDoc for API docs
-
-### Phase 4: lib/ Split (Higher Risk)
-
-1. Extract classes from index.ts to separate files
-2. Create new index.ts that re-exports
-3. Ensure all tests pass
-4. Verify tree-shaking still works
-
-### Phase 5: CI/CD Polish
-
-1. Add lint-first job pattern
-2. Add npm smoke test workflow
-3. Add release workflow (after prebuilts from other plan)
+### Phase 5: Issue Templates
+1. Add installation.yml template
+2. Enhance bug_report.yml with diagnostic commands
+3. Add config.yml to disable blank issues
 
 ---
 
 ## Success Criteria
 
-- [ ] No orphaned files in root (Makefile, TODO.md, etc.)
-- [ ] README.md exists with examples and badges
-- [ ] CONTRIBUTING.md exists in .github/
-- [ ] Issue templates configured
-- [ ] lib/index.ts is < 100 lines (just exports)
-- [ ] TypeDoc generates API documentation
-- [ ] CI runs lint before build
-- [ ] Type definitions tested with tsd
+- [ ] LICENSE file exists in root
+- [ ] `npm pack` includes only necessary files via `files` array
+- [ ] CI runs on Linux, macOS (Intel + ARM), Windows
+- [ ] Git tags trigger npm publish
+- [ ] Issue templates capture environment info
+- [ ] install/check.js provides helpful error messages
+- [ ] All tests pass on all platforms

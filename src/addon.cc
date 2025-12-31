@@ -19,6 +19,7 @@ Napi::Object InitAudioEncoder(Napi::Env env, Napi::Object exports);
 Napi::Object InitAudioDecoder(Napi::Env env, Napi::Object exports);
 Napi::Object InitVideoFilter(Napi::Env env, Napi::Object exports);
 Napi::Object InitDemuxer(Napi::Env env, Napi::Object exports);
+Napi::Object InitMuxer(Napi::Env env, Napi::Object exports);
 Napi::Object InitImageDecoder(Napi::Env env, Napi::Object exports);
 
 // FFmpeg logging helper functions
@@ -65,6 +66,7 @@ Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
   InitAudioDecoder(env, exports);
   InitVideoFilter(env, exports);
   InitDemuxer(env, exports);
+  InitMuxer(env, exports);
   InitImageDecoder(env, exports);
   webcodecs::ErrorBuilder::Init(env, exports);
   webcodecs::WarningAccumulator::Init(env, exports);
