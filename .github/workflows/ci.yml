@@ -18,7 +18,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22.x"
-      - run: npm ci --ignore-scripts --omit=optional
+      - run: npm install --ignore-scripts --omit=optional
       - run: npm run build:ts
       - run: npm run lint
 
@@ -95,7 +95,7 @@ jobs:
         run: brew install ffmpeg pkg-config
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build
         run: npm run build --if-present

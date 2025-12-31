@@ -173,6 +173,12 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
   int framerate =
       webcodecs::AttrAsInt32(config, "framerate", kDefaultFramerate);
 
+  // Parse bitrateMode per W3C WebCodecs spec.
+  // "quantizer" = use CQP mode where frame->quality controls encoding quality.
+  // "variable" or "constant" = use bitrate-based encoding (default).
+  std::string bitrate_mode =
+      webcodecs::AttrAsStr(config, "bitrateMode", "variable");
+
   // Parse codec string
   std::string codec_str = webcodecs::AttrAsStr(config, "codec", "h264");
   codec_string_ = codec_str;  // Store for metadata
@@ -301,7 +307,14 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
   codec_context_->time_base = {1, framerate};
   codec_context_->framerate = {framerate, 1};
   codec_context_->pix_fmt = AV_PIX_FMT_YUV420P;
-  codec_context_->bit_rate = bitrate;
+  // When bitrateMode = "quantizer", enable CQP mode so frame->quality is
+  // respected. Don't set bit_rate - let quality control encoding.
+  if (bitrate_mode == "quantizer") {
+    codec_context_->flags |= AV_CODEC_FLAG_QSCALE;
+    codec_context_->global_quality = FF_QP2LAMBDA * 23;  // Default QP if none specified
+  } else {
+    codec_context_->bit_rate = bitrate;
+  }
   codec_context_->gop_size = kDefaultGopSize;
   // Per W3C WebCodecs spec: latencyMode "realtime" disables B-frames for low
   // latency encoding (no frame reordering). This is critical for correct MP4
@@ -336,6 +349,13 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
     if (codec_id == AV_CODEC_ID_H264) {
       av_opt_set(codec_context_->priv_data, "preset", "fast", 0);
       av_opt_set(codec_context_->priv_data, "tune", "zerolatency", 0);
+      // For bitrateMode=quantizer, enable CQP mode in libx264.
+      // libx264 ignores AV_CODEC_FLAG_QSCALE; it needs the "qp" option set.
+      // We set a default QP here; per-frame quality will be applied via
+      // frame->quality which libx264 reads when in CQP mode.
+      if (bitrate_mode == "quantizer") {
+        av_opt_set_int(codec_context_->priv_data, "qp", 23, 0);
+      }
     } else if (codec_id == AV_CODEC_ID_VP8 || codec_id == AV_CODEC_ID_VP9) {
       // VP8/VP9 specific: set quality (crf) and speed
       av_opt_set(codec_context_->priv_data, "quality", "realtime", 0);

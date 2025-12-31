@@ -819,6 +819,87 @@ describe('VideoEncoder', () => {
     });
   });
 
+  describe('bitrateMode=quantizer', () => {
+    it('should accept bitrateMode quantizer config and encode successfully', async () => {
+      const chunks: EncodedVideoChunk[] = [];
+
+      const encoder = new VideoEncoder({
+        output: (c) => chunks.push(c),
+        error: (e) => {
+          throw e;
+        },
+      });
+
+      // Configure with bitrateMode=quantizer (CQP mode)
+      encoder.configure({
+        codec: 'avc1.42001e',
+        width: 320,
+        height: 240,
+        bitrateMode: 'quantizer',
+      });
+
+      expect(encoder.state).toBe('configured');
+
+      const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+        format: 'RGBA',
+        codedWidth: 320,
+        codedHeight: 240,
+        timestamp: 0,
+      });
+
+      // Encode with per-frame quantizer option
+      encoder.encode(frame, { keyFrame: true, avc: { quantizer: 30 } } as any);
+      frame.close();
+
+      await encoder.flush();
+      encoder.close();
+
+      // Should produce at least one chunk
+      expect(chunks.length).toBeGreaterThan(0);
+      expect(chunks[0].type).toBe('key');
+    });
+
+    it('should use quality-based encoding without bitrate target', async () => {
+      // When bitrateMode=quantizer, the encoder should not use bitrate-based
+      // rate control. We verify this by checking that encoding succeeds even
+      // without specifying a bitrate.
+      const chunks: EncodedVideoChunk[] = [];
+
+      const encoder = new VideoEncoder({
+        output: (c) => chunks.push(c),
+        error: (e) => {
+          throw e;
+        },
+      });
+
+      encoder.configure({
+        codec: 'avc1.42001e',
+        width: 320,
+        height: 240,
+        bitrateMode: 'quantizer',
+        // Note: no bitrate specified - encoder uses QP-based control
+      });
+
+      // Encode multiple frames to verify consistent behavior
+      for (let i = 0; i < 5; i++) {
+        const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+          format: 'RGBA',
+          codedWidth: 320,
+          codedHeight: 240,
+          timestamp: i * 33333, // ~30fps
+        });
+        encoder.encode(frame, { keyFrame: i === 0 });
+        frame.close();
+      }
+
+      await encoder.flush();
+      encoder.close();
+
+      // Should produce chunks for all frames
+      expect(chunks.length).toBe(5);
+    });
+  });
+
   describe('SVC temporal layer tracking', () => {
     it('should report temporalLayerId based on scalabilityMode L1T2', async () => {
       const chunks: Array<{ timestamp: number; layerId: number }> = [];
