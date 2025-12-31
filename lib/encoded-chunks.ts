@@ -38,6 +38,16 @@ export class EncodedVideoChunk {
       duration: init.duration,
       data: dataBuffer,
     });
+
+    // Handle ArrayBuffer transfer semantics per W3C spec
+    if (init.transfer && Array.isArray(init.transfer)) {
+      // Detach transferred ArrayBuffers using structuredClone
+      for (const buffer of init.transfer) {
+        if (buffer instanceof ArrayBuffer) {
+          structuredClone(buffer, { transfer: [buffer] });
+        }
+      }
+    }
   }
 
   get type(): 'key' | 'delta' {
