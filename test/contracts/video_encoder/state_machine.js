@@ -1,3 +1,17 @@
+/**
+ * Contract Test: VideoEncoder State Machine
+ *
+ * PURPOSE: These tests verify the W3C WebCodecs state machine invariants
+ * using a minimal test framework (no Vitest). They run as standalone scripts
+ * to ensure the state machine works correctly even without framework support.
+ *
+ * RELATIONSHIP TO GOLDEN TESTS: These tests overlap with golden tests intentionally.
+ * Golden tests verify feature correctness; contract tests verify spec compliance.
+ * Both should pass independently.
+ *
+ * RUN: node test/contracts/video_encoder/state_machine.js
+ */
+
 const {VideoEncoder, VideoFrame} = require('../../../dist');
 const assert = require('node:assert');
 

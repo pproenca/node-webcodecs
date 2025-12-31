@@ -1,3 +1,17 @@
+/**
+ * Contract Test: Invalid State Error Handling
+ *
+ * PURPOSE: These tests verify the W3C WebCodecs InvalidStateError invariants
+ * using a minimal test framework (no Vitest). They run as standalone scripts
+ * to ensure correct error behavior even without framework support.
+ *
+ * RELATIONSHIP TO GOLDEN TESTS: These tests overlap with golden tests intentionally.
+ * Golden tests verify feature correctness; contract tests verify spec compliance.
+ * Both should pass independently.
+ *
+ * RUN: node test/contracts/error_handling/invalid_state.js
+ */
+
 const {
   VideoEncoder,
   VideoDecoder,
