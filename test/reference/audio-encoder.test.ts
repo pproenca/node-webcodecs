@@ -47,7 +47,6 @@ test('AudioEncoder lifecycle', { timeout: 10_000 }, async () => {
   const framesPerChunk = 1024;
   const frequency = 200 + Math.random() * 800;
 
-  let outputChunks = 0;
   let dequeueEvents = 0;
   encoder.addEventListener('dequeue', () => dequeueEvents++);
 

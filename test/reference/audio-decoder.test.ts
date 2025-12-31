@@ -8,7 +8,6 @@
 
 import { ALL_FORMATS, EncodedPacketSink, FilePathSource, Input } from 'mediabunny';
 import { expect, test } from 'vitest';
-import { AsyncMutex } from './misc.js';
 
 const filePath = './test/fixtures/small_buck_bunny.mp4';
 

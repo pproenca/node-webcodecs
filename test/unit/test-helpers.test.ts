@@ -1,6 +1,6 @@
 // test/unit/test-helpers.test.ts
 import { describe, expect, it } from 'vitest';
-import { withVideoEncoder, withVideoDecoder, withVideoFrame, withAudioData } from '../fixtures/test-helpers';
+import { withVideoEncoder, withVideoFrame } from '../fixtures/test-helpers';
 
 describe('Test Helpers', () => {
   describe('withVideoEncoder', () => {

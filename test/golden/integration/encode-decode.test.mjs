@@ -2,7 +2,7 @@
  * Integration tests for VideoEncoder/VideoDecoder
  */
 
-import {it, expect, describe, afterEach} from 'vitest';
+import {it, expect, describe, } from 'vitest';
 
 /**
  * Extracts dominant color from VideoFrame by sampling center pixel
