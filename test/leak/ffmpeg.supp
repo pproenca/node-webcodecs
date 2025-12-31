@@ -1,0 +1,164 @@
+# FFmpeg Valgrind Suppressions
+# These suppress known allocations that persist for the library's lifetime
+# and are not actual memory leaks.
+#
+# Based on patterns from libvips and other FFmpeg-using projects.
+
+# FFmpeg codec initialization allocations
+{
+   ffmpeg_avcodec_register_all
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:avcodec_*
+}
+
+{
+   ffmpeg_avformat_network_init
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:avformat_network_init
+}
+
+# FFmpeg internal tables and registries
+{
+   ffmpeg_av_register_all
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:av_register_all
+}
+
+# FFmpeg hardware acceleration initialization
+{
+   ffmpeg_hw_device_ctx
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:av_hwdevice_ctx_*
+}
+
+# FFmpeg filter initialization
+{
+   ffmpeg_avfilter_register_all
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:avfilter_*
+}
+
+# Node.js V8 engine allocations (not leaks)
+{
+   nodejs_v8_heap
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   obj:*/libnode.so*
+}
+
+{
+   nodejs_uv_loop
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:uv_*
+}
+
+# NAPI allocations that persist for module lifetime
+{
+   napi_module_register
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:napi_*
+}
+
+# pthread allocations on first use
+{
+   pthread_create_once
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:pthread_create*
+}
+
+# OpenSSL initialization (used by some FFmpeg builds)
+{
+   openssl_init
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:OPENSSL_*
+}
+
+# zlib initialization
+{
+   zlib_inflate_init
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:inflate*
+}
+
+# x264/x265 encoder initialization
+{
+   x264_encoder_open
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:x264_*
+}
+
+{
+   x265_encoder_open
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:x265_*
+}
+
+# libvpx initialization
+{
+   vpx_codec_enc_init
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:vpx_*
+}
+
+# libaom (AV1) initialization
+{
+   aom_codec_enc_init
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:aom_*
+}
+
+# libopus initialization
+{
+   opus_encoder_create
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:opus_*
+}
+
+# Swscale context caching
+{
+   swscale_context_cache
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:sws_getCachedContext
+}
+
+# FFmpeg log callback
+{
+   ffmpeg_av_log
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:av_log*
+}
