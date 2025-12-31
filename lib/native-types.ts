@@ -457,4 +457,25 @@ export interface NativeModule {
 
   // Test helpers
   testAttrAsEnum: (obj: object, attr: string) => string;
+
+  // Descriptor factories
+  createEncoderConfigDescriptor: (config: object) => {
+    codec: string;
+    width: number;
+    height: number;
+    displayWidth: number;
+    displayHeight: number;
+    bitrate: number;
+    framerate: number;
+    latencyMode: string;
+    bitrateMode: string;
+    scalabilityMode: string;
+    hardwareAcceleration: string;
+    avc: string;
+    hevc: string;
+    colorPrimaries: string;
+    colorTransfer: string;
+    colorMatrix: string;
+    colorFullRange: boolean;
+  };
 }

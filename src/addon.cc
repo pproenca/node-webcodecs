@@ -4,6 +4,7 @@
 #include <napi.h>
 
 #include "src/common.h"
+#include "src/descriptors.h"
 #include "src/error_builder.h"
 #include "src/warnings.h"
 
@@ -67,6 +68,7 @@ Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
   InitImageDecoder(env, exports);
   webcodecs::ErrorBuilder::Init(env, exports);
   webcodecs::WarningAccumulator::Init(env, exports);
+  webcodecs::InitDescriptors(env, exports);
 
   // Export FFmpeg logging functions
   exports.Set("getFFmpegWarnings", Napi::Function::New(env, GetFFmpegWarningsJS));
