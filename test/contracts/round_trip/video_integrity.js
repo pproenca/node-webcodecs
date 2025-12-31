@@ -135,6 +135,7 @@ test('timestamps are preserved through round-trip', async () => {
     height: height,
     bitrate: 500_000,
     framerate: 30,
+    latencyMode: 'realtime', // Disable B-frames to ensure 1:1 frame output
   });
 
   // Create and encode frames with sequential timestamps
@@ -233,6 +234,7 @@ test('multiple frames round-trip successfully', async () => {
     height: height,
     bitrate: 500_000,
     framerate: 30,
+    latencyMode: 'realtime', // Disable B-frames to ensure 1:1 frame output
   });
 
   // Encode multiple frames
