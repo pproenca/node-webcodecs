@@ -596,9 +596,9 @@ Napi::Value VideoEncoder::Flush(const Napi::CallbackInfo& info) {
 Napi::Value VideoEncoder::Reset(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
+  // W3C spec: reset() is a no-op when closed (don't throw)
   if (state_ == "closed") {
-    throw Napi::Error::New(env,
-                           "InvalidStateError: Cannot reset a closed encoder");
+    return env.Undefined();
   }
 
   // Flush any pending frames (don't emit - discard).
