@@ -1,0 +1,26 @@
+{
+  "name": "@pproenca/ffmpeg-win32-x64",
+  "version": "7.1.0",
+  "description": "Prebuilt FFmpeg shared libraries for Windows x64",
+  "license": "LGPL-2.1-or-later",
+  "author": "Pedro Proenca",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pproenca/node-webcodecs.git",
+    "directory": "ffmpeg/win32-x64"
+  },
+  "files": ["lib", "versions.json", "LICENSE"],
+  "os": ["win32"],
+  "cpu": ["x64"],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    "./lib": "./lib/",
+    "./versions": "./versions.json",
+    "./package": "./package.json"
+  }
+}
