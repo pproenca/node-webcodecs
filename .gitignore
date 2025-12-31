@@ -36,3 +36,6 @@ CMakeFiles/
 npm/*/lib/
 npm/*/LICENSE
 npm/*/README.md
+
+# Generated API docs
+docs/api/

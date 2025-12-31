@@ -1,0 +1,14 @@
+{
+  "entryPoints": ["lib/index.ts"],
+  "out": "docs/api",
+  "name": "node-webcodecs",
+  "readme": "README.md",
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeInternal": true,
+  "includeVersion": true,
+  "navigationLinks": {
+    "GitHub": "https://github.com/pproenca/node-webcodecs",
+    "W3C WebCodecs": "https://www.w3.org/TR/webcodecs/"
+  }
+}
