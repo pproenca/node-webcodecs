@@ -890,13 +890,7 @@ describe('VideoDecoder', () => {
           data: new Uint8Array([0, 0, 0, 1]),
         });
 
-        try {
-          decoder.decode(chunk);
-          expect.fail('Should have thrown');
-        } catch (e) {
-          expect(e).toBeInstanceOf(DOMException);
-          expect((e as DOMException).name).toBe('InvalidStateError');
-        }
+        expectDOMException('InvalidStateError', () => decoder.decode(chunk));
 
         decoder.close();
       });
@@ -914,13 +908,7 @@ describe('VideoDecoder', () => {
           data: new Uint8Array([0, 0, 0, 1]),
         });
 
-        try {
-          decoder.decode(chunk);
-          expect.fail('Should have thrown');
-        } catch (e) {
-          expect(e).toBeInstanceOf(DOMException);
-          expect((e as DOMException).name).toBe('InvalidStateError');
-        }
+        expectDOMException('InvalidStateError', () => decoder.decode(chunk));
       });
 
       it('should throw InvalidStateError when configure called in closed state', () => {
@@ -930,13 +918,7 @@ describe('VideoDecoder', () => {
         });
         decoder.close();
 
-        try {
-          decoder.configure({ codec: 'avc1.42001e' });
-          expect.fail('Should have thrown');
-        } catch (e) {
-          expect(e).toBeInstanceOf(DOMException);
-          expect((e as DOMException).name).toBe('InvalidStateError');
-        }
+        expectDOMException('InvalidStateError', () => decoder.configure({ codec: 'avc1.42001e' }));
       });
 
       it('should throw InvalidStateError when reset called in closed state', () => {
@@ -946,13 +928,7 @@ describe('VideoDecoder', () => {
         });
         decoder.close();
 
-        try {
-          decoder.reset();
-          expect.fail('Should have thrown');
-        } catch (e) {
-          expect(e).toBeInstanceOf(DOMException);
-          expect((e as DOMException).name).toBe('InvalidStateError');
-        }
+        expectDOMException('InvalidStateError', () => decoder.reset());
       });
 
       it('should reject flush with InvalidStateError in unconfigured state', async () => {
@@ -961,13 +937,7 @@ describe('VideoDecoder', () => {
           error: () => {},
         });
 
-        try {
-          await decoder.flush();
-          expect.fail('Should have rejected');
-        } catch (e) {
-          expect(e).toBeInstanceOf(DOMException);
-          expect((e as DOMException).name).toBe('InvalidStateError');
-        }
+        await expectDOMExceptionAsync('InvalidStateError', () => decoder.flush());
 
         decoder.close();
       });
@@ -979,13 +949,7 @@ describe('VideoDecoder', () => {
         });
         decoder.close();
 
-        try {
-          await decoder.flush();
-          expect.fail('Should have rejected');
-        } catch (e) {
-          expect(e).toBeInstanceOf(DOMException);
-          expect((e as DOMException).name).toBe('InvalidStateError');
-        }
+        await expectDOMExceptionAsync('InvalidStateError', () => decoder.flush());
       });
 
       it('should call error callback with DataError for non-keyframe first chunk', async () => {
