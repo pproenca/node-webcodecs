@@ -69,7 +69,6 @@
   "devDependencies": {
     "@biomejs/biome": "^2.3.10",
     "@cpplint/cli": "^0.1.0",
-    "@rollup/rollup-darwin-arm64": "^4.54.0",
     "@types/node": "^22",
     "@vitest/coverage-v8": "^4.0.16",
     "c8": "^10.1.3",
