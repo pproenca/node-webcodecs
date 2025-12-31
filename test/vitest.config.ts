@@ -13,7 +13,9 @@ export default defineConfig({
     setupFiles: ['./setup.ts'],
     testTimeout: 30000,
     hookTimeout: 10000,
-    isolate: false,
+    // Fix: Enable isolation to prevent tests from interfering with each other
+    // caused by shared global state in test/setup.ts
+    isolate: true,
     fileParallelism: true,
     coverage: {
       enabled: process.env.CI === 'true',
