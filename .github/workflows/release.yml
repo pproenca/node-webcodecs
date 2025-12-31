@@ -70,7 +70,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: "22"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
           cache: 'npm'
 
@@ -96,6 +96,8 @@ jobs:
         run: npm test
 
       - name: Publish to npm
-        run: npm publish --access public --tag=${{ contains(github.ref, '-rc') && 'next' || 'latest' }}
+        # Uses OIDC trusted publishing (no token needed after configuring trusted publisher on npmjs.com)
+        # First publish requires NPM_TOKEN; after that, configure trusted publisher and remove the env block
+        run: npm publish --provenance --access public --tag=${{ contains(github.ref, '-rc') && 'next' || 'latest' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
