@@ -6,10 +6,10 @@
 //
 // Guides developers through the video watermarker demo step by step.
 
-const {execSync, spawn} = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const readline = require('readline');
+const {execSync, spawn} = require('node:child_process');
+const fs = require('node:fs');
+const path = require('node:path');
+const readline = require('node:readline');
 
 const {
   AudioData,
@@ -69,7 +69,7 @@ function run(cmd, options = {}) {
   }
 }
 
-function checkDependency(name, cmd) {
+function checkDependency(_name, cmd) {
   try {
     execSync(cmd, {stdio: 'pipe'});
     return true;
@@ -232,8 +232,8 @@ async function generateTestVideo(outputPath) {
     (a, b) => a.timestamp - b.timestamp,
   );
 
-  sortedVideoChunks.forEach(chunk => muxer.writeVideoChunk(chunk));
-  sortedAudioChunks.forEach(chunk => muxer.writeAudioChunk(chunk));
+  sortedVideoChunks.forEach(chunk => { muxer.writeVideoChunk(chunk); });
+  sortedAudioChunks.forEach(chunk => { muxer.writeAudioChunk(chunk); });
 
   muxer.finalize();
   muxer.close();

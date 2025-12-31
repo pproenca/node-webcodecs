@@ -8,9 +8,9 @@
  * @see docs/WEBCODECS_USER_STORIES.md - Section A1
  */
 
-const assert = require('assert');
-const fs = require('fs');
-const path = require('path');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
 
 // Try to load the module - may not exist yet
 let VideoEncoder, VideoFrame;
@@ -73,7 +73,7 @@ async function testScenario2_EncodeFrame() {
   let receivedChunk = null;
 
   const encoder = new VideoEncoder({
-    output: (chunk, metadata) => {
+    output: (chunk, _metadata) => {
       chunkReceived = true;
       receivedChunk = chunk;
     },
@@ -345,7 +345,7 @@ async function testEndToEnd_WriteH264File() {
   console.log(
     `   ✅ Wrote ${chunks.length} chunks (${totalBytes} bytes) to ${OUTPUT_FILE}`,
   );
-  console.log('   Play with: ffplay ' + OUTPUT_FILE);
+  console.log(`   Play with: ffplay ${OUTPUT_FILE}`);
 }
 
 // Main test runner

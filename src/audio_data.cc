@@ -126,7 +126,8 @@ AudioData::AudioData(const Napi::CallbackInfo& info)
   }
 
   // Required: sampleRate.
-  if (!webcodecs::HasAttr(init, "sampleRate") || !init.Get("sampleRate").IsNumber()) {
+  if (!webcodecs::HasAttr(init, "sampleRate") ||
+      !init.Get("sampleRate").IsNumber()) {
     Napi::TypeError::New(env, "init.sampleRate is required")
         .ThrowAsJavaScriptException();
     return;
@@ -134,7 +135,8 @@ AudioData::AudioData(const Napi::CallbackInfo& info)
   sample_rate_ = webcodecs::AttrAsUint32(init, "sampleRate");
 
   // Required: numberOfFrames.
-  if (!webcodecs::HasAttr(init, "numberOfFrames") || !init.Get("numberOfFrames").IsNumber()) {
+  if (!webcodecs::HasAttr(init, "numberOfFrames") ||
+      !init.Get("numberOfFrames").IsNumber()) {
     Napi::TypeError::New(env, "init.numberOfFrames is required")
         .ThrowAsJavaScriptException();
     return;
@@ -151,7 +153,8 @@ AudioData::AudioData(const Napi::CallbackInfo& info)
   number_of_channels_ = webcodecs::AttrAsUint32(init, "numberOfChannels");
 
   // Required: timestamp.
-  if (!webcodecs::HasAttr(init, "timestamp") || !init.Get("timestamp").IsNumber()) {
+  if (!webcodecs::HasAttr(init, "timestamp") ||
+      !init.Get("timestamp").IsNumber()) {
     Napi::TypeError::New(env, "init.timestamp is required")
         .ThrowAsJavaScriptException();
     return;
@@ -263,7 +266,8 @@ Napi::Value AudioData::AllocationSize(const Napi::CallbackInfo& info) {
   Napi::Object options = info[0].As<Napi::Object>();
 
   // Required: planeIndex.
-  if (!webcodecs::HasAttr(options, "planeIndex") || !options.Get("planeIndex").IsNumber()) {
+  if (!webcodecs::HasAttr(options, "planeIndex") ||
+      !options.Get("planeIndex").IsNumber()) {
     Napi::TypeError::New(env, "options.planeIndex is required")
         .ThrowAsJavaScriptException();
     return env.Undefined();
@@ -273,8 +277,7 @@ Napi::Value AudioData::AllocationSize(const Napi::CallbackInfo& info) {
   // Validate planeIndex.
   bool is_planar = IsPlanar();
   if (!is_planar && plane_index != 0) {
-    Napi::RangeError::New(env,
-                          "planeIndex must be 0 for interleaved formats")
+    Napi::RangeError::New(env, "planeIndex must be 0 for interleaved formats")
         .ThrowAsJavaScriptException();
     return env.Undefined();
   }
@@ -286,7 +289,8 @@ Napi::Value AudioData::AllocationSize(const Napi::CallbackInfo& info) {
 
   // Optional: frameOffset (default 0).
   uint32_t frame_offset = 0;
-  if (webcodecs::HasAttr(options, "frameOffset") && options.Get("frameOffset").IsNumber()) {
+  if (webcodecs::HasAttr(options, "frameOffset") &&
+      options.Get("frameOffset").IsNumber()) {
     frame_offset = webcodecs::AttrAsUint32(options, "frameOffset");
   }
   if (frame_offset >= number_of_frames_) {
@@ -297,10 +301,12 @@ Napi::Value AudioData::AllocationSize(const Napi::CallbackInfo& info) {
 
   // Optional: frameCount (default remaining frames).
   uint32_t frame_count = number_of_frames_ - frame_offset;
-  if (webcodecs::HasAttr(options, "frameCount") && options.Get("frameCount").IsNumber()) {
+  if (webcodecs::HasAttr(options, "frameCount") &&
+      options.Get("frameCount").IsNumber()) {
     frame_count = webcodecs::AttrAsUint32(options, "frameCount");
     if (frame_offset + frame_count > number_of_frames_) {
-      Napi::RangeError::New(env, "frameOffset + frameCount exceeds numberOfFrames")
+      Napi::RangeError::New(env,
+                            "frameOffset + frameCount exceeds numberOfFrames")
           .ThrowAsJavaScriptException();
       return env.Undefined();
     }
@@ -308,7 +314,8 @@ Napi::Value AudioData::AllocationSize(const Napi::CallbackInfo& info) {
 
   // Optional: format (default current format).
   std::string target_format = format_;
-  if (webcodecs::HasAttr(options, "format") && options.Get("format").IsString()) {
+  if (webcodecs::HasAttr(options, "format") &&
+      options.Get("format").IsString()) {
     target_format = webcodecs::AttrAsStr(options, "format");
     // Validate target format.
     if (ParseAudioFormat(target_format) == AV_SAMPLE_FMT_NONE) {
@@ -382,7 +389,8 @@ void AudioData::CopyTo(const Napi::CallbackInfo& info) {
   Napi::Object options = info[1].As<Napi::Object>();
 
   // Required: planeIndex.
-  if (!webcodecs::HasAttr(options, "planeIndex") || !options.Get("planeIndex").IsNumber()) {
+  if (!webcodecs::HasAttr(options, "planeIndex") ||
+      !options.Get("planeIndex").IsNumber()) {
     Napi::TypeError::New(env, "options.planeIndex is required")
         .ThrowAsJavaScriptException();
     return;
@@ -404,7 +412,8 @@ void AudioData::CopyTo(const Napi::CallbackInfo& info) {
 
   // Optional: frameOffset (default 0).
   uint32_t frame_offset = 0;
-  if (webcodecs::HasAttr(options, "frameOffset") && options.Get("frameOffset").IsNumber()) {
+  if (webcodecs::HasAttr(options, "frameOffset") &&
+      options.Get("frameOffset").IsNumber()) {
     frame_offset = webcodecs::AttrAsUint32(options, "frameOffset");
   }
   if (frame_offset >= number_of_frames_) {
@@ -415,10 +424,12 @@ void AudioData::CopyTo(const Napi::CallbackInfo& info) {
 
   // Optional: frameCount (default remaining frames).
   uint32_t frame_count = number_of_frames_ - frame_offset;
-  if (webcodecs::HasAttr(options, "frameCount") && options.Get("frameCount").IsNumber()) {
+  if (webcodecs::HasAttr(options, "frameCount") &&
+      options.Get("frameCount").IsNumber()) {
     frame_count = webcodecs::AttrAsUint32(options, "frameCount");
     if (frame_offset + frame_count > number_of_frames_) {
-      Napi::RangeError::New(env, "frameOffset + frameCount exceeds numberOfFrames")
+      Napi::RangeError::New(env,
+                            "frameOffset + frameCount exceeds numberOfFrames")
           .ThrowAsJavaScriptException();
       return;
     }
@@ -426,7 +437,8 @@ void AudioData::CopyTo(const Napi::CallbackInfo& info) {
 
   // Optional: format (default current format).
   std::string target_format = format_;
-  if (webcodecs::HasAttr(options, "format") && options.Get("format").IsString()) {
+  if (webcodecs::HasAttr(options, "format") &&
+      options.Get("format").IsString()) {
     target_format = webcodecs::AttrAsStr(options, "format");
     // Validate target format.
     if (ParseAudioFormat(target_format) == AV_SAMPLE_FMT_NONE) {
@@ -499,7 +511,8 @@ void AudioData::CopyTo(const Napi::CallbackInfo& info) {
     return;
   }
 
-  // Configure channel layout (same number of channels, just reordering for planar/interleaved).
+  // Configure channel layout (same number of channels, just reordering for
+  // planar/interleaved).
   AVChannelLayout ch_layout;
   av_channel_layout_default(&ch_layout, number_of_channels_);
 
@@ -529,11 +542,13 @@ void AudioData::CopyTo(const Napi::CallbackInfo& info) {
     // Source is planar: set up pointers to each channel plane.
     size_t plane_size = number_of_frames_ * bytes_per_sample;
     for (uint32_t c = 0; c < number_of_channels_; c++) {
-      src_data[c] = data_.data() + c * plane_size + frame_offset * bytes_per_sample;
+      src_data[c] =
+          data_.data() + c * plane_size + frame_offset * bytes_per_sample;
     }
   } else {
     // Source is interleaved: single data pointer.
-    src_data[0] = data_.data() + frame_offset * number_of_channels_ * bytes_per_sample;
+    src_data[0] =
+        data_.data() + frame_offset * number_of_channels_ * bytes_per_sample;
   }
 
   // Prepare destination data pointers.
@@ -542,24 +557,26 @@ void AudioData::CopyTo(const Napi::CallbackInfo& info) {
   if (target_planar) {
     // For planar output, we only copy the requested plane.
     // Need temporary buffer for all planes, then extract one.
-    size_t total_out_size = frame_count * number_of_channels_ * target_bytes_per_sample;
+    size_t total_out_size =
+        frame_count * number_of_channels_ * target_bytes_per_sample;
     std::vector<uint8_t> temp_buffer(total_out_size);
 
     for (uint32_t c = 0; c < number_of_channels_; c++) {
-      dst_data[c] = temp_buffer.data() + c * frame_count * target_bytes_per_sample;
+      dst_data[c] =
+          temp_buffer.data() + c * frame_count * target_bytes_per_sample;
     }
 
     ret = swr_convert(swr, dst_data, frame_count, src_data, frame_count);
     if (ret < 0) {
       swr_free(&swr);
       av_channel_layout_uninit(&ch_layout);
-      Napi::Error::New(env, "swr_convert failed")
-          .ThrowAsJavaScriptException();
+      Napi::Error::New(env, "swr_convert failed").ThrowAsJavaScriptException();
       return;
     }
 
     // Copy requested plane to destination.
-    std::memcpy(dest_data, dst_data[plane_index], frame_count * target_bytes_per_sample);
+    std::memcpy(dest_data, dst_data[plane_index],
+                frame_count * target_bytes_per_sample);
   } else {
     // Interleaved output: write directly to destination.
     dst_data[0] = dest_data;
@@ -568,8 +585,7 @@ void AudioData::CopyTo(const Napi::CallbackInfo& info) {
     if (ret < 0) {
       swr_free(&swr);
       av_channel_layout_uninit(&ch_layout);
-      Napi::Error::New(env, "swr_convert failed")
-          .ThrowAsJavaScriptException();
+      Napi::Error::New(env, "swr_convert failed").ThrowAsJavaScriptException();
       return;
     }
   }

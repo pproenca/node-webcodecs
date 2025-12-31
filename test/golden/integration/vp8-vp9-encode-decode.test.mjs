@@ -3,7 +3,7 @@
  * Phase 5: Extended Codec Support
  */
 
-import {expect, it, describe} from 'vitest';
+import {expect, it, } from 'vitest';
 
 // Helper to create a test frame
 function createTestFrame(
@@ -105,7 +105,7 @@ it('VP8EncodeDecode', {timeout: 10_000}, async () => {
 
   // Encode
   const encoder = new VideoEncoder({
-    output: (chunk, metadata) => encodedChunks.push(chunk),
+    output: (chunk, _metadata) => encodedChunks.push(chunk),
     error: err => errors.push(err),
   });
 
@@ -148,7 +148,7 @@ it('VP8EncodeDecode', {timeout: 10_000}, async () => {
   await decoder.flush();
   decoder.close();
 
-  decodedFrames.forEach(f => f.close());
+  decodedFrames.forEach(f => { f.close(); });
 
   expect(decodedFrames.length).toBeGreaterThan(0);
 });
@@ -230,7 +230,7 @@ it('VP9EncodeDecode', {timeout: 10_000}, async () => {
 
   // Encode
   const encoder = new VideoEncoder({
-    output: (chunk, metadata) => encodedChunks.push(chunk),
+    output: (chunk, _metadata) => encodedChunks.push(chunk),
     error: err => errors.push(err),
   });
 
@@ -273,7 +273,7 @@ it('VP9EncodeDecode', {timeout: 10_000}, async () => {
   await decoder.flush();
   decoder.close();
 
-  decodedFrames.forEach(f => f.close());
+  decodedFrames.forEach(f => { f.close(); });
 
   expect(decodedFrames.length).toBeGreaterThan(0);
 });

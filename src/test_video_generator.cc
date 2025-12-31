@@ -10,12 +10,14 @@
 #include "src/video_frame.h"
 
 Napi::Object TestVideoGenerator::Init(Napi::Env env, Napi::Object exports) {
-  Napi::Function func = DefineClass(env, "TestVideoGenerator", {
-    InstanceMethod("configure", &TestVideoGenerator::Configure),
-    InstanceMethod("generate", &TestVideoGenerator::Generate),
-    InstanceMethod("close", &TestVideoGenerator::Close),
-    InstanceAccessor("state", &TestVideoGenerator::GetState, nullptr),
-  });
+  Napi::Function func = DefineClass(
+      env, "TestVideoGenerator",
+      {
+          InstanceMethod("configure", &TestVideoGenerator::Configure),
+          InstanceMethod("generate", &TestVideoGenerator::Generate),
+          InstanceMethod("close", &TestVideoGenerator::Close),
+          InstanceAccessor("state", &TestVideoGenerator::GetState, nullptr),
+      });
 
   exports.Set("TestVideoGenerator", func);
   return exports;
@@ -31,9 +33,7 @@ TestVideoGenerator::TestVideoGenerator(const Napi::CallbackInfo& info)
       pattern_("testsrc"),
       state_("unconfigured") {}
 
-TestVideoGenerator::~TestVideoGenerator() {
-  Cleanup();
-}
+TestVideoGenerator::~TestVideoGenerator() { Cleanup(); }
 
 void TestVideoGenerator::Cleanup() {
   filter_graph_.reset();
@@ -89,9 +89,9 @@ Napi::Value TestVideoGenerator::Configure(const Napi::CallbackInfo& info) {
   }
 
   // Initialize swscale for YUV420P -> RGBA conversion
-  sws_yuv_to_rgba_.reset(sws_getContext(
-      width_, height_, AV_PIX_FMT_YUV420P, width_, height_, AV_PIX_FMT_RGBA,
-      SWS_BILINEAR, nullptr, nullptr, nullptr));
+  sws_yuv_to_rgba_.reset(
+      sws_getContext(width_, height_, AV_PIX_FMT_YUV420P, width_, height_,
+                     AV_PIX_FMT_RGBA, SWS_BILINEAR, nullptr, nullptr, nullptr));
 
   if (!sws_yuv_to_rgba_) {
     Napi::Error::New(env, "Failed to create swscale context")

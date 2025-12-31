@@ -15,15 +15,15 @@ Napi::Object InitDemuxer(Napi::Env env, Napi::Object exports) {
 }
 
 Napi::Object Demuxer::Init(Napi::Env env, Napi::Object exports) {
-  Napi::Function func = DefineClass(
-      env, "Demuxer",
-      {
-          InstanceMethod("open", &Demuxer::Open),
-          InstanceMethod("demux", &Demuxer::DemuxPackets),
-          InstanceMethod("close", &Demuxer::Close),
-          InstanceMethod("getVideoTrack", &Demuxer::GetVideoTrack),
-          InstanceMethod("getAudioTrack", &Demuxer::GetAudioTrack),
-      });
+  Napi::Function func =
+      DefineClass(env, "Demuxer",
+                  {
+                      InstanceMethod("open", &Demuxer::Open),
+                      InstanceMethod("demux", &Demuxer::DemuxPackets),
+                      InstanceMethod("close", &Demuxer::Close),
+                      InstanceMethod("getVideoTrack", &Demuxer::GetVideoTrack),
+                      InstanceMethod("getAudioTrack", &Demuxer::GetAudioTrack),
+                  });
 
   constructor = Napi::Persistent(func);
   constructor.SuppressDestruct();

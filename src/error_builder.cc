@@ -2,18 +2,21 @@
 // SPDX-License-Identifier: MIT
 
 #include "src/error_builder.h"
+
 #include "src/common.h"
 
 namespace webcodecs {
 
 Napi::Object ErrorBuilder::Init(Napi::Env env, Napi::Object exports) {
-  Napi::Function func = DefineClass(env, "ErrorBuilder", {
-    InstanceMethod("withFFmpegCode", &ErrorBuilder::WithFFmpegCodeJS),
-    InstanceMethod("withContext", &ErrorBuilder::WithContextJS),
-    InstanceMethod("withValue", &ErrorBuilder::WithValueJS),
-    InstanceMethod("build", &ErrorBuilder::BuildJS),
-    InstanceMethod("throwError", &ErrorBuilder::ThrowErrorJS),
-  });
+  Napi::Function func = DefineClass(
+      env, "ErrorBuilder",
+      {
+          InstanceMethod("withFFmpegCode", &ErrorBuilder::WithFFmpegCodeJS),
+          InstanceMethod("withContext", &ErrorBuilder::WithContextJS),
+          InstanceMethod("withValue", &ErrorBuilder::WithValueJS),
+          InstanceMethod("build", &ErrorBuilder::BuildJS),
+          InstanceMethod("throwError", &ErrorBuilder::ThrowErrorJS),
+      });
 
   Napi::FunctionReference* constructor = new Napi::FunctionReference();
   *constructor = Napi::Persistent(func);
@@ -46,7 +49,7 @@ ErrorBuilder& ErrorBuilder::WithValue(const std::string& name, int64_t value) {
 }
 
 ErrorBuilder& ErrorBuilder::WithValue(const std::string& name,
-                                       const std::string& value) {
+                                      const std::string& value) {
   values_.emplace_back(name, value);
   return *this;
 }

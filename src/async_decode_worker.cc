@@ -80,9 +80,8 @@ void AsyncDecodeWorker::Flush() {
 
   // Wait for queue to drain
   std::unique_lock<std::mutex> lock(queue_mutex_);
-  queue_cv_.wait(lock, [this] {
-    return task_queue_.empty() || !running_.load();
-  });
+  queue_cv_.wait(lock,
+                 [this] { return task_queue_.empty() || !running_.load(); });
 
   flushing_.store(false);
 }
@@ -164,20 +163,18 @@ void AsyncDecodeWorker::EmitFrame(AVFrame* frame) {
   uint8_t* dst_data[1] = {rgba_data->data()};
   int dst_linesize[1] = {output_width_ * 4};
 
-  sws_scale(sws_context_, frame->data, frame->linesize, 0,
-            frame->height, dst_data, dst_linesize);
+  sws_scale(sws_context_, frame->data, frame->linesize, 0, frame->height,
+            dst_data, dst_linesize);
 
   int64_t timestamp = frame->pts;
   int width = output_width_;
   int height = output_height_;
 
   output_tsfn_.NonBlockingCall(
-      rgba_data,
-      [width, height, timestamp](Napi::Env env, Napi::Function fn,
-                                  std::vector<uint8_t>* data) {
+      rgba_data, [width, height, timestamp](Napi::Env env, Napi::Function fn,
+                                            std::vector<uint8_t>* data) {
         Napi::Object frame_obj = VideoFrame::CreateInstance(
-            env, data->data(), data->size(),
-            width, height, timestamp, "RGBA");
+            env, data->data(), data->size(), width, height, timestamp, "RGBA");
         fn.Call({frame_obj});
         delete data;
       });

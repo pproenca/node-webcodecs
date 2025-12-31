@@ -9,8 +9,8 @@
  * 5. Output moderation log and processed video
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 const {VideoEncoder, VideoFrame, VideoFilter} = require('../../dist');
 
 const OUTPUT_DIR = path.join(__dirname, '..', 'output');

@@ -9,7 +9,7 @@
  */
 
 const {AudioEncoder, AudioDecoder, AudioData} = require('../../../dist');
-const assert = require('assert');
+const assert = require('node:assert');
 
 const tests = [];
 function test(name, fn) {

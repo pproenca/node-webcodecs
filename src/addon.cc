@@ -75,8 +75,10 @@ Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
   webcodecs::InitDescriptors(env, exports);
 
   // Export FFmpeg logging functions
-  exports.Set("getFFmpegWarnings", Napi::Function::New(env, GetFFmpegWarningsJS));
-  exports.Set("clearFFmpegWarnings", Napi::Function::New(env, ClearFFmpegWarningsJS));
+  exports.Set("getFFmpegWarnings",
+              Napi::Function::New(env, GetFFmpegWarningsJS));
+  exports.Set("clearFFmpegWarnings",
+              Napi::Function::New(env, ClearFFmpegWarningsJS));
 
   // Export test helpers
   exports.Set("testAttrAsEnum", Napi::Function::New(env, TestAttrAsEnum));

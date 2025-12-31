@@ -4,11 +4,11 @@
 #ifndef SRC_ERROR_BUILDER_H_
 #define SRC_ERROR_BUILDER_H_
 
+#include <napi.h>
+
 #include <string>
 #include <utility>
 #include <vector>
-
-#include <napi.h>
 
 namespace webcodecs {
 

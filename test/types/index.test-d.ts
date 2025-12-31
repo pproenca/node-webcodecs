@@ -1,20 +1,14 @@
-import { expectError, expectType } from 'tsd';
+import { expectType } from 'tsd';
 import type {
-  AudioDecoderConfig,
   AudioEncoderConfig,
-  AudioSampleFormat,
   CodecState,
-  VideoDecoderConfig,
   VideoEncoderConfig,
   VideoPixelFormat,
 } from '../../dist/index';
 import {
-  AudioData,
-  AudioDecoder,
   type AudioEncoder,
   type EncodedAudioChunk,
   type EncodedVideoChunk,
-  VideoDecoder,
   type VideoEncoder,
   VideoFrame,
 } from '../../dist/index';

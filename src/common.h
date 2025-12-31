@@ -33,33 +33,29 @@ namespace webcodecs {
 
 bool HasAttr(Napi::Object obj, const std::string& attr);
 std::string AttrAsStr(Napi::Object obj, const std::string& attr);
-std::string AttrAsStr(Napi::Object obj,
-                      const std::string& attr,
+std::string AttrAsStr(Napi::Object obj, const std::string& attr,
                       const std::string& default_val);
 uint32_t AttrAsUint32(Napi::Object obj, const std::string& attr);
 int32_t AttrAsInt32(Napi::Object obj, const std::string& attr);
-int32_t AttrAsInt32(Napi::Object obj,
-                    const std::string& attr,
+int32_t AttrAsInt32(Napi::Object obj, const std::string& attr,
                     int32_t default_val);
 int64_t AttrAsInt64(Napi::Object obj, const std::string& attr);
-int64_t AttrAsInt64(Napi::Object obj,
-                    const std::string& attr,
+int64_t AttrAsInt64(Napi::Object obj, const std::string& attr,
                     int64_t default_val);
 double AttrAsDouble(Napi::Object obj, const std::string& attr);
-double AttrAsDouble(Napi::Object obj,
-                    const std::string& attr,
+double AttrAsDouble(Napi::Object obj, const std::string& attr,
                     double default_val);
 bool AttrAsBool(Napi::Object obj, const std::string& attr);
 bool AttrAsBool(Napi::Object obj, const std::string& attr, bool default_val);
 std::tuple<const uint8_t*, size_t> AttrAsBuffer(Napi::Object obj,
-                                                 const std::string& attr);
+                                                const std::string& attr);
 
 //==============================================================================
 // Template Enum Helpers
 //==============================================================================
 
 // Template for FFmpeg enums with string mapping
-template<typename T>
+template <typename T>
 T AttrAsEnum(Napi::Object obj, const std::string& attr, T default_val,
              const std::unordered_map<std::string, T>& mapping) {
   std::string val = AttrAsStr(obj, attr);
@@ -86,16 +82,11 @@ std::string MatrixToString(AVColorSpace matrix);
 
 void RequireAttr(Napi::Env env, Napi::Object obj, const std::string& attr);
 void RequirePositiveInt(Napi::Env env, const std::string& name, int32_t value);
-void RequireNonNegativeInt(Napi::Env env,
-                           const std::string& name,
+void RequireNonNegativeInt(Napi::Env env, const std::string& name,
                            int32_t value);
-void RequireInRange(Napi::Env env,
-                    const std::string& name,
-                    int32_t value,
-                    int32_t min,
-                    int32_t max);
-void RequireOneOf(Napi::Env env,
-                  const std::string& name,
+void RequireInRange(Napi::Env env, const std::string& name, int32_t value,
+                    int32_t min, int32_t max);
+void RequireOneOf(Napi::Env env, const std::string& name,
                   const std::string& value,
                   const std::vector<std::string>& allowed);
 
@@ -103,12 +94,10 @@ void RequireOneOf(Napi::Env env,
 // Error Helpers
 //==============================================================================
 
-Napi::Error InvalidParameterError(Napi::Env env,
-                                  const std::string& name,
+Napi::Error InvalidParameterError(Napi::Env env, const std::string& name,
                                   const std::string& expected,
                                   const Napi::Value& actual);
-Napi::Error FFmpegError(Napi::Env env,
-                        const std::string& operation,
+Napi::Error FFmpegError(Napi::Env env, const std::string& operation,
                         int errnum);
 std::string FFmpegErrorString(int errnum);
 

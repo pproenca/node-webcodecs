@@ -6,7 +6,7 @@ const {
   VideoFrame,
   AudioData,
 } = require('../../../dist');
-const assert = require('assert');
+const assert = require('node:assert');
 
 const tests = [];
 function test(name, fn) {
@@ -24,7 +24,7 @@ test('VideoEncoder.encode() on unconfigured throws', () => {
   let threw = false;
   try {
     encoder.encode(frame);
-  } catch (e) {
+  } catch (_e) {
     threw = true;
   }
   frame.close();
@@ -50,7 +50,7 @@ test('VideoEncoder.encode() on closed throws', () => {
   let threw = false;
   try {
     encoder.encode(frame);
-  } catch (e) {
+  } catch (_e) {
     threw = true;
   }
   frame.close();
@@ -68,7 +68,7 @@ test('VideoDecoder.decode() on unconfigured throws', () => {
   let threw = false;
   try {
     decoder.decode(chunk);
-  } catch (e) {
+  } catch (_e) {
     threw = true;
   }
   decoder.close();
@@ -92,7 +92,7 @@ test('VideoDecoder.decode() on closed throws', () => {
   let threw = false;
   try {
     decoder.decode(chunk);
-  } catch (e) {
+  } catch (_e) {
     threw = true;
   }
   assert.ok(threw, 'should throw on closed decoder');
@@ -112,7 +112,7 @@ test('AudioEncoder.encode() on unconfigured throws', () => {
   let threw = false;
   try {
     encoder.encode(audioData);
-  } catch (e) {
+  } catch (_e) {
     threw = true;
   }
   audioData.close();
@@ -141,7 +141,7 @@ test('AudioEncoder.encode() on closed throws', () => {
   let threw = false;
   try {
     encoder.encode(audioData);
-  } catch (e) {
+  } catch (_e) {
     threw = true;
   }
   audioData.close();
@@ -159,7 +159,7 @@ test('AudioDecoder.decode() on unconfigured throws', () => {
   let threw = false;
   try {
     decoder.decode(chunk);
-  } catch (e) {
+  } catch (_e) {
     threw = true;
   }
   decoder.close();
@@ -183,7 +183,7 @@ test('AudioDecoder.decode() on closed throws', () => {
   let threw = false;
   try {
     decoder.decode(chunk);
-  } catch (e) {
+  } catch (_e) {
     threw = true;
   }
   assert.ok(threw, 'should throw on closed decoder');
@@ -202,7 +202,7 @@ test('accessing closed VideoFrame throws or returns null', async () => {
   try {
     // Try to clone a closed frame - should throw
     frame.clone();
-  } catch (e) {
+  } catch (_e) {
     threwOrNull = true;
   }
 
@@ -210,7 +210,7 @@ test('accessing closed VideoFrame throws or returns null', async () => {
   let threwAlloc = false;
   try {
     frame.allocationSize();
-  } catch (e) {
+  } catch (_e) {
     threwAlloc = true;
   }
 
@@ -218,7 +218,7 @@ test('accessing closed VideoFrame throws or returns null', async () => {
   let threwCopyTo = false;
   try {
     await frame.copyTo(new ArrayBuffer(100 * 100 * 4));
-  } catch (e) {
+  } catch (_e) {
     threwCopyTo = true;
   }
 
@@ -247,7 +247,7 @@ test('accessing closed AudioData throws or returns null', () => {
   let threwClone = false;
   try {
     audioData.clone();
-  } catch (e) {
+  } catch (_e) {
     threwClone = true;
   }
 
@@ -255,7 +255,7 @@ test('accessing closed AudioData throws or returns null', () => {
   let threwAlloc = false;
   try {
     audioData.allocationSize();
-  } catch (e) {
+  } catch (_e) {
     threwAlloc = true;
   }
 
@@ -263,7 +263,7 @@ test('accessing closed AudioData throws or returns null', () => {
   let threwCopyTo = false;
   try {
     audioData.copyTo(new ArrayBuffer(1024 * 2 * 4));
-  } catch (e) {
+  } catch (_e) {
     threwCopyTo = true;
   }
 

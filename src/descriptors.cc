@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "src/descriptors.h"
+
 #include "src/common.h"
 
 namespace webcodecs {
@@ -26,8 +27,8 @@ VideoEncoderConfigDescriptor CreateEncoderConfigDescriptor(
   desc.latencyMode = AttrAsStr(config, "latencyMode", "quality");
   desc.bitrateMode = AttrAsStr(config, "bitrateMode", "variable");
   desc.scalabilityMode = AttrAsStr(config, "scalabilityMode", "");
-  desc.hardwareAcceleration = AttrAsStr(config, "hardwareAcceleration",
-                                         "no-preference");
+  desc.hardwareAcceleration =
+      AttrAsStr(config, "hardwareAcceleration", "no-preference");
   desc.avc = AttrAsStr(config, "avc", "avc");
   desc.hevc = AttrAsStr(config, "hevc", "hevc");
 
@@ -44,7 +45,7 @@ VideoEncoderConfigDescriptor CreateEncoderConfigDescriptor(
 }
 
 Napi::Object EncoderConfigToJS(Napi::Env env,
-                                const VideoEncoderConfigDescriptor& desc) {
+                               const VideoEncoderConfigDescriptor& desc) {
   Napi::Object obj = Napi::Object::New(env);
 
   obj.Set("codec", desc.codec);

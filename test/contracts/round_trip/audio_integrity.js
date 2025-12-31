@@ -11,7 +11,7 @@ const {
   AudioData,
   EncodedAudioChunk,
 } = require('../../../dist');
-const assert = require('assert');
+const assert = require('node:assert');
 
 const tests = [];
 function test(name, fn) {
@@ -46,7 +46,7 @@ test('encode-decode produces audio with correct sample rate', async () => {
 
   // Encoder setup
   const encoder = new AudioEncoder({
-    output: (chunk, metadata) => {
+    output: (chunk, _metadata) => {
       encodedChunks.push(chunk);
     },
     error: e => {
@@ -136,7 +136,7 @@ test('encode-decode produces audio with correct channel count', async () => {
 
   // Encoder setup
   const encoder = new AudioEncoder({
-    output: (chunk, metadata) => {
+    output: (chunk, _metadata) => {
       encodedChunks.push(chunk);
     },
     error: e => {
@@ -230,7 +230,7 @@ test('timestamps are preserved through round-trip', async () => {
 
   // Encoder setup
   const encoder = new AudioEncoder({
-    output: (chunk, metadata) => {
+    output: (chunk, _metadata) => {
       encodedChunks.push(chunk);
     },
     error: e => {
@@ -327,7 +327,7 @@ test('multiple audio frames round-trip successfully', async () => {
 
   // Encoder setup
   const encoder = new AudioEncoder({
-    output: (chunk, metadata) => {
+    output: (chunk, _metadata) => {
       encodedChunks.push(chunk);
     },
     error: e => {

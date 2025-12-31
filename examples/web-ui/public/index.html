@@ -70,7 +70,7 @@
       `).join('');
     }
 
-    function playVideo(url) {
+    function _playVideo(url) {
       const player = document.getElementById('video-player');
       // For raw H.264, we can't play directly - need MP4
       if (url.endsWith('.h264')) {

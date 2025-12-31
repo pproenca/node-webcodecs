@@ -6,7 +6,7 @@
 
 'use strict';
 
-const { spawnSync } = require('child_process');
+const { spawnSync } = require('node:child_process');
 
 console.log('node-webcodecs: Building from source...');
 

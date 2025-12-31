@@ -3,7 +3,9 @@
 
 #include "src/video_encoder.h"
 
+#include <memory>
 #include <string>
+#include <utility>
 
 #include "src/common.h"
 #include "src/video_frame.h"
@@ -125,7 +127,8 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
   display_height_ = webcodecs::AttrAsInt32(config, "displayHeight", height_);
 
   int bitrate = webcodecs::AttrAsInt32(config, "bitrate", kDefaultBitrate);
-  int framerate = webcodecs::AttrAsInt32(config, "framerate", kDefaultFramerate);
+  int framerate =
+      webcodecs::AttrAsInt32(config, "framerate", kDefaultFramerate);
 
   // Parse codec string
   std::string codec_str = webcodecs::AttrAsStr(config, "codec", "h264");
@@ -147,14 +150,16 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
 
   // Parse codec-specific bitstream format per W3C codec registration.
   // Default to "annexb" for backwards compatibility (FFmpeg's native format).
-  // Per W3C spec, the default should be "avc"/"hevc" when explicit config provided,
-  // but for backwards compatibility when no config is provided, use "annexb".
+  // Per W3C spec, the default should be "avc"/"hevc" when explicit config
+  // provided, but for backwards compatibility when no config is provided, use
+  // "annexb".
   bitstream_format_ = "annexb";
   if (webcodecs::HasAttr(config, "avc") && config.Get("avc").IsObject()) {
     Napi::Object avc_config = config.Get("avc").As<Napi::Object>();
     // Per W3C spec, default is "avc" when avc config object is present
     bitstream_format_ = webcodecs::AttrAsStr(avc_config, "format", "avc");
-  } else if (webcodecs::HasAttr(config, "hevc") && config.Get("hevc").IsObject()) {
+  } else if (webcodecs::HasAttr(config, "hevc") &&
+             config.Get("hevc").IsObject()) {
     Napi::Object hevc_config = config.Get("hevc").As<Napi::Object>();
     // Per W3C spec, default is "hevc" when hevc config object is present
     bitstream_format_ = webcodecs::AttrAsStr(hevc_config, "format", "hevc");
@@ -198,8 +203,9 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
   codec_context_->max_b_frames = kDefaultMaxBFrames;
 
   // Set global header flag for non-annexb bitstream formats.
-  // This puts SPS/PPS/VPS in codec_context_->extradata instead of in the stream.
-  // Per W3C: "avc"/"hevc" formats provide description separately from NAL units.
+  // This puts SPS/PPS/VPS in codec_context_->extradata instead of in the
+  // stream. Per W3C: "avc"/"hevc" formats provide description separately from
+  // NAL units.
   if (bitstream_format_ != "annexb") {
     codec_context_->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
   }
@@ -220,8 +226,9 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
   } else if (codec_id == AV_CODEC_ID_HEVC) {
     // libx265 specific options
     av_opt_set(codec_context_->priv_data, "preset", "fast", 0);
-    // Note: libx265 tune options are different from libx264 (grain, animation, psnr, ssim)
-    // "zerolatency" is not valid for x265, using x265-params instead
+    // Note: libx265 tune options are different from libx264 (grain, animation,
+    // psnr, ssim) "zerolatency" is not valid for x265, using x265-params
+    // instead
     av_opt_set(codec_context_->priv_data, "x265-params", "bframes=0", 0);
   }
 
@@ -251,21 +258,22 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
   frame_count_ = 0;
 
   // Enable async encoding via worker thread.
-  // Flush semantics use pendingChunks counter - TypeScript polls with setImmediate
-  // to wait for all TSFN callbacks to complete without blocking the event loop.
+  // Flush semantics use pendingChunks counter - TypeScript polls with
+  // setImmediate to wait for all TSFN callbacks to complete without blocking
+  // the event loop.
   async_mode_ = true;
 
   // Create ThreadSafeFunctions for async callbacks
-  output_tsfn_ = Napi::ThreadSafeFunction::New(
-      env, output_callback_.Value(), "VideoEncoderOutput", 0, 1);
-  error_tsfn_ = Napi::ThreadSafeFunction::New(
-      env, error_callback_.Value(), "VideoEncoderError", 0, 1);
+  output_tsfn_ = Napi::ThreadSafeFunction::New(env, output_callback_.Value(),
+                                               "VideoEncoderOutput", 0, 1);
+  error_tsfn_ = Napi::ThreadSafeFunction::New(env, error_callback_.Value(),
+                                              "VideoEncoderError", 0, 1);
 
   // Create and start the async worker
-  async_worker_ = std::make_unique<AsyncEncodeWorker>(
-      this, output_tsfn_, error_tsfn_);
+  async_worker_ =
+      std::make_unique<AsyncEncodeWorker>(this, output_tsfn_, error_tsfn_);
   async_worker_->SetCodecContext(codec_context_.get(), sws_context_.get(),
-                                  width_, height_);
+                                 width_, height_);
 
   // Set metadata config for async output chunks
   EncoderMetadataConfig metadata_config;
@@ -403,22 +411,22 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
 
     // Copy Y plane.
     for (int y = 0; y < height_; y++) {
-      memcpy(frame_->data[0] + y * frame_->linesize[0],
-             src + y * width_, width_);
+      memcpy(frame_->data[0] + y * frame_->linesize[0], src + y * width_,
+             width_);
     }
 
     // Copy U plane.
     const uint8_t* u_src = src + y_size;
     for (int y = 0; y < height_ / 2; y++) {
-      memcpy(frame_->data[1] + y * frame_->linesize[1],
-             u_src + y * uv_stride, uv_stride);
+      memcpy(frame_->data[1] + y * frame_->linesize[1], u_src + y * uv_stride,
+             uv_stride);
     }
 
     // Copy V plane.
     const uint8_t* v_src = src + y_size + uv_size;
     for (int y = 0; y < height_ / 2; y++) {
-      memcpy(frame_->data[2] + y * frame_->linesize[2],
-             v_src + y * uv_stride, uv_stride);
+      memcpy(frame_->data[2] + y * frame_->linesize[2], v_src + y * uv_stride,
+             uv_stride);
     }
   } else {
     // Convert from RGBA (or other formats) to YUV420P using swscale.
@@ -560,8 +568,8 @@ void VideoEncoder::EmitChunks(Napi::Env env) {
     Napi::Object metadata = Napi::Object::New(env);
 
     // Add SVC metadata per W3C spec.
-    // TODO: Implement actual temporal/spatial layer tracking. For now, always
-    // report layer 0 (base layer).
+    // TODO(pproenca): Implement actual temporal/spatial layer tracking. For
+    // now, always report layer 0 (base layer).
     Napi::Object svc = Napi::Object::New(env);
     svc.Set("temporalLayerId", Napi::Number::New(env, 0));
     metadata.Set("svc", svc);
@@ -579,10 +587,9 @@ void VideoEncoder::EmitChunks(Napi::Env env) {
 
       // Add description (extradata) if available.
       if (codec_context_->extradata && codec_context_->extradata_size > 0) {
-        decoder_config.Set(
-            "description",
-            Napi::Buffer<uint8_t>::Copy(env, codec_context_->extradata,
-                                        codec_context_->extradata_size));
+        decoder_config.Set("description", Napi::Buffer<uint8_t>::Copy(
+                                              env, codec_context_->extradata,
+                                              codec_context_->extradata_size));
       }
 
       // Add colorSpace to decoderConfig if configured.
@@ -674,8 +681,7 @@ Napi::Value VideoEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   }
 
   // Validate and copy width.
-  if (!webcodecs::HasAttr(config, "width") ||
-      !config.Get("width").IsNumber()) {
+  if (!webcodecs::HasAttr(config, "width") || !config.Get("width").IsNumber()) {
     supported = false;
   } else {
     int width = webcodecs::AttrAsInt32(config, "width");
@@ -719,7 +725,8 @@ Napi::Value VideoEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
       config.Get("bitrateMode").IsString()) {
     normalized_config.Set("bitrateMode", config.Get("bitrateMode"));
   }
-  // Copy displayWidth and displayHeight if present (per W3C spec echo requirement)
+  // Copy displayWidth and displayHeight if present (per W3C spec echo
+  // requirement)
   if (webcodecs::HasAttr(config, "displayWidth") &&
       config.Get("displayWidth").IsNumber()) {
     normalized_config.Set("displayWidth", config.Get("displayWidth"));

@@ -50,7 +50,8 @@ class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
   void EmitFrames(Napi::Env env);
 
   // FFmpeg state.
-  const AVCodec* codec_;  // Not owned - references FFmpeg's static codec descriptor
+  const AVCodec*
+      codec_;  // Not owned - references FFmpeg's static codec descriptor
   ffmpeg::AVCodecContextPtr codec_context_;
   ffmpeg::SwsContextPtr sws_context_;
   ffmpeg::AVFramePtr frame_;
@@ -75,8 +76,8 @@ class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
   static constexpr size_t kMaxQueueSize = 16;
 
   // Rotation and flip config (per W3C spec).
-  int rotation_ = 0;      // 0, 90, 180, 270
-  bool flip_ = false;     // horizontal flip
+  int rotation_ = 0;   // 0, 90, 180, 270
+  bool flip_ = false;  // horizontal flip
 
   // Display aspect ratio (per W3C spec).
   int display_aspect_width_ = 0;

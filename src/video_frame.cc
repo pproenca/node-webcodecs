@@ -13,69 +13,91 @@
 // Static constructor reference for clone().
 Napi::FunctionReference VideoFrame::constructor;
 
-// Sentinel for unknown formats (trivially destructible - safe as file-scope static)
+// Sentinel for unknown formats (trivially destructible - safe as file-scope
+// static)
 static const PixelFormatInfo kUnknownFormatInfo = {
     "UNKNOWN", AV_PIX_FMT_NONE, 0, 0, 0, 0, false, false};
 
 // Format registry accessor using function-local static with heap allocation.
 // This pattern avoids the "static initialization order fiasco" and destruction
 // order issues per Google C++ Style Guide - the object is never destroyed.
-// clang-format off
-static const std::unordered_map<PixelFormat, PixelFormatInfo>& GetFormatRegistry() {
-  static const auto* registry = new std::unordered_map<PixelFormat, PixelFormatInfo>{
+static const std::unordered_map<PixelFormat, PixelFormatInfo>&
+GetFormatRegistry() {
+  static const auto* registry = new std::unordered_map<PixelFormat,
+                                                       PixelFormatInfo>{
       // 8-bit RGB formats (packed, single plane)
-      {PixelFormat::RGBA,    {"RGBA",    AV_PIX_FMT_RGBA,         8, 1, 0, 0, true,  false}},
-      {PixelFormat::RGBX,    {"RGBX",    AV_PIX_FMT_RGB0,         8, 1, 0, 0, false, false}},
-      {PixelFormat::BGRA,    {"BGRA",    AV_PIX_FMT_BGRA,         8, 1, 0, 0, true,  false}},
-      {PixelFormat::BGRX,    {"BGRX",    AV_PIX_FMT_BGR0,         8, 1, 0, 0, false, false}},
+      {PixelFormat::RGBA, {"RGBA", AV_PIX_FMT_RGBA, 8, 1, 0, 0, true, false}},
+      {PixelFormat::RGBX, {"RGBX", AV_PIX_FMT_RGB0, 8, 1, 0, 0, false, false}},
+      {PixelFormat::BGRA, {"BGRA", AV_PIX_FMT_BGRA, 8, 1, 0, 0, true, false}},
+      {PixelFormat::BGRX, {"BGRX", AV_PIX_FMT_BGR0, 8, 1, 0, 0, false, false}},
       // 8-bit YUV formats (4:2:0)
-      {PixelFormat::I420,    {"I420",    AV_PIX_FMT_YUV420P,      8, 3, 1, 1, false, false}},
-      {PixelFormat::I420A,   {"I420A",   AV_PIX_FMT_YUVA420P,     8, 4, 1, 1, true,  false}},
+      {PixelFormat::I420,
+       {"I420", AV_PIX_FMT_YUV420P, 8, 3, 1, 1, false, false}},
+      {PixelFormat::I420A,
+       {"I420A", AV_PIX_FMT_YUVA420P, 8, 4, 1, 1, true, false}},
       // 8-bit YUV formats (4:2:2)
-      {PixelFormat::I422,    {"I422",    AV_PIX_FMT_YUV422P,      8, 3, 1, 0, false, false}},
-      {PixelFormat::I422A,   {"I422A",   AV_PIX_FMT_YUVA422P,     8, 4, 1, 0, true,  false}},
+      {PixelFormat::I422,
+       {"I422", AV_PIX_FMT_YUV422P, 8, 3, 1, 0, false, false}},
+      {PixelFormat::I422A,
+       {"I422A", AV_PIX_FMT_YUVA422P, 8, 4, 1, 0, true, false}},
       // 8-bit YUV formats (4:4:4)
-      {PixelFormat::I444,    {"I444",    AV_PIX_FMT_YUV444P,      8, 3, 0, 0, false, false}},
-      {PixelFormat::I444A,   {"I444A",   AV_PIX_FMT_YUVA444P,     8, 4, 0, 0, true,  false}},
+      {PixelFormat::I444,
+       {"I444", AV_PIX_FMT_YUV444P, 8, 3, 0, 0, false, false}},
+      {PixelFormat::I444A,
+       {"I444A", AV_PIX_FMT_YUVA444P, 8, 4, 0, 0, true, false}},
       // 8-bit semi-planar
-      {PixelFormat::NV12,    {"NV12",    AV_PIX_FMT_NV12,         8, 2, 1, 1, false, true}},
-      {PixelFormat::NV21,    {"NV21",    AV_PIX_FMT_NV21,         8, 2, 1, 1, false, true}},
-      // NV12A: NV12 with alpha plane (Y + interleaved UV + A) - W3C WebCodecs spec
-      // Note: FFmpeg doesn't have native NV12A, we treat as 3-plane semi-planar with alpha
-      {PixelFormat::NV12A,   {"NV12A",   AV_PIX_FMT_NV12,         8, 3, 1, 1, true,  true}},
+      {PixelFormat::NV12, {"NV12", AV_PIX_FMT_NV12, 8, 2, 1, 1, false, true}},
+      {PixelFormat::NV21, {"NV21", AV_PIX_FMT_NV21, 8, 2, 1, 1, false, true}},
+      // NV12A: NV12 with alpha plane (Y + interleaved UV + A) - W3C WebCodecs
+      // spec
+      // Note: FFmpeg doesn't have native NV12A, we treat as 3-plane semi-planar
+      // with alpha
+      {PixelFormat::NV12A, {"NV12A", AV_PIX_FMT_NV12, 8, 3, 1, 1, true, true}},
       // 10-bit YUV formats
-      {PixelFormat::I420P10, {"I420P10", AV_PIX_FMT_YUV420P10LE, 10, 3, 1, 1, false, false}},
-      {PixelFormat::I422P10, {"I422P10", AV_PIX_FMT_YUV422P10LE, 10, 3, 1, 0, false, false}},
-      {PixelFormat::I444P10, {"I444P10", AV_PIX_FMT_YUV444P10LE, 10, 3, 0, 0, false, false}},
-      {PixelFormat::NV12P10, {"NV12P10", AV_PIX_FMT_P010LE,      10, 2, 1, 1, false, true}},
+      {PixelFormat::I420P10,
+       {"I420P10", AV_PIX_FMT_YUV420P10LE, 10, 3, 1, 1, false, false}},
+      {PixelFormat::I422P10,
+       {"I422P10", AV_PIX_FMT_YUV422P10LE, 10, 3, 1, 0, false, false}},
+      {PixelFormat::I444P10,
+       {"I444P10", AV_PIX_FMT_YUV444P10LE, 10, 3, 0, 0, false, false}},
+      {PixelFormat::NV12P10,
+       {"NV12P10", AV_PIX_FMT_P010LE, 10, 2, 1, 1, false, true}},
       // 10-bit YUV formats with alpha
-      {PixelFormat::I420AP10, {"I420AP10", AV_PIX_FMT_YUVA420P10LE, 10, 4, 1, 1, true, false}},
-      {PixelFormat::I422AP10, {"I422AP10", AV_PIX_FMT_YUVA422P10LE, 10, 4, 1, 0, true, false}},
-      {PixelFormat::I444AP10, {"I444AP10", AV_PIX_FMT_YUVA444P10LE, 10, 4, 0, 0, true, false}},
+      {PixelFormat::I420AP10,
+       {"I420AP10", AV_PIX_FMT_YUVA420P10LE, 10, 4, 1, 1, true, false}},
+      {PixelFormat::I422AP10,
+       {"I422AP10", AV_PIX_FMT_YUVA422P10LE, 10, 4, 1, 0, true, false}},
+      {PixelFormat::I444AP10,
+       {"I444AP10", AV_PIX_FMT_YUVA444P10LE, 10, 4, 0, 0, true, false}},
       // 12-bit YUV formats
-      {PixelFormat::I420P12, {"I420P12", AV_PIX_FMT_YUV420P12LE, 12, 3, 1, 1, false, false}},
-      {PixelFormat::I422P12, {"I422P12", AV_PIX_FMT_YUV422P12LE, 12, 3, 1, 0, false, false}},
-      {PixelFormat::I444P12, {"I444P12", AV_PIX_FMT_YUV444P12LE, 12, 3, 0, 0, false, false}},
+      {PixelFormat::I420P12,
+       {"I420P12", AV_PIX_FMT_YUV420P12LE, 12, 3, 1, 1, false, false}},
+      {PixelFormat::I422P12,
+       {"I422P12", AV_PIX_FMT_YUV422P12LE, 12, 3, 1, 0, false, false}},
+      {PixelFormat::I444P12,
+       {"I444P12", AV_PIX_FMT_YUV444P12LE, 12, 3, 0, 0, false, false}},
       // Note: 12-bit YUVA formats (I420AP12, etc.) not supported by FFmpeg
       // Unknown sentinel
-      {PixelFormat::UNKNOWN, {"UNKNOWN", AV_PIX_FMT_NONE,         0, 0, 0, 0, false, false}},
+      {PixelFormat::UNKNOWN,
+       {"UNKNOWN", AV_PIX_FMT_NONE, 0, 0, 0, 0, false, false}},
   };
   return *registry;
 }
-// clang-format on
 
 // Reverse lookup accessor: string name to PixelFormat enum
 // Uses function-local static with heap allocation (never destroyed).
-static const std::unordered_map<std::string, PixelFormat>& GetFormatNameLookup() {
-  static const auto* lookup = new std::unordered_map<std::string, PixelFormat>([]() {
-    std::unordered_map<std::string, PixelFormat> result;
-    for (const auto& [format, info] : GetFormatRegistry()) {
-      if (format != PixelFormat::UNKNOWN) {
-        result[info.name] = format;
-      }
-    }
-    return result;
-  }());
+static const std::unordered_map<std::string, PixelFormat>&
+GetFormatNameLookup() {
+  static const auto* lookup =
+      new std::unordered_map<std::string, PixelFormat>([]() {
+        std::unordered_map<std::string, PixelFormat> result;
+        for (const auto& [format, info] : GetFormatRegistry()) {
+          if (format != PixelFormat::UNKNOWN) {
+            result[info.name] = format;
+          }
+        }
+        return result;
+      }());
   return *lookup;
 }
 
@@ -106,7 +128,7 @@ AVPixelFormat PixelFormatToAV(PixelFormat format) {
 }
 
 size_t CalculateAllocationSize(PixelFormat format, uint32_t width,
-                                uint32_t height) {
+                               uint32_t height) {
   const auto& info = GetFormatInfo(format);
 
   if (info.bit_depth == 0) {
@@ -130,7 +152,8 @@ size_t CalculateAllocationSize(PixelFormat format, uint32_t width,
 
   if (info.is_semi_planar) {
     // NV12-style: Y plane + interleaved UV plane
-    // UV plane has same height as chroma, but double width (U and V interleaved)
+    // UV plane has same height as chroma, but double width (U and V
+    // interleaved)
     size_t uv_size = chroma_width * 2 * chroma_height * bytes_per_sample;
     return y_size + uv_size;
   }
@@ -198,7 +221,8 @@ VideoFrame::VideoFrame(const Napi::CallbackInfo& info)
 
   // Get options.
   Napi::Object opts = info[1].As<Napi::Object>();
-  // Required parameters - keep direct access to preserve error-throwing behavior
+  // Required parameters - keep direct access to preserve error-throwing
+  // behavior
   coded_width_ = opts.Get("codedWidth").As<Napi::Number>().Int32Value();
   coded_height_ = opts.Get("codedHeight").As<Napi::Number>().Int32Value();
   timestamp_ = opts.Get("timestamp").As<Napi::Number>().Int64Value();
@@ -211,7 +235,8 @@ VideoFrame::VideoFrame(const Napi::CallbackInfo& info)
 
   // displayWidth/displayHeight default to codedWidth/codedHeight per W3C spec
   display_width_ = webcodecs::AttrAsInt32(opts, "displayWidth", coded_width_);
-  display_height_ = webcodecs::AttrAsInt32(opts, "displayHeight", coded_height_);
+  display_height_ =
+      webcodecs::AttrAsInt32(opts, "displayHeight", coded_height_);
 
   std::string format_str = webcodecs::AttrAsStr(opts, "format", "RGBA");
   format_ = ParsePixelFormat(format_str);
@@ -478,9 +503,8 @@ Napi::Value VideoFrame::AllocationSize(const Napi::CallbackInfo& info) {
 
 // Helper function to set up source data pointers and line sizes
 static void SetupSourcePlanes(PixelFormat format, const uint8_t* data,
-                               int width, int height,
-                               const uint8_t* src_data[4],
-                               int src_linesize[4]) {
+                              int width, int height, const uint8_t* src_data[4],
+                              int src_linesize[4]) {
   const auto& info = GetFormatInfo(format);
   size_t bytes_per_sample = (info.bit_depth + 7) / 8;
 
@@ -532,9 +556,9 @@ static void SetupSourcePlanes(PixelFormat format, const uint8_t* data,
 }
 
 // Helper function to set up destination data pointers and line sizes
-static void SetupDestPlanes(PixelFormat format, uint8_t* data,
-                             int width, int height,
-                             uint8_t* dst_data[4], int dst_linesize[4]) {
+static void SetupDestPlanes(PixelFormat format, uint8_t* data, int width,
+                            int height, uint8_t* dst_data[4],
+                            int dst_linesize[4]) {
   const auto& info = GetFormatInfo(format);
   size_t bytes_per_sample = (info.bit_depth + 7) / 8;
 
@@ -605,7 +629,8 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
   int copy_x = visible_rect_.x;
   int copy_y = visible_rect_.y;
   int copy_width = visible_rect_.width > 0 ? visible_rect_.width : coded_width_;
-  int copy_height = visible_rect_.height > 0 ? visible_rect_.height : coded_height_;
+  int copy_height =
+      visible_rect_.height > 0 ? visible_rect_.height : coded_height_;
 
   // Custom layout strides (empty if not provided)
   std::vector<int> custom_strides;
@@ -633,8 +658,7 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
       copy_height = webcodecs::AttrAsInt32(rect, "height", copy_height);
 
       // Validate rect bounds against coded dimensions
-      if (copy_x < 0 || copy_y < 0 ||
-          copy_x + copy_width > coded_width_ ||
+      if (copy_x < 0 || copy_y < 0 || copy_x + copy_width > coded_width_ ||
           copy_y + copy_height > coded_height_) {
         throw Napi::Error::New(env, "rect exceeds coded frame dimensions");
       }
@@ -681,7 +705,8 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
       }
     } else {
       // Multi-plane format
-      for (size_t i = 0; i < custom_offsets.size() && i < custom_strides.size(); i++) {
+      for (size_t i = 0; i < custom_offsets.size() && i < custom_strides.size();
+           i++) {
         size_t plane_height = dest_height;
         // Chroma planes are subsampled
         if (i > 0 && i < 3 && !fmt_info.is_semi_planar) {
@@ -689,8 +714,9 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
         } else if (i == 1 && fmt_info.is_semi_planar) {
           plane_height = dest_height >> fmt_info.chroma_v_shift;
         }
-        size_t plane_end = custom_offsets[i] +
-                           static_cast<size_t>(custom_strides[i]) * plane_height;
+        size_t plane_end =
+            custom_offsets[i] +
+            static_cast<size_t>(custom_strides[i]) * plane_height;
         if (plane_end > custom_required) {
           custom_required = plane_end;
         }
@@ -704,10 +730,11 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
   }
 
   // Check if we're doing a full copy (no cropping needed)
-  bool full_copy = (copy_x == 0 && copy_y == 0 &&
-                    dest_width == coded_width_ && dest_height == coded_height_);
+  bool full_copy = (copy_x == 0 && copy_y == 0 && dest_width == coded_width_ &&
+                    dest_height == coded_height_);
 
-  // If same format, full copy, and no custom layout, just copy the data directly
+  // If same format, full copy, and no custom layout, just copy the data
+  // directly
   if (target_format == format_ && full_copy && !has_custom_layout) {
     memcpy(dest.Data(), data_.data(), data_.size());
   } else {
@@ -721,9 +748,8 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
 
     // Create sws context with source=copy rect dimensions, dest=copy dimensions
     SwsContext* sws_ctx = sws_getContext(
-        dest_width, dest_height, src_av_fmt,
-        dest_width, dest_height, dst_av_fmt,
-        SWS_BILINEAR, nullptr, nullptr, nullptr);
+        dest_width, dest_height, src_av_fmt, dest_width, dest_height,
+        dst_av_fmt, SWS_BILINEAR, nullptr, nullptr, nullptr);
 
     if (!sws_ctx) {
       throw Napi::Error::New(env, "Failed to create sws context");
@@ -746,8 +772,8 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
     for (int i = 0; i < 4 && src_data[i]; i++) {
       if (src_fmt_info.num_planes == 1) {
         // Packed RGB formats: offset = y * stride + x * bytes_per_pixel
-        src_data_offset[i] = src_data[i] + src_offset_y * src_linesize[i] +
-                             src_offset_x * 4;
+        src_data_offset[i] =
+            src_data[i] + src_offset_y * src_linesize[i] + src_offset_x * 4;
       } else if (i == 0) {
         // Y plane: offset = y * stride + x * bytes_per_sample
         src_data_offset[i] = src_data[i] + src_offset_y * src_linesize[i] +
@@ -758,7 +784,8 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
                              src_offset_x * src_bytes_per_sample;
       } else if (src_fmt_info.is_semi_planar) {
         // Semi-planar UV plane
-        int chroma_x = src_offset_x;  // UV is interleaved, x offset scaled by 2 in stride
+        int chroma_x =
+            src_offset_x;  // UV is interleaved, x offset scaled by 2 in stride
         int chroma_y = src_offset_y >> src_fmt_info.chroma_v_shift;
         src_data_offset[i] = src_data[i] + chroma_y * src_linesize[i] +
                              chroma_x * src_bytes_per_sample;
@@ -807,8 +834,8 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
     }
 
     // Perform the conversion/crop
-    sws_scale(sws_ctx, src_data_offset, src_linesize, 0, dest_height,
-              dst_data, dst_linesize);
+    sws_scale(sws_ctx, src_data_offset, src_linesize, 0, dest_height, dst_data,
+              dst_linesize);
 
     sws_freeContext(sws_ctx);
   }
@@ -946,16 +973,12 @@ Napi::Object VideoFrame::CreateInstance(Napi::Env env, const uint8_t* data,
   return constructor.New({data_buffer, init});
 }
 
-Napi::Object VideoFrame::CreateInstance(Napi::Env env, const uint8_t* data,
-                                        size_t data_size, int width, int height,
-                                        int64_t timestamp,
-                                        const std::string& format, int rotation,
-                                        bool flip, int display_width,
-                                        int display_height,
-                                        const std::string& color_primaries,
-                                        const std::string& color_transfer,
-                                        const std::string& color_matrix,
-                                        bool color_full_range) {
+Napi::Object VideoFrame::CreateInstance(
+    Napi::Env env, const uint8_t* data, size_t data_size, int width, int height,
+    int64_t timestamp, const std::string& format, int rotation, bool flip,
+    int display_width, int display_height, const std::string& color_primaries,
+    const std::string& color_transfer, const std::string& color_matrix,
+    bool color_full_range) {
   // Create init object with properties.
   Napi::Object init = Napi::Object::New(env);
   init.Set("codedWidth", width);

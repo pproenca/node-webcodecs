@@ -6,8 +6,8 @@
 
 'use strict';
 
-const {execSync, spawnSync} = require('child_process');
-const {platform} = require('os');
+const {execSync, spawnSync} = require('node:child_process');
+const {platform} = require('node:os');
 
 const MIN_FFMPEG_VERSION = '5.0';
 

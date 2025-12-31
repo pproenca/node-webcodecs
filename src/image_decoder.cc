@@ -10,6 +10,8 @@
 #include <cstring>
 #include <limits>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "src/common.h"
 #include "src/video_frame.h"
@@ -64,14 +66,16 @@ static int64_t SeekPacket(void* opaque, int64_t offset, int whence) {
 }
 
 Napi::Object ImageDecoder::Init(Napi::Env env, Napi::Object exports) {
-  Napi::Function func = DefineClass(env, "ImageDecoder", {
-    InstanceMethod("decode", &ImageDecoder::Decode),
-    InstanceMethod("close", &ImageDecoder::Close),
-    InstanceAccessor("type", &ImageDecoder::GetType, nullptr),
-    InstanceAccessor("complete", &ImageDecoder::GetComplete, nullptr),
-    InstanceAccessor("tracks", &ImageDecoder::GetTracks, nullptr),
-    StaticMethod("isTypeSupported", &ImageDecoder::IsTypeSupported),
-  });
+  Napi::Function func = DefineClass(
+      env, "ImageDecoder",
+      {
+          InstanceMethod("decode", &ImageDecoder::Decode),
+          InstanceMethod("close", &ImageDecoder::Close),
+          InstanceAccessor("type", &ImageDecoder::GetType, nullptr),
+          InstanceAccessor("complete", &ImageDecoder::GetComplete, nullptr),
+          InstanceAccessor("tracks", &ImageDecoder::GetTracks, nullptr),
+          StaticMethod("isTypeSupported", &ImageDecoder::IsTypeSupported),
+      });
 
   Napi::FunctionReference* constructor = new Napi::FunctionReference();
   *constructor = Napi::Persistent(func);
@@ -118,8 +122,7 @@ ImageDecoder::ImageDecoder(const Napi::CallbackInfo& info)
 
   // Get data
   if (!init.Has("data")) {
-    Napi::TypeError::New(env, "data is required")
-        .ThrowAsJavaScriptException();
+    Napi::TypeError::New(env, "data is required").ThrowAsJavaScriptException();
     return;
   }
 
@@ -167,8 +170,7 @@ ImageDecoder::ImageDecoder(const Napi::CallbackInfo& info)
   // Open codec
   if (avcodec_open2(codec_context_, codec_, nullptr) < 0) {
     Cleanup();
-    Napi::Error::New(env, "Failed to open codec")
-        .ThrowAsJavaScriptException();
+    Napi::Error::New(env, "Failed to open codec").ThrowAsJavaScriptException();
     return;
   }
 
@@ -200,9 +202,7 @@ ImageDecoder::ImageDecoder(const Napi::CallbackInfo& info)
   }
 }
 
-ImageDecoder::~ImageDecoder() {
-  Cleanup();
-}
+ImageDecoder::~ImageDecoder() { Cleanup(); }
 
 void ImageDecoder::Cleanup() {
   if (sws_context_) {
@@ -256,26 +256,25 @@ bool ImageDecoder::IsAnimatedFormat(const std::string& mime_type) {
 }
 
 bool ImageDecoder::ConvertFrameToRGBA(AVFrame* src_frame,
-                                       std::vector<uint8_t>& output) {
+                                      std::vector<uint8_t>& output) {
   if (!src_frame) {
     return false;
   }
 
   // Create swscale context for conversion to RGBA
-  SwsContext* local_sws = sws_getContext(
-      src_frame->width, src_frame->height,
-      static_cast<AVPixelFormat>(src_frame->format), src_frame->width,
-      src_frame->height, AV_PIX_FMT_RGBA, SWS_BILINEAR, nullptr, nullptr,
-      nullptr);
+  SwsContext* local_sws =
+      sws_getContext(src_frame->width, src_frame->height,
+                     static_cast<AVPixelFormat>(src_frame->format),
+                     src_frame->width, src_frame->height, AV_PIX_FMT_RGBA,
+                     SWS_BILINEAR, nullptr, nullptr, nullptr);
 
   if (!local_sws) {
     return false;
   }
 
   // Allocate output buffer
-  int output_size =
-      av_image_get_buffer_size(AV_PIX_FMT_RGBA, src_frame->width,
-                               src_frame->height, 1);
+  int output_size = av_image_get_buffer_size(AV_PIX_FMT_RGBA, src_frame->width,
+                                             src_frame->height, 1);
   output.resize(output_size);
 
   // Set up output planes
@@ -302,17 +301,15 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
   mem_ctx->position = 0;
 
   // Allocate AVIO buffer
-  uint8_t* avio_buffer =
-      static_cast<uint8_t*>(av_malloc(kAVIOBufferSize));
+  uint8_t* avio_buffer = static_cast<uint8_t*>(av_malloc(kAVIOBufferSize));
   if (!avio_buffer) {
     delete mem_ctx;
     return false;
   }
 
   // Create custom AVIO context
-  avio_context_ =
-      avio_alloc_context(avio_buffer, kAVIOBufferSize, 0, mem_ctx,
-                         ReadPacket, nullptr, SeekPacket);
+  avio_context_ = avio_alloc_context(avio_buffer, kAVIOBufferSize, 0, mem_ctx,
+                                     ReadPacket, nullptr, SeekPacket);
   if (!avio_context_) {
     av_free(avio_buffer);
     delete mem_ctx;
@@ -340,8 +337,8 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
   }
 
   // Open input
-  int ret = avformat_open_input(&format_context_, nullptr, input_format,
-                                nullptr);
+  int ret =
+      avformat_open_input(&format_context_, nullptr, input_format, nullptr);
   if (ret < 0) {
     // format_context_ is freed by avformat_open_input on failure
     format_context_ = nullptr;
@@ -461,7 +458,7 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
     // Parse NETSCAPE2.0 extension from raw data
     // Look for: 0x21 0xFF 0x0B "NETSCAPE2.0" 0x03 0x01 <loop_low> <loop_high>
     const uint8_t netscape_sig[] = {0x21, 0xFF, 0x0B, 'N', 'E', 'T', 'S',
-                                     'C', 'A', 'P', 'E', '2', '.', '0'};
+                                    'C',  'A',  'P',  'E', '2', '.', '0'};
     for (size_t i = 0; i + 18 < data_.size(); i++) {
       if (memcmp(data_.data() + i, netscape_sig, sizeof(netscape_sig)) == 0) {
         // Found NETSCAPE extension, read loop count
@@ -629,18 +626,18 @@ bool ImageDecoder::DecodeImage() {
   decoded_height_ = frame_->height;
 
   // Convert to RGBA
-  sws_context_ = sws_getContext(
-      frame_->width, frame_->height, static_cast<AVPixelFormat>(frame_->format),
-      frame_->width, frame_->height, AV_PIX_FMT_RGBA,
-      SWS_BILINEAR, nullptr, nullptr, nullptr);
+  sws_context_ = sws_getContext(frame_->width, frame_->height,
+                                static_cast<AVPixelFormat>(frame_->format),
+                                frame_->width, frame_->height, AV_PIX_FMT_RGBA,
+                                SWS_BILINEAR, nullptr, nullptr, nullptr);
 
   if (!sws_context_) {
     return false;
   }
 
   // Allocate output buffer
-  int output_size = av_image_get_buffer_size(
-      AV_PIX_FMT_RGBA, frame_->width, frame_->height, 1);
+  int output_size = av_image_get_buffer_size(AV_PIX_FMT_RGBA, frame_->width,
+                                             frame_->height, 1);
   decoded_data_.resize(output_size);
 
   // Set up output planes
@@ -648,9 +645,7 @@ bool ImageDecoder::DecodeImage() {
   int dest_linesize[4] = {frame_->width * 4, 0, 0, 0};
 
   // Convert
-  sws_scale(sws_context_,
-            frame_->data, frame_->linesize,
-            0, frame_->height,
+  sws_scale(sws_context_, frame_->data, frame_->linesize, 0, frame_->height,
             dest_data, dest_linesize);
 
   return true;
@@ -666,8 +661,7 @@ Napi::Value ImageDecoder::Decode(const Napi::CallbackInfo& info) {
   }
 
   if (!complete_) {
-    Napi::Error::New(env, "Image decoding failed")
-        .ThrowAsJavaScriptException();
+    Napi::Error::New(env, "Image decoding failed").ThrowAsJavaScriptException();
     return env.Undefined();
   }
 
@@ -682,10 +676,9 @@ Napi::Value ImageDecoder::Decode(const Napi::CallbackInfo& info) {
 
   // Validate frame index
   if (frame_index < 0 || frame_index >= frame_count_) {
-    Napi::RangeError::New(env,
-        "frameIndex " + std::to_string(frame_index) +
-        " is out of range. Valid range is 0 to " +
-        std::to_string(frame_count_ - 1))
+    Napi::RangeError::New(env, "frameIndex " + std::to_string(frame_index) +
+                                   " is out of range. Valid range is 0 to " +
+                                   std::to_string(frame_count_ - 1))
         .ThrowAsJavaScriptException();
     return env.Undefined();
   }
@@ -716,8 +709,8 @@ Napi::Value ImageDecoder::Decode(const Napi::CallbackInfo& info) {
   }
 
   // Create VideoFrame from frame data
-  Napi::Buffer<uint8_t> buffer = Napi::Buffer<uint8_t>::Copy(
-      env, frame_data->data(), frame_data->size());
+  Napi::Buffer<uint8_t> buffer =
+      Napi::Buffer<uint8_t>::Copy(env, frame_data->data(), frame_data->size());
 
   Napi::Object init = Napi::Object::New(env);
   init.Set("codedWidth", Napi::Number::New(env, frame_width));
@@ -726,9 +719,8 @@ Napi::Value ImageDecoder::Decode(const Napi::CallbackInfo& info) {
   init.Set("format", Napi::String::New(env, "RGBA"));
 
   // Get VideoFrame constructor from global
-  Napi::Function video_frame_ctor = env.Global()
-      .Get("__nodeWebCodecsVideoFrame__")
-      .As<Napi::Function>();
+  Napi::Function video_frame_ctor =
+      env.Global().Get("__nodeWebCodecsVideoFrame__").As<Napi::Function>();
 
   if (video_frame_ctor.IsUndefined() || !video_frame_ctor.IsFunction()) {
     // Try to get from module exports directly
@@ -737,7 +729,8 @@ Napi::Value ImageDecoder::Decode(const Napi::CallbackInfo& info) {
     Napi::Object image = Napi::Object::New(env);
     image.Set("codedWidth", Napi::Number::New(env, frame_width));
     image.Set("codedHeight", Napi::Number::New(env, frame_height));
-    image.Set("timestamp", Napi::Number::New(env, static_cast<double>(timestamp)));
+    image.Set("timestamp",
+              Napi::Number::New(env, static_cast<double>(timestamp)));
     image.Set("format", Napi::String::New(env, "RGBA"));
     image.Set("data", buffer);
     auto closeFn = [](const Napi::CallbackInfo&) {};
@@ -787,8 +780,9 @@ Napi::Value ImageDecoder::GetTracks(const Napi::CallbackInfo& info) {
 
   // Set repetitionCount (Infinity for infinite loop per W3C spec)
   if (std::isinf(repetition_count_)) {
-    selectedTrack.Set("repetitionCount",
-                      Napi::Number::New(env, std::numeric_limits<double>::infinity()));
+    selectedTrack.Set(
+        "repetitionCount",
+        Napi::Number::New(env, std::numeric_limits<double>::infinity()));
   } else {
     selectedTrack.Set("repetitionCount",
                       Napi::Number::New(env, repetition_count_));

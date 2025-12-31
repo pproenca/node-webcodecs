@@ -60,7 +60,7 @@ Muxer::Muxer(const Napi::CallbackInfo& info)
   // Allocate output format context for MP4.
   AVFormatContext* raw_ctx = nullptr;
   int ret = avformat_alloc_output_context2(&raw_ctx, nullptr, "mp4",
-                                            filename_.c_str());
+                                           filename_.c_str());
   if (ret < 0 || !raw_ctx) {
     Napi::Error::New(env, "Failed to allocate output format context")
         .ThrowAsJavaScriptException();
@@ -233,8 +233,7 @@ Napi::Value Muxer::WriteVideoChunk(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
   if (video_stream_index_ < 0) {
-    Napi::Error::New(env, "No video track added")
-        .ThrowAsJavaScriptException();
+    Napi::Error::New(env, "No video track added").ThrowAsJavaScriptException();
     return env.Undefined();
   }
 
@@ -334,8 +333,7 @@ Napi::Value Muxer::WriteAudioChunk(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
   if (audio_stream_index_ < 0) {
-    Napi::Error::New(env, "No audio track added")
-        .ThrowAsJavaScriptException();
+    Napi::Error::New(env, "No audio track added").ThrowAsJavaScriptException();
     return env.Undefined();
   }
 

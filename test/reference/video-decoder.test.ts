@@ -18,8 +18,14 @@ test('VideoDecoder lifecycle', { timeout: 10_000 }, async () => {
     formats: ALL_FORMATS,
   });
 
-  const videoTrack = (await input.getPrimaryVideoTrack())!;
-  const decoderConfig = (await videoTrack.getDecoderConfig())!;
+  const videoTrack = await input.getPrimaryVideoTrack();
+  if (!videoTrack) {
+    throw new Error('No video track found');
+  }
+  const decoderConfig = await videoTrack.getDecoderConfig();
+  if (!decoderConfig) {
+    throw new Error('No decoder config found');
+  }
 
   let lastTimestamp = -Infinity;
 

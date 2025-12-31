@@ -2,7 +2,7 @@
  * Integration tests for AudioEncoder/AudioDecoder
  */
 
-import {expect, it, describe} from 'vitest';
+import {it, } from 'vitest';
 
 it('AudioEncoderAAC', {timeout: 10_000}, async () => {
   const chunks = [];

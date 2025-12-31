@@ -99,7 +99,8 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
   // Find encoder.
   const AVCodec* encoder = avcodec_find_encoder(codec_id);
   if (!encoder) {
-    throw Napi::Error::New(env, "NotSupportedError: Encoder not found for codec");
+    throw Napi::Error::New(env,
+                           "NotSupportedError: Encoder not found for codec");
   }
 
   // Clean up any previous context.
@@ -113,11 +114,13 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
   }
 
   // Parse sample rate.
-  sample_rate_ = static_cast<uint32_t>(webcodecs::AttrAsInt32(config, "sampleRate", 48000));
+  sample_rate_ = static_cast<uint32_t>(
+      webcodecs::AttrAsInt32(config, "sampleRate", 48000));
   codec_context_->sample_rate = sample_rate_;
 
   // Parse number of channels.
-  number_of_channels_ = static_cast<uint32_t>(webcodecs::AttrAsInt32(config, "numberOfChannels", 2));
+  number_of_channels_ = static_cast<uint32_t>(
+      webcodecs::AttrAsInt32(config, "numberOfChannels", 2));
 
   // Set channel layout based on number of channels.
   if (number_of_channels_ == 1) {
@@ -172,7 +175,8 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
     // Parse 'frameDuration': microseconds.
     // Maps to libopus "frame_duration" option (in milliseconds).
     if (webcodecs::HasAttr(opus_config, "frameDuration")) {
-      int64_t frame_duration_us = webcodecs::AttrAsInt64(opus_config, "frameDuration");
+      int64_t frame_duration_us =
+          webcodecs::AttrAsInt64(opus_config, "frameDuration");
       // Convert microseconds to milliseconds.
       double frame_duration_ms = frame_duration_us / 1000.0;
       av_opt_set_double(codec_context_->priv_data, "frame_duration",
@@ -264,7 +268,8 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
     char errbuf[256];
     av_strerror(ret, errbuf, sizeof(errbuf));
     Cleanup();
-    throw Napi::Error::New(env, std::string("Could not init resampler: ") + errbuf);
+    throw Napi::Error::New(env,
+                           std::string("Could not init resampler: ") + errbuf);
   }
 
   state_ = "configured";
@@ -294,7 +299,8 @@ Napi::Value AudioEncoder::Reset(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
   if (state_ == "closed") {
-    throw Napi::Error::New(env, "InvalidStateError: Cannot reset closed encoder");
+    throw Napi::Error::New(env,
+                           "InvalidStateError: Cannot reset closed encoder");
   }
 
   Cleanup();

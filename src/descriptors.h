@@ -4,10 +4,10 @@
 #ifndef SRC_DESCRIPTORS_H_
 #define SRC_DESCRIPTORS_H_
 
+#include <napi.h>
+
 #include <cstdint>
 #include <string>
-
-#include <napi.h>
 
 namespace webcodecs {
 
@@ -35,11 +35,11 @@ struct VideoEncoderConfigDescriptor {
   VideoEncoderConfigDescriptor() = default;
 };
 
-VideoEncoderConfigDescriptor CreateEncoderConfigDescriptor(
-    Napi::Env env, Napi::Object config);
+VideoEncoderConfigDescriptor CreateEncoderConfigDescriptor(Napi::Env env,
+                                                           Napi::Object config);
 
 Napi::Object EncoderConfigToJS(Napi::Env env,
-                                const VideoEncoderConfigDescriptor& desc);
+                               const VideoEncoderConfigDescriptor& desc);
 
 void InitDescriptors(Napi::Env env, Napi::Object exports);
 

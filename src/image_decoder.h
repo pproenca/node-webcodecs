@@ -28,8 +28,8 @@ struct DecodedFrame {
   std::vector<uint8_t> data;
   int width;
   int height;
-  int64_t timestamp;    // in microseconds
-  int64_t duration;     // in microseconds
+  int64_t timestamp;  // in microseconds
+  int64_t duration;   // in microseconds
 };
 
 class ImageDecoder : public Napi::ObjectWrap<ImageDecoder> {
@@ -72,9 +72,9 @@ class ImageDecoder : public Napi::ObjectWrap<ImageDecoder> {
   AVPacket* packet_;
 
   // FFmpeg state for animated image parsing.
-  AVFormatContext* format_context_;      // For container parsing
-  AVIOContext* avio_context_;            // Custom I/O for memory buffer
-  int video_stream_index_;               // Stream index for video track
+  AVFormatContext* format_context_;  // For container parsing
+  AVIOContext* avio_context_;        // Custom I/O for memory buffer
+  int video_stream_index_;           // Stream index for video track
 
   // Decoded frame data (static images).
   std::vector<uint8_t> decoded_data_;

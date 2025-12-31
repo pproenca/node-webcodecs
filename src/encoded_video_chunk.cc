@@ -70,7 +70,8 @@ EncodedVideoChunk::EncodedVideoChunk(const Napi::CallbackInfo& info)
   }
 
   // Required: timestamp.
-  if (!webcodecs::HasAttr(init, "timestamp") || !init.Get("timestamp").IsNumber()) {
+  if (!webcodecs::HasAttr(init, "timestamp") ||
+      !init.Get("timestamp").IsNumber()) {
     throw Napi::TypeError::New(env, "init.timestamp must be a number");
   }
   timestamp_ = webcodecs::AttrAsInt64(init, "timestamp");

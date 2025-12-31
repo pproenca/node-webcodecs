@@ -9,16 +9,16 @@
  * @see docs/WEBCODECS_SPEC_DETAILS.md - Error Handling section
  */
 
-const assert = require('assert');
+const assert = require('node:assert');
 
 // Try to load the module
-let VideoEncoder, VideoFrame, EncodedVideoChunk;
+let VideoEncoder, VideoFrame, _EncodedVideoChunk;
 try {
   const webcodecs = require('../../dist');
   VideoEncoder = webcodecs.VideoEncoder;
   VideoFrame = webcodecs.VideoFrame;
-  EncodedVideoChunk = webcodecs.EncodedVideoChunk;
-} catch (e) {
+  _EncodedVideoChunk = webcodecs.EncodedVideoChunk;
+} catch (_e) {
   console.log('⚠️  Module not built yet. Run `npm run build` first.');
   process.exit(0);
 }
@@ -208,12 +208,12 @@ async function testScenario5_TypeErrorOnInvalidConfig() {
     },
   ];
 
-  for (const {name, config} of invalidConfigs) {
-    let threw = false;
+  for (const {name: _name, config} of invalidConfigs) {
+    let _threw = false;
     try {
       encoder.configure(config);
-    } catch (e) {
-      threw = true;
+    } catch (_e) {
+      _threw = true;
     }
     // Note: Some implementations may not validate all fields
     // This test documents expected behavior
@@ -256,7 +256,7 @@ async function testScenario6_DetachedFrameError() {
   let threw = false;
   try {
     encoder.encode(frame);
-  } catch (e) {
+  } catch (_e) {
     threw = true;
     // Expected: TypeError for detached frame
   }

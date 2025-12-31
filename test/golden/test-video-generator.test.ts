@@ -23,7 +23,9 @@ describe('TestVideoGenerator', () => {
     expect(frames[0].codedHeight).toBe(240);
 
     // Clean up frames
-    frames.forEach((f) => f.close());
+    frames.forEach((f) => {
+      f.close();
+    });
     generator.close();
   });
 });

@@ -4,10 +4,10 @@
 //
 // Populate npm package for current platform with local build.
 
-'use strict';
 
-const {copyFileSync, mkdirSync, writeFileSync, existsSync} = require('fs');
-const {join, basename} = require('path');
+
+const {copyFileSync, mkdirSync, writeFileSync, existsSync} = require('node:fs');
+const {join, basename} = require('node:path');
 
 // Import platform detection (after TypeScript build)
 const {buildPlatformArch} = require('../dist/platform');

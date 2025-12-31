@@ -1,5 +1,5 @@
 const {VideoEncoder, VideoFrame} = require('../../dist');
-const {performance} = require('perf_hooks');
+const {performance} = require('node:perf_hooks');
 
 const MAX_LAG_MS = 20;
 const FRAMES = 50;

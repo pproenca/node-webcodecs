@@ -53,7 +53,8 @@ class VideoEncoder : public Napi::ObjectWrap<VideoEncoder> {
   void EmitChunks(Napi::Env env);
 
   // FFmpeg state.
-  const AVCodec* codec_;  // Not owned - references FFmpeg's static codec descriptor
+  const AVCodec*
+      codec_;  // Not owned - references FFmpeg's static codec descriptor
   ffmpeg::AVCodecContextPtr codec_context_;
   ffmpeg::SwsContextPtr sws_context_;
   ffmpeg::AVFramePtr frame_;

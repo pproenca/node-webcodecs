@@ -8,8 +8,8 @@
  */
 
 const express = require('express');
-const path = require('path');
-const fs = require('fs');
+const path = require('node:path');
+const fs = require('node:fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,7 +20,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/output', express.static(OUTPUT_DIR));
 
 // API: Get demo status
-app.get('/api/status', (req, res) => {
+app.get('/api/status', (_req, res) => {
   const demos = [
     {id: '01', name: 'Encode-Decode', file: null},
     {id: '02', name: 'Video Pipeline', file: 'watermarked.mp4'},
@@ -44,7 +44,7 @@ app.get('/api/status', (req, res) => {
 });
 
 // API: Get output files
-app.get('/api/outputs', (req, res) => {
+app.get('/api/outputs', (_req, res) => {
   if (!fs.existsSync(OUTPUT_DIR)) {
     return res.json({files: []});
   }

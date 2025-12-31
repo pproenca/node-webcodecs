@@ -53,8 +53,8 @@ class AsyncDecodeWorker {
   void Stop();
   void Enqueue(DecodeTask task);
   void Flush();
-  void SetCodecContext(AVCodecContext* ctx, SwsContext* sws,
-                       int width, int height);
+  void SetCodecContext(AVCodecContext* ctx, SwsContext* sws, int width,
+                       int height);
   bool IsRunning() const { return running_.load(); }
   size_t QueueSize() const;
 

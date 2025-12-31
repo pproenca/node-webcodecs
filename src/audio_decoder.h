@@ -44,7 +44,8 @@ class AudioDecoder : public Napi::ObjectWrap<AudioDecoder> {
   void EmitAudioData(Napi::Env env);
 
   // FFmpeg state.
-  const AVCodec* codec_;  // Not owned - references FFmpeg's static codec descriptor
+  const AVCodec*
+      codec_;  // Not owned - references FFmpeg's static codec descriptor
   ffmpeg::AVCodecContextPtr codec_context_;
   ffmpeg::SwrContextPtr swr_context_;
   ffmpeg::AVFramePtr frame_;

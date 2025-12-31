@@ -11,7 +11,7 @@ const {
   VideoFrame,
   EncodedVideoChunk,
 } = require('../../../dist');
-const assert = require('assert');
+const assert = require('node:assert');
 
 const tests = [];
 function test(name, fn) {
@@ -27,7 +27,7 @@ test('encode-decode produces frames with correct dimensions', async () => {
 
   // Encoder setup
   const encoder = new VideoEncoder({
-    output: (chunk, metadata) => {
+    output: (chunk, _metadata) => {
       encodedChunks.push(chunk);
     },
     error: e => {
@@ -122,7 +122,7 @@ test('timestamps are preserved through round-trip', async () => {
 
   // Encoder setup
   const encoder = new VideoEncoder({
-    output: (chunk, metadata) => {
+    output: (chunk, _metadata) => {
       encodedChunks.push(chunk);
     },
     error: e => {
@@ -220,7 +220,7 @@ test('multiple frames round-trip successfully', async () => {
 
   // Encoder setup
   const encoder = new VideoEncoder({
-    output: (chunk, metadata) => {
+    output: (chunk, _metadata) => {
       encodedChunks.push(chunk);
     },
     error: e => {

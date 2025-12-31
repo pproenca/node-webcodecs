@@ -3,17 +3,22 @@
 
 #include "src/warnings.h"
 
+#include <string>
+#include <vector>
+
 namespace webcodecs {
 
 WarningAccumulator* globalWarnings = nullptr;
 
 Napi::Object WarningAccumulator::Init(Napi::Env env, Napi::Object exports) {
-  Napi::Function func = DefineClass(env, "WarningAccumulator", {
-    InstanceMethod("add", &WarningAccumulator::Add),
-    InstanceMethod("drain", &WarningAccumulator::Drain),
-    InstanceMethod("hasWarnings", &WarningAccumulator::HasWarningsJS),
-    InstanceMethod("count", &WarningAccumulator::CountJS),
-  });
+  Napi::Function func = DefineClass(
+      env, "WarningAccumulator",
+      {
+          InstanceMethod("add", &WarningAccumulator::Add),
+          InstanceMethod("drain", &WarningAccumulator::Drain),
+          InstanceMethod("hasWarnings", &WarningAccumulator::HasWarningsJS),
+          InstanceMethod("count", &WarningAccumulator::CountJS),
+      });
 
   Napi::FunctionReference* constructor = new Napi::FunctionReference();
   *constructor = Napi::Persistent(func);

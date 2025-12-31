@@ -117,9 +117,9 @@ std::tuple<const uint8_t*, size_t> AttrAsBuffer(Napi::Object obj,
   }
   if (val.IsTypedArray()) {
     auto ta = val.As<Napi::TypedArray>();
-    return {static_cast<const uint8_t*>(ta.ArrayBuffer().Data()) +
-                ta.ByteOffset(),
-            ta.ByteLength()};
+    return {
+        static_cast<const uint8_t*>(ta.ArrayBuffer().Data()) + ta.ByteOffset(),
+        ta.ByteLength()};
   }
   return {nullptr, 0};
 }
@@ -129,10 +129,8 @@ std::tuple<const uint8_t*, size_t> AttrAsBuffer(Napi::Object obj,
 //==============================================================================
 
 const std::unordered_map<std::string, AVColorPrimaries> kColorPrimariesMap = {
-    {"bt709", AVCOL_PRI_BT709},
-    {"bt470bg", AVCOL_PRI_BT470BG},
-    {"smpte170m", AVCOL_PRI_SMPTE170M},
-    {"bt2020", AVCOL_PRI_BT2020},
+    {"bt709", AVCOL_PRI_BT709},         {"bt470bg", AVCOL_PRI_BT470BG},
+    {"smpte170m", AVCOL_PRI_SMPTE170M}, {"bt2020", AVCOL_PRI_BT2020},
     {"smpte432", AVCOL_PRI_SMPTE432},
 };
 
@@ -185,21 +183,18 @@ void RequireAttr(Napi::Env env, Napi::Object obj, const std::string& attr) {
   }
 }
 
-void RequirePositiveInt(Napi::Env env, const std::string& name,
-                        int32_t value) {
+void RequirePositiveInt(Napi::Env env, const std::string& name, int32_t value) {
   if (value <= 0) {
-    throw Napi::Error::New(
-        env, "Expected positive integer for " + name + " but received " +
-                 std::to_string(value));
+    throw Napi::Error::New(env, "Expected positive integer for " + name +
+                                    " but received " + std::to_string(value));
   }
 }
 
 void RequireNonNegativeInt(Napi::Env env, const std::string& name,
                            int32_t value) {
   if (value < 0) {
-    throw Napi::Error::New(
-        env, "Expected non-negative integer for " + name + " but received " +
-                 std::to_string(value));
+    throw Napi::Error::New(env, "Expected non-negative integer for " + name +
+                                    " but received " + std::to_string(value));
   }
 }
 
@@ -234,8 +229,8 @@ void RequireOneOf(Napi::Env env, const std::string& name,
 //==============================================================================
 
 Napi::Error InvalidParameterError(Napi::Env env, const std::string& name,
-                                   const std::string& expected,
-                                   const Napi::Value& actual) {
+                                  const std::string& expected,
+                                  const Napi::Value& actual) {
   std::string actualType;
   std::string actualStr;
 
@@ -265,9 +260,9 @@ Napi::Error InvalidParameterError(Napi::Env env, const std::string& name,
     actualStr = "unknown";
   }
 
-  return Napi::Error::New(
-      env, "Expected " + expected + " for " + name + " but received " +
-               actualStr + " of type " + actualType);
+  return Napi::Error::New(env, "Expected " + expected + " for " + name +
+                                   " but received " + actualStr + " of type " +
+                                   actualType);
 }
 
 Napi::Error FFmpegError(Napi::Env env, const std::string& operation,

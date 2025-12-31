@@ -13,12 +13,14 @@
 #include "src/video_frame.h"
 
 Napi::Object VideoFilter::Init(Napi::Env env, Napi::Object exports) {
-  Napi::Function func = DefineClass(env, "VideoFilter", {
-    InstanceMethod("configure", &VideoFilter::Configure),
-    InstanceMethod("applyBlur", &VideoFilter::ApplyBlur),
-    InstanceMethod("close", &VideoFilter::Close),
-    InstanceAccessor("state", &VideoFilter::GetState, nullptr),
-  });
+  Napi::Function func = DefineClass(
+      env, "VideoFilter",
+      {
+          InstanceMethod("configure", &VideoFilter::Configure),
+          InstanceMethod("applyBlur", &VideoFilter::ApplyBlur),
+          InstanceMethod("close", &VideoFilter::Close),
+          InstanceAccessor("state", &VideoFilter::GetState, nullptr),
+      });
 
   exports.Set("VideoFilter", func);
   return exports;
@@ -32,9 +34,7 @@ VideoFilter::VideoFilter(const Napi::CallbackInfo& info)
       height_(0),
       state_("unconfigured") {}
 
-VideoFilter::~VideoFilter() {
-  Cleanup();
-}
+VideoFilter::~VideoFilter() { Cleanup(); }
 
 void VideoFilter::Cleanup() {
   filter_graph_.reset();
@@ -71,7 +71,8 @@ Napi::Value VideoFilter::Configure(const Napi::CallbackInfo& info) {
 
   Napi::Object config = info[0].As<Napi::Object>();
 
-  if (!webcodecs::HasAttr(config, "width") || !webcodecs::HasAttr(config, "height")) {
+  if (!webcodecs::HasAttr(config, "width") ||
+      !webcodecs::HasAttr(config, "height")) {
     Napi::TypeError::New(env, "width and height required")
         .ThrowAsJavaScriptException();
     return env.Undefined();
@@ -87,15 +88,13 @@ Napi::Value VideoFilter::Configure(const Napi::CallbackInfo& info) {
   }
 
   // Initialize swscale contexts for RGBA <-> YUV420P conversion
-  sws_rgba_to_yuv_.reset(sws_getContext(width_, height_, AV_PIX_FMT_RGBA,
-                                        width_, height_, AV_PIX_FMT_YUV420P,
-                                        SWS_BILINEAR, nullptr, nullptr,
-                                        nullptr));
+  sws_rgba_to_yuv_.reset(sws_getContext(
+      width_, height_, AV_PIX_FMT_RGBA, width_, height_, AV_PIX_FMT_YUV420P,
+      SWS_BILINEAR, nullptr, nullptr, nullptr));
 
-  sws_yuv_to_rgba_.reset(sws_getContext(width_, height_, AV_PIX_FMT_YUV420P,
-                                        width_, height_, AV_PIX_FMT_RGBA,
-                                        SWS_BILINEAR, nullptr, nullptr,
-                                        nullptr));
+  sws_yuv_to_rgba_.reset(
+      sws_getContext(width_, height_, AV_PIX_FMT_YUV420P, width_, height_,
+                     AV_PIX_FMT_RGBA, SWS_BILINEAR, nullptr, nullptr, nullptr));
 
   if (!sws_rgba_to_yuv_ || !sws_yuv_to_rgba_) {
     Cleanup();
@@ -154,13 +153,13 @@ std::string VideoFilter::BuildFilterString(
     if (w <= 0 || h <= 0) continue;
 
     std::string crop_label = "crop" + std::to_string(i);
-    std::string out_label = (i == regions.size() - 1) ? "out" :
-                            ("tmp" + std::to_string(i));
+    std::string out_label =
+        (i == regions.size() - 1) ? "out" : ("tmp" + std::to_string(i));
 
-    oss << "[blurred]crop=" << w << ":" << h << ":" << x << ":" << y
-        << "[" << crop_label << "];";
-    oss << "[" << current << "][" << crop_label << "]overlay="
-        << x << ":" << y << "[" << out_label << "]";
+    oss << "[blurred]crop=" << w << ":" << h << ":" << x << ":" << y << "["
+        << crop_label << "];";
+    oss << "[" << current << "][" << crop_label << "]overlay=" << x << ":" << y
+        << "[" << out_label << "]";
 
     if (i < regions.size() - 1) {
       oss << ";";
@@ -248,12 +247,10 @@ Napi::Value VideoFilter::ApplyBlur(const Napi::CallbackInfo& info) {
 
   // If no regions, create a clone of the original frame
   if (regions.empty()) {
-    return VideoFrame::CreateInstance(env, video_frame->GetData(),
-                                      video_frame->GetDataSize(),
-                                      video_frame->GetWidth(),
-                                      video_frame->GetHeight(),
-                                      video_frame->GetTimestampValue(),
-                                      "RGBA");
+    return VideoFrame::CreateInstance(
+        env, video_frame->GetData(), video_frame->GetDataSize(),
+        video_frame->GetWidth(), video_frame->GetHeight(),
+        video_frame->GetTimestampValue(), "RGBA");
   }
 
   // Get RGBA data from frame
@@ -361,8 +358,8 @@ Napi::Value VideoFilter::ApplyBlur(const Napi::CallbackInfo& info) {
             height_, dst_slices, dst_stride);
 
   // Create new VideoFrame with blurred data using VideoFrame::CreateInstance
-  return VideoFrame::CreateInstance(env, output_data, output_size,
-                                    width_, height_, timestamp, "RGBA");
+  return VideoFrame::CreateInstance(env, output_data, output_size, width_,
+                                    height_, timestamp, "RGBA");
 }
 
 Napi::Object InitVideoFilter(Napi::Env env, Napi::Object exports) {

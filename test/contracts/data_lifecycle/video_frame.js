@@ -6,7 +6,7 @@
  */
 
 const {VideoFrame} = require('../../../dist');
-const assert = require('assert');
+const assert = require('node:assert');
 
 const tests = [];
 function test(name, fn) {
@@ -241,7 +241,7 @@ test('close() is idempotent', () => {
   let threw = false;
   try {
     frame.allocationSize();
-  } catch (e) {
+  } catch (_e) {
     threw = true;
   }
   assert.ok(threw, 'Frame should remain closed after multiple close() calls');

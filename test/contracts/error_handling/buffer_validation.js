@@ -4,7 +4,7 @@ const {
   EncodedVideoChunk,
   EncodedAudioChunk,
 } = require('../../../dist');
-const assert = require('assert');
+const assert = require('node:assert');
 
 const tests = [];
 function test(name, fn) {
@@ -23,7 +23,7 @@ test('VideoFrame rejects undersized buffer', () => {
       codedHeight: 240,
       timestamp: 0,
     });
-  } catch (e) {
+  } catch (_e) {
     threw = true;
   }
   // Clean up if frame was created despite undersized buffer
@@ -57,7 +57,7 @@ test('VideoFrame.copyTo() rejects undersized destination', async () => {
   try {
     // Provide a buffer that's too small
     await frame.copyTo(new ArrayBuffer(100));
-  } catch (e) {
+  } catch (_e) {
     threw = true;
   }
   frame.close();
@@ -79,7 +79,7 @@ test('AudioData rejects undersized buffer', () => {
       data: new Uint8Array(100),
     });
     audioData.close();
-  } catch (e) {
+  } catch (_e) {
     threw = true;
   }
   assert.ok(threw, 'should throw on undersized buffer');
@@ -97,7 +97,7 @@ test('EncodedVideoChunk.copyTo() rejects undersized destination', () => {
   try {
     // Provide a buffer that's too small
     chunk.copyTo(new ArrayBuffer(100));
-  } catch (e) {
+  } catch (_e) {
     threw = true;
   }
   assert.ok(threw, 'should throw on undersized destination buffer');
@@ -115,7 +115,7 @@ test('EncodedAudioChunk.copyTo() rejects undersized destination', () => {
   try {
     // Provide a buffer that's too small
     chunk.copyTo(new ArrayBuffer(100));
-  } catch (e) {
+  } catch (_e) {
     threw = true;
   }
   assert.ok(threw, 'should throw on undersized destination buffer');

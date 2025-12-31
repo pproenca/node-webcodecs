@@ -118,7 +118,8 @@ struct AVFilterInOutDeleter {
 // Type aliases for convenient usage
 using AVFramePtr = std::unique_ptr<AVFrame, AVFrameDeleter>;
 using AVPacketPtr = std::unique_ptr<AVPacket, AVPacketDeleter>;
-using AVCodecContextPtr = std::unique_ptr<AVCodecContext, AVCodecContextDeleter>;
+using AVCodecContextPtr =
+    std::unique_ptr<AVCodecContext, AVCodecContextDeleter>;
 using SwsContextPtr = std::unique_ptr<SwsContext, SwsContextDeleter>;
 using SwrContextPtr = std::unique_ptr<SwrContext, SwrContextDeleter>;
 using AVFormatContextPtr =
@@ -129,13 +130,9 @@ using AVFilterGraphPtr = std::unique_ptr<AVFilterGraph, AVFilterGraphDeleter>;
 using AVFilterInOutPtr = std::unique_ptr<AVFilterInOut, AVFilterInOutDeleter>;
 
 // Factory functions for cleaner allocation
-inline AVFramePtr make_frame() {
-  return AVFramePtr(av_frame_alloc());
-}
+inline AVFramePtr make_frame() { return AVFramePtr(av_frame_alloc()); }
 
-inline AVPacketPtr make_packet() {
-  return AVPacketPtr(av_packet_alloc());
-}
+inline AVPacketPtr make_packet() { return AVPacketPtr(av_packet_alloc()); }
 
 inline AVCodecContextPtr make_codec_context(const AVCodec* codec) {
   return AVCodecContextPtr(avcodec_alloc_context3(codec));

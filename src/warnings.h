@@ -4,12 +4,12 @@
 #ifndef SRC_WARNINGS_H_
 #define SRC_WARNINGS_H_
 
+#include <napi.h>
+
 #include <mutex>
 #include <queue>
 #include <string>
 #include <vector>
-
-#include <napi.h>
 
 namespace webcodecs {
 

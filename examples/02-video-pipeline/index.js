@@ -10,8 +10,8 @@
  * 6. Output playable MP4 file using native Muxer
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 const {
   Demuxer,
   Muxer,
@@ -258,7 +258,7 @@ async function main() {
   const sortedChunks = [...encodedChunks].sort(
     (a, b) => a.timestamp - b.timestamp
   );
-  sortedChunks.forEach(chunk => muxer.writeVideoChunk(chunk));
+  sortedChunks.forEach(chunk => { muxer.writeVideoChunk(chunk); });
 
   muxer.finalize();
   muxer.close();
@@ -275,7 +275,7 @@ async function main() {
   console.log('=== Demo 02 Complete ===\n');
   console.log('Output files:');
   console.log(`  ${OUTPUT_MP4}`);
-  console.log('\nPlay with: ffplay ' + OUTPUT_MP4);
+  console.log(`\nPlay with: ffplay ${OUTPUT_MP4}`);
 
   return {
     framesProcessed,

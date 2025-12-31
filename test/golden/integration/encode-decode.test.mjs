@@ -2,7 +2,7 @@
  * Integration tests for VideoEncoder/VideoDecoder
  */
 
-import {expect, it, describe} from 'vitest';
+import {it, } from 'vitest';
 
 it('EncodeSingleFrame', {timeout: 10_000}, async () => {
   const chunks = [];
@@ -201,5 +201,5 @@ it('EncodeDecode', {timeout: 10_000}, async () => {
   decoder.close();
 
   // Clean up
-  decodedFrames.forEach(f => f.close());
+  decodedFrames.forEach(f => { f.close(); });
 });

@@ -52,7 +52,8 @@ struct EncoderMetadataConfig {
   std::string color_transfer;
   std::string color_matrix;
   bool color_full_range = false;
-  // Note: extradata is copied from codec_context at emit time (may be set after configure)
+  // Note: extradata is copied from codec_context at emit time (may be set after
+  // configure)
 };
 
 class AsyncEncodeWorker {
@@ -73,8 +74,8 @@ class AsyncEncodeWorker {
   bool IsRunning() const { return running_.load(); }
   size_t QueueSize() const;
   int GetPendingChunks() const { return pending_chunks_.load(); }
-  void SetCodecContext(AVCodecContext* ctx, SwsContext* sws,
-                       int width, int height);
+  void SetCodecContext(AVCodecContext* ctx, SwsContext* sws, int width,
+                       int height);
   void SetMetadataConfig(const EncoderMetadataConfig& config);
 
  private:

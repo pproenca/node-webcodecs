@@ -116,7 +116,8 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
   webcodecs::RequireAttr(env, config, "codec");
   std::string codec_str = webcodecs::AttrAsStr(config, "codec");
 
-  // Parse dimensions (optional per W3C spec - decoder can infer from bitstream).
+  // Parse dimensions (optional per W3C spec - decoder can infer from
+  // bitstream).
   coded_width_ = webcodecs::AttrAsInt32(config, "codedWidth", 0);
   if (coded_width_ < 0 || coded_width_ > kMaxDimension) {
     throw Napi::Error::New(env, "codedWidth must be between 0 and 16384");
@@ -155,7 +156,8 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
     throw Napi::Error::New(env, "Could not allocate codec context");
   }
 
-  // Set dimensions only if provided (decoder will use bitstream dimensions otherwise).
+  // Set dimensions only if provided (decoder will use bitstream dimensions
+  // otherwise).
   if (coded_width_ > 0) {
     codec_context_->width = coded_width_;
   }
@@ -178,7 +180,8 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
 
   // Parse optional rotation (must be 0, 90, 180, or 270).
   rotation_ = webcodecs::AttrAsInt32(config, "rotation", 0);
-  if (rotation_ != 0 && rotation_ != 90 && rotation_ != 180 && rotation_ != 270) {
+  if (rotation_ != 0 && rotation_ != 90 && rotation_ != 180 &&
+      rotation_ != 270) {
     throw Napi::Error::New(env, "rotation must be 0, 90, 180, or 270");
   }
 
@@ -186,8 +189,10 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
   flip_ = webcodecs::AttrAsBool(config, "flip", false);
 
   // Parse optional displayAspectWidth/displayAspectHeight (per W3C spec).
-  display_aspect_width_ = webcodecs::AttrAsInt32(config, "displayAspectWidth", 0);
-  display_aspect_height_ = webcodecs::AttrAsInt32(config, "displayAspectHeight", 0);
+  display_aspect_width_ =
+      webcodecs::AttrAsInt32(config, "displayAspectWidth", 0);
+  display_aspect_height_ =
+      webcodecs::AttrAsInt32(config, "displayAspectHeight", 0);
 
   // Parse optional colorSpace (per W3C spec).
   has_color_space_ = false;
@@ -195,7 +200,8 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
   color_transfer_.clear();
   color_matrix_.clear();
   color_full_range_ = false;
-  if (webcodecs::HasAttr(config, "colorSpace") && config.Get("colorSpace").IsObject()) {
+  if (webcodecs::HasAttr(config, "colorSpace") &&
+      config.Get("colorSpace").IsObject()) {
     Napi::Object cs = config.Get("colorSpace").As<Napi::Object>();
     has_color_space_ = true;
 
@@ -206,11 +212,13 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
   }
 
   // Parse optional optimizeForLatency (per W3C spec).
-  optimize_for_latency_ = webcodecs::AttrAsBool(config, "optimizeForLatency", false);
+  optimize_for_latency_ =
+      webcodecs::AttrAsBool(config, "optimizeForLatency", false);
 
   // Parse optional hardwareAcceleration (per W3C spec).
   // Note: This is a stub - FFmpeg uses software decoding.
-  hardware_acceleration_ = webcodecs::AttrAsStr(config, "hardwareAcceleration", "no-preference");
+  hardware_acceleration_ =
+      webcodecs::AttrAsStr(config, "hardwareAcceleration", "no-preference");
   // Validate W3C enum values per spec.
   if (hardware_acceleration_ != "no-preference" &&
       hardware_acceleration_ != "prefer-hardware" &&
@@ -251,13 +259,13 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
   }
 
   // Create ThreadSafeFunctions for async worker.
-  output_tsfn_ = Napi::ThreadSafeFunction::New(
-      env, output_callback_.Value(), "VideoDecoder::output", 0, 1,
-      [](Napi::Env) {});
+  output_tsfn_ = Napi::ThreadSafeFunction::New(env, output_callback_.Value(),
+                                               "VideoDecoder::output", 0, 1,
+                                               [](Napi::Env) {});
 
-  error_tsfn_ = Napi::ThreadSafeFunction::New(
-      env, error_callback_.Value(), "VideoDecoder::error", 0, 1,
-      [](Napi::Env) {});
+  error_tsfn_ = Napi::ThreadSafeFunction::New(env, error_callback_.Value(),
+                                              "VideoDecoder::error", 0, 1,
+                                              [](Napi::Env) {});
 
   // Initialize async worker.
   async_worker_ =
@@ -456,7 +464,8 @@ Napi::Value VideoDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   }
 
   // Validate and copy codedWidth (optional for isConfigSupported per W3C spec).
-  // Note: 0 is valid (decoder infers from bitstream), consistent with configure().
+  // Note: 0 is valid (decoder infers from bitstream), consistent with
+  // configure().
   if (config.Has("codedWidth") && config.Get("codedWidth").IsNumber()) {
     int coded_width = config.Get("codedWidth").As<Napi::Number>().Int32Value();
     if (coded_width < 0 || coded_width > kMaxDimension) {
@@ -466,7 +475,8 @@ Napi::Value VideoDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   }
 
   // Validate and copy codedHeight (optional per W3C spec).
-  // Note: 0 is valid (decoder infers from bitstream), consistent with configure().
+  // Note: 0 is valid (decoder infers from bitstream), consistent with
+  // configure().
   if (config.Has("codedHeight") && config.Get("codedHeight").IsNumber()) {
     int coded_height =
         config.Get("codedHeight").As<Napi::Number>().Int32Value();
@@ -527,7 +537,8 @@ Napi::Value VideoDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   }
 
   // Handle hardwareAcceleration with default value per W3C spec.
-  std::string hw = webcodecs::AttrAsStr(config, "hardwareAcceleration", "no-preference");
+  std::string hw =
+      webcodecs::AttrAsStr(config, "hardwareAcceleration", "no-preference");
   // Validate W3C enum values per spec.
   if (hw != "no-preference" && hw != "prefer-hardware" &&
       hw != "prefer-software") {
@@ -543,8 +554,7 @@ Napi::Value VideoDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   if (config.Has("rotation") && config.Get("rotation").IsNumber()) {
     int rotation = config.Get("rotation").As<Napi::Number>().Int32Value();
     // Validate rotation value.
-    if (rotation == 0 || rotation == 90 || rotation == 180 ||
-        rotation == 270) {
+    if (rotation == 0 || rotation == 90 || rotation == 180 || rotation == 270) {
       normalized_config.Set("rotation", rotation);
     } else {
       supported = false;
@@ -628,17 +638,20 @@ void VideoDecoder::EmitFrames(Napi::Env env) {
       display_height = frame_->height;
     }
 
-    // Create VideoFrame with rotation, flip, display dimensions, and colorSpace.
+    // Create VideoFrame with rotation, flip, display dimensions, and
+    // colorSpace.
     Napi::Object video_frame;
     if (has_color_space_) {
       video_frame = VideoFrame::CreateInstance(
-          env, rgba_data.data(), rgba_data.size(), frame_->width, frame_->height,
-          frame_->pts, "RGBA", rotation_, flip_, display_width, display_height,
-          color_primaries_, color_transfer_, color_matrix_, color_full_range_);
+          env, rgba_data.data(), rgba_data.size(), frame_->width,
+          frame_->height, frame_->pts, "RGBA", rotation_, flip_, display_width,
+          display_height, color_primaries_, color_transfer_, color_matrix_,
+          color_full_range_);
     } else {
       video_frame = VideoFrame::CreateInstance(
-          env, rgba_data.data(), rgba_data.size(), frame_->width, frame_->height,
-          frame_->pts, "RGBA", rotation_, flip_, display_width, display_height);
+          env, rgba_data.data(), rgba_data.size(), frame_->width,
+          frame_->height, frame_->pts, "RGBA", rotation_, flip_, display_width,
+          display_height);
     }
 
     // Call output callback.

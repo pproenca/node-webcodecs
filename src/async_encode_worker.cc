@@ -92,9 +92,8 @@ void AsyncEncodeWorker::Flush() {
   // Wait for queue to drain (including flush task)
   {
     std::unique_lock<std::mutex> lock(queue_mutex_);
-    queue_cv_.wait(lock, [this] {
-      return task_queue_.empty() || !running_.load();
-    });
+    queue_cv_.wait(lock,
+                   [this] { return task_queue_.empty() || !running_.load(); });
   }
 
   flushing_.store(false);
@@ -155,8 +154,8 @@ void AsyncEncodeWorker::ProcessFrame(const EncodeTask& task) {
   const uint8_t* src_data[1] = {task.rgba_data.data()};
   int src_linesize[1] = {width_ * 4};
 
-  sws_scale(sws_context_, src_data, src_linesize, 0, height_,
-            frame_->data, frame_->linesize);
+  sws_scale(sws_context_, src_data, src_linesize, 0, height_, frame_->data,
+            frame_->linesize);
 
   frame_->pts = task.timestamp;
 
@@ -216,73 +215,69 @@ void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
   }
   cb_data->pending = &pending_chunks_;
 
-  output_tsfn_.NonBlockingCall(
-      cb_data,
-      [](Napi::Env env, Napi::Function fn, ChunkCallbackData* info) {
-        // Create EncodedVideoChunk-like object (matches synchronous path)
-        Napi::Object chunk = Napi::Object::New(env);
-        chunk.Set("type", info->is_key ? "key" : "delta");
-        chunk.Set("timestamp", Napi::Number::New(env, info->pts));
-        chunk.Set("duration", Napi::Number::New(env, info->duration));
-        chunk.Set("data", Napi::Buffer<uint8_t>::Copy(env, info->data.data(),
-                                                       info->data.size()));
+  output_tsfn_.NonBlockingCall(cb_data, [](Napi::Env env, Napi::Function fn,
+                                           ChunkCallbackData* info) {
+    // Create EncodedVideoChunk-like object (matches synchronous path)
+    Napi::Object chunk = Napi::Object::New(env);
+    chunk.Set("type", info->is_key ? "key" : "delta");
+    chunk.Set("timestamp", Napi::Number::New(env, info->pts));
+    chunk.Set("duration", Napi::Number::New(env, info->duration));
+    chunk.Set("data", Napi::Buffer<uint8_t>::Copy(env, info->data.data(),
+                                                  info->data.size()));
 
-        // Create metadata object matching sync path
-        Napi::Object metadata = Napi::Object::New(env);
+    // Create metadata object matching sync path
+    Napi::Object metadata = Napi::Object::New(env);
 
-        // Add SVC metadata per W3C spec (base layer)
-        Napi::Object svc = Napi::Object::New(env);
-        svc.Set("temporalLayerId", Napi::Number::New(env, 0));
-        metadata.Set("svc", svc);
+    // Add SVC metadata per W3C spec (base layer)
+    Napi::Object svc = Napi::Object::New(env);
+    svc.Set("temporalLayerId", Napi::Number::New(env, 0));
+    metadata.Set("svc", svc);
 
-        // Add decoderConfig for keyframes per W3C spec
-        if (info->is_key) {
-          Napi::Object decoder_config = Napi::Object::New(env);
-          decoder_config.Set("codec", info->metadata.codec_string);
-          decoder_config.Set("codedWidth",
-                             Napi::Number::New(env, info->metadata.coded_width));
-          decoder_config.Set("codedHeight",
-                             Napi::Number::New(env, info->metadata.coded_height));
-          decoder_config.Set(
-              "displayAspectWidth",
-              Napi::Number::New(env, info->metadata.display_width));
-          decoder_config.Set(
-              "displayAspectHeight",
-              Napi::Number::New(env, info->metadata.display_height));
+    // Add decoderConfig for keyframes per W3C spec
+    if (info->is_key) {
+      Napi::Object decoder_config = Napi::Object::New(env);
+      decoder_config.Set("codec", info->metadata.codec_string);
+      decoder_config.Set("codedWidth",
+                         Napi::Number::New(env, info->metadata.coded_width));
+      decoder_config.Set("codedHeight",
+                         Napi::Number::New(env, info->metadata.coded_height));
+      decoder_config.Set("displayAspectWidth",
+                         Napi::Number::New(env, info->metadata.display_width));
+      decoder_config.Set("displayAspectHeight",
+                         Napi::Number::New(env, info->metadata.display_height));
 
-          // Add description (extradata) if available
-          if (!info->extradata.empty()) {
-            decoder_config.Set(
-                "description",
-                Napi::Buffer<uint8_t>::Copy(env, info->extradata.data(),
-                                            info->extradata.size()));
-          }
+      // Add description (extradata) if available
+      if (!info->extradata.empty()) {
+        decoder_config.Set("description", Napi::Buffer<uint8_t>::Copy(
+                                              env, info->extradata.data(),
+                                              info->extradata.size()));
+      }
 
-          // Add colorSpace to decoderConfig if configured
-          if (!info->metadata.color_primaries.empty() ||
-              !info->metadata.color_transfer.empty() ||
-              !info->metadata.color_matrix.empty()) {
-            Napi::Object color_space = Napi::Object::New(env);
-            if (!info->metadata.color_primaries.empty()) {
-              color_space.Set("primaries", info->metadata.color_primaries);
-            }
-            if (!info->metadata.color_transfer.empty()) {
-              color_space.Set("transfer", info->metadata.color_transfer);
-            }
-            if (!info->metadata.color_matrix.empty()) {
-              color_space.Set("matrix", info->metadata.color_matrix);
-            }
-            color_space.Set("fullRange", info->metadata.color_full_range);
-            decoder_config.Set("colorSpace", color_space);
-          }
-
-          metadata.Set("decoderConfig", decoder_config);
+      // Add colorSpace to decoderConfig if configured
+      if (!info->metadata.color_primaries.empty() ||
+          !info->metadata.color_transfer.empty() ||
+          !info->metadata.color_matrix.empty()) {
+        Napi::Object color_space = Napi::Object::New(env);
+        if (!info->metadata.color_primaries.empty()) {
+          color_space.Set("primaries", info->metadata.color_primaries);
         }
+        if (!info->metadata.color_transfer.empty()) {
+          color_space.Set("transfer", info->metadata.color_transfer);
+        }
+        if (!info->metadata.color_matrix.empty()) {
+          color_space.Set("matrix", info->metadata.color_matrix);
+        }
+        color_space.Set("fullRange", info->metadata.color_full_range);
+        decoder_config.Set("colorSpace", color_space);
+      }
 
-        fn.Call({chunk, metadata});
+      metadata.Set("decoderConfig", decoder_config);
+    }
 
-        // Decrement pending count after callback completes
-        info->pending->fetch_sub(1);
-        delete info;
-      });
+    fn.Call({chunk, metadata});
+
+    // Decrement pending count after callback completes
+    info->pending->fetch_sub(1);
+    delete info;
+  });
 }
