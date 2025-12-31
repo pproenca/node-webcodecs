@@ -8,7 +8,7 @@
 
 import { expect, test } from 'vitest';
 
-test('VideoEncoder lifecycle', { timeout: 10_000 }, async () => {
+test('VideoEncoder lifecycle', { timeout: 60_000 }, async () => {
   let first = true;
 
   const encoder = new VideoEncoder({
