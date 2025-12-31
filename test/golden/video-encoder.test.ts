@@ -712,6 +712,8 @@ describe('VideoEncoder', () => {
       encoder.close();
 
       expect(chunks.length).toBe(4);
+      // Sort by timestamp to get presentation order (B-frames may cause decode order to differ)
+      chunks.sort((a, b) => a.timestamp - b.timestamp);
       // L1T2 pattern: [0, 1, 0, 1]
       expect(chunks[0].layerId).toBe(0);
       expect(chunks[1].layerId).toBe(1);
