@@ -5,11 +5,14 @@
  * - VideoEncoder, VideoDecoder, AudioEncoder, AudioDecoder extend EventTarget via CodecBase
  * - VideoFrame visibleRect cropping implemented in native layer
  * - ArrayBuffer transfer semantics implemented (uses structuredClone with transfer)
- * - High bit-depth pixel formats for VideoFrame (I420P10, I420P12, I422P10, I422P12, I444P10, I444P12, NV12P10)
+ * - High bit-depth pixel formats for VideoFrame (I420P10, I420P12, etc.)
  *   Note: VideoEncoder input format conversion does not yet support high bit-depth formats
  * - NV21 pixel format supported (8-bit YUV420 semi-planar with VU ordering)
- * - Note: VideoFrame constructor from CanvasImageSource not supported (Node.js has no DOM)
- * - 10-bit alpha formats (I420AP10, I422AP10, I444AP10) supported; 12-bit alpha not supported by FFmpeg
+ * - VideoFrame constructor accepts ImageData (from canvas.getImageData()) - Node.js extension
+ *   Usage: const frame = new VideoFrame(ctx.getImageData(0, 0, w, h), { timestamp: 0 })
+ * - ImageDecoder decodes JPEG/PNG/WebP/GIF directly to VideoFrame
+ * - 10-bit alpha formats (I420AP10, I422AP10, I444AP10) supported
+ * - SVC temporal layer tracking via scalabilityMode (L1T1, L1T2, L1T3)
  */
 
 import { binding, platformInfo } from './binding';
