@@ -18,10 +18,24 @@ extern "C" {
 #include <condition_variable>
 #include <mutex>
 #include <queue>
+#include <string>
 #include <thread>
 #include <vector>
 
 class VideoDecoder;
+
+// Metadata config for decoded video frames (mirrors EncoderMetadataConfig pattern)
+struct DecoderMetadataConfig {
+  int rotation = 0;
+  bool flip = false;
+  int display_width = 0;
+  int display_height = 0;
+  std::string color_primaries;
+  std::string color_transfer;
+  std::string color_matrix;
+  bool color_full_range = false;
+  bool has_color_space = false;
+};
 
 struct DecodeTask {
   std::vector<uint8_t> data;
@@ -55,6 +69,7 @@ class AsyncDecodeWorker {
   void Flush();
   void SetCodecContext(AVCodecContext* ctx, SwsContext* sws, int width,
                        int height);
+  void SetMetadataConfig(const DecoderMetadataConfig& config);
   bool IsRunning() const { return running_.load(); }
   size_t QueueSize() const;
   int GetPendingFrames() const { return pending_frames_.load(); }
@@ -91,6 +106,9 @@ class AsyncDecodeWorker {
   // Buffer pool for decoded frame data to reduce allocations
   std::vector<std::vector<uint8_t>*> buffer_pool_;
   std::mutex pool_mutex_;
+
+  // Decoder metadata for output frames
+  DecoderMetadataConfig metadata_config_;
 
   std::vector<uint8_t>* AcquireBuffer(size_t size);
   void ReleaseBuffer(std::vector<uint8_t>* buffer);

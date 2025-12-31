@@ -279,6 +279,20 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
   // Pass nullptr for sws_context - AsyncDecodeWorker creates it lazily
   async_worker_->SetCodecContext(codec_context_.get(), nullptr, coded_width_,
                                  coded_height_);
+
+  // Set metadata config for async output frames (matching encoder pattern)
+  DecoderMetadataConfig metadata_config;
+  metadata_config.rotation = rotation_;
+  metadata_config.flip = flip_;
+  metadata_config.display_width = display_aspect_width_;
+  metadata_config.display_height = display_aspect_height_;
+  metadata_config.color_primaries = color_primaries_;
+  metadata_config.color_transfer = color_transfer_;
+  metadata_config.color_matrix = color_matrix_;
+  metadata_config.color_full_range = color_full_range_;
+  metadata_config.has_color_space = has_color_space_;
+  async_worker_->SetMetadataConfig(metadata_config);
+
   async_worker_->Start();
 
   return env.Undefined();

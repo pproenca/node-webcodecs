@@ -5,6 +5,7 @@
 
 #include "src/async_decode_worker.h"
 
+#include <cmath>
 #include <string>
 #include <utility>
 #include <vector>
@@ -61,6 +62,10 @@ void AsyncDecodeWorker::SetCodecContext(AVCodecContext* ctx,
   output_height_ = height;
   frame_ = av_frame_alloc();
   packet_ = av_packet_alloc();
+}
+
+void AsyncDecodeWorker::SetMetadataConfig(const DecoderMetadataConfig& config) {
+  metadata_config_ = config;
 }
 
 void AsyncDecodeWorker::Start() {
@@ -237,6 +242,29 @@ void AsyncDecodeWorker::EmitFrame(AVFrame* frame) {
   int width = output_width_;
   int height = output_height_;
 
+  // Capture metadata for lambda
+  int rotation = metadata_config_.rotation;
+  bool flip = metadata_config_.flip;
+
+  // Calculate display dimensions based on aspect ratio (per W3C spec).
+  // If displayAspectWidth/displayAspectHeight are set, compute display
+  // dimensions maintaining the height and adjusting width to match ratio.
+  int disp_width = width;
+  int disp_height = height;
+  if (metadata_config_.display_width > 0 && metadata_config_.display_height > 0) {
+    // Per W3C spec: displayWidth = codedHeight * aspectWidth / aspectHeight
+    disp_width = static_cast<int>(
+        std::round(static_cast<double>(height) *
+                   static_cast<double>(metadata_config_.display_width) /
+                   static_cast<double>(metadata_config_.display_height)));
+    disp_height = height;
+  }
+  std::string color_primaries = metadata_config_.color_primaries;
+  std::string color_transfer = metadata_config_.color_transfer;
+  std::string color_matrix = metadata_config_.color_matrix;
+  bool color_full_range = metadata_config_.color_full_range;
+  bool has_color_space = metadata_config_.has_color_space;
+
   // Increment pending BEFORE queueing callback for accurate tracking
   pending_frames_++;
 
@@ -244,13 +272,34 @@ void AsyncDecodeWorker::EmitFrame(AVFrame* frame) {
   AsyncDecodeWorker* worker = this;
   output_tsfn_.NonBlockingCall(
       rgba_data,
-      [worker, width, height, timestamp](Napi::Env env, Napi::Function fn,
-                                         std::vector<uint8_t>* data) {
-        Napi::Object frame_obj = VideoFrame::CreateInstance(
-            env, data->data(), data->size(), width, height, timestamp, "RGBA");
-        fn.Call({frame_obj});
+      [worker, width, height, timestamp, rotation, flip, disp_width,
+       disp_height, color_primaries, color_transfer, color_matrix,
+       color_full_range,
+       has_color_space](Napi::Env env, Napi::Function fn,
+                        std::vector<uint8_t>* data) {
+        // Always clean up, even if callback throws
+        try {
+          Napi::Object frame_obj;
+          if (has_color_space) {
+            frame_obj = VideoFrame::CreateInstance(
+                env, data->data(), data->size(), width, height, timestamp,
+                "RGBA", rotation, flip, disp_width, disp_height, color_primaries,
+                color_transfer, color_matrix, color_full_range);
+          } else {
+            frame_obj = VideoFrame::CreateInstance(
+                env, data->data(), data->size(), width, height, timestamp,
+                "RGBA", rotation, flip, disp_width, disp_height);
+          }
+          fn.Call({frame_obj});
+        } catch (const std::exception& e) {
+          // Log but don't propagate - cleanup must happen
+          fprintf(stderr, "AsyncDecodeWorker callback error: %s\n", e.what());
+        } catch (...) {
+          fprintf(stderr,
+                  "AsyncDecodeWorker callback error: unknown exception\n");
+        }
+        // Always release buffer and decrement pending
         worker->ReleaseBuffer(data);
-        // Decrement pending AFTER callback completes
         worker->pending_frames_--;
       });
 }
