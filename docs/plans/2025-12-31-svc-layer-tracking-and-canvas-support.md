@@ -1,14 +1,17 @@
-# SVC Layer Tracking and node-canvas Support Implementation Plan
+# SVC Layer Tracking and ImageData Support Implementation Plan
 
 > **Execution:** Use `/dev-workflow:execute-plan docs/plans/2025-12-31-svc-layer-tracking-and-canvas-support.md` to implement task-by-task.
 
-**Goal:** Implement actual temporal layer tracking for SVC video encoding and add node-canvas support for VideoFrame constructor.
+**Goal:** Implement actual temporal layer tracking for SVC video encoding and add ImageData support for VideoFrame constructor (enabling canvas integration).
 
 **Architecture:**
 - SVC: Frame-position-based layer computation since FFmpeg doesn't expose temporal layer IDs in packet output. Parse `scalabilityMode` during configure, compute layer ID at emit time.
-- Canvas: Duck-typing to detect canvas objects, extract RGBA pixels via `getImageData()`, pass to existing native VideoFrame constructor.
+- ImageData: Accept ImageData objects (from `canvas.getImageData()`) directly in VideoFrame constructor. This follows sharp's pattern of NOT wrapping Canvas directly - users extract ImageData themselves, which is cleaner and more portable.
 
 **Tech Stack:** C++ (video_encoder.cc, async_encode_worker.cc), TypeScript (video-frame.ts, is.ts, types.ts)
+
+**Design Insight from sharp library:**
+Sharp accepts raw pixel buffers with `{ width, height, channels }` metadata and auto-detects bit depth from TypedArray type. Similarly, ImageData already contains `width`, `height`, and `data` (Uint8ClampedArray), making it self-describing. This is cleaner than accepting Canvas objects and calling getContext/getImageData internally.
 
 ---
 
@@ -396,9 +399,13 @@ git commit -m "test(encoder): add comprehensive SVC temporal layer tests"
 
 ---
 
-## Task Group 2: node-canvas Support (Serial - TypeScript changes)
+## Task Group 2: ImageData Support (Serial - TypeScript changes)
 
-### Task 6: Add isNodeCanvas type guard
+> **Design pattern from sharp:** Accept ImageData directly rather than Canvas objects.
+> Users call `canvas.getContext('2d').getImageData()` themselves - this is cleaner
+> because ImageData is self-describing (has width, height, data).
+
+### Task 6: Add isImageData type guard
 
 **Files:**
 - Modify: `lib/is.ts`
@@ -408,21 +415,31 @@ git commit -m "test(encoder): add comprehensive SVC temporal layer tests"
 Add to `test/golden/is.test.ts`:
 
 ```typescript
-describe('isNodeCanvas', () => {
-  it('should detect canvas-like objects', () => {
-    const mockCanvas = {
+describe('isImageData', () => {
+  it('should detect ImageData-like objects', () => {
+    const mockImageData = {
       width: 100,
       height: 100,
-      getContext: () => ({}),
+      data: new Uint8ClampedArray(100 * 100 * 4),
     };
-    expect(is.isNodeCanvas(mockCanvas)).toBe(true);
+    expect(is.isImageData(mockImageData)).toBe(true);
   });
 
-  it('should reject non-canvas objects', () => {
-    expect(is.isNodeCanvas({})).toBe(false);
-    expect(is.isNodeCanvas({ width: 100 })).toBe(false);
-    expect(is.isNodeCanvas(null)).toBe(false);
-    expect(is.isNodeCanvas(Buffer.alloc(100))).toBe(false);
+  it('should reject non-ImageData objects', () => {
+    expect(is.isImageData({})).toBe(false);
+    expect(is.isImageData({ width: 100, height: 100 })).toBe(false);
+    expect(is.isImageData({ data: new Uint8Array(100) })).toBe(false);
+    expect(is.isImageData(null)).toBe(false);
+    expect(is.isImageData(Buffer.alloc(100))).toBe(false);
+  });
+
+  it('should require Uint8ClampedArray for data', () => {
+    const wrongType = {
+      width: 10,
+      height: 10,
+      data: new Uint8Array(400), // Wrong type - should be Uint8ClampedArray
+    };
+    expect(is.isImageData(wrongType)).toBe(false);
   });
 });
 ```
@@ -430,47 +447,38 @@ describe('isNodeCanvas', () => {
 **Step 2: Run test to verify failure** (30 sec)
 
 ```bash
-npm run test-unit -- --run -t "isNodeCanvas"
+npm run test-unit -- --run -t "isImageData"
 ```
 
-Expected: FAIL - isNodeCanvas is not defined
+Expected: FAIL - isImageData is not defined
 
-**Step 3: Implement isNodeCanvas** (2-5 min)
+**Step 3: Implement isImageData** (2-5 min)
 
 Add to `lib/is.ts`:
 
 ```typescript
 /**
- * Minimal interface for node-canvas Canvas objects.
- * Uses duck typing to avoid hard dependency on canvas package.
+ * ImageData-like interface (from canvas.getContext('2d').getImageData()).
+ * Self-describing: contains width, height, and RGBA pixel data.
  */
-export interface CanvasLike {
-  width: number;
-  height: number;
-  getContext(contextId: '2d'): CanvasRenderingContext2DLike | null;
-}
-
-interface CanvasRenderingContext2DLike {
-  getImageData(sx: number, sy: number, sw: number, sh: number): ImageDataLike;
-}
-
-interface ImageDataLike {
-  data: Uint8ClampedArray;
-  width: number;
-  height: number;
+export interface ImageDataLike {
+  readonly width: number;
+  readonly height: number;
+  readonly data: Uint8ClampedArray;
 }
 
 /**
- * Is this value a node-canvas Canvas object?
- * Uses duck typing to detect canvas-like objects without requiring the canvas package.
+ * Is this value an ImageData object (from canvas.getImageData)?
+ * ImageData is self-describing: contains width, height, and Uint8ClampedArray data.
+ * This follows sharp's pattern of accepting self-describing pixel buffers.
  */
-export function isNodeCanvas(val: unknown): val is CanvasLike {
+export function isImageData(val: unknown): val is ImageDataLike {
   if (!object(val)) return false;
-  const canvas = val as Record<string, unknown>;
+  const img = val as Record<string, unknown>;
   return (
-    positiveInteger(canvas.width) &&
-    positiveInteger(canvas.height) &&
-    fn(canvas.getContext)
+    positiveInteger(img.width) &&
+    positiveInteger(img.height) &&
+    img.data instanceof Uint8ClampedArray
   );
 }
 ```
@@ -478,7 +486,7 @@ export function isNodeCanvas(val: unknown): val is CanvasLike {
 **Step 4: Run test to verify pass** (30 sec)
 
 ```bash
-npm run test-unit -- --run -t "isNodeCanvas"
+npm run test-unit -- --run -t "isImageData"
 ```
 
 Expected: PASS
@@ -487,39 +495,39 @@ Expected: PASS
 
 ```bash
 git add lib/is.ts test/golden/is.test.ts
-git commit -m "feat(is): add isNodeCanvas type guard for canvas detection"
+git commit -m "feat(is): add isImageData type guard for canvas ImageData detection"
 ```
 
 ---
 
-### Task 7: Update types.ts with CanvasLike type
+### Task 7: Update types.ts with ImageDataLike type
 
 **Files:**
 - Modify: `lib/types.ts:1073-1082`
 
-**Step 1: Add CanvasLike export** (2-5 min)
+**Step 1: Add ImageDataLike export** (2-5 min)
 
 Add near VideoFrameConstructor:
 
 ```typescript
 /**
- * Minimal Canvas interface for node-canvas support.
- * Uses duck typing - no dependency on @types/canvas.
+ * ImageData interface for canvas integration.
+ * Matches the return type of canvas.getContext('2d').getImageData().
+ * Self-describing: contains width, height, and RGBA pixel data.
+ *
+ * Usage:
+ *   const ctx = canvas.getContext('2d');
+ *   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+ *   const frame = new VideoFrame(imageData, { timestamp: 0 });
  */
-export interface CanvasLike {
+export interface ImageDataLike {
   readonly width: number;
   readonly height: number;
-  getContext(contextId: '2d'): {
-    getImageData(sx: number, sy: number, sw: number, sh: number): {
-      data: Uint8ClampedArray;
-      width: number;
-      height: number;
-    };
-  } | null;
+  readonly data: Uint8ClampedArray;
 }
 ```
 
-**Step 2: Update VideoFrameConstructor comment** (2-5 min)
+**Step 2: Update VideoFrameConstructor** (2-5 min)
 
 ```typescript
 /**
@@ -528,11 +536,15 @@ export interface CanvasLike {
  *   constructor(CanvasImageSource image, optional VideoFrameInit init = {});
  *   constructor(AllowSharedBufferSource data, VideoFrameBufferInit init);
  *
- * Note: CanvasImageSource constructor supported via node-canvas (optional dependency)
+ * Node.js implementation:
+ *   - ImageData from canvas.getImageData() is supported (self-describing RGBA)
+ *   - Raw buffer with VideoFrameBufferInit for other formats
+ *   - VideoFrame cloning with optional overrides
  */
 export interface VideoFrameConstructor {
-  new (image: CanvasLike, init?: VideoFrameInit): VideoFrame;
+  new (imageData: ImageDataLike, init?: VideoFrameInit): VideoFrame;
   new (data: AllowSharedBufferSource, init: VideoFrameBufferInit): VideoFrame;
+  new (source: VideoFrame, init?: VideoFrameInit): VideoFrame;
 }
 ```
 
@@ -548,58 +560,55 @@ Expected: PASS
 
 ```bash
 git add lib/types.ts
-git commit -m "feat(types): add CanvasLike type for node-canvas support"
+git commit -m "feat(types): add ImageDataLike type for canvas integration"
 ```
 
 ---
 
-### Task 8: Add canvas support to VideoFrame constructor
+### Task 8: Add ImageData support to VideoFrame constructor
+
+> **W3C Compliance Note:** The W3C spec defines `CanvasImageSource` which includes
+> HTMLCanvasElement, HTMLVideoElement, ImageBitmap, etc. - these don't exist in Node.js.
+> ImageData is the underlying pixel data format that CanvasImageSource elements provide.
+> By accepting ImageData, we provide equivalent functionality for Node.js users who can
+> obtain ImageData from node-canvas via `ctx.getImageData()`. This is a practical
+> Node.js extension that maintains the spirit of the W3C spec.
 
 **Files:**
 - Modify: `lib/video-frame.ts`
+- Create: `test/golden/video-frame-imagedata.test.ts`
 
 **Step 1: Write failing test** (2-5 min)
 
-Add to `test/golden/video-frame-canvas.test.ts` (new file):
+Create `test/golden/video-frame-imagedata.test.ts`:
 
 ```typescript
 import { describe, expect, it } from 'vitest';
 import { VideoFrame } from '../..';
 import * as is from '../../lib/is';
 
-describe('VideoFrame constructor from Canvas', () => {
+describe('VideoFrame constructor from ImageData', () => {
   describe('type guard', () => {
-    it('should detect canvas-like objects', () => {
-      const mockCanvas = {
+    it('should detect ImageData-like objects', () => {
+      const imageData = {
         width: 100,
         height: 100,
-        getContext: () => ({
-          getImageData: () => ({
-            data: new Uint8ClampedArray(100 * 100 * 4),
-            width: 100,
-            height: 100,
-          }),
-        }),
+        data: new Uint8ClampedArray(100 * 100 * 4),
       };
-      expect(is.isNodeCanvas(mockCanvas)).toBe(true);
+      expect(is.isImageData(imageData)).toBe(true);
     });
   });
 
   describe('constructor', () => {
-    it('should create VideoFrame from canvas-like object', () => {
-      const mockCanvas = {
+    it('should create VideoFrame from ImageData', () => {
+      // Simulate canvas.getContext('2d').getImageData() result
+      const imageData = {
         width: 4,
         height: 4,
-        getContext: () => ({
-          getImageData: () => ({
-            data: new Uint8ClampedArray(4 * 4 * 4).fill(255),
-            width: 4,
-            height: 4,
-          }),
-        }),
+        data: new Uint8ClampedArray(4 * 4 * 4).fill(255),
       };
 
-      const frame = new VideoFrame(mockCanvas as any, { timestamp: 1000 });
+      const frame = new VideoFrame(imageData, { timestamp: 1000 });
 
       expect(frame.format).toBe('RGBA');
       expect(frame.codedWidth).toBe(4);
@@ -610,19 +619,13 @@ describe('VideoFrame constructor from Canvas', () => {
     });
 
     it('should apply VideoFrameInit overrides', () => {
-      const mockCanvas = {
+      const imageData = {
         width: 100,
         height: 100,
-        getContext: () => ({
-          getImageData: () => ({
-            data: new Uint8ClampedArray(100 * 100 * 4),
-            width: 100,
-            height: 100,
-          }),
-        }),
+        data: new Uint8ClampedArray(100 * 100 * 4),
       };
 
-      const frame = new VideoFrame(mockCanvas as any, {
+      const frame = new VideoFrame(imageData, {
         timestamp: 1000,
         duration: 5000,
       });
@@ -633,15 +636,33 @@ describe('VideoFrame constructor from Canvas', () => {
       frame.close();
     });
 
-    it('should throw when canvas context is unavailable', () => {
-      const mockCanvas = {
-        width: 100,
-        height: 100,
-        getContext: () => null,
+    it('should support visibleRect cropping', () => {
+      const imageData = {
+        width: 200,
+        height: 200,
+        data: new Uint8ClampedArray(200 * 200 * 4),
       };
 
-      expect(() => new VideoFrame(mockCanvas as any, { timestamp: 0 }))
-        .toThrow('Cannot get 2D context');
+      const frame = new VideoFrame(imageData, {
+        timestamp: 0,
+        visibleRect: { x: 50, y: 50, width: 100, height: 100 },
+      });
+
+      expect(frame.visibleRect?.x).toBe(50);
+      expect(frame.visibleRect?.width).toBe(100);
+
+      frame.close();
+    });
+
+    it('should validate ImageData has correct data size', () => {
+      const badImageData = {
+        width: 100,
+        height: 100,
+        data: new Uint8ClampedArray(10), // Wrong size!
+      };
+
+      expect(() => new VideoFrame(badImageData, { timestamp: 0 }))
+        .toThrow();
     });
   });
 });
@@ -650,50 +671,51 @@ describe('VideoFrame constructor from Canvas', () => {
 **Step 2: Run test to verify failure** (30 sec)
 
 ```bash
-npm run test-unit -- --run -t "Canvas"
+npm run test-unit -- --run -t "ImageData"
 ```
 
-Expected: FAIL - canvas not handled
+Expected: FAIL - ImageData not handled in constructor
 
-**Step 3: Implement canvas support in VideoFrame** (2-5 min)
+**Step 3: Implement ImageData support in VideoFrame** (2-5 min)
 
 Update `lib/video-frame.ts` constructor:
 
 ```typescript
-import { isNodeCanvas, type CanvasLike } from './is';
+import { isImageData, type ImageDataLike } from './is';
 
-// Update constructor signature to include canvas
+// Update constructor signature to include ImageData
 constructor(
-  dataOrSourceOrCanvas: Buffer | Uint8Array | ArrayBuffer | VideoFrame | CanvasLike,
+  dataOrSourceOrImageData: Buffer | Uint8Array | ArrayBuffer | VideoFrame | ImageDataLike,
   init?: VideoFrameBufferInit | VideoFrameInit,
 ) {
-  // Check if constructing from canvas (before VideoFrame check)
-  if (isNodeCanvas(dataOrSourceOrCanvas)) {
-    const canvas = dataOrSourceOrCanvas;
+  // Check if constructing from ImageData (self-describing RGBA)
+  if (isImageData(dataOrSourceOrImageData)) {
+    const imageData = dataOrSourceOrImageData;
     const frameInit = init as VideoFrameInit | undefined;
 
-    // Get 2D context and extract pixel data
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      throw new DOMException(
-        'Cannot get 2D context from canvas',
-        'InvalidStateError',
+    // Validate data size matches dimensions
+    const expectedSize = imageData.width * imageData.height * 4;
+    if (imageData.data.length !== expectedSize) {
+      throw new TypeError(
+        `ImageData.data length (${imageData.data.length}) does not match ` +
+        `expected size (${expectedSize}) for ${imageData.width}x${imageData.height} RGBA`
       );
     }
 
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const dataBuffer = Buffer.from(imageData.data.buffer);
+    // Convert Uint8ClampedArray to Buffer for native binding
+    const dataBuffer = Buffer.from(imageData.data.buffer, imageData.data.byteOffset, imageData.data.byteLength);
 
-    // Build VideoFrameBufferInit from canvas dimensions
+    // Build VideoFrameBufferInit from ImageData dimensions
+    // ImageData is always RGBA format from canvas
     const bufferInit: VideoFrameBufferInit = {
       format: 'RGBA',
-      codedWidth: canvas.width,
-      codedHeight: canvas.height,
+      codedWidth: imageData.width,
+      codedHeight: imageData.height,
       timestamp: frameInit?.timestamp ?? 0,
       duration: frameInit?.duration,
       visibleRect: frameInit?.visibleRect,
-      displayWidth: frameInit?.displayWidth ?? canvas.width,
-      displayHeight: frameInit?.displayHeight ?? canvas.height,
+      displayWidth: frameInit?.displayWidth ?? imageData.width,
+      displayHeight: frameInit?.displayHeight ?? imageData.height,
       metadata: frameInit?.metadata,
     };
 
@@ -710,7 +732,7 @@ constructor(
 **Step 4: Run test to verify pass** (30 sec)
 
 ```bash
-npm run test-unit -- --run -t "Canvas"
+npm run test-unit -- --run -t "ImageData"
 ```
 
 Expected: PASS
@@ -718,8 +740,8 @@ Expected: PASS
 **Step 5: Commit** (30 sec)
 
 ```bash
-git add lib/video-frame.ts test/golden/video-frame-canvas.test.ts
-git commit -m "feat(video-frame): add node-canvas support to constructor"
+git add lib/video-frame.ts test/golden/video-frame-imagedata.test.ts
+git commit -m "feat(video-frame): add ImageData support for canvas integration"
 ```
 
 ---
@@ -744,8 +766,9 @@ Update the module header:
  * - High bit-depth pixel formats for VideoFrame (I420P10, I420P12, etc.)
  *   Note: VideoEncoder input format conversion does not yet support high bit-depth formats
  * - NV21 pixel format supported (8-bit YUV420 semi-planar with VU ordering)
- * - VideoFrame constructor from CanvasImageSource supported via node-canvas (optional)
- *   Alternative: Use ImageDecoder to decode JPEG/PNG/WebP/GIF directly to VideoFrame
+ * - VideoFrame constructor accepts ImageData (from canvas.getImageData()) - Node.js extension
+ *   Usage: const frame = new VideoFrame(ctx.getImageData(0, 0, w, h), { timestamp: 0 })
+ * - ImageDecoder decodes JPEG/PNG/WebP/GIF directly to VideoFrame
  * - 10-bit alpha formats (I420AP10, I422AP10, I444AP10) supported
  * - SVC temporal layer tracking via scalabilityMode (L1T1, L1T2, L1T3)
  */
@@ -763,7 +786,7 @@ Expected: PASS
 
 ```bash
 git add lib/index.ts
-git commit -m "docs: update module header with canvas and SVC support"
+git commit -m "docs: update module header with ImageData and SVC support"
 ```
 
 ---
@@ -819,7 +842,17 @@ If any cleanup needed, commit with appropriate message.
 
 ## Removed TODOs After Implementation
 
-1. `src/video_encoder.cc:571` - RESOLVED: Now computes actual layer ID
-2. `src/async_encode_worker.cc:231` - RESOLVED: Now computes actual layer ID
-3. `lib/index.ts:11` - UPDATED: Changed from "not supported" to "supported via node-canvas"
-4. `lib/types.ts:1080` - UPDATED: Added canvas constructor overload
+1. `src/video_encoder.cc:571` - RESOLVED: Now computes actual temporal layer ID based on scalabilityMode
+2. `src/async_encode_worker.cc:231` - RESOLVED: Now computes actual temporal layer ID based on scalabilityMode
+3. `lib/index.ts:11` - UPDATED: Changed from "not supported" to "ImageData support via canvas.getImageData()"
+4. `lib/types.ts:1080` - UPDATED: Added ImageDataLike constructor overload for W3C CanvasImageSource equivalent
+
+## W3C Compliance Summary
+
+| W3C Feature | Implementation | Status |
+|-------------|----------------|--------|
+| `VideoFrame(CanvasImageSource)` | `VideoFrame(ImageData)` | Node.js equivalent - ImageData is what CanvasImageSource provides |
+| `SvcOutputMetadata.temporalLayerId` | Computed from frame position + scalabilityMode | Compliant |
+| `scalabilityMode` parsing | L1T1, L1T2, L1T3 supported | Compliant |
+| Buffer-based construction | `VideoFrame(buffer, init)` | Compliant |
+| VideoFrame cloning | `VideoFrame(frame, init)` | Compliant |
