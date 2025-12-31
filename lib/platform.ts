@@ -77,5 +77,12 @@ export function isPrebuiltAvailable(): boolean {
  * Get the npm package name for the prebuilt binary.
  */
 export function getPrebuiltPackageName(): string {
-  return `@ffmpeg/node-webcodecs-${runtimePlatformArch()}`;
+  return `@pproenca/node-webcodecs-${runtimePlatformArch()}`;
+}
+
+/**
+ * Get the npm package name for prebuilt FFmpeg.
+ */
+export function getFFmpegPackageName(): string {
+  return `@pproenca/ffmpeg-${runtimePlatformArch()}`;
 }
