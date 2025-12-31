@@ -155,7 +155,7 @@ test('clone() creates independent copy', () => {
   );
 
   // Clone can still provide allocation size
-  const size = cloned.allocationSize();
+  const size = cloned.allocationSize({planeIndex: 0});
   assert.ok(size > 0, 'clone allocationSize should still work');
 
   cloned.close();
@@ -165,9 +165,10 @@ test('clone() creates independent copy', () => {
 test('allocationSize() returns correct size', () => {
   const audioData = createTestAudioData();
 
-  // For f32 stereo: 1024 frames * 2 channels * 4 bytes = 8192 bytes
+  // For f32 interleaved stereo: 1024 frames * 2 channels * 4 bytes = 8192 bytes
+  // Note: planeIndex 0 is required for interleaved formats
   const expectedSize = NUMBER_OF_FRAMES * NUMBER_OF_CHANNELS * BYTES_PER_SAMPLE;
-  const actualSize = audioData.allocationSize();
+  const actualSize = audioData.allocationSize({planeIndex: 0});
 
   assert.strictEqual(
     actualSize,
@@ -219,7 +220,7 @@ test('copyTo() copies data correctly', () => {
   const destBuffer = new ArrayBuffer(
     NUMBER_OF_FRAMES * NUMBER_OF_CHANNELS * BYTES_PER_SAMPLE,
   );
-  audioData.copyTo(destBuffer);
+  audioData.copyTo(destBuffer, {planeIndex: 0});
 
   const destView = new Float32Array(destBuffer);
   // Verify data was copied
