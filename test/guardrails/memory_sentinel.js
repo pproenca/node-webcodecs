@@ -2,6 +2,7 @@ const {VideoEncoder, VideoFrame} = require('../../dist');
 
 const LIMIT_MB = 50;
 const FRAMES = 10000;
+const FLUSH_INTERVAL = 100; // Flush every 100 frames to prevent unbounded queue growth
 
 async function run() {
   console.log(`Memory Leak Check (${FRAMES} frames)`);
@@ -32,6 +33,13 @@ async function run() {
     encoder.encode(frame);
     frame.close();
 
+    // Prevent unbounded queue growth by flushing periodically
+    // Without this, the async worker queue grows to FRAMES size, causing huge memory usage
+    // that looks like a leak but is just buffered data.
+    if (i % FLUSH_INTERVAL === 0) {
+      await encoder.flush();
+    }
+
     // Periodic GC to isolate C++ leaks from JS wrappers
     if (i % 1000 === 0 && global.gc) {
       global.gc();
@@ -41,6 +49,8 @@ async function run() {
   }
 
   await encoder.flush();
+  encoder.close();
+
   if (global.gc) global.gc();
 
   const endRSS = process.memoryUsage().rss;
