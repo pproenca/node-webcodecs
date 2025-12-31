@@ -1193,3 +1193,19 @@ export interface MuxerAudioTrackConfig {
   bitrate?: number;
   description?: ArrayBuffer | Uint8Array;
 }
+
+// =============================================================================
+// TEST VIDEO GENERATOR
+// =============================================================================
+
+/**
+ * Configuration for TestVideoGenerator
+ * @nonstandard - node-webcodecs test utility, not part of W3C WebCodecs spec.
+ */
+export interface TestVideoGeneratorConfig {
+  width: number;
+  height: number;
+  frameRate?: number;
+  duration?: number;
+  pattern?: 'testsrc' | 'testsrc2' | 'color' | 'smptebars';
+}

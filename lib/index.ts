@@ -45,7 +45,7 @@ export const testAttrAsEnum = native.testAttrAsEnum;
 export const createEncoderConfigDescriptor = native.createEncoderConfigDescriptor;
 
 // Export TestVideoGenerator (test helper for generating test video frames)
-export const TestVideoGenerator = native.TestVideoGenerator;
+export { TestVideoGenerator } from './test-video-generator';
 
 export type { ErrorCodeType } from './errors';
 // Re-export error classes and codes
@@ -133,6 +133,8 @@ export type {
   PlaneLayout,
   PredefinedColorSpace,
   SvcOutputMetadata,
+  // Test video generator
+  TestVideoGeneratorConfig,
   TrackInfo,
   // Video color space
   VideoColorPrimaries,
