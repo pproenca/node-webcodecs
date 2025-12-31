@@ -8,6 +8,39 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+describe('codec support', () => {
+  it('should support FLAC encoding', async () => {
+    const support = await AudioEncoder.isConfigSupported({
+      codec: 'flac',
+      sampleRate: 44100,
+      numberOfChannels: 2,
+    });
+
+    expect(support.supported).toBe(true);
+  });
+
+  it('should support MP3 encoding', async () => {
+    const support = await AudioEncoder.isConfigSupported({
+      codec: 'mp3',
+      sampleRate: 44100,
+      numberOfChannels: 2,
+      bitrate: 128000,
+    });
+
+    expect(support.supported).toBe(true);
+  });
+
+  it('should support Vorbis encoding', async () => {
+    const support = await AudioEncoder.isConfigSupported({
+      codec: 'vorbis',
+      sampleRate: 44100,
+      numberOfChannels: 2,
+    });
+
+    expect(support.supported).toBe(true);
+  });
+});
+
 describe('encodeQueueSize tracking', () => {
   it('should track pending encode operations', async () => {
     const outputChunks: EncodedAudioChunk[] = [];
