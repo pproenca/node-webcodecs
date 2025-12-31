@@ -1,0 +1,73 @@
+name: npm smoke test
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  smoke-test:
+    name: "${{ matrix.os }} - ${{ matrix.pm }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            pm: npm
+          - os: ubuntu-latest
+            pm: pnpm
+          - os: macos-latest
+            pm: npm
+
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        if: matrix.pm == 'pnpm'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install FFmpeg (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libavcodec-dev \
+            libavutil-dev \
+            libswscale-dev \
+            libswresample-dev \
+            libavfilter-dev
+
+      - name: Install FFmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+
+      - name: Create test project
+        run: |
+          mkdir test-project
+          cd test-project
+          echo '{"name":"test","type":"module"}' > package.json
+
+      - name: Install package (npm)
+        if: matrix.pm == 'npm'
+        run: cd test-project && npm install node-webcodecs
+
+      - name: Install package (pnpm)
+        if: matrix.pm == 'pnpm'
+        run: cd test-project && pnpm install node-webcodecs
+
+      - name: Smoke test
+        run: |
+          cd test-project
+          node -e "
+            import('node-webcodecs').then(({ VideoEncoder, VideoFrame }) => {
+              console.log('VideoEncoder:', typeof VideoEncoder);
+              console.log('VideoFrame:', typeof VideoFrame);
+              if (typeof VideoEncoder !== 'function') process.exit(1);
+            });
+          "

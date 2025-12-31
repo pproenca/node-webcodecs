@@ -7,7 +7,22 @@ on:
     branches: [master, main]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: 'npm'
+      - run: npm ci --ignore-scripts
+      - run: npm run lint-js
+      - name: Lint C++
+        run: npm run lint-cpp
+        continue-on-error: true  # cpplint may not be installed
+
   build-and-test:
+    needs: lint
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
