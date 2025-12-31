@@ -8,7 +8,7 @@
  * 4. Verify decoded frames match originals
  */
 
-const {VideoEncoder, VideoDecoder, VideoFrame} = require('../../dist');
+const {VideoEncoder, VideoDecoder, VideoFrame} = require('@pproenca/node-webcodecs');
 
 const WIDTH = 320;
 const HEIGHT = 240;

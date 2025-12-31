@@ -10,7 +10,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const {VideoEncoder, VideoFrame} = require('../../dist');
+const {VideoEncoder, VideoFrame} = require('@pproenca/node-webcodecs');
 
 const OUTPUT_DIR = path.join(__dirname, '..', 'output');
 const WIDTH = 640;

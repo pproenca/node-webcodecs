@@ -11,7 +11,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const {VideoEncoder, VideoFrame, VideoFilter} = require('../../dist');
+const {VideoEncoder, VideoFrame, VideoFilter} = require('@pproenca/node-webcodecs');
 
 const OUTPUT_DIR = path.join(__dirname, '..', 'output');
 const OUTPUT_H264 = path.join(OUTPUT_DIR, 'moderated.h264');

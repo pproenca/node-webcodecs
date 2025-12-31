@@ -19,7 +19,7 @@ const {
   VideoDecoder,
   VideoEncoder,
   VideoFrame,
-} = require('../../dist');
+} = require('@pproenca/node-webcodecs');
 
 const OUTPUT_DIR = path.join(__dirname, '..', 'output');
 const INPUT_VIDEO = path.join(OUTPUT_DIR, 'input.mp4');
