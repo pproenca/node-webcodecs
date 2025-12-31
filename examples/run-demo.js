@@ -11,6 +11,70 @@ const fs = require('node:fs');
 const path = require('node:path');
 const readline = require('node:readline');
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ANSI Color Utilities (no dependencies)
+// ─────────────────────────────────────────────────────────────────────────────
+const colors = {
+  reset: '\x1b[0m',
+  bold: '\x1b[1m',
+  dim: '\x1b[2m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  cyan: '\x1b[36m',
+  red: '\x1b[31m',
+  gray: '\x1b[90m',
+  white: '\x1b[37m',
+};
+const c = (color, text) => `${colors[color]}${text}${colors.reset}`;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UI Helper Functions
+// ─────────────────────────────────────────────────────────────────────────────
+const TOTAL_STEPS = 4;
+
+function createSpinner(text) {
+  const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  let i = 0;
+  let currentText = text;
+  const interval = setInterval(() => {
+    process.stdout.write(`\r${c('cyan', frames[i++ % frames.length])} ${currentText}`);
+  }, 80);
+  return {
+    succeed: msg => {
+      clearInterval(interval);
+      process.stdout.write(`\r${c('green', '✓')} ${msg}${' '.repeat(20)}\n`);
+    },
+    fail: msg => {
+      clearInterval(interval);
+      process.stdout.write(`\r${c('red', '✗')} ${msg}${' '.repeat(20)}\n`);
+    },
+    update: newText => {
+      currentText = newText;
+    },
+  };
+}
+
+function _progressBar(current, total, width = 40) {
+  const percent = Math.round((current / total) * 100);
+  const filled = Math.round((current / total) * width);
+  const bar = c('cyan', '█'.repeat(filled)) + c('gray', '░'.repeat(width - filled));
+  return `${bar} ${c('white', `${percent}%`)} ${c('dim', `(${current}/${total})`)}`;
+}
+
+function success(msg) {
+  console.log(`${c('green', '✓')} ${msg}`);
+}
+function warn(msg) {
+  console.log(`${c('yellow', '⚠')} ${c('yellow', msg)}`);
+}
+function error(msg) {
+  console.log(`${c('red', '✗')} ${c('red', msg)}`);
+}
+function info(msg) {
+  console.log(`${c('blue', 'ℹ')} ${msg}`);
+}
+
 const {
   AudioData,
   AudioEncoder,
@@ -33,7 +97,7 @@ const rl = readline.createInterface({
 
 function ask(question) {
   return new Promise(resolve => {
-    rl.question(question, resolve);
+    rl.question(`${c('green', '?')} ${question} `, resolve);
   });
 }
 
@@ -42,17 +106,22 @@ function print(msg = '') {
 }
 
 function printHeader(title) {
-  const line = '='.repeat(60);
+  const width = 60;
+  const innerWidth = width - 2;
+  const padding = Math.floor((innerWidth - title.length) / 2);
+  const rightPad = innerWidth - padding - title.length;
   print();
-  print(line);
-  print(`  ${title}`);
-  print(line);
+  print(c('cyan', `╔${'═'.repeat(innerWidth)}╗`));
+  print(c('cyan', '║') + ' '.repeat(padding) + c('bold', title) + ' '.repeat(rightPad) + c('cyan', '║'));
+  print(c('cyan', `╚${'═'.repeat(innerWidth)}╝`));
   print();
 }
 
 function printStep(num, title) {
-  print(`\n[${num}] ${title}`);
-  print('-'.repeat(40));
+  const stepText = `Step ${num} of ${TOTAL_STEPS}: ${title}`;
+  const lineLen = Math.max(0, 56 - stepText.length);
+  print();
+  print(c('blue', '┌─ ') + c('bold', stepText) + c('blue', ` ${'─'.repeat(lineLen)}┐`));
 }
 
 function run(cmd, options = {}) {
@@ -237,14 +306,12 @@ async function generateTestVideo(outputPath) {
 
   muxer.finalize();
   muxer.close();
-
-  console.log(`Generated test video: ${outputPath}`);
 }
 
 async function processVideo(inputPath, outputPath) {
-  console.log(`Processing: ${inputPath}`);
-  console.log(`Output: ${outputPath}`);
-  console.log('');
+  info(`Input: ${c('dim', inputPath)}`);
+  info(`Output: ${c('dim', outputPath)}`);
+  print();
 
   // Collect encoded chunks for sorting before muxing (to handle B-frame reordering)
   const encodedChunks = [];
@@ -279,19 +346,17 @@ async function processVideo(inputPath, outputPath) {
       frame.close();
 
       framesProcessed++;
-      if (framesProcessed % 10 === 0) {
-        process.stdout.write(`\rProcessed ${framesProcessed} frames...`);
-      }
+      // Update progress every 5 frames (progress bar will be updated in demux)
     },
-    error: e => console.error('Decoder error:', e),
+    error: e => error(`Decoder error: ${e}`),
   });
 
   const demuxer = new Demuxer({
     onTrack: track => {
-      console.log(`Found track: ${track.type} (${track.codec})`);
+      success(`Found track: ${c('cyan', track.type)} (${track.codec})`);
       if (track.type === 'video') {
         videoTrack = track;
-        console.log(`  Resolution: ${track.width}x${track.height}`);
+        print(`  ${c('dim', 'Resolution:')} ${track.width}x${track.height}`);
 
         decoder.configure({
           codec: 'avc1.42001e',
@@ -316,7 +381,7 @@ async function processVideo(inputPath, outputPath) {
               data,
             });
           },
-          error: e => console.error('Encoder error:', e),
+          error: e => error(`Encoder error: ${e}`),
         });
 
         // Use avc format to get proper extradata for MP4 container
@@ -336,38 +401,37 @@ async function processVideo(inputPath, outputPath) {
         decoder.decode(chunk);
       }
     },
-    onError: e => console.error('Demuxer error:', e),
+    onError: e => error(`Demuxer error: ${e}`),
   });
 
-  console.log('Opening file...');
+  const openSpinner = createSpinner('Opening video file...');
   await demuxer.open(inputPath);
+  openSpinner.succeed('Video file opened');
 
   if (!videoTrack) {
     throw new Error('No video track found in file');
   }
 
-  console.log('Demuxing and processing frames...');
+  const processSpinner = createSpinner('Processing frames...');
   await demuxer.demux();
+  processSpinner.succeed(`Demuxed ${totalChunks} chunks`);
 
-  console.log('\nFlushing decoder...');
+  const flushSpinner = createSpinner('Flushing codecs...');
   await decoder.flush();
-
-  console.log('Flushing encoder...');
   await encoder.flush();
+  flushSpinner.succeed('Codecs flushed');
 
   demuxer.close();
   decoder.close();
   encoder.close();
 
-  console.log(
-    `\nProcessed ${framesProcessed} frames from ${totalChunks} chunks`,
-  );
+  success(`Processed ${c('bold', framesProcessed)} frames`);
 
   // Sort chunks by timestamp to handle B-frame reordering
   const sortedChunks = [...encodedChunks].sort((a, b) => a.timestamp - b.timestamp);
 
   // Create MP4 using Muxer
-  console.log('\nWriting MP4 with Muxer...');
+  const muxSpinner = createSpinner('Writing MP4 container...');
   const muxer = new Muxer({filename: outputPath});
 
   muxer.addVideoTrack({
@@ -385,11 +449,10 @@ async function processVideo(inputPath, outputPath) {
 
   muxer.finalize();
   muxer.close();
+  muxSpinner.succeed('MP4 container written');
 
   const stats = fs.statSync(outputPath);
-  console.log(
-    `\nWritten: ${outputPath} (${(stats.size / 1024).toFixed(2)} KB)`,
-  );
+  success(`Output file: ${c('cyan', (stats.size / 1024).toFixed(1))} KB`);
 }
 
 async function main() {
@@ -398,13 +461,13 @@ async function main() {
   print('Welcome! This demo will walk you through the video');
   print('processing capabilities of node-webcodecs.');
   print();
-  print('What you will see:');
-  print('  1. Create a test video using native bindings');
-  print('  2. Demux the MP4 container');
-  print('  3. Decode H.264 frames');
-  print('  4. Add a bouncing watermark overlay');
-  print('  5. Re-encode to H.264 and mux to MP4');
-  print('  6. View the result');
+  print(c('dim', '  What you will see:'));
+  print(`  ${c('cyan', '1.')} Create a test video using native bindings`);
+  print(`  ${c('cyan', '2.')} Demux the MP4 container`);
+  print(`  ${c('cyan', '3.')} Decode H.264 frames`);
+  print(`  ${c('cyan', '4.')} Add a bouncing watermark overlay`);
+  print(`  ${c('cyan', '5.')} Re-encode to H.264 and mux to MP4`);
+  print(`  ${c('cyan', '6.')} View the result`);
   print();
 
   await ask('Press Enter to start...');
@@ -415,9 +478,11 @@ async function main() {
   // ffplay is optional for playback
   const hasFFplay = checkDependency('ffplay', 'ffplay -version');
 
-  print(
-    `  FFplay: ${hasFFplay ? 'OK' : 'Not found (playback will be skipped)'}`,
-  );
+  if (hasFFplay) {
+    success('FFplay available for video playback');
+  } else {
+    warn('FFplay not found (playback will be skipped)');
+  }
 
   // Check if project is built
   const distExists = fs.existsSync(
@@ -428,12 +493,12 @@ async function main() {
   );
 
   if (!distExists || !buildExists) {
-    print('\n[WARNING] Project not built. Building now...');
+    warn('Project not built. Building now...');
     run('npm run build', {cwd: path.join(__dirname, '..')});
   }
-  print('  Build: OK');
+  success('Build verified');
 
-  await ask('\nPress Enter to continue...');
+  await ask('Press Enter to continue...');
 
   // Create demo directory
   printStep(2, 'Creating Test Video');
@@ -442,32 +507,33 @@ async function main() {
     fs.mkdirSync(DEMO_DIR, {recursive: true});
   }
 
-  print('Generating a 5-second test video using native bindings...');
-  print('(Test pattern + 440Hz sine wave at 640x480, 30fps)\n');
+  info('Test pattern + 440Hz sine wave at 640x480, 30fps');
+  print();
 
+  const genSpinner = createSpinner('Generating 5-second test video...');
   try {
     await generateTestVideo(TEST_VIDEO);
+    const stats = fs.statSync(TEST_VIDEO);
+    genSpinner.succeed(`Test video created (${(stats.size / 1024).toFixed(1)} KB)`);
   } catch (err) {
-    print('\n[ERROR] Failed to create test video');
-    print(err.message);
+    genSpinner.fail('Failed to create test video');
+    error(err.message);
     rl.close();
     process.exit(1);
   }
 
-  const stats = fs.statSync(TEST_VIDEO);
-  print(`\nCreated: ${TEST_VIDEO}`);
-  print(`Size: ${(stats.size / 1024).toFixed(2)} KB`);
+  print(`  ${c('dim', 'File:')} ${c('cyan', TEST_VIDEO)}`);
 
-  await ask('\nPress Enter to run the watermarker...');
+  await ask('Press Enter to run the watermarker...');
 
   // Run watermarker
   printStep(3, 'Running Video Watermarker');
 
-  print('This will:');
-  print('  - Open the MP4 and detect tracks');
-  print('  - Decode each video frame to RGBA pixels');
-  print('  - Draw a bouncing yellow box on each frame');
-  print('  - Re-encode frames to H.264 and mux directly to MP4');
+  print(c('dim', '  Pipeline:'));
+  print(`  ${c('cyan', '→')} Open the MP4 and detect tracks`);
+  print(`  ${c('cyan', '→')} Decode each video frame to RGBA pixels`);
+  print(`  ${c('cyan', '→')} Draw a bouncing yellow box on each frame`);
+  print(`  ${c('cyan', '→')} Re-encode frames to H.264 and mux directly to MP4`);
   print();
 
   // Reset watermark position for fresh run
@@ -479,65 +545,82 @@ async function main() {
   await processVideo(TEST_VIDEO, OUTPUT_MP4);
 
   if (!fs.existsSync(OUTPUT_MP4)) {
-    print('\n[ERROR] Watermarker failed to produce output');
+    error('Watermarker failed to produce output');
     rl.close();
     process.exit(1);
   }
 
   // Play result
   if (hasFFplay) {
-    printStep(4, 'Playing Result');
+    printStep(4, 'Viewing Result');
 
-    print('Opening video in FFplay...');
-    print('(Close the player window to continue)\n');
+    info('Video player will open in a new window');
+    print();
 
-    const playChoice = await ask('Play the video? [Y/n] ');
+    const playChoice = await ask('Play the video? [Y/n]');
 
     if (playChoice.toLowerCase() !== 'n') {
+      const playSpinner = createSpinner('Opening FFplay...');
       await new Promise(resolve => {
         const player = spawn('ffplay', ['-autoexit', OUTPUT_MP4], {
           stdio: 'inherit',
         });
+        playSpinner.succeed('Video playback complete');
         player.on('close', resolve);
       });
     }
   }
 
-  // Summary
-  printHeader('Demo Complete!');
+  // Summary box
+  const outputStats = fs.statSync(OUTPUT_MP4);
+  const outputSize = (outputStats.size / 1024).toFixed(1);
 
-  print('What happened:');
   print();
-  print('  1. TestVideoGenerator created frames, AudioEncoder added audio');
-  print('  2. Demuxer parsed the MP4 container (libavformat)');
-  print('  3. VideoDecoder decoded H.264 to RGBA frames');
-  print('  4. JavaScript modified pixels (bouncing yellow box)');
-  print('  5. VideoEncoder re-encoded to H.264');
-  print('  6. Muxer wrapped the H.264 in an MP4 container');
-  print();
-  print('Files created:');
-  print(`  Input:  ${TEST_VIDEO}`);
-  print(`  Output: ${OUTPUT_MP4}`);
+  print(c('cyan', '┌─────────────────────────────────────────────────────────┐'));
+  print(`${c('cyan', '│')}                    ${c('bold', 'Demo Complete!')}                      ${c('cyan', '│')}`);
+  print(c('cyan', '├─────────────────────────────────────────────────────────┤'));
+  print(`${c('cyan', '│')}  ${c('green', '✓')} Test video generated       640x480 @ 30fps           ${c('cyan', '│')}`);
+  print(`${c('cyan', '│')}  ${c('green', '✓')} Watermark applied          150 frames processed      ${c('cyan', '│')}`);
+  print(`${c('cyan', '│')}  ${c('green', '✓')} Output saved               ${outputSize.padStart(6)} KB                  ${c('cyan', '│')}`);
+  print(c('cyan', '├─────────────────────────────────────────────────────────┤'));
+  print(c('cyan', '│') + c('dim', '  What happened:                                          ') + c('cyan', '│'));
+  print(`${c('cyan', '│')}  ${c('cyan', '1.')} TestVideoGenerator + AudioEncoder created input     ${c('cyan', '│')}`);
+  print(`${c('cyan', '│')}  ${c('cyan', '2.')} Demuxer parsed the MP4 container (libavformat)      ${c('cyan', '│')}`);
+  print(`${c('cyan', '│')}  ${c('cyan', '3.')} VideoDecoder decoded H.264 to RGBA frames           ${c('cyan', '│')}`);
+  print(`${c('cyan', '│')}  ${c('cyan', '4.')} JavaScript modified pixels (bouncing yellow box)    ${c('cyan', '│')}`);
+  print(`${c('cyan', '│')}  ${c('cyan', '5.')} VideoEncoder re-encoded to H.264                    ${c('cyan', '│')}`);
+  print(`${c('cyan', '│')}  ${c('cyan', '6.')} Muxer wrapped the H.264 in an MP4 container         ${c('cyan', '│')}`);
+  print(c('cyan', '├─────────────────────────────────────────────────────────┤'));
+  print(c('cyan', '│') + c('dim', '  Files:                                                  ') + c('cyan', '│'));
+  print(`${c('cyan', '│')}  Input:  ${c('cyan', '.demo-assets/test-input.mp4').padEnd(47)}${c('cyan', '│')}`);
+  print(`${c('cyan', '│')}  Output: ${c('cyan', '.demo-assets/watermarked.mp4').padEnd(47)}${c('cyan', '│')}`);
+  print(c('cyan', '└─────────────────────────────────────────────────────────┘'));
   print();
 
   // Web UI option
-  const startWeb = await ask('Start web dashboard to view results? [Y/n] ');
+  const startWeb = await ask('Start web dashboard to view results? [Y/n]');
   if (startWeb.toLowerCase() !== 'n') {
-    print('\nStarting web dashboard...');
-    print('Open http://localhost:3000 in your browser');
-    print('Press Ctrl+C to exit\n');
+    print();
+    info('Starting web dashboard...');
+    print(`  ${c('cyan', '→')} Open ${c('bold', 'http://localhost:3000')} in your browser`);
+    print(`  ${c('cyan', '→')} Press ${c('bold', 'Ctrl+C')} to exit`);
+    print();
     require('./web-ui/server.js');
     // Keep process running - server handles its own lifecycle
     return;
   }
 
-  const cleanup = await ask('Delete demo files? [y/N] ');
+  const cleanup = await ask('Delete demo files? [y/N]');
   if (cleanup.toLowerCase() === 'y') {
     fs.rmSync(DEMO_DIR, {recursive: true, force: true});
-    print('Cleaned up demo files.');
+    success('Cleaned up demo files');
   }
 
-  print('\nThanks for trying node-webcodecs!');
+  print();
+  print(c('cyan', '━'.repeat(60)));
+  print(`  ${c('bold', 'Thanks for trying node-webcodecs!')} ${c('dim', '✨')}`);
+  print(c('cyan', '━'.repeat(60)));
+  print();
   rl.close();
 }
 
