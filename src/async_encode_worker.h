@@ -53,6 +53,7 @@ struct EncoderMetadataConfig {
   std::string color_transfer;
   std::string color_matrix;
   bool color_full_range = false;
+  int temporal_layer_count = 1;  // From scalabilityMode (L1T1=1, L1T2=2, L1T3=3)
   // Note: extradata is copied from codec_context at emit time (may be set after
   // configure)
 };

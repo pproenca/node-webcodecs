@@ -672,4 +672,51 @@ describe('VideoEncoder', () => {
       expect(keyframe?.metadata?.decoderConfig?.colorSpace?.primaries).toBe('bt709');
     });
   });
+
+  describe('SVC temporal layer tracking', () => {
+    it('should report temporalLayerId based on scalabilityMode L1T2', async () => {
+      const chunks: Array<{ timestamp: number; layerId: number }> = [];
+
+      const encoder = new VideoEncoder({
+        output: (chunk, metadata) => {
+          chunks.push({
+            timestamp: chunk.timestamp,
+            layerId: metadata?.svc?.temporalLayerId ?? -1,
+          });
+        },
+        error: (e) => {
+          throw e;
+        },
+      });
+
+      encoder.configure({
+        codec: 'avc1.42E01E',
+        width: 320,
+        height: 240,
+        scalabilityMode: 'L1T2',
+      });
+
+      // Encode 4 frames
+      for (let i = 0; i < 4; i++) {
+        const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+          format: 'RGBA',
+          codedWidth: 320,
+          codedHeight: 240,
+          timestamp: i * 33333,
+        });
+        encoder.encode(frame);
+        frame.close();
+      }
+
+      await encoder.flush();
+      encoder.close();
+
+      expect(chunks.length).toBe(4);
+      // L1T2 pattern: [0, 1, 0, 1]
+      expect(chunks[0].layerId).toBe(0);
+      expect(chunks[1].layerId).toBe(1);
+      expect(chunks[2].layerId).toBe(0);
+      expect(chunks[3].layerId).toBe(1);
+    });
+  });
 });
