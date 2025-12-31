@@ -377,6 +377,20 @@ export interface NativeImageDecoderConstructor {
 }
 
 /**
+ * Native WarningAccumulator for collecting FFmpeg warnings
+ */
+export interface NativeWarningAccumulator {
+  add(warning: string): void;
+  drain(): string[];
+  hasWarnings(): boolean;
+  count(): number;
+}
+
+export interface NativeWarningAccumulatorConstructor {
+  new (): NativeWarningAccumulator;
+}
+
+/**
  * The native module interface
  */
 export interface NativeModule {
@@ -391,4 +405,5 @@ export interface NativeModule {
   VideoFilter: NativeVideoFilterConstructor;
   Demuxer: NativeDemuxerConstructor;
   ImageDecoder: NativeImageDecoderConstructor;
+  WarningAccumulator: NativeWarningAccumulatorConstructor;
 }
