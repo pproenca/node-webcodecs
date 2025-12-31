@@ -13,25 +13,7 @@
  */
 
 import { binding, platformInfo } from './binding';
-import { EncodedAudioChunk, EncodedVideoChunk } from './encoded-chunks';
-import type {
-  NativeDemuxer,
-  NativeModule,
-  NativeMuxer,
-  NativeVideoFilter,
-  NativeVideoFrame,
-} from './native-types';
-import type {
-  BlurRegion,
-  CodecState,
-  DemuxerInit,
-  MuxerAudioTrackConfig,
-  MuxerInit,
-  MuxerVideoTrackConfig,
-  TrackInfo,
-  VideoFilterConfig,
-} from './types';
-import { VideoFrame } from './video-frame';
+import type { NativeModule } from './native-types';
 
 // Load native addon with type assertion
 const native = binding as NativeModule;
@@ -43,10 +25,13 @@ export { platformInfo };
 export { AudioData } from './audio-data';
 export { AudioDecoder } from './audio-decoder';
 export { AudioEncoder } from './audio-encoder';
+export { Demuxer } from './demuxer';
 export { EncodedAudioChunk, EncodedVideoChunk } from './encoded-chunks';
 export { ImageDecoder } from './image-decoder';
+export { Muxer } from './muxer';
 export { VideoDecoder } from './video-decoder';
 export { VideoEncoder } from './video-encoder';
+export { VideoFilter } from './video-filter';
 export { VideoColorSpace, VideoFrame } from './video-frame';
 
 // Export WarningAccumulator from native binding
@@ -58,131 +43,6 @@ export const clearFFmpegWarnings = native.clearFFmpegWarnings;
 export const ErrorBuilder = native.ErrorBuilder;
 export const testAttrAsEnum = native.testAttrAsEnum;
 export const createEncoderConfigDescriptor = native.createEncoderConfigDescriptor;
-
-export class VideoFilter {
-  private _native: NativeVideoFilter;
-  private _state: CodecState = 'unconfigured';
-
-  constructor(config: VideoFilterConfig) {
-    this._native = new native.VideoFilter(config);
-  }
-
-  get state(): CodecState {
-    return this._state;
-  }
-
-  configure(config: VideoFilterConfig): void {
-    this._native.configure(config);
-    this._state = 'configured';
-  }
-
-  applyBlur(frame: VideoFrame, regions: BlurRegion[], strength: number = 20): VideoFrame {
-    if (this._state === 'closed') {
-      throw new DOMException('VideoFilter is closed', 'InvalidStateError');
-    }
-    // Pass the native VideoFrame to applyBlur, which returns a native VideoFrame
-    const resultNativeFrame = this._native.applyBlur(
-      frame._nativeFrame as NativeVideoFrame,
-      regions,
-      strength
-    );
-    // Wrap the returned native VideoFrame in a TypeScript VideoFrame
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const wrapper = Object.create(VideoFrame.prototype) as any;
-    wrapper._native = resultNativeFrame;
-    wrapper._closed = false;
-    wrapper._metadata = {};
-    return wrapper as VideoFrame;
-  }
-
-  close(): void {
-    this._native.close();
-    this._state = 'closed';
-  }
-}
-
-export class Demuxer {
-  private _native: NativeDemuxer;
-
-  constructor(init: DemuxerInit) {
-    this._native = new native.Demuxer({
-      onTrack: init.onTrack,
-      onChunk: (
-        chunk: {
-          type: string;
-          timestamp: number;
-          duration?: number;
-          data: Buffer;
-        },
-        trackIndex: number
-      ) => {
-        if (init.onChunk) {
-          // Wrap raw chunk in EncodedVideoChunk for consistency
-          const wrappedChunk = new EncodedVideoChunk({
-            type: chunk.type as 'key' | 'delta',
-            timestamp: chunk.timestamp,
-            duration: chunk.duration,
-            data: chunk.data,
-          });
-          init.onChunk(wrappedChunk, trackIndex);
-        }
-      },
-      onError: init.onError,
-    });
-  }
-
-  async open(path: string): Promise<void> {
-    return this._native.open(path);
-  }
-
-  async demux(): Promise<void> {
-    return this._native.demux();
-  }
-
-  close(): void {
-    this._native.close();
-  }
-
-  getVideoTrack(): TrackInfo | null {
-    return this._native.getVideoTrack();
-  }
-
-  getAudioTrack(): TrackInfo | null {
-    return this._native.getAudioTrack();
-  }
-}
-
-export class Muxer {
-  private _native: NativeMuxer;
-
-  constructor(init: MuxerInit) {
-    this._native = new native.Muxer({filename: init.filename});
-  }
-
-  addVideoTrack(config: MuxerVideoTrackConfig): number {
-    return this._native.addVideoTrack(config);
-  }
-
-  addAudioTrack(config: MuxerAudioTrackConfig): number {
-    return this._native.addAudioTrack(config);
-  }
-
-  writeVideoChunk(chunk: EncodedVideoChunk): void {
-    this._native.writeVideoChunk(chunk);
-  }
-
-  writeAudioChunk(chunk: EncodedAudioChunk): void {
-    this._native.writeAudioChunk(chunk);
-  }
-
-  finalize(): void {
-    this._native.finalize();
-  }
-
-  close(): void {
-    this._native.close();
-  }
-}
 
 export type { ErrorCodeType } from './errors';
 // Re-export error classes and codes
