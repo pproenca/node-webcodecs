@@ -9,7 +9,6 @@
 #include <string>
 #include <vector>
 
-#include "src/async_decode_worker.h"
 #include "src/common.h"
 #include "src/encoded_video_chunk.h"
 #include "src/video_frame.h"
@@ -77,20 +76,6 @@ VideoDecoder::VideoDecoder(const Napi::CallbackInfo& info)
 VideoDecoder::~VideoDecoder() { Cleanup(); }
 
 void VideoDecoder::Cleanup() {
-  // Stop async worker first.
-  if (async_worker_) {
-    async_worker_->Stop();
-    async_worker_.reset();
-  }
-
-  // Release ThreadSafeFunctions if they were created.
-  if (async_mode_) {
-    output_tsfn_.Release();
-    error_tsfn_.Release();
-  }
-
-  async_mode_ = false;
-
   frame_.reset();
   packet_.reset();
   sws_context_.reset();
@@ -257,20 +242,6 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
     Cleanup();
     throw Napi::Error::New(env, "Could not allocate packet");
   }
-
-  // Create ThreadSafeFunctions for async worker.
-  output_tsfn_ = Napi::ThreadSafeFunction::New(env, output_callback_.Value(),
-                                               "VideoDecoder::output", 0, 1,
-                                               [](Napi::Env) {});
-
-  error_tsfn_ = Napi::ThreadSafeFunction::New(env, error_callback_.Value(),
-                                              "VideoDecoder::error", 0, 1,
-                                              [](Napi::Env) {});
-
-  // Initialize async worker.
-  async_worker_ =
-      std::make_unique<AsyncDecodeWorker>(this, output_tsfn_, error_tsfn_);
-  async_mode_ = true;
 
   state_ = "configured";
 
