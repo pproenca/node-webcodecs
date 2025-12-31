@@ -58,6 +58,7 @@ VideoDecoder::VideoDecoder(const Napi::CallbackInfo& info)
       coded_height_(0) {
   // Track active decoder instance (following sharp pattern)
   webcodecs::counterProcess++;
+  webcodecs::counterVideoDecoders++;
   Napi::Env env = info.Env();
 
   if (info.Length() < 1 || !info[0].IsObject()) {
@@ -84,6 +85,7 @@ VideoDecoder::~VideoDecoder() {
   Cleanup();
   // Track active decoder instance (following sharp pattern)
   webcodecs::counterProcess--;
+  webcodecs::counterVideoDecoders--;
 }
 
 void VideoDecoder::Cleanup() {

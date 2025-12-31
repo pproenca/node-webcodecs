@@ -50,6 +50,8 @@ AudioDecoder::AudioDecoder(const Napi::CallbackInfo& info)
       state_("unconfigured"),
       sample_rate_(0),
       number_of_channels_(0) {
+  // Track active decoder instance
+  webcodecs::counterAudioDecoders++;
   Napi::Env env = info.Env();
 
   if (info.Length() < 1 || !info[0].IsObject()) {
@@ -75,7 +77,10 @@ AudioDecoder::AudioDecoder(const Napi::CallbackInfo& info)
   error_callback_ = Napi::Persistent(init.Get("error").As<Napi::Function>());
 }
 
-AudioDecoder::~AudioDecoder() { Cleanup(); }
+AudioDecoder::~AudioDecoder() {
+  Cleanup();
+  webcodecs::counterAudioDecoders--;
+}
 
 void AudioDecoder::Cleanup() {
   frame_.reset();

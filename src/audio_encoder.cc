@@ -43,6 +43,8 @@ AudioEncoder::AudioEncoder(const Napi::CallbackInfo& info)
       number_of_channels_(0),
       timestamp_(0),
       frame_count_(0) {
+  // Track active encoder instance
+  webcodecs::counterAudioEncoders++;
   Napi::Env env = info.Env();
 
   if (info.Length() < 1 || !info[0].IsObject()) {
@@ -62,7 +64,10 @@ AudioEncoder::AudioEncoder(const Napi::CallbackInfo& info)
   error_callback_ = Napi::Persistent(init.Get("error").As<Napi::Function>());
 }
 
-AudioEncoder::~AudioEncoder() { Cleanup(); }
+AudioEncoder::~AudioEncoder() {
+  Cleanup();
+  webcodecs::counterAudioEncoders--;
+}
 
 void AudioEncoder::Cleanup() {
   frame_.reset();

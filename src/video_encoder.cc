@@ -88,6 +88,7 @@ VideoEncoder::VideoEncoder(const Napi::CallbackInfo& info)
       encode_queue_size_(0) {
   // Track active encoder instance (following sharp pattern)
   webcodecs::counterProcess++;
+  webcodecs::counterVideoEncoders++;
   Napi::Env env = info.Env();
 
   if (info.Length() < 1 || !info[0].IsObject()) {
@@ -114,6 +115,7 @@ VideoEncoder::~VideoEncoder() {
   Cleanup();
   // Track active encoder instance (following sharp pattern)
   webcodecs::counterProcess--;
+  webcodecs::counterVideoEncoders--;
 }
 
 void VideoEncoder::Cleanup() {
