@@ -1,0 +1,25 @@
+{
+  "name": "@aspect/node-webcodecs-linuxmusl-x64",
+  "version": "0.1.0",
+  "description": "Prebuilt node-webcodecs for Linux musl x64 (Alpine)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aspect-build/node-webcodecs.git",
+    "directory": "npm/linuxmusl-x64"
+  },
+  "files": ["lib", "LICENSE"],
+  "os": ["linux"],
+  "cpu": ["x64"],
+  "libc": ["musl"],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    "./lib/*": "./lib/*",
+    "./package.json": "./package.json"
+  }
+}

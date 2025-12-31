@@ -1,0 +1,24 @@
+{
+  "name": "@aspect/node-webcodecs-linux-x64",
+  "version": "0.1.0",
+  "description": "Prebuilt node-webcodecs for Linux x64",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aspect-build/node-webcodecs.git",
+    "directory": "npm/linux-x64"
+  },
+  "files": ["lib", "LICENSE"],
+  "os": ["linux"],
+  "cpu": ["x64"],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    "./lib/*": "./lib/*",
+    "./package.json": "./package.json"
+  }
+}
