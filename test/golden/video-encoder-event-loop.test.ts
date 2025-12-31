@@ -12,8 +12,7 @@ import { describe, expect, it } from 'vitest';
  * These tests will pass once async workers are fully enabled.
  */
 describe('VideoEncoder event loop', () => {
-  // TODO: Remove .skip when async_mode_ is enabled in video_encoder.cc
-  it.skip('should not block event loop during heavy encoding', async () => {
+  it('should not block event loop during heavy encoding', async () => {
     const { VideoEncoder, VideoFrame } = await import('../../lib/index');
 
     const chunks: unknown[] = [];

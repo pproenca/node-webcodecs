@@ -25,6 +25,9 @@ CMakeFiles/
 *.swp
 *.swo
 
+# Claude workflow files
+.claude/
+
 # Sanitizer/profiler output
 *.profraw
 *.profdata
