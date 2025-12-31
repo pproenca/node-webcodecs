@@ -1897,3 +1897,6 @@ export type {ErrorCodeType} from './errors';
 
 // Export WarningAccumulator from native binding
 export const WarningAccumulator = native.WarningAccumulator;
+
+// Export ErrorBuilder from native binding
+export const ErrorBuilder = native.ErrorBuilder;

@@ -391,6 +391,49 @@ export interface NativeWarningAccumulatorConstructor {
 }
 
 /**
+ * Native ErrorBuilder for rich FFmpeg error context
+ * Provides fluent API to build descriptive error messages with FFmpeg error codes,
+ * context information, and key-value pairs.
+ */
+export interface NativeErrorBuilder {
+  /**
+   * Add FFmpeg error code to the error message
+   * @param errnum - FFmpeg error number (e.g., -22 for EINVAL)
+   * @returns this for chaining
+   */
+  withFFmpegCode(errnum: number): NativeErrorBuilder;
+
+  /**
+   * Add context string to the error message
+   * @param context - Additional context (e.g., "while encoding frame")
+   * @returns this for chaining
+   */
+  withContext(context: string): NativeErrorBuilder;
+
+  /**
+   * Add a key-value pair to the error message
+   * @param name - Value name (e.g., "pts", "format")
+   * @param value - Value (number or string)
+   * @returns this for chaining
+   */
+  withValue(name: string, value: number | string): NativeErrorBuilder;
+
+  /**
+   * Build and return the error message string
+   */
+  build(): string;
+
+  /**
+   * Throw the built error as a JavaScript exception
+   */
+  throwError(): never;
+}
+
+export interface NativeErrorBuilderConstructor {
+  new (operation: string): NativeErrorBuilder;
+}
+
+/**
  * The native module interface
  */
 export interface NativeModule {
@@ -406,4 +449,5 @@ export interface NativeModule {
   Demuxer: NativeDemuxerConstructor;
   ImageDecoder: NativeImageDecoderConstructor;
   WarningAccumulator: NativeWarningAccumulatorConstructor;
+  ErrorBuilder: NativeErrorBuilderConstructor;
 }

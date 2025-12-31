@@ -4,6 +4,7 @@
 #include <napi.h>
 
 #include "src/common.h"
+#include "src/error_builder.h"
 #include "src/warnings.h"
 
 // Forward declarations.
@@ -34,6 +35,7 @@ Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
   InitVideoFilter(env, exports);
   InitDemuxer(env, exports);
   InitImageDecoder(env, exports);
+  webcodecs::ErrorBuilder::Init(env, exports);
   webcodecs::WarningAccumulator::Init(env, exports);
   return exports;
 }
