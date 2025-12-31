@@ -221,12 +221,19 @@ async function generateTestVideo(outputPath) {
     avc: {format: 'avc'},
   });
 
-  let frameIndex = 0;
+  // Collect frames first (generator callback is sync, can't await inside)
+  const generatedFrames = [];
   await generator.generate(frame => {
-    videoEncoder.encode(frame, {keyFrame: frameIndex === 0});
-    frame.close();
-    frameIndex++;
+    generatedFrames.push(frame);
   });
+
+  // Encode with backpressure
+  for (let i = 0; i < generatedFrames.length; i++) {
+    const frame = generatedFrames[i];
+    await videoEncoder.ready;
+    videoEncoder.encode(frame, {keyFrame: i === 0});
+    frame.close();
+  }
 
   await videoEncoder.flush();
   videoEncoder.close();
@@ -273,6 +280,7 @@ async function generateTestVideo(outputPath) {
       data: audioData,
     });
 
+    await audioEncoder.ready;  // Wait for capacity
     audioEncoder.encode(frame);
     frame.close();
   }

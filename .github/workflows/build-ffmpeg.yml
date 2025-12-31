@@ -4,21 +4,22 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
+# Source of truth for FFmpeg version and cache version.
+# To change these values globally, set repository variables in GitHub Settings:
+#   Settings > Secrets and variables > Actions > Variables
+#   - FFMPEG_VERSION (e.g., "8.0.1")
+#   - FFMPEG_CACHE_VERSION (e.g., "v2")
 env:
-  CACHE_VERSION: "v1"
-  DEFAULT_FFMPEG_VERSION: "7.1.3"
+  CACHE_VERSION: ${{ vars.FFMPEG_CACHE_VERSION || 'v2' }}
+  DEFAULT_FFMPEG_VERSION: ${{ vars.FFMPEG_VERSION || '8.0.1' }}
 
 on:
   workflow_dispatch:
     inputs:
       ffmpeg_version:
-        description: "FFmpeg version to build (e.g., 7.1.3, 8.0.1)"
-        required: true
-        default: "7.1.3"
-      publish:
-        description: "Publish to npm after build"
-        type: boolean
-        default: false
+        description: "FFmpeg version to build (leave empty for default)"
+        required: false
+        default: ""
       force_rebuild:
         description: "Force rebuild (ignore cache)"
         type: boolean
@@ -27,6 +28,13 @@ on:
         description: "Upload caches as artifacts for debugging"
         type: boolean
         default: false
+  workflow_call:
+    inputs:
+      ffmpeg_version:
+        description: "FFmpeg version to build (leave empty for default)"
+        required: false
+        type: string
+        default: ""
   push:
     paths:
       - ".github/workflows/build-ffmpeg.yml"
@@ -161,50 +169,3 @@ jobs:
           name: ffmpeg-${{ matrix.platform }}
           path: ffmpeg-${{ matrix.platform }}
           retention-days: 7
-
-  publish:
-    if: github.event.inputs.publish == 'true'
-    needs: build-ffmpeg
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [darwin-arm64, darwin-x64, linux-x64, linuxmusl-x64]
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22.x"
-          registry-url: "https://registry.npmjs.org"
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: ffmpeg-${{ matrix.platform }}
-          path: ffmpeg-${{ matrix.platform }}
-
-      - name: Populate package
-        env:
-          FFMPEG_VERSION: ${{ github.event.inputs.ffmpeg_version || env.DEFAULT_FFMPEG_VERSION }}
-        run: |
-          FFMPEG_ARTIFACT_DIR=${{ github.workspace }}/ffmpeg-${{ matrix.platform }} \
-            node ffmpeg/from-ci-build.js ${{ matrix.platform }}
-
-      - name: Update package version
-        env:
-          FFMPEG_VERSION: ${{ github.event.inputs.ffmpeg_version || env.DEFAULT_FFMPEG_VERSION }}
-        working-directory: ffmpeg/${{ matrix.platform }}
-        run: |
-          # Convert FFmpeg version to npm-compatible version (e.g., 7.1.3 -> 7.1.3)
-          NPM_VERSION="${FFMPEG_VERSION}"
-          echo "Setting package version to ${NPM_VERSION}"
-          npm version "${NPM_VERSION}" --no-git-tag-version --allow-same-version
-
-      - name: Publish to npm
-        working-directory: ffmpeg/${{ matrix.platform }}
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

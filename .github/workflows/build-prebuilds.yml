@@ -4,6 +4,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
+# FFmpeg version and cache version are centralized via repository variables.
+# Set in GitHub Settings > Secrets and variables > Actions > Variables
+# Fallback values match build-ffmpeg.yml defaults.
+env:
+  FFMPEG_VERSION: ${{ vars.FFMPEG_VERSION || '8.0.1' }}
+  CACHE_VERSION: ${{ vars.FFMPEG_CACHE_VERSION || 'v2' }}
+
 on:
   workflow_dispatch:
   workflow_call:
@@ -55,14 +62,35 @@ jobs:
         run: |
           apk add --no-cache nodejs npm
 
-      - name: Install FFmpeg (macOS)
-        if: runner.os == 'macOS'
+      # Try to restore pre-built FFmpeg from cache (shared with build-ffmpeg.yml)
+      # Note: Cache doesn't work well in Alpine containers, so skip for linuxmusl
+      - name: Restore FFmpeg cache
+        if: ${{ !matrix.container }}
+        id: cache-ffmpeg
+        uses: actions/cache/restore@v4
+        with:
+          path: ffmpeg-install
+          key: ffmpeg-${{ matrix.platform }}-${{ env.FFMPEG_VERSION }}-${{ env.CACHE_VERSION }}
+          restore-keys: |
+            ffmpeg-${{ matrix.platform }}-${{ env.FFMPEG_VERSION }}-
+
+      - name: Setup cached FFmpeg
+        if: ${{ !matrix.container && steps.cache-ffmpeg.outputs.cache-hit == 'true' }}
+        run: |
+          echo "Using cached FFmpeg from build-ffmpeg workflow"
+          ls -la ffmpeg-install/
+          echo "PKG_CONFIG_PATH=${{ github.workspace }}/ffmpeg-install/lib/pkgconfig" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=${{ github.workspace }}/ffmpeg-install/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+          echo "DYLD_LIBRARY_PATH=${{ github.workspace }}/ffmpeg-install/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
+
+      - name: Install FFmpeg (macOS) - cache miss
+        if: runner.os == 'macOS' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
           brew install x264 x265 libvpx aom lame pkg-config
           brew install ffmpeg
 
-      - name: Install FFmpeg (Ubuntu)
-        if: runner.os == 'Linux' && !matrix.container
+      - name: Install FFmpeg (Ubuntu) - cache miss
+        if: runner.os == 'Linux' && !matrix.container && steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y \

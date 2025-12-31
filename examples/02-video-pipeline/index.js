@@ -54,18 +54,18 @@ function drawWatermark(rgbaData, width, height) {
 
 /**
  * Process video from an external MP4 file using Demuxer + Decoder
+ * Returns collected frames for processing with backpressure
  */
-async function processFromFile(inputPath, processFrame) {
+async function processFromFile(inputPath) {
   return new Promise((resolve, reject) => {
     let videoTrack = null;
-    let framesProcessed = 0;
+    const frames = [];
 
     const decoder = new VideoDecoder({
       output: frame => {
-        processFrame(frame);
-        framesProcessed++;
-        if (framesProcessed % 30 === 0) {
-          process.stdout.write(`    Processed ${framesProcessed} frames...\r`);
+        frames.push(frame);
+        if (frames.length % 30 === 0) {
+          process.stdout.write(`    Decoded ${frames.length} frames...\r`);
         }
       },
       error: e => reject(e),
@@ -103,7 +103,7 @@ async function processFromFile(inputPath, processFrame) {
         demuxer.close();
         decoder.close();
         resolve({
-          framesProcessed,
+          frames,
           width: videoTrack.width,
           height: videoTrack.height,
         });
@@ -115,8 +115,9 @@ async function processFromFile(inputPath, processFrame) {
 /**
  * Generate test frames using native TestVideoGenerator
  * This bypasses the need for Demuxer when no input file exists
+ * Returns collected frames for processing with backpressure
  */
-async function generateTestFrames(processFrame) {
+async function generateTestFrames() {
   const width = 320;
   const height = 240;
   const frameRate = 30;
@@ -127,19 +128,16 @@ async function generateTestFrames(processFrame) {
   const generator = new TestVideoGenerator();
   generator.configure({width, height, frameRate, duration, pattern: 'testsrc'});
 
-  let framesProcessed = 0;
+  // Collect frames (generator callback is sync, can't await inside)
+  const frames = [];
   await generator.generate(frame => {
-    processFrame(frame);
-    framesProcessed++;
-    if (framesProcessed % 30 === 0) {
-      process.stdout.write(`    Generated ${framesProcessed} frames...\r`);
-    }
+    frames.push(frame);
   });
 
   generator.close();
-  console.log(`    Generated ${framesProcessed} test frames`);
+  console.log(`    Generated ${frames.length} test frames`);
 
-  return {framesProcessed, width, height};
+  return {frames, width, height};
 }
 
 async function main() {
@@ -150,11 +148,7 @@ async function main() {
   }
 
   const encodedChunks = [];
-  let encoder = null;
-  let framesProcessed = 0;
   let codecDescription = null;
-  let videoWidth = 320;
-  let videoHeight = 240;
 
   // Check if we have an input file or need to generate test content
   const useExternalFile = fs.existsSync(INPUT_VIDEO);
@@ -167,33 +161,57 @@ async function main() {
     console.log('    No input file found - will generate test frames directly\n');
   }
 
-  // Frame processor function - applies watermark and encodes
-  const processFrame = frame => {
-    // Initialize encoder on first frame if needed
-    if (!encoder) {
-      videoWidth = frame.codedWidth;
-      videoHeight = frame.codedHeight;
+  // Step 2 & 3: Get frames (either from file or generator)
+  if (useExternalFile) {
+    console.log('[2/6] Opening video file with Demuxer...');
+    console.log('[3/6] Creating VideoDecoder...');
+  } else {
+    console.log('[2/6] Setting up TestVideoGenerator...');
+    console.log('[3/6] Skipping decoder (direct frame generation)...');
+  }
 
-      encoder = new VideoEncoder({
-        output: (chunk, metadata) => {
-          encodedChunks.push(chunk);
-          if (metadata?.decoderConfig?.description) {
-            codecDescription = metadata.decoderConfig.description;
-          }
-        },
-        error: e => console.error('Encoder error:', e),
-      });
+  // Collect frames first
+  let frames, videoWidth, videoHeight;
+  if (useExternalFile) {
+    const result = await processFromFile(INPUT_VIDEO);
+    frames = result.frames;
+    videoWidth = result.width;
+    videoHeight = result.height;
+  } else {
+    const result = await generateTestFrames();
+    frames = result.frames;
+    videoWidth = result.width;
+    videoHeight = result.height;
+  }
 
-      encoder.configure({
-        codec: 'avc1.42001e',
-        width: videoWidth,
-        height: videoHeight,
-        bitrate: 1_000_000,
-        framerate: 30,
-        latencyMode: 'realtime',  // Disable B-frames for correct MP4 muxing
-        avc: {format: 'avc'},
-      });
-    }
+  // Step 4: Process video with backpressure
+  console.log('[4/6] Processing frames (watermark -> encode)...');
+  const startTime = performance.now();
+
+  // Create encoder
+  const encoder = new VideoEncoder({
+    output: (chunk, metadata) => {
+      encodedChunks.push(chunk);
+      if (metadata?.decoderConfig?.description) {
+        codecDescription = metadata.decoderConfig.description;
+      }
+    },
+    error: e => console.error('Encoder error:', e),
+  });
+
+  encoder.configure({
+    codec: 'avc1.42001e',
+    width: videoWidth,
+    height: videoHeight,
+    bitrate: 1_000_000,
+    framerate: 30,
+    latencyMode: 'realtime',  // Disable B-frames for correct MP4 muxing
+    avc: {format: 'avc'},
+  });
+
+  // Process frames with backpressure
+  for (let i = 0; i < frames.length; i++) {
+    const frame = frames[i];
 
     // Get RGBA data
     const size = frame.allocationSize({format: 'RGBA'});
@@ -211,35 +229,21 @@ async function main() {
       timestamp: frame.timestamp,
     });
 
-    // Encode
-    encoder.encode(modifiedFrame, {keyFrame: framesProcessed % 30 === 0});
+    // Wait for encoder capacity before encoding
+    await encoder.ready;
+    encoder.encode(modifiedFrame, {keyFrame: i % 30 === 0});
     modifiedFrame.close();
     frame.close();
-    framesProcessed++;
-  };
 
-  // Step 2 & 3: Get frames (either from file or generator)
-  if (useExternalFile) {
-    console.log('[2/6] Opening video file with Demuxer...');
-    console.log('[3/6] Creating VideoDecoder...');
-  } else {
-    console.log('[2/6] Setting up TestVideoGenerator...');
-    console.log('[3/6] Skipping decoder (direct frame generation)...');
-  }
-
-  // Step 4: Process video
-  console.log('[4/6] Processing frames (watermark -> encode)...');
-  const startTime = performance.now();
-
-  if (useExternalFile) {
-    await processFromFile(INPUT_VIDEO, processFrame);
-  } else {
-    await generateTestFrames(processFrame);
+    if ((i + 1) % 30 === 0) {
+      process.stdout.write(`    Processed ${i + 1} frames...\r`);
+    }
   }
 
   await encoder.flush();
   encoder.close();
   const endTime = performance.now();
+  const framesProcessed = frames.length;
 
   console.log(
     `\n    Processed ${framesProcessed} frames in ${(endTime - startTime).toFixed(1)}ms\n`

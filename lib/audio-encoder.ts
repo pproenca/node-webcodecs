@@ -21,10 +21,13 @@ import type { AudioEncoderConfig, AudioEncoderInit, CodecState } from './types';
 // Load native addon with type assertion
 const native = binding as NativeModule;
 
+const DEFAULT_MAX_QUEUE_DEPTH = 16;
+
 export class AudioEncoder extends CodecBase {
   private _native: NativeAudioEncoder;
   private _controlQueue: ControlMessageQueue;
   private _encodeQueueSize: number = 0;
+  private _maxQueueDepth: number = DEFAULT_MAX_QUEUE_DEPTH;
 
   constructor(init: AudioEncoderInit) {
     super();
@@ -65,6 +68,33 @@ export class AudioEncoder extends CodecBase {
 
   get codecSaturated(): boolean {
     return this._native.codecSaturated;
+  }
+
+  get maxQueueDepth(): number {
+    return this._maxQueueDepth;
+  }
+
+  set maxQueueDepth(value: number) {
+    if (value < 1) {
+      throw new RangeError('maxQueueDepth must be at least 1');
+    }
+    this._maxQueueDepth = value;
+  }
+
+  get ready(): Promise<void> {
+    if (this._encodeQueueSize < this._maxQueueDepth) {
+      return Promise.resolve();
+    }
+    return new Promise<void>((resolve) => {
+      const checkCapacity = () => {
+        if (this._encodeQueueSize < this._maxQueueDepth) {
+          resolve();
+        } else {
+          setTimeout(checkCapacity, 1);
+        }
+      };
+      setTimeout(checkCapacity, 1);
+    });
   }
 
   configure(config: AudioEncoderConfig): void {

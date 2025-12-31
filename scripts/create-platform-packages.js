@@ -27,8 +27,12 @@ const template = JSON.parse(readFileSync(join(packagesDir, 'platform-template.js
 // Read main package.json for version
 const mainPackage = JSON.parse(readFileSync(join(rootDir, 'package.json'), 'utf8'));
 
-// Read FFmpeg version from env or default
-const ffmpegVersion = process.env.FFMPEG_VERSION || '7.1.3';
+// Read FFmpeg version from env (set by CI workflow)
+const ffmpegVersion = process.env.FFMPEG_VERSION;
+if (!ffmpegVersion) {
+  console.error('Error: FFMPEG_VERSION environment variable is required');
+  process.exit(1);
+}
 
 platforms.forEach((platform) => {
   const packageDir = join(packagesDir, platform.name);
