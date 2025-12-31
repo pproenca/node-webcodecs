@@ -96,13 +96,22 @@ void AsyncDecodeWorker::Enqueue(DecodeTask task) {
 }
 
 void AsyncDecodeWorker::Flush() {
-  flushing_.store(true);
+  // Enqueue a flush task to drain FFmpeg's internal frame buffers
+  DecodeTask flush_task;
+  flush_task.is_flush = true;
+  {
+    std::lock_guard<std::mutex> lock(queue_mutex_);
+    task_queue_.push(std::move(flush_task));
+  }
   queue_cv_.notify_one();
 
-  // Wait for queue to drain
+  flushing_.store(true);
+
+  // Wait for queue to drain AND all in-flight processing to complete
   std::unique_lock<std::mutex> lock(queue_mutex_);
-  queue_cv_.wait(lock,
-                 [this] { return task_queue_.empty() || !running_.load(); });
+  queue_cv_.wait(lock, [this] {
+    return (task_queue_.empty() && processing_.load() == 0) || !running_.load();
+  });
 
   flushing_.store(false);
 }
@@ -154,11 +163,14 @@ void AsyncDecodeWorker::WorkerThread() {
 
       task = std::move(task_queue_.front());
       task_queue_.pop();
+      processing_++;  // Track that we're processing this task
     }
 
     ProcessPacket(task);
+    processing_--;  // Done processing
 
-    if (task_queue_.empty()) {
+    // Notify when queue is empty AND no tasks are being processed
+    if (task_queue_.empty() && processing_.load() == 0) {
       queue_cv_.notify_all();
     }
   }
@@ -167,6 +179,17 @@ void AsyncDecodeWorker::WorkerThread() {
 void AsyncDecodeWorker::ProcessPacket(const DecodeTask& task) {
   std::lock_guard<std::mutex> lock(codec_mutex_);
   if (!codec_context_ || !packet_ || !frame_) {
+    return;
+  }
+
+  // Handle flush task - send NULL packet to drain decoder
+  if (task.is_flush) {
+    avcodec_send_packet(codec_context_, nullptr);
+    // Drain all remaining frames from the decoder
+    while (avcodec_receive_frame(codec_context_, frame_.get()) == 0) {
+      EmitFrame(frame_.get());
+      av_frame_unref(frame_.get());
+    }
     return;
   }
 
@@ -272,13 +295,17 @@ void AsyncDecodeWorker::EmitFrame(AVFrame* frame) {
   bool has_color_space = metadata_copy.has_color_space;
 
   // Increment pending BEFORE queueing callback for accurate tracking
-  pending_frames_++;
+  (*pending_frames_)++;
 
-  // Capture this pointer for buffer pool release and pending decrement
-  AsyncDecodeWorker* worker = this;
+  // Capture shared_ptr to pending counter, NOT raw worker pointer.
+  // This ensures the counter remains valid even if the worker is destroyed
+  // before the TSFN callback executes on the main thread.
+  // Note: Buffer is managed via raw delete since buffer pool access is unsafe
+  // after worker destruction.
+  auto pending_counter = pending_frames_;
   output_tsfn_.NonBlockingCall(
       rgba_data,
-      [worker, width, height, timestamp, rotation, flip, disp_width,
+      [pending_counter, width, height, timestamp, rotation, flip, disp_width,
        disp_height, color_primaries, color_transfer, color_matrix,
        color_full_range,
        has_color_space](Napi::Env env, Napi::Function fn,
@@ -304,9 +331,10 @@ void AsyncDecodeWorker::EmitFrame(AVFrame* frame) {
           fprintf(stderr,
                   "AsyncDecodeWorker callback error: unknown exception\n");
         }
-        // Always release buffer and decrement pending
-        worker->ReleaseBuffer(data);
-        worker->pending_frames_--;
+        // Delete buffer directly (can't use pool after worker destruction)
+        delete data;
+        // Decrement pending counter via shared_ptr (safe after worker destruction)
+        (*pending_counter)--;
         webcodecs::counterQueue--;  // Decrement global queue counter
       });
 }

@@ -112,11 +112,13 @@ void AsyncEncodeWorker::Flush() {
 
   flushing_.store(true);
 
-  // Wait for queue to drain (including flush task)
+  // Wait for queue to drain AND all in-flight processing to complete
   {
     std::unique_lock<std::mutex> lock(queue_mutex_);
-    queue_cv_.wait(lock,
-                   [this] { return task_queue_.empty() || !running_.load(); });
+    queue_cv_.wait(lock, [this] {
+      return (task_queue_.empty() && processing_.load() == 0) ||
+             !running_.load();
+    });
   }
 
   flushing_.store(false);
@@ -147,11 +149,14 @@ void AsyncEncodeWorker::WorkerThread() {
 
       task = std::move(task_queue_.front());
       task_queue_.pop();
+      processing_++;  // Track that we're processing this task
     }
 
     ProcessFrame(task);
+    processing_--;  // Done processing
 
-    if (task_queue_.empty()) {
+    // Notify when queue is empty AND no tasks are being processed
+    if (task_queue_.empty() && processing_.load() == 0) {
       queue_cv_.notify_all();
     }
   }
@@ -223,12 +228,14 @@ struct ChunkCallbackData {
   int64_t frame_index;  // For SVC layer computation
   EncoderMetadataConfig metadata;
   std::vector<uint8_t> extradata;  // Copy from codec_context at emit time
-  std::atomic<int>* pending;
+  // Use shared_ptr to pending counter so it remains valid even if worker is
+  // destroyed before callback executes on main thread.
+  std::shared_ptr<std::atomic<int>> pending;
 };
 
 void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
   // Increment pending count before async operation
-  pending_chunks_.fetch_add(1);
+  pending_chunks_->fetch_add(1);
 
   // pkt->pts is the frame_index (set in ProcessFrame)
   int64_t frame_index = pkt->pts;
@@ -258,7 +265,7 @@ void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
         codec_context_->extradata,
         codec_context_->extradata + codec_context_->extradata_size);
   }
-  cb_data->pending = &pending_chunks_;
+  cb_data->pending = pending_chunks_;
 
   output_tsfn_.NonBlockingCall(cb_data, [](Napi::Env env, Napi::Function fn,
                                            ChunkCallbackData* info) {

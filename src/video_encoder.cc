@@ -130,14 +130,19 @@ void VideoEncoder::Cleanup() {
         break;  // Timeout to avoid infinite wait
       }
     }
-
-    async_worker_.reset();
   }
 
+  // Release ThreadSafeFunctions BEFORE destroying async_worker_
+  // Callbacks may still be pending and reference the worker
   if (async_mode_) {
     output_tsfn_.Release();
     error_tsfn_.Release();
     async_mode_ = false;
+  }
+
+  // Now safe to destroy async_worker_ - all callbacks have completed
+  if (async_worker_) {
+    async_worker_.reset();
   }
 
   frame_.reset();

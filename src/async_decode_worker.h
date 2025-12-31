@@ -18,6 +18,7 @@ extern "C" {
 
 #include <atomic>
 #include <condition_variable>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <string>
@@ -44,6 +45,7 @@ struct DecodeTask {
   int64_t timestamp;
   int64_t duration;
   bool is_key;
+  bool is_flush = false;  // When true, flush the decoder instead of decoding
 };
 
 struct DecodedFrame {
@@ -74,7 +76,11 @@ class AsyncDecodeWorker {
   void SetMetadataConfig(const DecoderMetadataConfig& config);
   bool IsRunning() const { return running_.load(); }
   size_t QueueSize() const;
-  int GetPendingFrames() const { return pending_frames_.load(); }
+  int GetPendingFrames() const { return pending_frames_->load(); }
+  // Get shared pending counter for TSFN callbacks to capture
+  std::shared_ptr<std::atomic<int>> GetPendingFramesPtr() const {
+    return pending_frames_;
+  }
 
  private:
   void WorkerThread();
@@ -91,7 +97,12 @@ class AsyncDecodeWorker {
   std::mutex codec_mutex_;  // Protects codec_context_, sws_context_, frame_, packet_, metadata_config_
   std::atomic<bool> running_{false};
   std::atomic<bool> flushing_{false};
-  std::atomic<int> pending_frames_{0};  // Track frames in flight for flush
+  std::atomic<int> processing_{0};  // Track tasks currently being processed
+  // Use shared_ptr for pending counter so TSFN callbacks can safely access it
+  // even after the worker object is destroyed. The shared_ptr is captured by
+  // the callback lambda, ensuring the atomic counter remains valid.
+  std::shared_ptr<std::atomic<int>> pending_frames_ =
+      std::make_shared<std::atomic<int>>(0);
 
   // FFmpeg contexts (owned by VideoDecoder, just references here)
   AVCodecContext* codec_context_;
