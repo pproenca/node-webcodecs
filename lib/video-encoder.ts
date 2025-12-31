@@ -83,6 +83,10 @@ export class VideoEncoder extends CodecBase {
   }
 
   encode(frame: VideoFrame, options?: { keyFrame?: boolean }): void {
+    // W3C spec: throw if not configured
+    if (this.state !== 'configured') {
+      throw new DOMException(`Encoder is ${this.state}`, 'InvalidStateError');
+    }
     ResourceManager.getInstance().recordActivity(this._resourceId);
     this._encodeQueueSize++;
     // Call native encode directly - frame must be valid at call time

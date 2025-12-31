@@ -268,6 +268,48 @@ describe('W3C VideoEncoder Interface Compliance', () => {
 
       expect(() => encoder.reset()).toThrow(/closed|InvalidStateError/i);
     });
+
+    it('should throw InvalidStateError when encode() called on unconfigured encoder', () => {
+      const encoder = new VideoEncoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      const frame = new VideoFrame(new Uint8Array(64 * 64 * 4), {
+        format: 'RGBA',
+        codedWidth: 64,
+        codedHeight: 64,
+        timestamp: 0,
+      });
+
+      try {
+        expect(() => encoder.encode(frame)).toThrow(/unconfigured|InvalidStateError/i);
+      } finally {
+        frame.close();
+        encoder.close();
+      }
+    });
+
+    it('should throw InvalidStateError when encode() called on closed encoder', () => {
+      const encoder = new VideoEncoder({
+        output: () => {},
+        error: () => {},
+      });
+      encoder.close();
+
+      const frame = new VideoFrame(new Uint8Array(64 * 64 * 4), {
+        format: 'RGBA',
+        codedWidth: 64,
+        codedHeight: 64,
+        timestamp: 0,
+      });
+
+      try {
+        expect(() => encoder.encode(frame)).toThrow(/closed|InvalidStateError/i);
+      } finally {
+        frame.close();
+      }
+    });
   });
 
   describe('TypeError validation', () => {
