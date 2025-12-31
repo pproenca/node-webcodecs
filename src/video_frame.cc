@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "src/common.h"
+#include "src/ffmpeg_raii.h"
 
 // Static constructor reference for clone().
 Napi::FunctionReference VideoFrame::constructor;
@@ -17,6 +18,61 @@ Napi::FunctionReference VideoFrame::constructor;
 // static)
 static const PixelFormatInfo kUnknownFormatInfo = {
     "UNKNOWN", AV_PIX_FMT_NONE, 0, 0, 0, 0, false, false};
+
+// Alpha option helpers per W3C WebCodecs spec
+static AVPixelFormat GetNonAlphaEquivalent(AVPixelFormat fmt) {
+  switch (fmt) {
+    case AV_PIX_FMT_RGBA:
+      return AV_PIX_FMT_RGB0;
+    case AV_PIX_FMT_BGRA:
+      return AV_PIX_FMT_BGR0;
+    case AV_PIX_FMT_YUVA420P:
+      return AV_PIX_FMT_YUV420P;
+    case AV_PIX_FMT_YUVA422P:
+      return AV_PIX_FMT_YUV422P;
+    case AV_PIX_FMT_YUVA444P:
+      return AV_PIX_FMT_YUV444P;
+    case AV_PIX_FMT_YUVA420P10LE:
+      return AV_PIX_FMT_YUV420P10LE;
+    case AV_PIX_FMT_YUVA422P10LE:
+      return AV_PIX_FMT_YUV422P10LE;
+    case AV_PIX_FMT_YUVA444P10LE:
+      return AV_PIX_FMT_YUV444P10LE;
+    default:
+      return fmt;
+  }
+}
+
+static bool FormatHasAlpha(AVPixelFormat fmt) {
+  return fmt == AV_PIX_FMT_RGBA || fmt == AV_PIX_FMT_BGRA ||
+         fmt == AV_PIX_FMT_YUVA420P || fmt == AV_PIX_FMT_YUVA422P ||
+         fmt == AV_PIX_FMT_YUVA444P || fmt == AV_PIX_FMT_YUVA420P10LE ||
+         fmt == AV_PIX_FMT_YUVA422P10LE || fmt == AV_PIX_FMT_YUVA444P10LE;
+}
+
+// Convert AVPixelFormat back to PixelFormat enum for non-alpha equivalents
+static PixelFormat AVToPixelFormat(AVPixelFormat av_fmt) {
+  switch (av_fmt) {
+    case AV_PIX_FMT_RGB0:
+      return PixelFormat::RGBX;
+    case AV_PIX_FMT_BGR0:
+      return PixelFormat::BGRX;
+    case AV_PIX_FMT_YUV420P:
+      return PixelFormat::I420;
+    case AV_PIX_FMT_YUV422P:
+      return PixelFormat::I422;
+    case AV_PIX_FMT_YUV444P:
+      return PixelFormat::I444;
+    case AV_PIX_FMT_YUV420P10LE:
+      return PixelFormat::I420P10;
+    case AV_PIX_FMT_YUV422P10LE:
+      return PixelFormat::I422P10;
+    case AV_PIX_FMT_YUV444P10LE:
+      return PixelFormat::I444P10;
+    default:
+      return PixelFormat::UNKNOWN;
+  }
+}
 
 // Format registry accessor using function-local static with heap allocation.
 // This pattern avoids the "static initialization order fiasco" and destruction
@@ -240,6 +296,63 @@ VideoFrame::VideoFrame(const Napi::CallbackInfo& info)
 
   std::string format_str = webcodecs::AttrAsStr(opts, "format", "RGBA");
   format_ = ParsePixelFormat(format_str);
+
+  // Parse alpha option (default: "keep") per W3C WebCodecs spec
+  std::string alpha_option = webcodecs::AttrAsStr(opts, "alpha", "keep");
+  if (alpha_option != "keep" && alpha_option != "discard") {
+    throw Napi::TypeError::New(env, "alpha must be 'keep' or 'discard'");
+  }
+
+  // Handle alpha="discard" by converting to non-alpha format
+  AVPixelFormat av_fmt = PixelFormatToAV(format_);
+  if (alpha_option == "discard" && FormatHasAlpha(av_fmt)) {
+    AVPixelFormat dst_fmt = GetNonAlphaEquivalent(av_fmt);
+
+    ffmpeg::SwsContextPtr sws(sws_getContext(coded_width_, coded_height_,
+                                             av_fmt, coded_width_,
+                                             coded_height_, dst_fmt,
+                                             SWS_BILINEAR, nullptr, nullptr,
+                                             nullptr));
+
+    if (!sws) {
+      throw Napi::Error::New(env, "Failed to create alpha conversion context");
+    }
+
+    // Set up source planes from input data
+    const uint8_t* src_data[4] = {nullptr};
+    int src_linesize[4] = {0};
+    const auto& src_info = GetFormatInfo(format_);
+
+    if (src_info.num_planes == 1) {
+      // Packed RGBA/BGRA
+      src_data[0] = data_.data();
+      src_linesize[0] = coded_width_ * 4;
+    }
+
+    // Allocate destination buffer
+    size_t dst_size =
+        CalculateAllocationSize(AVToPixelFormat(dst_fmt), coded_width_,
+                                coded_height_);
+    std::vector<uint8_t> dst_buffer(dst_size);
+
+    uint8_t* dst_data[4] = {nullptr};
+    int dst_linesize[4] = {0};
+    const auto& dst_info = GetFormatInfo(AVToPixelFormat(dst_fmt));
+
+    if (dst_info.num_planes == 1) {
+      // Packed RGBX/BGRX
+      dst_data[0] = dst_buffer.data();
+      dst_linesize[0] = coded_width_ * 4;
+    }
+
+    // Perform conversion
+    sws_scale(sws.get(), src_data, src_linesize, 0, coded_height_, dst_data,
+              dst_linesize);
+
+    // Replace data with converted buffer
+    data_ = std::move(dst_buffer);
+    format_ = AVToPixelFormat(dst_fmt);
+  }
 
   rotation_ = webcodecs::AttrAsInt32(opts, "rotation", 0);
   flip_ = webcodecs::AttrAsBool(opts, "flip", false);
