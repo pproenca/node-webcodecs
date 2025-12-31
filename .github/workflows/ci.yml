@@ -96,7 +96,9 @@ jobs:
 
       - name: Install FFmpeg (macOS)
         if: runner.os == 'macOS'
-        run: brew install ffmpeg pkg-config
+        run: |
+          brew install x264 x265 libvpx aom pkg-config
+          brew install ffmpeg
 
       - name: Install dependencies
         run: npm install
