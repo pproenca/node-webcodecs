@@ -23,7 +23,11 @@ AsyncDecodeWorker::AsyncDecodeWorker(VideoDecoder* /* decoder */,
     : output_tsfn_(output_tsfn),
       error_tsfn_(error_tsfn),
       codec_context_(nullptr),
-      sws_context_(nullptr) {}
+      sws_context_(nullptr),
+      frame_(nullptr),
+      packet_(nullptr),
+      output_width_(0),
+      output_height_(0) {}
 
 AsyncDecodeWorker::~AsyncDecodeWorker() {
   Stop();
@@ -33,8 +37,12 @@ AsyncDecodeWorker::~AsyncDecodeWorker() {
   if (packet_) {
     av_packet_free(&packet_);
   }
-  // Note: codec_context_ and sws_context_ are owned by VideoDecoder
-  // They are cleaned up there, not here
+  // sws_context_ is created lazily by this worker, so we own it
+  if (sws_context_) {
+    sws_freeContext(sws_context_);
+    sws_context_ = nullptr;
+  }
+  // Note: codec_context_ is owned by VideoDecoder
 
   // Clean up buffer pool
   for (auto* buffer : buffer_pool_) {
@@ -43,10 +51,12 @@ AsyncDecodeWorker::~AsyncDecodeWorker() {
   buffer_pool_.clear();
 }
 
-void AsyncDecodeWorker::SetCodecContext(AVCodecContext* ctx, SwsContext* sws,
+void AsyncDecodeWorker::SetCodecContext(AVCodecContext* ctx,
+                                        SwsContext* /* sws_unused */,
                                         int width, int height) {
   codec_context_ = ctx;
-  sws_context_ = sws;
+  // sws_context_ is created lazily in EmitFrame when we know the frame format
+  sws_context_ = nullptr;
   output_width_ = width;
   output_height_ = height;
   frame_ = av_frame_alloc();
@@ -179,8 +189,38 @@ void AsyncDecodeWorker::ProcessPacket(const DecodeTask& task) {
 }
 
 void AsyncDecodeWorker::EmitFrame(AVFrame* frame) {
-  if (!sws_context_) {
-    return;
+  // Initialize or recreate SwsContext if frame format/dimensions change
+  // (convert from decoder's pixel format to RGBA).
+  AVPixelFormat frame_format = static_cast<AVPixelFormat>(frame->format);
+
+  if (!sws_context_ || last_frame_format_ != frame_format ||
+      last_frame_width_ != frame->width ||
+      last_frame_height_ != frame->height) {
+    if (sws_context_) {
+      sws_freeContext(sws_context_);
+    }
+    sws_context_ =
+        sws_getContext(frame->width, frame->height, frame_format, frame->width,
+                       frame->height, AV_PIX_FMT_RGBA, SWS_BILINEAR, nullptr,
+                       nullptr, nullptr);
+
+    if (!sws_context_) {
+      std::string error_msg = "Could not create sws context";
+      error_tsfn_.NonBlockingCall(
+          new std::string(error_msg),
+          [](Napi::Env env, Napi::Function fn, std::string* msg) {
+            fn.Call({Napi::Error::New(env, *msg).Value()});
+            delete msg;
+          });
+      return;
+    }
+
+    last_frame_format_ = frame_format;
+    last_frame_width_ = frame->width;
+    last_frame_height_ = frame->height;
+    // Update output dimensions based on actual frame
+    output_width_ = frame->width;
+    output_height_ = frame->height;
   }
 
   // Convert YUV to RGBA
@@ -197,7 +237,10 @@ void AsyncDecodeWorker::EmitFrame(AVFrame* frame) {
   int width = output_width_;
   int height = output_height_;
 
-  // Capture this pointer for buffer pool release
+  // Increment pending BEFORE queueing callback for accurate tracking
+  pending_frames_++;
+
+  // Capture this pointer for buffer pool release and pending decrement
   AsyncDecodeWorker* worker = this;
   output_tsfn_.NonBlockingCall(
       rgba_data,
@@ -207,5 +250,7 @@ void AsyncDecodeWorker::EmitFrame(AVFrame* frame) {
             env, data->data(), data->size(), width, height, timestamp, "RGBA");
         fn.Call({frame_obj});
         worker->ReleaseBuffer(data);
+        // Decrement pending AFTER callback completes
+        worker->pending_frames_--;
       });
 }

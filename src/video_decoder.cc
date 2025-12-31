@@ -7,6 +7,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "src/common.h"
@@ -37,6 +38,8 @@ Napi::Object VideoDecoder::Init(Napi::Env env, Napi::Object exports) {
           InstanceAccessor("decodeQueueSize", &VideoDecoder::GetDecodeQueueSize,
                            nullptr),
           InstanceAccessor("codecSaturated", &VideoDecoder::GetCodecSaturated,
+                           nullptr),
+          InstanceAccessor("pendingFrames", &VideoDecoder::GetPendingFrames,
                            nullptr),
           StaticMethod("isConfigSupported", &VideoDecoder::IsConfigSupported),
       });
@@ -76,6 +79,19 @@ VideoDecoder::VideoDecoder(const Napi::CallbackInfo& info)
 VideoDecoder::~VideoDecoder() { Cleanup(); }
 
 void VideoDecoder::Cleanup() {
+  // Stop async worker before cleaning up codec context
+  if (async_worker_) {
+    async_worker_->Stop();
+    async_worker_.reset();
+  }
+
+  // Release ThreadSafeFunctions
+  if (async_mode_) {
+    output_tsfn_.Release();
+    error_tsfn_.Release();
+    async_mode_ = false;
+  }
+
   frame_.reset();
   packet_.reset();
   sws_context_.reset();
@@ -245,6 +261,26 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
 
   state_ = "configured";
 
+  // Enable async decoding via worker thread.
+  // Flush semantics use pendingFrames counter - TypeScript polls with
+  // setTimeout to wait for all TSFN callbacks to complete without blocking
+  // the event loop.
+  async_mode_ = true;
+
+  // Create ThreadSafeFunctions for async callbacks
+  output_tsfn_ = Napi::ThreadSafeFunction::New(env, output_callback_.Value(),
+                                               "VideoDecoderOutput", 0, 1);
+  error_tsfn_ = Napi::ThreadSafeFunction::New(env, error_callback_.Value(),
+                                              "VideoDecoderError", 0, 1);
+
+  // Create and start the async worker
+  async_worker_ =
+      std::make_unique<AsyncDecodeWorker>(this, output_tsfn_, error_tsfn_);
+  // Pass nullptr for sws_context - AsyncDecodeWorker creates it lazily
+  async_worker_->SetCodecContext(codec_context_.get(), nullptr, coded_width_,
+                                 coded_height_);
+  async_worker_->Start();
+
   return env.Undefined();
 }
 
@@ -258,6 +294,13 @@ Napi::Value VideoDecoder::GetDecodeQueueSize(const Napi::CallbackInfo& info) {
 
 Napi::Value VideoDecoder::GetCodecSaturated(const Napi::CallbackInfo& info) {
   return Napi::Boolean::New(info.Env(), codec_saturated_.load());
+}
+
+Napi::Value VideoDecoder::GetPendingFrames(const Napi::CallbackInfo& info) {
+  if (async_worker_) {
+    return Napi::Number::New(info.Env(), async_worker_->GetPendingFrames());
+  }
+  return Napi::Number::New(info.Env(), 0);
 }
 
 Napi::Value VideoDecoder::Decode(const Napi::CallbackInfo& info) {
@@ -279,8 +322,30 @@ Napi::Value VideoDecoder::Decode(const Napi::CallbackInfo& info) {
   const uint8_t* data = chunk->GetData();
   size_t data_size = chunk->GetDataSize();
   int64_t timestamp = chunk->GetTimestampValue();
+  int64_t duration = chunk->GetDurationValue();
   bool is_key_frame = (chunk->GetTypeValue() == "key");
 
+  // Use async decoding path
+  if (async_mode_ && async_worker_) {
+    // Create decode task with copy of chunk data
+    DecodeTask task;
+    task.data.assign(data, data + data_size);
+    task.timestamp = timestamp;
+    task.duration = duration;
+    task.is_key = is_key_frame;
+
+    // Enqueue to async worker (non-blocking)
+    async_worker_->Enqueue(std::move(task));
+
+    // Update queue size tracking
+    decode_queue_size_++;
+    bool saturated = decode_queue_size_ >= static_cast<int>(kMaxQueueSize);
+    codec_saturated_.store(saturated);
+
+    return env.Undefined();
+  }
+
+  // Fallback to synchronous decoding (shouldn't normally reach here)
   // Setup packet.
   av_packet_unref(packet_.get());
   packet_->data = const_cast<uint8_t*>(data);
@@ -324,6 +389,24 @@ Napi::Value VideoDecoder::Flush(const Napi::CallbackInfo& info) {
     return deferred.Promise();
   }
 
+  // Use async flush path
+  if (async_mode_ && async_worker_) {
+    // Wait for async worker's task queue to drain
+    async_worker_->Flush();
+
+    // Reset queue after flush
+    decode_queue_size_ = 0;
+    codec_saturated_.store(false);
+
+    // Return resolved promise.
+    // TypeScript layer will poll pendingFrames to wait for all TSFN
+    // callbacks to complete.
+    Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
+    deferred.Resolve(env.Undefined());
+    return deferred.Promise();
+  }
+
+  // Fallback to synchronous flush (shouldn't normally reach here)
   // Send NULL packet to flush decoder.
   int ret = avcodec_send_packet(codec_context_.get(), nullptr);
   if (ret < 0 && ret != AVERROR_EOF) {
@@ -354,6 +437,19 @@ Napi::Value VideoDecoder::Reset(const Napi::CallbackInfo& info) {
     return env.Undefined();
   }
 
+  // Stop async worker first before accessing codec
+  if (async_worker_) {
+    async_worker_->Stop();
+    async_worker_.reset();
+  }
+
+  // Release ThreadSafeFunctions
+  if (async_mode_) {
+    output_tsfn_.Release();
+    error_tsfn_.Release();
+    async_mode_ = false;
+  }
+
   // Flush any pending frames (discard them).
   if (codec_context_) {
     avcodec_send_packet(codec_context_.get(), nullptr);
@@ -363,7 +459,11 @@ Napi::Value VideoDecoder::Reset(const Napi::CallbackInfo& info) {
   }
 
   // Clean up FFmpeg resources.
-  Cleanup();
+  frame_.reset();
+  packet_.reset();
+  sws_context_.reset();
+  codec_context_.reset();
+  codec_ = nullptr;
 
   // Reset state.
   state_ = "unconfigured";

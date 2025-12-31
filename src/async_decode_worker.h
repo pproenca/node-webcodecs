@@ -57,6 +57,7 @@ class AsyncDecodeWorker {
                        int height);
   bool IsRunning() const { return running_.load(); }
   size_t QueueSize() const;
+  int GetPendingFrames() const { return pending_frames_.load(); }
 
  private:
   void WorkerThread();
@@ -72,14 +73,20 @@ class AsyncDecodeWorker {
   std::condition_variable queue_cv_;
   std::atomic<bool> running_{false};
   std::atomic<bool> flushing_{false};
+  std::atomic<int> pending_frames_{0};  // Track frames in flight for flush
 
   // FFmpeg contexts (owned by VideoDecoder, just references here)
   AVCodecContext* codec_context_;
-  SwsContext* sws_context_;
+  SwsContext* sws_context_;  // Created lazily on first frame
   AVFrame* frame_;
   AVPacket* packet_;
   int output_width_;
   int output_height_;
+
+  // Track last frame format/dimensions for sws_context recreation
+  AVPixelFormat last_frame_format_ = AV_PIX_FMT_NONE;
+  int last_frame_width_ = 0;
+  int last_frame_height_ = 0;
 
   // Buffer pool for decoded frame data to reduce allocations
   std::vector<std::vector<uint8_t>*> buffer_pool_;

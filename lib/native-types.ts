@@ -80,6 +80,7 @@ export interface NativeVideoDecoder {
   readonly state: CodecState;
   readonly decodeQueueSize: number;
   readonly codecSaturated: boolean;
+  readonly pendingFrames: number;
 
   configure(config: VideoDecoderConfig): void;
   decode(chunk: NativeEncodedVideoChunk): void;

@@ -18,6 +18,7 @@ extern "C" {
 #include <memory>
 #include <string>
 
+#include "src/async_decode_worker.h"
 #include "src/ffmpeg_raii.h"
 
 class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
@@ -41,6 +42,7 @@ class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
   Napi::Value GetState(const Napi::CallbackInfo& info);
   Napi::Value GetDecodeQueueSize(const Napi::CallbackInfo& info);
   Napi::Value GetCodecSaturated(const Napi::CallbackInfo& info);
+  Napi::Value GetPendingFrames(const Napi::CallbackInfo& info);
 
   // Internal helpers.
   void Cleanup();
@@ -92,6 +94,13 @@ class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
   AVPixelFormat last_frame_format_ = AV_PIX_FMT_NONE;
   int last_frame_width_ = 0;
   int last_frame_height_ = 0;
+
+  // Async decoding via worker thread (non-blocking).
+  bool async_mode_ = false;
+  Napi::ThreadSafeFunction output_tsfn_;
+  Napi::ThreadSafeFunction error_tsfn_;
+  std::unique_ptr<AsyncDecodeWorker> async_worker_;
+  std::atomic<int> pending_frames_{0};  // Track frames in flight for flush
 };
 
 #endif  // SRC_VIDEO_DECODER_H_

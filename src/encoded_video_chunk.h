@@ -28,6 +28,7 @@ class EncodedVideoChunk : public Napi::ObjectWrap<EncodedVideoChunk> {
   const uint8_t* GetData() const { return data_.data(); }
   size_t GetDataSize() const { return data_.size(); }
   int64_t GetTimestampValue() const { return timestamp_; }
+  int64_t GetDurationValue() const { return has_duration_ ? duration_ : 0; }
   const std::string& GetTypeValue() const { return type_; }
 
  private:

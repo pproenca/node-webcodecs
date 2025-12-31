@@ -111,7 +111,17 @@ export class VideoDecoder extends CodecBase {
       return Promise.reject(new DOMException('Decoder is closed', 'InvalidStateError'));
     }
     await this._controlQueue.flush();
-    return this._native.flush();
+
+    // Flush the native decoder (waits for worker queue to drain)
+    this._native.flush();
+
+    // Poll for pending TSFN callbacks to complete.
+    // This allows the event loop to run (delivering callbacks) while we wait.
+    // Using setTimeout(1ms) instead of setImmediate to ensure other event loop
+    // phases (timers, I/O) can run, preventing event loop starvation.
+    while (this._native.pendingFrames > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 1)); // 1ms poll
+    }
   }
 
   reset(): void {
