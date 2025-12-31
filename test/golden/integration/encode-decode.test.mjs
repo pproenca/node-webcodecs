@@ -7,6 +7,7 @@ import {it, expect, describe, } from 'vitest';
 /**
  * Extracts dominant color from VideoFrame by sampling center pixel
  * Returns {y, width, height} where y is luminance in 0-255 range
+ * Handles both RGBA and YUV formats
  */
 async function getDominantColor(frame) {
   // Copy frame data to buffer
@@ -14,10 +15,37 @@ async function getDominantColor(frame) {
   const buffer = new Uint8Array(size);
   await frame.copyTo(buffer);
 
-  // Sample center pixel (assumes I420 or similar YUV format after decode)
-  // For simplicity, we'll check the Y plane luminance
-  const centerOffset = Math.floor(frame.codedWidth * frame.codedHeight / 2 + frame.codedWidth / 2);
-  const y = buffer[centerOffset];
+  let y;
+  const format = frame.format;
+
+  if (format === 'RGBA' || format === 'RGBX' || format === 'BGRA' || format === 'BGRX') {
+    // RGBA/BGRA format: 4 bytes per pixel
+    const bytesPerPixel = 4;
+    const centerX = Math.floor(frame.codedWidth / 2);
+    const centerY = Math.floor(frame.codedHeight / 2);
+    const centerOffset = (centerY * frame.codedWidth + centerX) * bytesPerPixel;
+
+    // Extract RGB values based on format
+    let r, g, b;
+    if (format === 'RGBA' || format === 'RGBX') {
+      r = buffer[centerOffset];
+      g = buffer[centerOffset + 1];
+      b = buffer[centerOffset + 2];
+    } else {
+      // BGRA/BGRX
+      b = buffer[centerOffset];
+      g = buffer[centerOffset + 1];
+      r = buffer[centerOffset + 2];
+    }
+
+    // Convert RGB to Y (luminance) using standard BT.601 coefficients
+    y = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+  } else {
+    // Assume YUV planar format (I420, NV12, etc.)
+    // Sample center pixel from Y plane
+    const centerOffset = Math.floor(frame.codedWidth * frame.codedHeight / 2 + frame.codedWidth / 2);
+    y = buffer[centerOffset];
+  }
 
   return { y, width: frame.codedWidth, height: frame.codedHeight };
 }
