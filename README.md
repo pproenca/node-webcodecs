@@ -72,8 +72,10 @@ npm install @pproenca/node-webcodecs
 <summary><strong>Windows</strong></summary>
 
 ```bash
-# Using vcpkg
-vcpkg install ffmpeg
+# Download FFmpeg from https://github.com/BtbN/FFmpeg-Builds/releases
+# Extract to C:\ffmpeg (or another location)
+# Set environment variable:
+set FFMPEG_PATH=C:\ffmpeg
 npm install @pproenca/node-webcodecs
 ```
 </details>
@@ -81,7 +83,8 @@ npm install @pproenca/node-webcodecs
 To force building from source even when prebuilts are available:
 
 ```bash
-npm install @pproenca/node-webcodecs --build-from-source
+npm install @pproenca/node-webcodecs
+npm run build:native
 ```
 
 ## Quick Start
