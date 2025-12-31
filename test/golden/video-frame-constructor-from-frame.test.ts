@@ -1,4 +1,4 @@
-import {describe, it, expect} from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('VideoFrame constructor from VideoFrame per W3C spec', () => {
   it('should create a clone with same properties when no init provided', () => {
@@ -32,7 +32,7 @@ describe('VideoFrame constructor from VideoFrame per W3C spec', () => {
       timestamp: 1000,
     });
 
-    const cloned = new VideoFrame(original, {timestamp: 2000});
+    const cloned = new VideoFrame(original, { timestamp: 2000 });
 
     expect(cloned.timestamp).toBe(2000);
     expect(cloned.format).toBe('RGBA'); // Other properties preserved
@@ -51,7 +51,7 @@ describe('VideoFrame constructor from VideoFrame per W3C spec', () => {
       duration: 5000,
     });
 
-    const cloned = new VideoFrame(original, {duration: 10000});
+    const cloned = new VideoFrame(original, { duration: 10000 });
 
     expect(cloned.duration).toBe(10000);
     expect(cloned.timestamp).toBe(1000); // Preserved
@@ -70,7 +70,7 @@ describe('VideoFrame constructor from VideoFrame per W3C spec', () => {
     });
 
     const cloned = new VideoFrame(original, {
-      visibleRect: {x: 2, y: 2, width: 4, height: 4},
+      visibleRect: { x: 2, y: 2, width: 4, height: 4 },
     });
 
     expect(cloned.visibleRect?.x).toBe(2);

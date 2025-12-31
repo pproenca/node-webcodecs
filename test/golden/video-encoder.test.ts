@@ -2,7 +2,7 @@
  * Tests for VideoEncoder
  */
 
-import {beforeEach, afterEach, expect, it, describe} from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 describe('VideoEncoder', () => {
   describe('isConfigSupported', () => {
@@ -108,7 +108,7 @@ describe('VideoEncoder', () => {
         codec: 'avc1.42E01E',
         width: 640,
         height: 480,
-        avc: {format: 'annexb'},
+        avc: { format: 'annexb' },
       });
       expect(result.supported).toBe(true);
       expect(result.config.avc).toBeDefined();
@@ -120,7 +120,7 @@ describe('VideoEncoder', () => {
         codec: 'avc1.42E01E',
         width: 640,
         height: 480,
-        avc: {format: 'avc'},
+        avc: { format: 'avc' },
       });
       expect(result.supported).toBe(true);
       expect(result.config.avc?.format).toBe('avc');
@@ -131,7 +131,7 @@ describe('VideoEncoder', () => {
         codec: 'hvc1.1.6.L93.B0',
         width: 640,
         height: 480,
-        hevc: {format: 'annexb'},
+        hevc: { format: 'annexb' },
       });
       // HEVC may not be available on all systems
       if (result.supported) {
@@ -154,7 +154,7 @@ describe('VideoEncoder', () => {
         bitrateMode: 'variable' as const,
         latencyMode: 'quality' as const,
         contentHint: 'motion',
-        avc: {format: 'annexb' as const},
+        avc: { format: 'annexb' as const },
         colorSpace: {
           primaries: 'bt709',
           transfer: 'bt709',
@@ -339,7 +339,9 @@ describe('VideoEncoder', () => {
       let dequeueCount = 0;
       const encoder = new VideoEncoder({
         output: () => {},
-        error: (e) => { throw e; },
+        error: (e) => {
+          throw e;
+        },
       });
 
       encoder.addEventListener('dequeue', () => {
@@ -353,15 +355,12 @@ describe('VideoEncoder', () => {
         bitrate: 1_000_000,
       });
 
-      const frame = new VideoFrame(
-        new Uint8Array(320 * 240 * 4),
-        {
-          format: 'RGBA',
-          codedWidth: 320,
-          codedHeight: 240,
-          timestamp: 0,
-        }
-      );
+      const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+        format: 'RGBA',
+        codedWidth: 320,
+        codedHeight: 240,
+        timestamp: 0,
+      });
 
       encoder.encode(frame);
       frame.close();
@@ -378,8 +377,10 @@ describe('VideoEncoder', () => {
         error: () => {},
       });
 
-      let called = false;
-      const handler = () => { called = true; };
+      let _called = false;
+      const handler = () => {
+        _called = true;
+      };
 
       encoder.addEventListener('dequeue', handler);
       encoder.removeEventListener('dequeue', handler);
@@ -394,11 +395,17 @@ describe('VideoEncoder', () => {
 
       const encoder = new VideoEncoder({
         output: () => {},
-        error: (e) => { throw e; },
+        error: (e) => {
+          throw e;
+        },
       });
 
-      encoder.ondequeue = () => { callbackCalled = true; };
-      encoder.addEventListener('dequeue', () => { eventCalled = true; });
+      encoder.ondequeue = () => {
+        callbackCalled = true;
+      };
+      encoder.addEventListener('dequeue', () => {
+        eventCalled = true;
+      });
 
       encoder.configure({
         codec: 'avc1.42001e',
@@ -407,15 +414,12 @@ describe('VideoEncoder', () => {
         bitrate: 1_000_000,
       });
 
-      const frame = new VideoFrame(
-        new Uint8Array(320 * 240 * 4),
-        {
-          format: 'RGBA',
-          codedWidth: 320,
-          codedHeight: 240,
-          timestamp: 0,
-        }
-      );
+      const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+        format: 'RGBA',
+        codedWidth: 320,
+        codedHeight: 240,
+        timestamp: 0,
+      });
 
       encoder.encode(frame);
       frame.close();
@@ -430,13 +434,15 @@ describe('VideoEncoder', () => {
 
   describe('EncodedVideoChunkMetadata', () => {
     it('should include complete decoderConfig on first keyframe', async () => {
-      const chunks: Array<{chunk: EncodedVideoChunk; metadata?: EncodedVideoChunkMetadata}> = [];
+      const chunks: Array<{ chunk: EncodedVideoChunk; metadata?: EncodedVideoChunkMetadata }> = [];
 
       const encoder = new VideoEncoder({
         output: (chunk, metadata) => {
-          chunks.push({chunk, metadata});
+          chunks.push({ chunk, metadata });
         },
-        error: (e) => { throw e; },
+        error: (e) => {
+          throw e;
+        },
       });
 
       encoder.configure({
@@ -447,17 +453,14 @@ describe('VideoEncoder', () => {
         displayHeight: 600,
       });
 
-      const frame = new VideoFrame(
-        new Uint8Array(640 * 480 * 4),
-        {
-          format: 'RGBA',
-          codedWidth: 640,
-          codedHeight: 480,
-          timestamp: 0,
-        }
-      );
+      const frame = new VideoFrame(new Uint8Array(640 * 480 * 4), {
+        format: 'RGBA',
+        codedWidth: 640,
+        codedHeight: 480,
+        timestamp: 0,
+      });
 
-      encoder.encode(frame, {keyFrame: true});
+      encoder.encode(frame, { keyFrame: true });
       frame.close();
 
       await encoder.flush();
@@ -465,7 +468,7 @@ describe('VideoEncoder', () => {
 
       expect(chunks.length).toBeGreaterThan(0);
 
-      const keyframeChunk = chunks.find(c => c.chunk.type === 'key');
+      const keyframeChunk = chunks.find((c) => c.chunk.type === 'key');
       expect(keyframeChunk).toBeDefined();
       expect(keyframeChunk?.metadata?.decoderConfig).toBeDefined();
       expect(keyframeChunk?.metadata?.decoderConfig?.codec).toContain('avc1');
@@ -477,13 +480,15 @@ describe('VideoEncoder', () => {
     });
 
     it('should include svc metadata with temporalLayerId', async () => {
-      const chunks: Array<{chunk: EncodedVideoChunk; metadata?: EncodedVideoChunkMetadata}> = [];
+      const chunks: Array<{ chunk: EncodedVideoChunk; metadata?: EncodedVideoChunkMetadata }> = [];
 
       const encoder = new VideoEncoder({
         output: (chunk, metadata) => {
-          chunks.push({chunk, metadata});
+          chunks.push({ chunk, metadata });
         },
-        error: (e) => { throw e; },
+        error: (e) => {
+          throw e;
+        },
       });
 
       encoder.configure({
@@ -494,16 +499,13 @@ describe('VideoEncoder', () => {
       });
 
       // Encode a keyframe
-      const frame = new VideoFrame(
-        new Uint8Array(320 * 240 * 4),
-        {
-          format: 'RGBA',
-          codedWidth: 320,
-          codedHeight: 240,
-          timestamp: 0,
-        }
-      );
-      encoder.encode(frame, {keyFrame: true});
+      const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+        format: 'RGBA',
+        codedWidth: 320,
+        codedHeight: 240,
+        timestamp: 0,
+      });
+      encoder.encode(frame, { keyFrame: true });
       frame.close();
 
       await encoder.flush();
@@ -512,7 +514,7 @@ describe('VideoEncoder', () => {
       expect(chunks.length).toBeGreaterThan(0);
 
       // Verify svc metadata is present on keyframe
-      const keyframeChunk = chunks.find(c => c.chunk.type === 'key');
+      const keyframeChunk = chunks.find((c) => c.chunk.type === 'key');
       expect(keyframeChunk?.metadata?.svc).toBeDefined();
       expect(keyframeChunk?.metadata?.svc?.temporalLayerId).toBe(0);
     });
@@ -520,13 +522,15 @@ describe('VideoEncoder', () => {
 
   describe('AVC bitstream format', () => {
     it('should produce annexb bitstream with start codes when avc.format = annexb', async () => {
-      const chunks: Array<{chunk: EncodedVideoChunk; metadata?: EncodedVideoChunkMetadata}> = [];
+      const chunks: Array<{ chunk: EncodedVideoChunk; metadata?: EncodedVideoChunkMetadata }> = [];
 
       const encoder = new VideoEncoder({
         output: (chunk, metadata) => {
-          chunks.push({chunk, metadata});
+          chunks.push({ chunk, metadata });
         },
-        error: (e) => { throw e; },
+        error: (e) => {
+          throw e;
+        },
       });
 
       encoder.configure({
@@ -534,20 +538,17 @@ describe('VideoEncoder', () => {
         width: 320,
         height: 240,
         bitrate: 1_000_000,
-        avc: {format: 'annexb'},
+        avc: { format: 'annexb' },
       });
 
-      const frame = new VideoFrame(
-        new Uint8Array(320 * 240 * 4),
-        {
-          format: 'RGBA',
-          codedWidth: 320,
-          codedHeight: 240,
-          timestamp: 0,
-        }
-      );
+      const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+        format: 'RGBA',
+        codedWidth: 320,
+        codedHeight: 240,
+        timestamp: 0,
+      });
 
-      encoder.encode(frame, {keyFrame: true});
+      encoder.encode(frame, { keyFrame: true });
       frame.close();
 
       await encoder.flush();
@@ -567,13 +568,15 @@ describe('VideoEncoder', () => {
     });
 
     it('should store bitstream format and apply it in encoding', async () => {
-      const chunks: Array<{chunk: EncodedVideoChunk; metadata?: EncodedVideoChunkMetadata}> = [];
+      const chunks: Array<{ chunk: EncodedVideoChunk; metadata?: EncodedVideoChunkMetadata }> = [];
 
       const encoder = new VideoEncoder({
         output: (chunk, metadata) => {
-          chunks.push({chunk, metadata});
+          chunks.push({ chunk, metadata });
         },
-        error: (e) => { throw e; },
+        error: (e) => {
+          throw e;
+        },
       });
 
       // Test with default (avc format)
@@ -582,20 +585,17 @@ describe('VideoEncoder', () => {
         width: 320,
         height: 240,
         bitrate: 1_000_000,
-        avc: {format: 'avc'},
+        avc: { format: 'avc' },
       });
 
-      const frame = new VideoFrame(
-        new Uint8Array(320 * 240 * 4),
-        {
-          format: 'RGBA',
-          codedWidth: 320,
-          codedHeight: 240,
-          timestamp: 0,
-        }
-      );
+      const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+        format: 'RGBA',
+        codedWidth: 320,
+        codedHeight: 240,
+        timestamp: 0,
+      });
 
-      encoder.encode(frame, {keyFrame: true});
+      encoder.encode(frame, { keyFrame: true });
       frame.close();
 
       await encoder.flush();
@@ -603,7 +603,7 @@ describe('VideoEncoder', () => {
 
       expect(chunks.length).toBeGreaterThan(0);
       // decoderConfig should have description for avc format
-      const keyframe = chunks.find(c => c.chunk.type === 'key');
+      const keyframe = chunks.find((c) => c.chunk.type === 'key');
       expect(keyframe?.metadata?.decoderConfig).toBeDefined();
       expect(keyframe?.metadata?.decoderConfig?.description).toBeDefined();
     });
@@ -631,13 +631,15 @@ describe('VideoEncoder', () => {
     });
 
     it('should include colorSpace in decoderConfig metadata', async () => {
-      const chunks: Array<{chunk: EncodedVideoChunk; metadata?: EncodedVideoChunkMetadata}> = [];
+      const chunks: Array<{ chunk: EncodedVideoChunk; metadata?: EncodedVideoChunkMetadata }> = [];
 
       const encoder = new VideoEncoder({
         output: (chunk, metadata) => {
-          chunks.push({chunk, metadata});
+          chunks.push({ chunk, metadata });
         },
-        error: (e) => { throw e; },
+        error: (e) => {
+          throw e;
+        },
       });
 
       encoder.configure({
@@ -652,23 +654,20 @@ describe('VideoEncoder', () => {
         },
       });
 
-      const frame = new VideoFrame(
-        new Uint8Array(320 * 240 * 4),
-        {
-          format: 'RGBA',
-          codedWidth: 320,
-          codedHeight: 240,
-          timestamp: 0,
-        }
-      );
+      const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+        format: 'RGBA',
+        codedWidth: 320,
+        codedHeight: 240,
+        timestamp: 0,
+      });
 
-      encoder.encode(frame, {keyFrame: true});
+      encoder.encode(frame, { keyFrame: true });
       frame.close();
 
       await encoder.flush();
       encoder.close();
 
-      const keyframe = chunks.find(c => c.chunk.type === 'key');
+      const keyframe = chunks.find((c) => c.chunk.type === 'key');
       expect(keyframe?.metadata?.decoderConfig?.colorSpace).toBeDefined();
       expect(keyframe?.metadata?.decoderConfig?.colorSpace?.primaries).toBe('bt709');
     });

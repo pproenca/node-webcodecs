@@ -8,14 +8,14 @@
  * For detailed memory analysis: node --expose-gc test/stress/memory-leak.test.ts
  */
 
-import {describe, it, expect, beforeAll} from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
-  VideoEncoder,
-  VideoDecoder,
-  VideoFrame,
-  AudioEncoder,
-  AudioDecoder,
   AudioData,
+  AudioDecoder,
+  AudioEncoder,
+  VideoDecoder,
+  VideoEncoder,
+  VideoFrame,
 } from '../../dist/index.js';
 
 // Helper to force garbage collection if available
@@ -65,7 +65,7 @@ describe('Memory Leak Detection', () => {
       }
 
       forceGC();
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       forceGC();
 
       const after = getHeapUsed();
@@ -112,7 +112,7 @@ describe('Memory Leak Detection', () => {
       }
 
       forceGC();
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       forceGC();
 
       const after = getHeapUsed();
@@ -138,7 +138,7 @@ describe('Memory Leak Detection', () => {
       }
 
       forceGC();
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       forceGC();
 
       const after = getHeapUsed();
@@ -164,7 +164,7 @@ describe('Memory Leak Detection', () => {
       }
 
       forceGC();
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       forceGC();
 
       const after = getHeapUsed();
@@ -191,7 +191,7 @@ describe('Memory Leak Detection', () => {
       }
 
       forceGC();
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       forceGC();
 
       const after = getHeapUsed();
@@ -220,7 +220,7 @@ describe('Memory Leak Detection', () => {
       }
 
       forceGC();
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       forceGC();
 
       const after = getHeapUsed();
@@ -248,7 +248,7 @@ describe('Memory Leak Detection', () => {
       }
 
       forceGC();
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       forceGC();
 
       const after = getHeapUsed();
@@ -275,7 +275,7 @@ describe('Memory Leak Detection', () => {
       }
 
       forceGC();
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       forceGC();
 
       const after = getHeapUsed();
@@ -294,10 +294,10 @@ describe('Stress Tests', () => {
     });
 
     const resolutions = [
-      {width: 320, height: 240},
-      {width: 640, height: 480},
-      {width: 1280, height: 720},
-      {width: 1920, height: 1080},
+      { width: 320, height: 240 },
+      { width: 640, height: 480 },
+      { width: 1280, height: 720 },
+      { width: 1920, height: 1080 },
     ];
 
     for (let i = 0; i < 50; i++) {
@@ -335,10 +335,10 @@ describe('Stress Tests', () => {
       encoders.push(encoder);
 
       const decoder = new VideoDecoder({
-        output: frame => frame.close(),
+        output: (frame) => frame.close(),
         error: () => {},
       });
-      decoder.configure({codec: 'avc1.42001f'});
+      decoder.configure({ codec: 'avc1.42001f' });
       decoders.push(decoder);
     }
 
@@ -350,7 +350,7 @@ describe('Stress Tests', () => {
       decoder.close();
     }
 
-    expect(encoders.every(e => e.state === 'closed')).toBe(true);
-    expect(decoders.every(d => d.state === 'closed')).toBe(true);
+    expect(encoders.every((e) => e.state === 'closed')).toBe(true);
+    expect(decoders.every((d) => d.state === 'closed')).toBe(true);
   });
 });

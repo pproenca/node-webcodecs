@@ -90,7 +90,7 @@ export class VideoDecoder extends CodecBase {
     // Check if first chunk must be a key frame per W3C spec
     if (this._needsKeyFrame && chunk.type !== 'key') {
       this._errorCallback(
-        new DOMException('First chunk after configure/reset must be a key frame', 'DataError')
+        new DOMException('First chunk after configure/reset must be a key frame', 'DataError'),
       );
       return;
     }

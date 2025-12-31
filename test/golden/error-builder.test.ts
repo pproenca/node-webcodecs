@@ -1,6 +1,6 @@
-import {describe, it, expect} from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-const {ErrorBuilder} = await import('../../dist/index.js');
+const { ErrorBuilder } = await import('../../dist/index.js');
 
 describe('ErrorBuilder', () => {
   it('creates error with operation and FFmpeg code', () => {

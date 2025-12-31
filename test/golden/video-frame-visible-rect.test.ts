@@ -1,5 +1,5 @@
 // test/golden/video-frame-visible-rect.test.ts
-import {describe, it, expect} from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('VideoFrame visibleRect', () => {
   it('should return default visibleRect equal to codedRect when not specified', () => {
@@ -31,7 +31,7 @@ describe('VideoFrame visibleRect', () => {
       codedWidth: width,
       codedHeight: height,
       timestamp: 0,
-      visibleRect: {x: 10, y: 20, width: 100, height: 80},
+      visibleRect: { x: 10, y: 20, width: 100, height: 80 },
     });
 
     expect(frame.visibleRect.x).toBe(10);
@@ -51,7 +51,7 @@ describe('VideoFrame visibleRect', () => {
       codedWidth: width,
       codedHeight: height,
       timestamp: 0,
-      visibleRect: {x: 10, y: 20, width: 100, height: 80},
+      visibleRect: { x: 10, y: 20, width: 100, height: 80 },
     });
 
     const rect = frame.visibleRect;
@@ -79,7 +79,7 @@ describe('VideoFrame visibleRect', () => {
         codedWidth: width,
         codedHeight: height,
         timestamp: 0,
-        visibleRect: {x: 50, y: 50, width: 100, height: 100}, // Exceeds bounds
+        visibleRect: { x: 50, y: 50, width: 100, height: 100 }, // Exceeds bounds
       });
     }).toThrow();
   });
@@ -94,7 +94,7 @@ describe('VideoFrame visibleRect', () => {
       codedWidth: width,
       codedHeight: height,
       timestamp: 0,
-      visibleRect: {x: 0, y: 0, width: 100, height: 100}, // Exact match
+      visibleRect: { x: 0, y: 0, width: 100, height: 100 }, // Exact match
     });
 
     expect(frame.visibleRect.width).toBe(100);
@@ -112,7 +112,7 @@ describe('VideoFrame visibleRect', () => {
       codedWidth: width,
       codedHeight: height,
       timestamp: 0,
-      visibleRect: {x: 0, y: 0, width: 50, height: 50},
+      visibleRect: { x: 0, y: 0, width: 50, height: 50 },
     });
 
     // RGBA: 50 * 50 * 4 = 10000 bytes
@@ -131,7 +131,7 @@ describe('VideoFrame visibleRect', () => {
       codedWidth: width,
       codedHeight: height,
       timestamp: 0,
-      visibleRect: {x: 10, y: 20, width: 30, height: 40},
+      visibleRect: { x: 10, y: 20, width: 30, height: 40 },
     });
 
     const cloned = frame.clone();
@@ -187,7 +187,7 @@ describe('VideoFrame copyTo with visibleRect', () => {
       codedWidth: width,
       codedHeight: height,
       timestamp: 0,
-      visibleRect: {x: 0, y: 0, width: 2, height: 2},
+      visibleRect: { x: 0, y: 0, width: 2, height: 2 },
     });
 
     // Copy to buffer sized for visible region
@@ -277,7 +277,7 @@ describe('VideoFrame ArrayBuffer transfer', () => {
     const arrayBuffer = new ArrayBuffer(width * height * 4);
 
     // Pre-detach the buffer
-    structuredClone(arrayBuffer, {transfer: [arrayBuffer]});
+    structuredClone(arrayBuffer, { transfer: [arrayBuffer] });
     expect(arrayBuffer.byteLength).toBe(0);
 
     // Create new data for the frame

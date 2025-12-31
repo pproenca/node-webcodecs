@@ -1,12 +1,5 @@
-import {expect, it, describe} from 'vitest';
-import type {
-  AvcEncoderConfig,
-  HevcEncoderConfig,
-  AvcBitstreamFormat,
-  HevcBitstreamFormat,
-  AacEncoderConfig,
-  AacBitstreamFormat,
-} from '../../lib/types';
+import { describe, expect, it } from 'vitest';
+import type { AacEncoderConfig, AvcEncoderConfig, HevcEncoderConfig } from '../../lib/types';
 
 describe('Encoder Config Types', () => {
   describe('AvcEncoderConfig', () => {

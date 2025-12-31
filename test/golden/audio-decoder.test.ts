@@ -2,7 +2,7 @@
  * Tests for AudioDecoder
  */
 
-import {beforeEach, afterEach, expect, it, describe} from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('AudioDecoder', () => {
   describe('configure() W3C compliance', () => {
@@ -220,7 +220,9 @@ describe('AudioDecoder', () => {
       await decoder.flush();
       expect(decoder.decodeQueueSize).toBe(0);
 
-      outputData.forEach(d => d.close());
+      for (const d of outputData) {
+        d.close();
+      }
       decoder.close();
     });
   });

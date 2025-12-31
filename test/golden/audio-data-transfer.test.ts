@@ -1,4 +1,4 @@
-import {describe, it, expect} from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('AudioData ArrayBuffer transfer semantics', () => {
   it('should detach transferred ArrayBuffer after construction', () => {

@@ -1,5 +1,10 @@
-import {describe, it, expect} from 'vitest';
-import {runtimePlatformArch, buildPlatformArch, isPrebuiltAvailable, prebuiltPlatforms} from '../../lib/platform';
+import { describe, expect, it } from 'vitest';
+import {
+  buildPlatformArch,
+  isPrebuiltAvailable,
+  prebuiltPlatforms,
+  runtimePlatformArch,
+} from '../../lib/platform';
 
 describe('Platform Detection', () => {
   it('returns valid platform-arch string', () => {

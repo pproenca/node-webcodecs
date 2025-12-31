@@ -3,7 +3,7 @@
  * Tests for full compliance with https://www.w3.org/TR/webcodecs/#videoencoder-interface
  */
 
-import {describe, it, expect, beforeEach, afterEach} from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 describe('W3C VideoEncoder Interface Compliance', () => {
   describe('VideoEncoderInit', () => {
@@ -12,9 +12,7 @@ describe('W3C VideoEncoder Interface Compliance', () => {
     });
 
     it('should require error callback per W3C spec', () => {
-      expect(() => new VideoEncoder({output: () => {}} as any)).toThrow(
-        TypeError
-      );
+      expect(() => new VideoEncoder({ output: () => {} } as any)).toThrow(TypeError);
     });
   });
 
@@ -92,26 +90,16 @@ describe('W3C VideoEncoder Interface Compliance', () => {
       expect(result.config.displayHeight).toBe(fullConfig.displayHeight);
       expect(result.config.bitrate).toBe(fullConfig.bitrate);
       expect(result.config.framerate).toBe(fullConfig.framerate);
-      expect(result.config.hardwareAcceleration).toBe(
-        fullConfig.hardwareAcceleration
-      );
+      expect(result.config.hardwareAcceleration).toBe(fullConfig.hardwareAcceleration);
       expect(result.config.alpha).toBe(fullConfig.alpha);
       expect(result.config.scalabilityMode).toBe(fullConfig.scalabilityMode);
       expect(result.config.bitrateMode).toBe(fullConfig.bitrateMode);
       expect(result.config.latencyMode).toBe(fullConfig.latencyMode);
       expect(result.config.contentHint).toBe(fullConfig.contentHint);
-      expect(result.config.colorSpace?.primaries).toBe(
-        fullConfig.colorSpace?.primaries
-      );
-      expect(result.config.colorSpace?.transfer).toBe(
-        fullConfig.colorSpace?.transfer
-      );
-      expect(result.config.colorSpace?.matrix).toBe(
-        fullConfig.colorSpace?.matrix
-      );
-      expect(result.config.colorSpace?.fullRange).toBe(
-        fullConfig.colorSpace?.fullRange
-      );
+      expect(result.config.colorSpace?.primaries).toBe(fullConfig.colorSpace?.primaries);
+      expect(result.config.colorSpace?.transfer).toBe(fullConfig.colorSpace?.transfer);
+      expect(result.config.colorSpace?.matrix).toBe(fullConfig.colorSpace?.matrix);
+      expect(result.config.colorSpace?.fullRange).toBe(fullConfig.colorSpace?.fullRange);
     });
   });
 
@@ -123,8 +111,8 @@ describe('W3C VideoEncoder Interface Compliance', () => {
       }> = [];
 
       const encoder = new VideoEncoder({
-        output: (chunk, metadata) => chunks.push({chunk, metadata}),
-        error: e => {
+        output: (chunk, metadata) => chunks.push({ chunk, metadata }),
+        error: (e) => {
           throw e;
         },
       });
@@ -149,13 +137,13 @@ describe('W3C VideoEncoder Interface Compliance', () => {
         codedHeight: 480,
         timestamp: 0,
       });
-      encoder.encode(frame, {keyFrame: true});
+      encoder.encode(frame, { keyFrame: true });
       frame.close();
 
       await encoder.flush();
       encoder.close();
 
-      const keyframe = chunks.find(c => c.chunk.type === 'key');
+      const keyframe = chunks.find((c) => c.chunk.type === 'key');
       expect(keyframe).toBeDefined();
 
       const dc = keyframe?.metadata?.decoderConfig;
@@ -175,8 +163,8 @@ describe('W3C VideoEncoder Interface Compliance', () => {
       }> = [];
 
       const encoder = new VideoEncoder({
-        output: (chunk, metadata) => chunks.push({chunk, metadata}),
-        error: e => {
+        output: (chunk, metadata) => chunks.push({ chunk, metadata }),
+        error: (e) => {
           throw e;
         },
       });
@@ -193,13 +181,13 @@ describe('W3C VideoEncoder Interface Compliance', () => {
         codedHeight: 240,
         timestamp: 0,
       });
-      encoder.encode(frame, {keyFrame: true});
+      encoder.encode(frame, { keyFrame: true });
       frame.close();
 
       await encoder.flush();
       encoder.close();
 
-      const keyframe = chunks.find(c => c.chunk.type === 'key');
+      const keyframe = chunks.find((c) => c.chunk.type === 'key');
       expect(keyframe?.metadata?.svc).toBeDefined();
       expect(keyframe?.metadata?.svc?.temporalLayerId).toBe(0);
     });
@@ -267,9 +255,7 @@ describe('W3C VideoEncoder Interface Compliance', () => {
         error: () => {},
       });
 
-      await expect(encoder.flush()).rejects.toThrow(
-        /configured|InvalidStateError/i
-      );
+      await expect(encoder.flush()).rejects.toThrow(/configured|InvalidStateError/i);
       encoder.close();
     });
   });

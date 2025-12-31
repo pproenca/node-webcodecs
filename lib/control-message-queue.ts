@@ -34,7 +34,7 @@ export class ControlMessageQueue {
    */
   async flush(): Promise<void> {
     while (this.queue.length > 0 || this.processing) {
-      await new Promise(resolve => setImmediate(resolve));
+      await new Promise((resolve) => setImmediate(resolve));
     }
   }
 
@@ -62,6 +62,7 @@ export class ControlMessageQueue {
     if (this.processing || this.queue.length === 0) return;
 
     this.processing = true;
+    // biome-ignore lint/style/noNonNullAssertion: guaranteed non-empty after length check above
     const message = this.queue.shift()!;
 
     try {

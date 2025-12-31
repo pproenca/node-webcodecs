@@ -1,4 +1,4 @@
-import {describe, it, expect} from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('VideoFrame High Bit-Depth Formats', () => {
   describe('format parsing', () => {
@@ -6,8 +6,7 @@ describe('VideoFrame High Bit-Depth Formats', () => {
       const width = 64;
       const height = 64;
       // I420P10: Y (w*h*2) + U (w/2 * h/2 * 2) + V (w/2 * h/2 * 2)
-      const totalSize =
-        width * height * 2 + ((width / 2) * (height / 2) * 2 * 2);
+      const totalSize = width * height * 2 + (width / 2) * (height / 2) * 2 * 2;
       const buffer = new ArrayBuffer(totalSize);
 
       const frame = new VideoFrame(buffer, {
@@ -24,8 +23,7 @@ describe('VideoFrame High Bit-Depth Formats', () => {
     it('should accept I420P12 format string', () => {
       const width = 64;
       const height = 64;
-      const totalSize =
-        width * height * 2 + ((width / 2) * (height / 2) * 2 * 2);
+      const totalSize = width * height * 2 + (width / 2) * (height / 2) * 2 * 2;
       const buffer = new ArrayBuffer(totalSize);
 
       const frame = new VideoFrame(buffer, {
@@ -45,8 +43,7 @@ describe('VideoFrame High Bit-Depth Formats', () => {
       // I420P10: Y (w*h*2) + U (w/2 * h/2 * 2) + V (w/2 * h/2 * 2)
       const width = 1920;
       const height = 1080;
-      const expectedSize =
-        width * height * 2 + ((width / 2) * (height / 2) * 2 * 2);
+      const expectedSize = width * height * 2 + (width / 2) * (height / 2) * 2 * 2;
 
       // Create frame with exact buffer size
       const buffer = new ArrayBuffer(expectedSize);
@@ -134,8 +131,7 @@ describe('VideoFrame High Bit-Depth Formats', () => {
     it('should return correct plane layout for I420P10', async () => {
       const width = 64;
       const height = 64;
-      const totalSize =
-        width * height * 2 + ((width / 2) * (height / 2) * 2 * 2);
+      const totalSize = width * height * 2 + (width / 2) * (height / 2) * 2 * 2;
       const buffer = new ArrayBuffer(totalSize);
 
       const frame = new VideoFrame(buffer, {
@@ -170,16 +166,16 @@ describe('VideoFrame High Bit-Depth Formats', () => {
 
   describe('all high bit-depth formats', () => {
     const formats = [
-      {name: 'I420P10', chromaH: 2, chromaV: 2, bitDepth: 10, planes: 3},
-      {name: 'I420P12', chromaH: 2, chromaV: 2, bitDepth: 12, planes: 3},
-      {name: 'I422P10', chromaH: 2, chromaV: 1, bitDepth: 10, planes: 3},
-      {name: 'I422P12', chromaH: 2, chromaV: 1, bitDepth: 12, planes: 3},
-      {name: 'I444P10', chromaH: 1, chromaV: 1, bitDepth: 10, planes: 3},
-      {name: 'I444P12', chromaH: 1, chromaV: 1, bitDepth: 12, planes: 3},
-      {name: 'NV12P10', chromaH: 2, chromaV: 2, bitDepth: 10, planes: 2},
+      { name: 'I420P10', chromaH: 2, chromaV: 2, bitDepth: 10, planes: 3 },
+      { name: 'I420P12', chromaH: 2, chromaV: 2, bitDepth: 12, planes: 3 },
+      { name: 'I422P10', chromaH: 2, chromaV: 1, bitDepth: 10, planes: 3 },
+      { name: 'I422P12', chromaH: 2, chromaV: 1, bitDepth: 12, planes: 3 },
+      { name: 'I444P10', chromaH: 1, chromaV: 1, bitDepth: 10, planes: 3 },
+      { name: 'I444P12', chromaH: 1, chromaV: 1, bitDepth: 12, planes: 3 },
+      { name: 'NV12P10', chromaH: 2, chromaV: 2, bitDepth: 10, planes: 2 },
     ];
 
-    formats.forEach(({name, chromaH, chromaV, bitDepth, planes}) => {
+    formats.forEach(({ name, chromaH, chromaV, bitDepth, planes }) => {
       it(`should create and copy ${name} frame`, async () => {
         const width = 64;
         const height = 64;

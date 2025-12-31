@@ -2,8 +2,8 @@
  * Tests for ImageDecoder ReadableStream support (W3C compliance)
  */
 
-import {describe, it, expect} from 'vitest';
-import * as zlib from 'zlib';
+import * as zlib from 'node:zlib';
+import { describe, expect, it } from 'vitest';
 
 // CRC32 calculation for PNG chunks
 function crc32(data: Buffer): number {
@@ -156,7 +156,7 @@ describe('ImageDecoder ReadableStream Support', () => {
     expect(decoder.complete).toBe(false);
 
     // Complete the stream
-    enqueueRest!();
+    enqueueRest?.();
 
     // Now decode should work
     await decoder.completed;

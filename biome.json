@@ -29,8 +29,7 @@
     }
   },
   "files": {
-    "include": ["lib/**/*.ts", "test/**/*.ts"],
-    "ignore": ["dist/", "build/", "node_modules/"]
+    "includes": ["lib/**/*.ts", "test/**/*.ts"]
   },
   "assist": {
     "actions": {

@@ -1,6 +1,6 @@
-import {describe, it, expect} from 'vitest';
-import {ImageTrackList} from '../../lib/image-track-list';
-import {ImageTrack} from '../../lib/image-track';
+import { describe, expect, it } from 'vitest';
+import { ImageTrack } from '../../lib/image-track';
+import { ImageTrackList } from '../../lib/image-track-list';
 
 describe('ImageTrackList class', () => {
   function createMockTrack(selected = true): ImageTrack {

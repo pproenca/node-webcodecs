@@ -68,7 +68,7 @@ export class EncodedVideoChunk {
       const view = new Uint8Array(
         destination.buffer,
         destination.byteOffset,
-        destination.byteLength
+        destination.byteLength,
       );
       this._native.copyTo(view);
     } else {
@@ -122,7 +122,7 @@ export class EncodedAudioChunk {
       const uint8 = new Uint8Array(
         destination.buffer,
         destination.byteOffset,
-        destination.byteLength
+        destination.byteLength,
       );
       this._native.copyTo(uint8);
     }

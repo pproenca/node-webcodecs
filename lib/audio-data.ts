@@ -71,7 +71,7 @@ export class AudioData {
     // W3C spec: planeIndex is required
     if (options.planeIndex === undefined || options.planeIndex === null) {
       throw new TypeError(
-        "Failed to execute 'allocationSize' on 'AudioData': required member planeIndex is undefined."
+        "Failed to execute 'allocationSize' on 'AudioData': required member planeIndex is undefined.",
       );
     }
     return this._native.allocationSize(options);
@@ -84,7 +84,7 @@ export class AudioData {
     // W3C spec: planeIndex is required
     if (options.planeIndex === undefined || options.planeIndex === null) {
       throw new TypeError(
-        "Failed to execute 'copyTo' on 'AudioData': required member planeIndex is undefined."
+        "Failed to execute 'copyTo' on 'AudioData': required member planeIndex is undefined.",
       );
     }
 
@@ -94,7 +94,7 @@ export class AudioData {
     const destSize = destination.byteLength;
     if (destSize < requiredSize) {
       throw new RangeError(
-        `destination buffer too small: requires ${requiredSize} bytes, got ${destSize}`
+        `destination buffer too small: requires ${requiredSize} bytes, got ${destSize}`,
       );
     }
 

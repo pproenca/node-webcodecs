@@ -1,12 +1,10 @@
-import {describe, it, expect} from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type {
-  ImageDecoderInit,
+  ImageBufferSource,
   ImageDecodeOptions,
-  ImageDecodeResult,
+  ImageDecoderInit,
   ImageTrack,
   ImageTrackList,
-  ImageBufferSource,
-  ColorSpaceConversion,
 } from '../../lib/types';
 
 describe('ImageDecoder Type Definitions', () => {
@@ -54,7 +52,7 @@ describe('ImageDecoder Type Definitions', () => {
       length: 1,
       selectedIndex: 0,
       selectedTrack: null,
-      0: {animated: false, frameCount: 1, repetitionCount: 0, selected: true},
+      0: { animated: false, frameCount: 1, repetitionCount: 0, selected: true },
     } as ImageTrackList;
 
     expect(mockTrackList.length).toBe(1);

@@ -6,75 +6,77 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import {expect, test} from 'vitest';
-import {ALL_FORMATS, EncodedPacketSink, FilePathSource, Input} from 'mediabunny';
-import {AsyncMutex} from './misc.js';
+import { ALL_FORMATS, EncodedPacketSink, FilePathSource, Input } from 'mediabunny';
+import { expect, test } from 'vitest';
+import { AsyncMutex } from './misc.js';
 
 const filePath = './test/fixtures/small_buck_bunny.mp4';
 
 test('VideoDecoder lifecycle', { timeout: 10_000 }, async () => {
-	using input = new Input({
-		source: new FilePathSource(filePath),
-		formats: ALL_FORMATS,
-	});
+  using input = new Input({
+    source: new FilePathSource(filePath),
+    formats: ALL_FORMATS,
+  });
 
-	const videoTrack = (await input.getPrimaryVideoTrack())!;
-	const decoderConfig = (await videoTrack.getDecoderConfig())!;
+  const videoTrack = (await input.getPrimaryVideoTrack())!;
+  const decoderConfig = (await videoTrack.getDecoderConfig())!;
 
-	let lastTimestamp = -Infinity;
+  let lastTimestamp = -Infinity;
 
-	const mutex = new AsyncMutex();
-	const valuesSeen = new Set<number>();
+  const mutex = new AsyncMutex();
+  const valuesSeen = new Set<number>();
 
-	const decoder = new VideoDecoder({
-		// eslint-disable-next-line @typescript-eslint/no-misused-promises
-		output: async (frame) => {
-			using lock = mutex.lock();
-			if (lock.pending) await lock.ready;
+  const decoder = new VideoDecoder({
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    output: async (frame) => {
+      using lock = mutex.lock();
+      if (lock.pending) await lock.ready;
 
-			expect(frame.format).toBe('I420');
-			expect(frame.displayWidth).toBe(videoTrack.displayWidth);
-			expect(frame.displayHeight).toBe(videoTrack.displayHeight);
-			expect(frame.timestamp).toBeGreaterThan(lastTimestamp);
+      expect(frame.format).toBe('I420');
+      expect(frame.displayWidth).toBe(videoTrack.displayWidth);
+      expect(frame.displayHeight).toBe(videoTrack.displayHeight);
+      expect(frame.timestamp).toBeGreaterThan(lastTimestamp);
 
-			const allocSize = frame.allocationSize();
-			const buffer = new Uint8Array(allocSize);
-			await frame.copyTo(buffer);
+      const allocSize = frame.allocationSize();
+      const buffer = new Uint8Array(allocSize);
+      await frame.copyTo(buffer);
 
-			valuesSeen.add(buffer[0]);
+      valuesSeen.add(buffer[0]);
 
-			lastTimestamp = frame.timestamp;
-			frame.close();
+      lastTimestamp = frame.timestamp;
+      frame.close();
 
-			expect(frame.format).toBeNull();
-			expect(frame.displayWidth).toBe(0);
-			expect(frame.displayHeight).toBe(0);
-			expect(frame.timestamp).toBe(lastTimestamp);
-		},
-		error: (e) => { throw e; },
-	});
-	expect(decoder.state === 'unconfigured');
+      expect(frame.format).toBeNull();
+      expect(frame.displayWidth).toBe(0);
+      expect(frame.displayHeight).toBe(0);
+      expect(frame.timestamp).toBe(lastTimestamp);
+    },
+    error: (e) => {
+      throw e;
+    },
+  });
+  expect(decoder.state === 'unconfigured');
 
-	decoder.configure(decoderConfig);
-	expect(decoder.state === 'configured');
+  decoder.configure(decoderConfig);
+  expect(decoder.state === 'configured');
 
-	const sink = new EncodedPacketSink(videoTrack);
-	for await (const packet of sink.packets()) {
-		const chunk = packet.toEncodedVideoChunk();
-		decoder.decode(chunk);
+  const sink = new EncodedPacketSink(videoTrack);
+  for await (const packet of sink.packets()) {
+    const chunk = packet.toEncodedVideoChunk();
+    decoder.decode(chunk);
 
-		expect(decoder.decodeQueueSize).not.toBe(0);
-		await new Promise(resolve => decoder.addEventListener('dequeue', resolve, { once: true }));
-	}
+    expect(decoder.decodeQueueSize).not.toBe(0);
+    await new Promise((resolve) => decoder.addEventListener('dequeue', resolve, { once: true }));
+  }
 
-	expect(decoder.decodeQueueSize).toBe(0);
+  expect(decoder.decodeQueueSize).toBe(0);
 
-	await decoder.flush();
+  await decoder.flush();
 
-	await mutex.lock().ready;
+  await mutex.lock().ready;
 
-	expect(valuesSeen.size).toBeGreaterThan(3);
+  expect(valuesSeen.size).toBeGreaterThan(3);
 
-	decoder.close();
-	expect(decoder.state).toBe('closed');
+  decoder.close();
+  expect(decoder.state).toBe('closed');
 });

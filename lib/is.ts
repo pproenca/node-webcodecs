@@ -27,7 +27,7 @@ export function plainObject(val: unknown): val is Record<string, unknown> {
 /**
  * Is this value a function?
  */
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+// biome-ignore lint/complexity/noBannedTypes: Generic function type guard intentionally uses Function
 export function fn(val: unknown): val is Function {
   return typeof val === 'function';
 }
@@ -75,9 +75,7 @@ export function arrayBuffer(val: unknown): val is ArrayBuffer {
 /**
  * Is this value buffer-like (Buffer, ArrayBuffer, TypedArray)?
  */
-export function bufferLike(
-  val: unknown,
-): val is Buffer | ArrayBuffer | ArrayBufferView {
+export function bufferLike(val: unknown): val is Buffer | ArrayBuffer | ArrayBufferView {
   return buffer(val) || arrayBuffer(val) || typedArray(val);
 }
 
@@ -220,11 +218,7 @@ export function codecState(val: unknown): val is string {
  * throw invalidParameterError('width', 'positive integer', -5);
  * // Error: Expected positive integer for width but received -5 of type number
  */
-export function invalidParameterError(
-  name: string,
-  expected: string,
-  actual: unknown,
-): TypeError {
+export function invalidParameterError(name: string, expected: string, actual: unknown): TypeError {
   let actualType: string;
   if (actual === null) {
     actualType = 'null';
@@ -256,28 +250,15 @@ export function missingParameterError(name: string): TypeError {
 /**
  * Create an Error for an out-of-range value.
  */
-export function rangeError(
-  name: string,
-  min: number,
-  max: number,
-  actual: number,
-): Error {
-  return new Error(
-    `Expected ${name} between ${min} and ${max} but received ${actual}`,
-  );
+export function rangeError(name: string, min: number, max: number, actual: number): Error {
+  return new Error(`Expected ${name} between ${min} and ${max} but received ${actual}`);
 }
 
 /**
  * Create an Error for an invalid enum value.
  */
-export function enumError(
-  name: string,
-  allowed: readonly string[],
-  actual: unknown,
-): Error {
-  return new Error(
-    `Expected one of [${allowed.join(', ')}] for ${name} but received '${actual}'`,
-  );
+export function enumError(name: string, allowed: readonly string[], actual: unknown): Error {
+  return new Error(`Expected one of [${allowed.join(', ')}] for ${name} but received '${actual}'`);
 }
 
 /**
@@ -287,7 +268,7 @@ export function enumError(
 export function nativeError(native: Error, context: Error): Error {
   context.message = native.message;
   if ('code' in native) {
-    (context as Error & {code: unknown}).code = native.code;
+    (context as Error & { code: unknown }).code = native.code;
   }
   return context;
 }
@@ -299,10 +280,7 @@ export function nativeError(native: Error, context: Error): Error {
 /**
  * Assert value is defined, throw if not.
  */
-export function assertDefined<T>(
-  val: T | undefined | null,
-  name: string,
-): asserts val is T {
+export function assertDefined<T>(val: T | undefined | null, name: string): asserts val is T {
   if (!defined(val)) {
     throw missingParameterError(name);
   }
@@ -311,10 +289,7 @@ export function assertDefined<T>(
 /**
  * Assert value is a positive integer, throw if not.
  */
-export function assertPositiveInteger(
-  val: unknown,
-  name: string,
-): asserts val is number {
+export function assertPositiveInteger(val: unknown, name: string): asserts val is number {
   if (!positiveInteger(val)) {
     throw invalidParameterError(name, 'positive integer', val);
   }
@@ -323,10 +298,7 @@ export function assertPositiveInteger(
 /**
  * Assert value is a non-negative integer, throw if not.
  */
-export function assertNonNegativeInteger(
-  val: unknown,
-  name: string,
-): asserts val is number {
+export function assertNonNegativeInteger(val: unknown, name: string): asserts val is number {
   if (!nonNegativeInteger(val)) {
     throw invalidParameterError(name, 'non-negative integer', val);
   }
@@ -335,12 +307,7 @@ export function assertNonNegativeInteger(
 /**
  * Assert value is in range, throw if not.
  */
-export function assertInRange(
-  val: number,
-  name: string,
-  min: number,
-  max: number,
-): void {
+export function assertInRange(val: number, name: string, min: number, max: number): void {
   if (!inRange(val, min, max)) {
     throw rangeError(name, min, max, val);
   }
@@ -391,10 +358,6 @@ export function assertBufferLike(
   name: string,
 ): asserts val is Buffer | ArrayBuffer | ArrayBufferView {
   if (!bufferLike(val)) {
-    throw invalidParameterError(
-      name,
-      'Buffer, ArrayBuffer, or TypedArray',
-      val,
-    );
+    throw invalidParameterError(name, 'Buffer, ArrayBuffer, or TypedArray', val);
   }
 }

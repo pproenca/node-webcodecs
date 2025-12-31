@@ -1,6 +1,6 @@
-import {describe, it, expect} from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-const {getFFmpegWarnings, clearFFmpegWarnings} = await import('../../dist/index.js');
+const { getFFmpegWarnings, clearFFmpegWarnings } = await import('../../dist/index.js');
 
 describe('FFmpeg Logging', () => {
   it('captures FFmpeg warnings', () => {

@@ -1,4 +1,4 @@
-import {ImageTrack} from './image-track';
+import type { ImageTrack } from './image-track';
 
 /**
  * ImageTrackList represents a list of tracks in an image.
@@ -25,7 +25,7 @@ export class ImageTrackList {
     if (ready) {
       this._ready = ready;
     } else {
-      this._ready = new Promise(resolve => {
+      this._ready = new Promise((resolve) => {
         this._readyResolve = resolve;
       });
       // Resolve immediately for synchronously available tracks

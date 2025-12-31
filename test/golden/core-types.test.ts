@@ -2,7 +2,7 @@
  * Tests for core data types: VideoFrame, AudioData, EncodedVideoChunk, EncodedAudioChunk
  */
 
-import {expect, it, describe} from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('VideoFrame', () => {
   describe('constructor', () => {
@@ -203,7 +203,7 @@ describe('AudioData', () => {
       });
 
       expect(audioData.allocationSize({ planeIndex: 0 })).toBe(
-        numberOfFrames * numberOfChannels * 4
+        numberOfFrames * numberOfChannels * 4,
       );
 
       audioData.close();
@@ -223,9 +223,7 @@ describe('AudioData', () => {
         data: data.buffer,
       });
 
-      expect(audioData.allocationSize({ planeIndex: 0 })).toBe(
-        numberOfFrames * 4
-      );
+      expect(audioData.allocationSize({ planeIndex: 0 })).toBe(numberOfFrames * 4);
 
       audioData.close();
     });
@@ -331,9 +329,9 @@ describe('AudioData', () => {
       audioData.close();
 
       const dest = new Float32Array(1024 * 2);
-      expect(() => audioData.copyTo(dest, {planeIndex: 0})).toThrow(DOMException);
+      expect(() => audioData.copyTo(dest, { planeIndex: 0 })).toThrow(DOMException);
       try {
-        audioData.copyTo(dest, {planeIndex: 0});
+        audioData.copyTo(dest, { planeIndex: 0 });
       } catch (e) {
         expect((e as DOMException).name).toBe('InvalidStateError');
       }
@@ -403,7 +401,7 @@ describe('AudioData', () => {
       audioData.copyTo(dest, { planeIndex: 0, frameOffset: 10, frameCount: 10 });
 
       // Verify first sample is from frame 10
-      expect(dest[0]).toBeCloseTo(0.10, 5);
+      expect(dest[0]).toBeCloseTo(0.1, 5);
       // Verify last sample is from frame 19
       expect(dest[dest.length - 1]).toBeCloseTo(0.19, 5);
 
@@ -516,7 +514,7 @@ describe('AudioData', () => {
       // Interleaved: L0 R0 L1 R1 ...
       const data = new Float32Array(numberOfFrames * numberOfChannels);
       for (let i = 0; i < numberOfFrames; i++) {
-        data[i * 2] = 0.5;      // Left channel: all 0.5
+        data[i * 2] = 0.5; // Left channel: all 0.5
         data[i * 2 + 1] = -0.5; // Right channel: all -0.5
       }
 
@@ -549,7 +547,7 @@ describe('AudioData', () => {
       // Planar: plane 0 all 0.25, plane 1 all 0.75
       const data = new Float32Array(numberOfFrames * numberOfChannels);
       for (let i = 0; i < numberOfFrames; i++) {
-        data[i] = 0.25;                  // Plane 0
+        data[i] = 0.25; // Plane 0
         data[numberOfFrames + i] = 0.75; // Plane 1
       }
 
@@ -570,8 +568,8 @@ describe('AudioData', () => {
       audioData.copyTo(dest, { planeIndex: 0, format: 'f32' });
 
       // Interleaved: L0 R0 L1 R1 ...
-      expect(dest[0]).toBeCloseTo(0.25, 5);  // L0
-      expect(dest[1]).toBeCloseTo(0.75, 5);  // R0
+      expect(dest[0]).toBeCloseTo(0.25, 5); // L0
+      expect(dest[1]).toBeCloseTo(0.75, 5); // R0
 
       audioData.close();
     });
@@ -683,7 +681,7 @@ describe('EncodedVideoChunk', () => {
 describe('EncodedAudioChunk', () => {
   describe('constructor', () => {
     it('should create an audio chunk', () => {
-      const data = new Uint8Array([0xFF, 0xF1, 0x50, 0x80]);
+      const data = new Uint8Array([0xff, 0xf1, 0x50, 0x80]);
 
       const chunk = new EncodedAudioChunk({
         type: 'key',
@@ -701,7 +699,7 @@ describe('EncodedAudioChunk', () => {
 
   describe('copyTo', () => {
     it('should copy data to destination buffer', () => {
-      const srcData = new Uint8Array([0xFF, 0xF1, 0x50, 0x80, 0x00, 0x1F]);
+      const srcData = new Uint8Array([0xff, 0xf1, 0x50, 0x80, 0x00, 0x1f]);
       const chunk = new EncodedAudioChunk({
         type: 'key',
         timestamp: 0,

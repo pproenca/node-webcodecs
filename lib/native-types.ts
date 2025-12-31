@@ -4,21 +4,21 @@
  */
 
 import type {
-  VideoColorSpaceInit,
-  VideoEncoderConfig,
-  VideoDecoderConfig,
-  AudioEncoderConfig,
   AudioDecoderConfig,
-  VideoFilterConfig,
-  BlurRegion,
-  TrackInfo,
-  CodecState,
+  AudioEncoderConfig,
   AudioSampleFormat,
+  BlurRegion,
+  CodecState,
+  TrackInfo,
+  VideoColorSpaceInit,
+  VideoDecoderConfig,
+  VideoEncoderConfig,
+  VideoFilterConfig,
 } from './types';
 
 // Branded type for closed resources
 declare const ClosedBrand: unique symbol;
-export type Closed = {readonly [ClosedBrand]: true};
+export type Closed = { readonly [ClosedBrand]: true };
 
 /**
  * Native VideoFrame object from C++ addon
@@ -45,10 +45,10 @@ export interface NativeVideoFrame {
   close(): void;
   getData(): Buffer;
   clone(): NativeVideoFrame;
-  allocationSize(options?: {format?: string}): number;
+  allocationSize(options?: { format?: string }): number;
   copyTo(
     dest: Uint8Array | ArrayBuffer,
-    options?: {format?: string},
+    options?: { format?: string },
   ): Promise<PlaneLayoutResult[]>;
 }
 
@@ -66,7 +66,7 @@ export interface NativeVideoEncoder {
   readonly codecSaturated: boolean;
 
   configure(config: VideoEncoderConfig): void;
-  encode(frame: NativeVideoFrame, options?: {keyFrame?: boolean}): void;
+  encode(frame: NativeVideoFrame, options?: { keyFrame?: boolean }): void;
   flush(): void;
   reset(): void;
   close(): void;
@@ -112,11 +112,8 @@ export interface NativeAudioData {
 
   close(): void;
   clone(): NativeAudioData;
-  allocationSize(options?: {planeIndex?: number; format?: string}): number;
-  copyTo(
-    dest: Uint8Array | ArrayBuffer,
-    options?: {planeIndex?: number; format?: string},
-  ): void;
+  allocationSize(options?: { planeIndex?: number; format?: string }): number;
+  copyTo(dest: Uint8Array | ArrayBuffer, options?: { planeIndex?: number; format?: string }): void;
 }
 
 /**
@@ -165,11 +162,7 @@ export interface NativeAudioDecoder {
  */
 export interface NativeVideoFilter {
   configure(config: VideoFilterConfig): void;
-  applyBlur(
-    frame: NativeVideoFrame,
-    regions: BlurRegion[],
-    blurRadius: number,
-  ): NativeVideoFrame;
+  applyBlur(frame: NativeVideoFrame, regions: BlurRegion[], blurRadius: number): NativeVideoFrame;
   close(): void;
 }
 
@@ -228,7 +221,7 @@ export interface NativeMuxer {
 }
 
 export interface NativeMuxerConstructor {
-  new (options: {filename: string}): NativeMuxer;
+  new (options: { filename: string }): NativeMuxer;
 }
 
 /**
@@ -240,7 +233,7 @@ export interface NativeImageDecoder {
   readonly completed: Promise<void>;
   readonly tracks: NativeImageTrackList;
 
-  decode(options?: {frameIndex?: number}): Promise<NativeImageDecodeResult>;
+  decode(options?: { frameIndex?: number }): Promise<NativeImageDecodeResult>;
   reset(): void;
   close(): void;
 }
@@ -286,7 +279,7 @@ export type VideoEncoderOutputCallback = (
       description?: ArrayBuffer;
       colorSpace?: VideoColorSpaceInit;
     };
-    svc?: {temporalLayerId: number};
+    svc?: { temporalLayerId: number };
     alphaSideData?: ArrayBuffer;
   },
 ) => void;
@@ -301,7 +294,7 @@ export type AudioEncoderOutputCallback = (
     byteLength: number;
   },
   metadata?: {
-    decoderConfig?: AudioDecoderConfig & {description?: ArrayBuffer};
+    decoderConfig?: AudioDecoderConfig & { description?: ArrayBuffer };
   },
 ) => void;
 export type AudioDecoderOutputCallback = (data: NativeAudioData) => void;
@@ -338,23 +331,17 @@ export interface NativeVideoFrameConstructor {
 }
 
 export interface NativeVideoEncoderConstructor {
-  new (callbacks: {
-    output: VideoEncoderOutputCallback;
-    error: ErrorCallback;
-  }): NativeVideoEncoder;
+  new (callbacks: { output: VideoEncoderOutputCallback; error: ErrorCallback }): NativeVideoEncoder;
   isConfigSupported(
     config: VideoEncoderConfig,
-  ): Promise<{supported: boolean; config: VideoEncoderConfig}>;
+  ): Promise<{ supported: boolean; config: VideoEncoderConfig }>;
 }
 
 export interface NativeVideoDecoderConstructor {
-  new (callbacks: {
-    output: VideoDecoderOutputCallback;
-    error: ErrorCallback;
-  }): NativeVideoDecoder;
+  new (callbacks: { output: VideoDecoderOutputCallback; error: ErrorCallback }): NativeVideoDecoder;
   isConfigSupported(
     config: VideoDecoderConfig,
-  ): Promise<{supported: boolean; config: VideoDecoderConfig}>;
+  ): Promise<{ supported: boolean; config: VideoDecoderConfig }>;
 }
 
 export interface NativeAudioDataConstructor {
@@ -387,23 +374,17 @@ export interface NativeEncodedAudioChunkConstructor {
 }
 
 export interface NativeAudioEncoderConstructor {
-  new (callbacks: {
-    output: AudioEncoderOutputCallback;
-    error: ErrorCallback;
-  }): NativeAudioEncoder;
+  new (callbacks: { output: AudioEncoderOutputCallback; error: ErrorCallback }): NativeAudioEncoder;
   isConfigSupported(
     config: AudioEncoderConfig,
-  ): Promise<{supported: boolean; config: AudioEncoderConfig}>;
+  ): Promise<{ supported: boolean; config: AudioEncoderConfig }>;
 }
 
 export interface NativeAudioDecoderConstructor {
-  new (callbacks: {
-    output: AudioDecoderOutputCallback;
-    error: ErrorCallback;
-  }): NativeAudioDecoder;
+  new (callbacks: { output: AudioDecoderOutputCallback; error: ErrorCallback }): NativeAudioDecoder;
   isConfigSupported(
     config: AudioDecoderConfig,
-  ): Promise<{supported: boolean; config: AudioDecoderConfig}>;
+  ): Promise<{ supported: boolean; config: AudioDecoderConfig }>;
 }
 
 export interface NativeVideoFilterConstructor {
@@ -419,7 +400,7 @@ export interface NativeDemuxerConstructor {
 }
 
 export interface NativeImageDecoderConstructor {
-  new (init: {type: string; data: Buffer}): NativeImageDecoder;
+  new (init: { type: string; data: Buffer }): NativeImageDecoder;
   isTypeSupported(type: string): Promise<boolean>;
 }
 

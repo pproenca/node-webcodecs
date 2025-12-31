@@ -1,5 +1,5 @@
 // test/golden/video-encoder-event-loop.test.ts
-import {describe, it, expect} from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 /**
  * Event loop blocking verification tests for VideoEncoder.
@@ -14,12 +14,14 @@ import {describe, it, expect} from 'vitest';
 describe('VideoEncoder event loop', () => {
   // TODO: Remove .skip when async_mode_ is enabled in video_encoder.cc
   it.skip('should not block event loop during heavy encoding', async () => {
-    const {VideoEncoder, VideoFrame} = await import('../../lib/index');
+    const { VideoEncoder, VideoFrame } = await import('../../lib/index');
 
     const chunks: unknown[] = [];
     const encoder = new VideoEncoder({
       output: (chunk) => chunks.push(chunk),
-      error: (e) => { throw e; },
+      error: (e) => {
+        throw e;
+      },
     });
 
     encoder.configure({

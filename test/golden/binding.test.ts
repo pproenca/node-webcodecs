@@ -1,11 +1,11 @@
 // Copyright 2024 The node-webcodecs Authors
 // SPDX-License-Identifier: MIT
 
-import {describe, it, expect} from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('binding loader', () => {
   it('should load native binding', async () => {
-    const {binding, platformInfo} = await import('../../lib/binding');
+    const { binding, platformInfo } = await import('../../lib/binding');
 
     expect(binding).toBeDefined();
     expect(typeof binding.VideoEncoder).toBe('function');
@@ -14,7 +14,7 @@ describe('binding loader', () => {
   });
 
   it('should export platform info', async () => {
-    const {platformInfo} = await import('../../lib/binding');
+    const { platformInfo } = await import('../../lib/binding');
 
     expect(platformInfo).toHaveProperty('platform');
     expect(platformInfo).toHaveProperty('arch');

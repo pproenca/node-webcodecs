@@ -2,7 +2,7 @@
  * Tests for VideoDecoder
  */
 
-import {beforeEach, afterEach, expect, it, describe} from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 describe('VideoDecoder', () => {
   describe('isConfigSupported', () => {
@@ -150,12 +150,14 @@ describe('VideoDecoder', () => {
           // Copy the chunk data since we need to use it after encoder is closed
           const data = new Uint8Array(chunk.byteLength);
           chunk.copyTo(data);
-          encodedChunks.push(new EncodedVideoChunk({
-            type: chunk.type,
-            timestamp: chunk.timestamp,
-            duration: chunk.duration ?? undefined,
-            data: data,
-          }));
+          encodedChunks.push(
+            new EncodedVideoChunk({
+              type: chunk.type,
+              timestamp: chunk.timestamp,
+              duration: chunk.duration ?? undefined,
+              data: data,
+            }),
+          );
         },
         error: (e) => {
           throw e;
@@ -173,7 +175,7 @@ describe('VideoDecoder', () => {
       // Create and encode a test frame
       const frameData = new Uint8Array(320 * 240 * 4);
       for (let i = 0; i < frameData.length; i += 4) {
-        frameData[i] = 128;     // R
+        frameData[i] = 128; // R
         frameData[i + 1] = 128; // G
         frameData[i + 2] = 128; // B
         frameData[i + 3] = 255; // A
@@ -185,7 +187,7 @@ describe('VideoDecoder', () => {
         timestamp: 0,
       });
 
-      encoder.encode(frame, {keyFrame: true});
+      encoder.encode(frame, { keyFrame: true });
       await encoder.flush();
       frame.close();
       encoder.close();
@@ -218,7 +220,9 @@ describe('VideoDecoder', () => {
       // After flush, queue should be empty
       expect(decoder.decodeQueueSize).toBe(0);
 
-      outputFrames.forEach(f => f.close());
+      for (const f of outputFrames) {
+        f.close();
+      }
       decoder.close();
     });
   });
@@ -228,17 +232,21 @@ describe('VideoDecoder', () => {
       // Encode a frame first
       const encodedChunks: EncodedVideoChunk[] = [];
       const encoder = new VideoEncoder({
-        output: (chunk, metadata) => {
+        output: (chunk, _metadata) => {
           const data = new Uint8Array(chunk.byteLength);
           chunk.copyTo(data);
-          encodedChunks.push(new EncodedVideoChunk({
-            type: chunk.type,
-            timestamp: chunk.timestamp,
-            duration: chunk.duration ?? undefined,
-            data: data,
-          }));
+          encodedChunks.push(
+            new EncodedVideoChunk({
+              type: chunk.type,
+              timestamp: chunk.timestamp,
+              duration: chunk.duration ?? undefined,
+              data: data,
+            }),
+          );
         },
-        error: (e) => { throw e; },
+        error: (e) => {
+          throw e;
+        },
       });
 
       encoder.configure({
@@ -268,7 +276,9 @@ describe('VideoDecoder', () => {
         output: (outputFrame) => {
           outputFrames.push(outputFrame);
         },
-        error: (e) => { throw e; },
+        error: (e) => {
+          throw e;
+        },
       });
 
       decoder.configure({
@@ -283,10 +293,12 @@ describe('VideoDecoder', () => {
       await decoder.flush();
 
       expect(outputFrames.length).toBeGreaterThan(0);
-      expect(outputFrames[0].displayWidth).toBe(Math.round(240 * 16 / 9)); // ~427
+      expect(outputFrames[0].displayWidth).toBe(Math.round((240 * 16) / 9)); // ~427
       expect(outputFrames[0].displayHeight).toBe(240);
 
-      outputFrames.forEach(f => f.close());
+      for (const f of outputFrames) {
+        f.close();
+      }
       decoder.close();
     });
   });
@@ -470,13 +482,17 @@ describe('VideoDecoder', () => {
         output: (chunk) => {
           const data = new Uint8Array(chunk.byteLength);
           chunk.copyTo(data);
-          encodedChunks.push(new EncodedVideoChunk({
-            type: chunk.type,
-            timestamp: chunk.timestamp,
-            data: data,
-          }));
+          encodedChunks.push(
+            new EncodedVideoChunk({
+              type: chunk.type,
+              timestamp: chunk.timestamp,
+              data: data,
+            }),
+          );
         },
-        error: (e) => { throw e; },
+        error: (e) => {
+          throw e;
+        },
       });
 
       encoder.configure({
@@ -506,7 +522,9 @@ describe('VideoDecoder', () => {
         output: (outputFrame) => {
           outputFrames.push(outputFrame);
         },
-        error: (e) => { throw e; },
+        error: (e) => {
+          throw e;
+        },
       });
 
       decoder.configure({
@@ -530,7 +548,9 @@ describe('VideoDecoder', () => {
       expect(outputFrames[0].colorSpace.matrix).toBe('bt709');
       expect(outputFrames[0].colorSpace.fullRange).toBe(false);
 
-      outputFrames.forEach(f => f.close());
+      for (const f of outputFrames) {
+        f.close();
+      }
       decoder.close();
     });
   });
@@ -980,7 +1000,7 @@ describe('VideoDecoder', () => {
         decoder.decode(deltaChunk);
 
         // Give time for async error callback
-        await new Promise(resolve => setTimeout(resolve, 10));
+        await new Promise((resolve) => setTimeout(resolve, 10));
 
         expect(errors.length).toBeGreaterThan(0);
         expect(errors[0].name).toBe('DataError');
@@ -1007,14 +1027,18 @@ describe('VideoDecoder', () => {
           output: (chunk) => {
             const data = new Uint8Array(chunk.byteLength);
             chunk.copyTo(data);
-            encodedChunks.push(new EncodedVideoChunk({
-              type: chunk.type,
-              timestamp: chunk.timestamp,
-              duration: chunk.duration ?? undefined,
-              data: data,
-            }));
+            encodedChunks.push(
+              new EncodedVideoChunk({
+                type: chunk.type,
+                timestamp: chunk.timestamp,
+                duration: chunk.duration ?? undefined,
+                data: data,
+              }),
+            );
           },
-          error: (e) => { throw e; },
+          error: (e) => {
+            throw e;
+          },
         });
 
         encoder.configure({

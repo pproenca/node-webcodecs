@@ -1,14 +1,14 @@
 // Copyright 2024 The node-webcodecs Authors
 // SPDX-License-Identifier: MIT
 
-import {describe, it, expect, beforeEach, afterEach} from 'vitest';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 describe('Muxer', () => {
   it('should be exported from the library', async () => {
-    const {Muxer} = await import('../../dist/index.js');
+    const { Muxer } = await import('../../dist/index.js');
     expect(Muxer).toBeDefined();
   });
 
@@ -22,18 +22,18 @@ describe('Muxer', () => {
     });
 
     afterEach(() => {
-      fs.rmSync(tempDir, {recursive: true, force: true});
+      fs.rmSync(tempDir, { recursive: true, force: true });
     });
 
     it('should create a muxer instance with filename', async () => {
-      const {Muxer} = await import('../../dist/index.js');
-      const muxer = new Muxer({filename: outputPath});
+      const { Muxer } = await import('../../dist/index.js');
+      const muxer = new Muxer({ filename: outputPath });
       expect(muxer).toBeDefined();
       muxer.close();
     });
 
     it('should throw if filename is missing', async () => {
-      const {Muxer} = await import('../../dist/index.js');
+      const { Muxer } = await import('../../dist/index.js');
       expect(() => new Muxer({} as any)).toThrow();
     });
   });

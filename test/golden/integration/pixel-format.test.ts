@@ -3,7 +3,7 @@
  * Tests NV21 format and 10-bit alpha formats
  */
 
-import {describe, it, expect} from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('NV21 pixel format', () => {
   it('should create VideoFrame with NV21 format', () => {

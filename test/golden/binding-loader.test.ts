@@ -1,5 +1,5 @@
-import {describe, it, expect} from 'vitest';
-import {binding, platformInfo} from '../../lib/binding';
+import { describe, expect, it } from 'vitest';
+import { binding, platformInfo } from '../../lib/binding';
 
 describe('Binding Loader', () => {
   it('loads native binding successfully', () => {

@@ -1,4 +1,4 @@
-import {describe, it, expect} from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('AudioData exception types per W3C spec', () => {
   describe('clone()', () => {
@@ -36,11 +36,9 @@ describe('AudioData exception types per W3C spec', () => {
 
       audioData.close();
 
-      expect(() => audioData.allocationSize({planeIndex: 0})).toThrow(
-        DOMException,
-      );
+      expect(() => audioData.allocationSize({ planeIndex: 0 })).toThrow(DOMException);
       try {
-        audioData.allocationSize({planeIndex: 0});
+        audioData.allocationSize({ planeIndex: 0 });
       } catch (e) {
         expect((e as DOMException).name).toBe('InvalidStateError');
       }
@@ -57,9 +55,7 @@ describe('AudioData exception types per W3C spec', () => {
       });
 
       // planeIndex 5 is out of range for 2-channel audio
-      expect(() => audioData.allocationSize({planeIndex: 5})).toThrow(
-        RangeError,
-      );
+      expect(() => audioData.allocationSize({ planeIndex: 5 })).toThrow(RangeError);
 
       audioData.close();
     });
@@ -79,11 +75,9 @@ describe('AudioData exception types per W3C spec', () => {
       audioData.close();
 
       const dest = new ArrayBuffer(1024 * 2 * 4);
-      expect(() => audioData.copyTo(dest, {planeIndex: 0})).toThrow(
-        DOMException,
-      );
+      expect(() => audioData.copyTo(dest, { planeIndex: 0 })).toThrow(DOMException);
       try {
-        audioData.copyTo(dest, {planeIndex: 0});
+        audioData.copyTo(dest, { planeIndex: 0 });
       } catch (e) {
         expect((e as DOMException).name).toBe('InvalidStateError');
       }
@@ -101,7 +95,7 @@ describe('AudioData exception types per W3C spec', () => {
 
       const dest = new ArrayBuffer(10); // Too small
 
-      expect(() => audioData.copyTo(dest, {planeIndex: 0})).toThrow(RangeError);
+      expect(() => audioData.copyTo(dest, { planeIndex: 0 })).toThrow(RangeError);
 
       audioData.close();
     });

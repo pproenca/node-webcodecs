@@ -17,18 +17,6 @@ extern "C" {
 
 #include "src/ffmpeg_raii.h"
 
-struct MuxerTrackConfig {
-  std::string type;  // "video" or "audio"
-  std::string codec;
-  int width;
-  int height;
-  int sample_rate;
-  int channels;
-  int bitrate;
-  int framerate;
-  std::vector<uint8_t> description;  // codec extradata (e.g., avcC for H.264)
-};
-
 class Muxer : public Napi::ObjectWrap<Muxer> {
  public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);

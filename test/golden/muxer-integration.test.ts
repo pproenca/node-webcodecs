@@ -2,10 +2,10 @@
 // Copyright 2024 The node-webcodecs Authors
 // SPDX-License-Identifier: MIT
 
-import {describe, it, expect, beforeEach, afterEach} from 'vitest';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 describe('Muxer Integration', () => {
   let tempDir: string;
@@ -15,18 +15,19 @@ describe('Muxer Integration', () => {
   });
 
   afterEach(() => {
-    fs.rmSync(tempDir, {recursive: true, force: true});
+    fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
   it('should encode frames and mux to MP4', async () => {
-    const {VideoEncoder, VideoFrame, Muxer} = await import('../../dist/index.js');
+    const { VideoEncoder, VideoFrame, Muxer } = await import('../../dist/index.js');
 
     const outputPath = path.join(tempDir, 'output.mp4');
     const WIDTH = 320;
     const HEIGHT = 240;
     const FRAME_COUNT = 10;
 
-    const chunks: Array<{type: string; timestamp: number; duration: number; data: Uint8Array}> = [];
+    const chunks: Array<{ type: string; timestamp: number; duration: number; data: Uint8Array }> =
+      [];
     let codecDescription: ArrayBuffer | undefined;
 
     // Create encoder
@@ -44,7 +45,9 @@ describe('Muxer Integration', () => {
           codecDescription = metadata.decoderConfig.description;
         }
       },
-      error: (e) => { throw e; },
+      error: (e) => {
+        throw e;
+      },
     });
 
     // Use avc format to get description (extradata) for MP4 container
@@ -54,7 +57,7 @@ describe('Muxer Integration', () => {
       height: HEIGHT,
       bitrate: 1_000_000,
       framerate: 30,
-      avc: {format: 'avc'},
+      avc: { format: 'avc' },
     });
 
     // Encode frames
@@ -77,7 +80,7 @@ describe('Muxer Integration', () => {
         timestamp: i * 33333,
       });
 
-      encoder.encode(frame, {keyFrame: i === 0});
+      encoder.encode(frame, { keyFrame: i === 0 });
       frame.close();
     }
 
@@ -92,7 +95,7 @@ describe('Muxer Integration', () => {
     const sortedChunks = [...chunks].sort((a, b) => a.timestamp - b.timestamp);
 
     // Mux to MP4
-    const muxer = new Muxer({filename: outputPath});
+    const muxer = new Muxer({ filename: outputPath });
 
     muxer.addVideoTrack({
       codec: 'avc1.42001e',
@@ -118,18 +121,19 @@ describe('Muxer Integration', () => {
     // Verify it's a valid MP4 by checking for ftyp box
     const header = fs.readFileSync(outputPath).slice(0, 12);
     const ftypOffset = header.indexOf('ftyp');
-    expect(ftypOffset).toBeGreaterThanOrEqual(4);  // ftyp should be in first 12 bytes
+    expect(ftypOffset).toBeGreaterThanOrEqual(4); // ftyp should be in first 12 bytes
   });
 
   it('should be readable by Demuxer', async () => {
-    const {VideoEncoder, VideoFrame, Muxer, Demuxer} = await import('../../dist/index.js');
+    const { VideoEncoder, VideoFrame, Muxer, Demuxer } = await import('../../dist/index.js');
 
     const outputPath = path.join(tempDir, 'roundtrip.mp4');
     const WIDTH = 320;
     const HEIGHT = 240;
     const FRAME_COUNT = 5;
 
-    const chunks: Array<{type: string; timestamp: number; duration: number; data: Uint8Array}> = [];
+    const chunks: Array<{ type: string; timestamp: number; duration: number; data: Uint8Array }> =
+      [];
     let codecDescription: ArrayBuffer | undefined;
 
     const encoder = new VideoEncoder({
@@ -146,7 +150,9 @@ describe('Muxer Integration', () => {
           codecDescription = metadata.decoderConfig.description;
         }
       },
-      error: (e) => { throw e; },
+      error: (e) => {
+        throw e;
+      },
     });
 
     // Use avc format to get description (extradata) for MP4 container
@@ -156,7 +162,7 @@ describe('Muxer Integration', () => {
       height: HEIGHT,
       bitrate: 1_000_000,
       framerate: 30,
-      avc: {format: 'avc'},
+      avc: { format: 'avc' },
     });
 
     for (let i = 0; i < FRAME_COUNT; i++) {
@@ -177,7 +183,7 @@ describe('Muxer Integration', () => {
         timestamp: i * 33333,
       });
 
-      encoder.encode(frame, {keyFrame: i === 0});
+      encoder.encode(frame, { keyFrame: i === 0 });
       frame.close();
     }
 
@@ -188,7 +194,7 @@ describe('Muxer Integration', () => {
     const sortedChunks = [...chunks].sort((a, b) => a.timestamp - b.timestamp);
 
     // Mux
-    const muxer = new Muxer({filename: outputPath});
+    const muxer = new Muxer({ filename: outputPath });
     muxer.addVideoTrack({
       codec: 'avc1.42001e',
       width: WIDTH,
@@ -216,7 +222,9 @@ describe('Muxer Integration', () => {
       onChunk: () => {
         demuxedChunks++;
       },
-      onError: (e) => { throw e; },
+      onError: (e) => {
+        throw e;
+      },
     });
 
     await demuxer.open(outputPath);

@@ -1,5 +1,5 @@
-import {describe, it, expect} from 'vitest';
-import {ImageTrack} from '../../lib/image-track';
+import { describe, expect, it } from 'vitest';
+import { ImageTrack } from '../../lib/image-track';
 
 describe('ImageTrack class', () => {
   it('has readonly animated property', () => {

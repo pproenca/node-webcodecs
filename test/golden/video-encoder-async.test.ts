@@ -1,4 +1,4 @@
-import {describe, it, expect} from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 /**
  * Tests for VideoEncoder async infrastructure.
@@ -14,7 +14,7 @@ import {describe, it, expect} from 'vitest';
  */
 describe('VideoEncoder async mode', () => {
   it('should emit dequeue events when queue drains', async () => {
-    const {VideoEncoder, VideoFrame} = await import('../../lib/index');
+    const { VideoEncoder, VideoFrame } = await import('../../lib/index');
 
     let dequeueCount = 0;
     const encoder = new VideoEncoder({
@@ -55,7 +55,7 @@ describe('VideoEncoder async mode', () => {
     encoder.close();
   });
   it('should encode multiple frames without blocking', async () => {
-    const {VideoEncoder, VideoFrame} = await import('../../lib/index');
+    const { VideoEncoder, VideoFrame } = await import('../../lib/index');
 
     const chunks: unknown[] = [];
     const encoder = new VideoEncoder({
@@ -92,11 +92,13 @@ describe('VideoEncoder async mode', () => {
   });
 
   it('should track encodeQueueSize accurately during encoding', async () => {
-    const {VideoEncoder, VideoFrame} = await import('../../lib/index');
+    const { VideoEncoder, VideoFrame } = await import('../../lib/index');
 
     const encoder = new VideoEncoder({
       output: () => {},
-      error: (e) => { throw e; },
+      error: (e) => {
+        throw e;
+      },
     });
 
     encoder.configure({

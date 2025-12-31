@@ -2,8 +2,8 @@
  * Tests for AudioData W3C compliance - specifically planeIndex validation
  */
 
-import {describe, it, expect} from 'vitest';
-import {AudioDataCopyToOptions} from '../../lib/types';
+import { describe, expect, it } from 'vitest';
+import type { AudioDataCopyToOptions } from '../../lib/types';
 
 describe('AudioData.allocationSize() W3C compliance', () => {
   it('should require planeIndex option per W3C spec', () => {
@@ -34,7 +34,7 @@ describe('AudioData.allocationSize() W3C compliance', () => {
       data: new Float32Array(1024 * 2),
     });
 
-    const size = audioData.allocationSize({planeIndex: 0});
+    const size = audioData.allocationSize({ planeIndex: 0 });
     expect(size).toBeGreaterThan(0);
 
     audioData.close();
@@ -56,9 +56,7 @@ describe('AudioData.copyTo() W3C compliance', () => {
 
     // W3C spec: planeIndex is required in AudioDataCopyToOptions
     // copyTo returns void per W3C spec
-    expect(() =>
-      audioData.copyTo(destination, {} as AudioDataCopyToOptions)
-    ).toThrow(TypeError);
+    expect(() => audioData.copyTo(destination, {} as AudioDataCopyToOptions)).toThrow(TypeError);
 
     audioData.close();
   });
@@ -76,7 +74,7 @@ describe('AudioData.copyTo() W3C compliance', () => {
     const destination = new ArrayBuffer(1024 * 2 * 4);
     // Should not throw with valid planeIndex
     // copyTo returns void per W3C spec
-    const result = audioData.copyTo(destination, {planeIndex: 0});
+    const result = audioData.copyTo(destination, { planeIndex: 0 });
     expect(result).toBeUndefined();
 
     audioData.close();

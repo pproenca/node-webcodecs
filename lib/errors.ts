@@ -71,7 +71,7 @@ export class WebCodecsError extends Error {
 
     // Set cause manually for ES2020 compatibility
     if (options?.cause) {
-      (this as unknown as {cause: Error}).cause = options.cause;
+      (this as unknown as { cause: Error }).cause = options.cause;
     }
 
     // Maintains proper stack trace in V8
@@ -125,7 +125,7 @@ export class UnsupportedCodecError extends WebCodecsError {
     },
   ) {
     super(`Unsupported codec: ${codec}`, ErrorCode.ERR_UNSUPPORTED_CODEC, {
-      context: {...options?.context, codec},
+      context: { ...options?.context, codec },
     });
     this.name = 'UnsupportedCodecError';
     this.codec = codec;
@@ -139,15 +139,11 @@ export class InvalidStateError extends WebCodecsError {
   readonly currentState: string;
   readonly expectedStates: string[];
 
-  constructor(
-    operation: string,
-    currentState: string,
-    expectedStates: string[],
-  ) {
+  constructor(operation: string, currentState: string, expectedStates: string[]) {
     super(
       `Cannot ${operation} in state "${currentState}". Expected: ${expectedStates.join(' or ')}`,
       ErrorCode.ERR_INVALID_STATE,
-      {context: {operation, currentState, expectedStates}},
+      { context: { operation, currentState, expectedStates } },
     );
     this.name = 'InvalidStateError';
     this.currentState = currentState;
@@ -217,7 +213,7 @@ export class AllocationError extends WebCodecsError {
   ) {
     super(`Failed to allocate ${resource}`, ErrorCode.ERR_ALLOCATION_FAILED, {
       nativeCode: options?.nativeCode,
-      context: {resource},
+      context: { resource },
     });
     this.name = 'AllocationError';
   }

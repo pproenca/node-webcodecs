@@ -1,6 +1,6 @@
-import {describe, it, expect} from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-const {createEncoderConfigDescriptor} = await import('../../dist/index.js');
+const { createEncoderConfigDescriptor } = await import('../../dist/index.js');
 
 describe('VideoEncoderConfigDescriptor', () => {
   it('extracts config with defaults', () => {

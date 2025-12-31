@@ -3,13 +3,9 @@
 //
 // Native binding loader with fallback chain and enhanced error messages.
 
-import * as path from 'path';
-import * as fs from 'fs';
-import {
-  runtimePlatformArch,
-  isPrebuiltAvailable,
-  getPrebuiltPackageName,
-} from './platform';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { getPrebuiltPackageName, isPrebuiltAvailable, runtimePlatformArch } from './platform';
 
 const rootDir = path.resolve(__dirname, '..');
 
@@ -57,7 +53,7 @@ function getPlatformBuildInstructions(): string {
   npm run build:native`;
 }
 
-function buildHelpMessage(errors: Array<{path: string; error: Error}>): string {
+function buildHelpMessage(errors: Array<{ path: string; error: Error }>): string {
   const platform = runtimePlatformArch();
   const hasPrebuilt = isPrebuiltAvailable();
 
@@ -65,7 +61,7 @@ function buildHelpMessage(errors: Array<{path: string; error: Error}>): string {
   msg += `Node.js: ${process.version}\n\n`;
 
   msg += 'Attempted paths:\n';
-  for (const {path: p, error} of errors) {
+  for (const { path: p, error } of errors) {
     msg += `  - ${p}: ${error.message}\n`;
   }
 
@@ -85,17 +81,13 @@ function buildHelpMessage(errors: Array<{path: string; error: Error}>): string {
 }
 
 function loadBinding(): unknown {
-  const errors: Array<{path: string; error: Error}> = [];
+  const errors: Array<{ path: string; error: Error }> = [];
 
   for (const candidate of candidates) {
     try {
       if (typeof candidate === 'function') {
         const binding = candidate();
-        if (
-          binding &&
-          typeof (binding as Record<string, unknown>).VideoEncoder ===
-            'function'
-        ) {
+        if (binding && typeof (binding as Record<string, unknown>).VideoEncoder === 'function') {
           return binding;
         }
         throw new Error('Invalid binding: missing VideoEncoder');

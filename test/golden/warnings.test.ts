@@ -1,7 +1,7 @@
-import {describe, it, expect} from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 // WarningAccumulator is exposed via binding for testing
-const {WarningAccumulator} = await import('../../dist/index.js');
+const { WarningAccumulator } = await import('../../dist/index.js');
 
 describe('WarningAccumulator', () => {
   it('accumulates warnings and drains them', () => {

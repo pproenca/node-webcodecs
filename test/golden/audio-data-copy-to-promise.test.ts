@@ -1,4 +1,4 @@
-import {describe, it, expect} from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('AudioData.copyTo() returns void per W3C spec', () => {
   it('should return undefined (void)', () => {
@@ -12,7 +12,7 @@ describe('AudioData.copyTo() returns void per W3C spec', () => {
     });
 
     const destination = new ArrayBuffer(1024 * 2 * 4);
-    const result = audioData.copyTo(destination, {planeIndex: 0});
+    const result = audioData.copyTo(destination, { planeIndex: 0 });
 
     // W3C spec: copyTo returns undefined (void)
     expect(result).toBeUndefined();
@@ -33,11 +33,9 @@ describe('AudioData.copyTo() returns void per W3C spec', () => {
 
     const destination = new ArrayBuffer(1024 * 2 * 4);
 
-    expect(() => audioData.copyTo(destination, {planeIndex: 0})).toThrow(
-      DOMException,
-    );
+    expect(() => audioData.copyTo(destination, { planeIndex: 0 })).toThrow(DOMException);
     try {
-      audioData.copyTo(destination, {planeIndex: 0});
+      audioData.copyTo(destination, { planeIndex: 0 });
     } catch (e) {
       expect((e as DOMException).name).toBe('InvalidStateError');
     }

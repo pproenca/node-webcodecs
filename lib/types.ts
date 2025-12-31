@@ -42,10 +42,7 @@ export type CodecState = 'unconfigured' | 'configured' | 'closed';
  * - "prefer-hardware": UA should prefer hardware acceleration
  * - "prefer-software": UA should prefer software implementation
  */
-export type HardwareAcceleration =
-  | 'no-preference'
-  | 'prefer-hardware'
-  | 'prefer-software';
+export type HardwareAcceleration = 'no-preference' | 'prefer-hardware' | 'prefer-software';
 
 // =============================================================================
 // ALPHA OPTION
@@ -783,9 +780,7 @@ export type WebCodecsErrorCallback = (error: Error | DOMException) => void;
  * WebIDL:
  * typedef (AllowSharedBufferSource or ReadableStream) ImageBufferSource;
  */
-export type ImageBufferSource =
-  | AllowSharedBufferSource
-  | ReadableStream<Uint8Array>;
+export type ImageBufferSource = AllowSharedBufferSource | ReadableStream<Uint8Array>;
 
 /**
  * WebIDL:
@@ -947,10 +942,7 @@ export interface AudioData {
   readonly timestamp: number; // long long, microseconds
 
   allocationSize(options: AudioDataCopyToOptions): number;
-  copyTo(
-    destination: AllowSharedBufferSource,
-    options: AudioDataCopyToOptions,
-  ): void;
+  copyTo(destination: AllowSharedBufferSource, options: AudioDataCopyToOptions): void;
   clone(): AudioData;
   close(): void;
 }
@@ -1176,7 +1168,7 @@ export interface DemuxerInit {
  */
 export interface MuxerInit {
   filename: string;
-  format?: 'mp4';  // Currently only MP4 supported
+  format?: 'mp4'; // Currently only MP4 supported
 }
 
 /**

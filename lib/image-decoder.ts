@@ -180,7 +180,7 @@ export class ImageDecoder {
                   frameCount: nt.frameCount,
                   repetitionCount: nt.repetitionCount,
                   selected: nt.selected,
-                })
+                }),
               );
             }
             // Update the internal tracks array
@@ -201,7 +201,7 @@ export class ImageDecoder {
             frameCount: nt.frameCount,
             repetitionCount: nt.repetitionCount,
             selected: nt.selected,
-          })
+          }),
         );
       }
 

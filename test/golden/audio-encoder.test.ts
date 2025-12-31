@@ -6,7 +6,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import {describe, expect, it, beforeEach, afterEach} from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 describe('encodeQueueSize tracking', () => {
   it('should track pending encode operations', async () => {
@@ -35,7 +35,7 @@ describe('encodeQueueSize tracking', () => {
     const data = new Float32Array(numberOfFrames * numberOfChannels);
 
     for (let i = 0; i < numberOfFrames; i++) {
-      const sample = Math.sin(2 * Math.PI * 440 * i / sampleRate);
+      const sample = Math.sin((2 * Math.PI * 440 * i) / sampleRate);
       for (let ch = 0; ch < numberOfChannels; ch++) {
         data[i * numberOfChannels + ch] = sample;
       }
@@ -621,7 +621,7 @@ describe('W3C Interface Compliance', () => {
       audioData.close();
 
       // Give time for async events
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(dequeueFired).toBe(true);
 
@@ -661,7 +661,7 @@ describe('W3C Interface Compliance', () => {
       audioData.close();
 
       // Give time for async callbacks
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(callbackCalled).toBe(true);
 
@@ -675,7 +675,7 @@ describe('W3C Interface Compliance', () => {
         codec: 'mp4a.40.2',
         sampleRate: 48000,
         numberOfChannels: 2,
-        aac: {format: 'aac'},
+        aac: { format: 'aac' },
       });
       expect(result.supported).toBe(true);
       expect(result.config.aac).toBeDefined();
@@ -687,7 +687,7 @@ describe('W3C Interface Compliance', () => {
         codec: 'mp4a.40.2',
         sampleRate: 48000,
         numberOfChannels: 2,
-        aac: {format: 'adts'},
+        aac: { format: 'adts' },
       });
       expect(result.supported).toBe(true);
       expect(result.config.aac?.format).toBe('adts');
@@ -702,7 +702,7 @@ describe('W3C Interface Compliance', () => {
         numberOfChannels: 2,
         bitrate: 128000,
         bitrateMode: 'variable' as const,
-        aac: {format: 'adts' as const},
+        aac: { format: 'adts' as const },
       };
 
       const result = await AudioEncoder.isConfigSupported(inputConfig);

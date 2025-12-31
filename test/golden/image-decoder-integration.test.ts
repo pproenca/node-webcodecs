@@ -1,8 +1,8 @@
-import {describe, it, expect} from 'vitest';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as zlib from 'zlib';
-import {ImageDecoder, VideoFrame} from '../../lib';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as zlib from 'node:zlib';
+import { describe, expect, it } from 'vitest';
+import { ImageDecoder, VideoFrame } from '../../lib';
 
 // CRC32 calculation for PNG chunks
 function crc32(data: Buffer): number {
@@ -36,9 +36,7 @@ describe('ImageDecoder Integration', () => {
   // Helper for creating minimal valid PNG (1x1 red pixel, RGB)
   function createMinimalPNG(): Buffer {
     // PNG signature
-    const signature = Buffer.from([
-      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-    ]);
+    const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
     // IHDR: 1x1, 8-bit RGB
     const ihdr = Buffer.alloc(13);

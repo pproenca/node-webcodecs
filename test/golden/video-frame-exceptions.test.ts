@@ -1,4 +1,4 @@
-import {describe, it, expect} from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('VideoFrame exception types per W3C spec', () => {
   describe('clone()', () => {
@@ -72,7 +72,7 @@ describe('VideoFrame exception types per W3C spec', () => {
       const dest = new Uint8Array(100);
 
       await expect(
-        frame.copyTo(dest, {rect: {x: 10, y: 10, width: 2, height: 2}})
+        frame.copyTo(dest, { rect: { x: 10, y: 10, width: 2, height: 2 } }),
       ).rejects.toThrow(RangeError);
 
       frame.close();

@@ -1,7 +1,7 @@
 // Copyright 2024 The node-webcodecs Authors
 // SPDX-License-Identifier: MIT
 
-import {describe, it, expect} from 'vitest';
+import { describe, expect, it } from 'vitest';
 import * as is from '../../lib/is';
 
 describe('lib/is - Type Guards', () => {
@@ -54,7 +54,7 @@ describe('lib/is - Error Factories', () => {
     it('formats error with expected/actual/type', () => {
       const err = is.invalidParameterError('width', 'positive integer', -5);
       expect(err.message).toBe(
-        'Expected positive integer for width but received -5 of type number'
+        'Expected positive integer for width but received -5 of type number',
       );
     });
 
@@ -83,9 +83,7 @@ describe('lib/is - Error Factories', () => {
   describe('rangeError', () => {
     it('includes min, max, and actual value', () => {
       const err = is.rangeError('quality', 1, 100, 150);
-      expect(err.message).toBe(
-        'Expected quality between 1 and 100 but received 150'
-      );
+      expect(err.message).toBe('Expected quality between 1 and 100 but received 150');
     });
   });
 
@@ -93,7 +91,7 @@ describe('lib/is - Error Factories', () => {
     it('lists allowed values', () => {
       const err = is.enumError('latencyMode', ['quality', 'realtime'], 'fast');
       expect(err.message).toBe(
-        "Expected one of [quality, realtime] for latencyMode but received 'fast'"
+        "Expected one of [quality, realtime] for latencyMode but received 'fast'",
       );
     });
   });
@@ -108,11 +106,9 @@ describe('lib/is - Assertion Helpers', () => {
 
     it('throws for undefined/null', () => {
       expect(() => is.assertDefined(undefined, 'config')).toThrow(
-        'Missing required parameter: config'
+        'Missing required parameter: config',
       );
-      expect(() => is.assertDefined(null, 'config')).toThrow(
-        'Missing required parameter: config'
-      );
+      expect(() => is.assertDefined(null, 'config')).toThrow('Missing required parameter: config');
     });
   });
 
@@ -124,16 +120,16 @@ describe('lib/is - Assertion Helpers', () => {
 
     it('throws for invalid values', () => {
       expect(() => is.assertPositiveInteger(0, 'width')).toThrow(
-        /Expected positive integer for width/
+        /Expected positive integer for width/,
       );
       expect(() => is.assertPositiveInteger(-1, 'width')).toThrow(
-        /Expected positive integer for width/
+        /Expected positive integer for width/,
       );
       expect(() => is.assertPositiveInteger(1.5, 'width')).toThrow(
-        /Expected positive integer for width/
+        /Expected positive integer for width/,
       );
       expect(() => is.assertPositiveInteger('100', 'width')).toThrow(
-        /Expected positive integer for width/
+        /Expected positive integer for width/,
       );
     });
   });
@@ -141,7 +137,7 @@ describe('lib/is - Assertion Helpers', () => {
   describe('assertPlainObject', () => {
     it('passes for plain objects', () => {
       expect(() => is.assertPlainObject({}, 'config')).not.toThrow();
-      expect(() => is.assertPlainObject({a: 1}, 'config')).not.toThrow();
+      expect(() => is.assertPlainObject({ a: 1 }, 'config')).not.toThrow();
     });
 
     it('throws for non-plain objects', () => {
@@ -153,31 +149,25 @@ describe('lib/is - Assertion Helpers', () => {
 
   describe('assertOneOf', () => {
     it('passes for valid enum values', () => {
-      expect(() =>
-        is.assertOneOf('quality', 'mode', ['quality', 'realtime'])
-      ).not.toThrow();
+      expect(() => is.assertOneOf('quality', 'mode', ['quality', 'realtime'])).not.toThrow();
     });
 
     it('throws for invalid enum values', () => {
-      expect(() =>
-        is.assertOneOf('fast', 'mode', ['quality', 'realtime'])
-      ).toThrow(/Expected one of \[quality, realtime\] for mode/);
+      expect(() => is.assertOneOf('fast', 'mode', ['quality', 'realtime'])).toThrow(
+        /Expected one of \[quality, realtime\] for mode/,
+      );
     });
   });
 
   describe('assertBufferLike', () => {
     it('passes for buffer-like values', () => {
-      expect(() =>
-        is.assertBufferLike(Buffer.from([1]), 'data')
-      ).not.toThrow();
-      expect(() =>
-        is.assertBufferLike(new Uint8Array(8), 'data')
-      ).not.toThrow();
+      expect(() => is.assertBufferLike(Buffer.from([1]), 'data')).not.toThrow();
+      expect(() => is.assertBufferLike(new Uint8Array(8), 'data')).not.toThrow();
     });
 
     it('throws for non-buffer values', () => {
       expect(() => is.assertBufferLike([1, 2, 3], 'data')).toThrow(
-        /Expected Buffer, ArrayBuffer, or TypedArray for data/
+        /Expected Buffer, ArrayBuffer, or TypedArray for data/,
       );
     });
   });

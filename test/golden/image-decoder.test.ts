@@ -2,8 +2,8 @@
  * Tests for ImageDecoder W3C compliance
  */
 
-import {describe, it, expect} from 'vitest';
-import * as zlib from 'zlib';
+import * as zlib from 'node:zlib';
+import { describe, expect, it } from 'vitest';
 
 // CRC32 calculation for PNG chunks
 function crc32(data: Buffer): number {
@@ -172,14 +172,7 @@ function createAnimatedGIF(loopCount = 0): Buffer {
   // Trailer
   const trailer = Buffer.from([0x3b]);
 
-  return Buffer.concat([
-    header,
-    colorTable,
-    netscapeExt,
-    frame1,
-    frame2,
-    trailer,
-  ]);
+  return Buffer.concat([header, colorTable, netscapeExt, frame1, frame2, trailer]);
 }
 
 // Helper to create a static GIF (single frame, 1x1 pixel)
@@ -341,7 +334,7 @@ describe('ImageDecoder', () => {
         data: data,
       });
 
-      const result = await decoder.decode({frameIndex: 0});
+      const result = await decoder.decode({ frameIndex: 0 });
       expect(result.complete).toBe(true);
 
       result.image.close();
@@ -461,12 +454,12 @@ describe('ImageDecoder', () => {
       });
 
       // Decode frame 0
-      const result0 = await decoder.decode({frameIndex: 0});
+      const result0 = await decoder.decode({ frameIndex: 0 });
       expect(result0.image).toBeInstanceOf(VideoFrame);
       result0.image.close();
 
       // Decode frame 1
-      const result1 = await decoder.decode({frameIndex: 1});
+      const result1 = await decoder.decode({ frameIndex: 1 });
       expect(result1.image).toBeInstanceOf(VideoFrame);
       result1.image.close();
 
@@ -480,8 +473,8 @@ describe('ImageDecoder', () => {
         data: data,
       });
 
-      await expect(decoder.decode({frameIndex: 99})).rejects.toThrow(
-        /RangeError|out of range|invalid/i
+      await expect(decoder.decode({ frameIndex: 99 })).rejects.toThrow(
+        /RangeError|out of range|invalid/i,
       );
 
       decoder.close();

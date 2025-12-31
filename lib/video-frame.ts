@@ -72,7 +72,7 @@ export class VideoFrame {
   constructor(source: VideoFrame, init?: VideoFrameInit);
   constructor(
     dataOrSource: Buffer | Uint8Array | ArrayBuffer | VideoFrame,
-    init?: VideoFrameBufferInit | VideoFrameInit
+    init?: VideoFrameBufferInit | VideoFrameInit,
   ) {
     // Check if constructing from existing VideoFrame
     if (dataOrSource instanceof VideoFrame) {
@@ -83,7 +83,7 @@ export class VideoFrame {
       if (source._closed) {
         throw new DOMException(
           'Cannot construct VideoFrame from closed VideoFrame',
-          'InvalidStateError'
+          'InvalidStateError',
         );
       }
 
@@ -267,7 +267,7 @@ export class VideoFrame {
 
   async copyTo(
     destination: ArrayBuffer | Uint8Array,
-    options?: VideoFrameCopyToOptions
+    options?: VideoFrameCopyToOptions,
   ): Promise<PlaneLayout[]> {
     if (this._closed) {
       throw new DOMException('VideoFrame is closed', 'InvalidStateError');
@@ -326,7 +326,7 @@ export class VideoFrame {
     }
     if (requiredSize > 0 && destLength < requiredSize) {
       throw new RangeError(
-        `Destination buffer too small: ${destLength} bytes provided, ${requiredSize} bytes required`
+        `Destination buffer too small: ${destLength} bytes provided, ${requiredSize} bytes required`,
       );
     }
 
@@ -379,7 +379,7 @@ export class VideoFrame {
   private _calculateAllocationSizeForRect(
     width: number,
     height: number,
-    format?: VideoPixelFormat
+    format?: VideoPixelFormat,
   ): number {
     const targetFormat = format ?? (this._native.format as VideoPixelFormat);
 

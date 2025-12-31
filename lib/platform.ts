@@ -3,14 +3,14 @@
 //
 // Platform detection following sharp's lib/platform.js pattern.
 
-import * as os from 'os';
+import * as os from 'node:os';
 
 // Try to detect musl vs glibc on Linux
 function detectLibc(): 'glibc' | 'musl' | null {
   if (os.platform() !== 'linux') return null;
 
   try {
-    const {familySync} = require('detect-libc');
+    const { familySync } = require('detect-libc');
     return familySync() === 'musl' ? 'musl' : 'glibc';
   } catch {
     // detect-libc not available, assume glibc
