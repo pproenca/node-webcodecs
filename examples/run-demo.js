@@ -75,16 +75,20 @@ function info(msg) {
   console.log(`${c('blue', 'ℹ')} ${msg}`);
 }
 
-const {
-  AudioData,
-  AudioEncoder,
-  Demuxer,
-  Muxer,
-  TestVideoGenerator,
-  VideoDecoder,
-  VideoEncoder,
-  VideoFrame,
-} = require('../dist/index.js');
+// These will be loaded after ensuring the project is built
+let AudioData, AudioEncoder, Demuxer, Muxer, TestVideoGenerator, VideoDecoder, VideoEncoder, VideoFrame;
+
+function loadWebCodecs() {
+  const webcodecs = require('@pproenca/node-webcodecs');
+  AudioData = webcodecs.AudioData;
+  AudioEncoder = webcodecs.AudioEncoder;
+  Demuxer = webcodecs.Demuxer;
+  Muxer = webcodecs.Muxer;
+  TestVideoGenerator = webcodecs.TestVideoGenerator;
+  VideoDecoder = webcodecs.VideoDecoder;
+  VideoEncoder = webcodecs.VideoEncoder;
+  VideoFrame = webcodecs.VideoFrame;
+}
 
 const DEMO_DIR = path.join(__dirname, '.demo-assets');
 const TEST_VIDEO = path.join(DEMO_DIR, 'test-input.mp4');
@@ -507,6 +511,9 @@ async function main() {
     run('npm run build', {cwd: path.join(__dirname, '..')});
   }
   success('Build verified');
+
+  // Load the module after ensuring it's built
+  loadWebCodecs();
 
   await ask('Press Enter to continue...');
 
