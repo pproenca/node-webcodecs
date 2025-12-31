@@ -423,6 +423,7 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
     task.duration = video_frame->GetDurationValue();
     task.key_frame = force_key_frame;
     task.quantizer = quantizer;
+    task.frame_index = frame_count_++;
 
     // Get RGBA data from frame
     size_t data_size = task.width * task.height * 4;

@@ -12,6 +12,28 @@
 #include "src/encoded_video_chunk.h"
 #include "src/video_encoder.h"
 
+namespace {
+
+// Compute temporal layer ID based on frame position and layer count.
+// Uses standard WebRTC temporal layering pattern.
+// Note: Duplicated from video_encoder.cc to avoid exposing in header.
+int ComputeTemporalLayerId(int64_t frame_index, int temporal_layer_count) {
+  if (temporal_layer_count <= 1) return 0;
+
+  if (temporal_layer_count == 2) {
+    // L1T2: alternating pattern [0, 1, 0, 1, ...]
+    return (frame_index % 2 == 0) ? 0 : 1;
+  }
+
+  // L1T3: pyramid pattern [0, 2, 1, 2, 0, 2, 1, 2, ...]
+  int pos = frame_index % 4;
+  if (pos == 0) return 0;  // Base layer
+  if (pos == 2) return 1;  // Middle layer
+  return 2;                // Enhancement layer (pos 1, 3)
+}
+
+}  // namespace
+
 AsyncEncodeWorker::AsyncEncodeWorker(VideoEncoder* encoder,
                                      Napi::ThreadSafeFunction output_tsfn,
                                      Napi::ThreadSafeFunction error_tsfn)
@@ -190,6 +212,7 @@ struct ChunkCallbackData {
   int64_t pts;
   int64_t duration;
   bool is_key;
+  int64_t frame_index;  // For SVC layer computation
   EncoderMetadataConfig metadata;
   std::vector<uint8_t> extradata;  // Copy from codec_context at emit time
   std::atomic<int>* pending;
@@ -228,10 +251,12 @@ void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
     // Create metadata object matching sync path
     Napi::Object metadata = Napi::Object::New(env);
 
-    // TODO(pproenca): Implement actual temporal/spatial layer tracking.
-    // See video_encoder.cc for related TODO. For now, always report layer 0.
+    // Add SVC metadata per W3C spec.
+    // Compute temporal layer ID based on frame position and scalabilityMode.
     Napi::Object svc = Napi::Object::New(env);
-    svc.Set("temporalLayerId", Napi::Number::New(env, 0));
+    int temporal_layer = ComputeTemporalLayerId(
+        info->pts, info->metadata.temporal_layer_count);
+    svc.Set("temporalLayerId", Napi::Number::New(env, temporal_layer));
     metadata.Set("svc", svc);
 
     // Add decoderConfig for keyframes per W3C spec
