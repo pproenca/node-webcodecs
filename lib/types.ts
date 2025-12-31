@@ -20,6 +20,34 @@ export type BufferSource = ArrayBuffer | ArrayBufferView;
 export type DOMHighResTimeStamp = number;
 
 // =============================================================================
+// NODE.JS EXTENSIONS
+// =============================================================================
+
+/**
+ * ImageData interface for canvas integration.
+ * Matches the return type of canvas.getContext('2d').getImageData().
+ * Self-describing: contains width, height, and RGBA pixel data.
+ *
+ * Note: This is a Node.js extension to WebCodecs, providing equivalent
+ * functionality to CanvasImageSource for server-side canvas integration.
+ *
+ * @example
+ * ```typescript
+ * import { createCanvas } from 'canvas';
+ * const canvas = createCanvas(640, 480);
+ * const ctx = canvas.getContext('2d');
+ * // ... draw to canvas ...
+ * const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+ * const frame = new VideoFrame(imageData, { timestamp: 0 });
+ * ```
+ */
+export interface ImageDataLike {
+  readonly width: number;
+  readonly height: number;
+  readonly data: Uint8ClampedArray;
+}
+
+// =============================================================================
 // CODEC STATE
 // =============================================================================
 
