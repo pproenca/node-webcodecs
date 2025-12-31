@@ -16,8 +16,6 @@
     "test:stress": "vitest run test/stress/ --config test/vitest.config.ts",
     "test:coverage:js": "c8 npm test",
     "coverage": "npm run test:coverage:js && c8 report --reporter=html",
-    "bench": "npx tsx bench/index.ts",
-    "bench:gc": "node --expose-gc --import tsx bench/index.ts",
     "lint": "npm run lint-js && npm run lint-cpp",
     "lint-js": "biome check --write lib/ test/",
     "lint-cpp": "cpplint --quiet src/*.h src/*.cc",
@@ -33,6 +31,23 @@
     "nodejs"
   ],
   "license": "MIT",
+  "homepage": "https://github.com/pproenca/node-webcodecs",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/pproenca/node-webcodecs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pproenca/node-webcodecs/issues"
+  },
+  "author": "Pedro Proenca",
+  "files": [
+    "dist",
+    "install",
+    "src/*.cc",
+    "src/*.h",
+    "binding.gyp",
+    "build/Release/*.node"
+  ],
   "dependencies": {
     "node-addon-api": "^8.0.0",
     "node-gyp-build": "^4.8.0"
@@ -42,7 +57,6 @@
     "@types/node": "^22.7.5",
     "c8": "^10.1.2",
     "express": "^5.2.1",
-    "gts": "^7.0.0",
     "mediabunny": "^1.25.4",
     "node-gyp": "^10.0.0",
     "tsx": "^4.20.6",
