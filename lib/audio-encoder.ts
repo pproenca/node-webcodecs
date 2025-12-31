@@ -85,7 +85,7 @@ export class AudioEncoder extends CodecBase {
   encode(data: AudioData): void {
     // W3C spec: throw InvalidStateError if not configured
     if (this.state === 'unconfigured') {
-      throw new DOMException('Encoder is not configured', 'InvalidStateError');
+      throw new DOMException('Encoder is unconfigured', 'InvalidStateError');
     }
     if (this.state === 'closed') {
       throw new DOMException('Encoder is closed', 'InvalidStateError');

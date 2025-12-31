@@ -75,7 +75,7 @@ export class AudioDecoder extends CodecBase {
   decode(chunk: EncodedAudioChunk): void {
     // W3C spec: throw InvalidStateError if not configured
     if (this.state === 'unconfigured') {
-      throw new DOMException('Decoder is not configured', 'InvalidStateError');
+      throw new DOMException('Decoder is unconfigured', 'InvalidStateError');
     }
     if (this.state === 'closed') {
       throw new DOMException('Decoder is closed', 'InvalidStateError');
