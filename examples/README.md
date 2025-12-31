@@ -36,13 +36,12 @@ If you have FFmpeg installed locally:
 npm install
 npm run build
 
-# Run demos
+# Run interactive demo
 cd examples
-node run-all.js
-
-# With web UI
-node run-all.js --with-server
+node run-demo.js
 ```
+
+The interactive demo walks you through the video processing capabilities step by step, and optionally starts the web dashboard to view results.
 
 ## Demo Descriptions
 
