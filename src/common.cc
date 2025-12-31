@@ -13,7 +13,15 @@
 
 namespace webcodecs {
 
-// Global counters
+// Per-class instance counters for deterministic leak detection
+std::atomic<int64_t> counterVideoFrames{0};
+std::atomic<int64_t> counterAudioData{0};
+std::atomic<int64_t> counterVideoEncoders{0};
+std::atomic<int64_t> counterVideoDecoders{0};
+std::atomic<int64_t> counterAudioEncoders{0};
+std::atomic<int64_t> counterAudioDecoders{0};
+
+// Legacy counters (maintained for backwards compatibility)
 std::atomic<int> counterQueue{0};
 std::atomic<int> counterProcess{0};
 std::atomic<int> counterFrames{0};

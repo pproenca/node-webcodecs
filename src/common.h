@@ -110,12 +110,22 @@ AVPixelFormat PixelFormatFromString(const std::string& format);
 std::string PixelFormatToString(AVPixelFormat format);
 
 //==============================================================================
-// Global Counters (for monitoring, following sharp pattern)
+// Global Counters (for monitoring and leak detection)
 //==============================================================================
 
+// Per-class instance counters for deterministic leak detection.
+// Increment in constructor, decrement in destructor.
+extern std::atomic<int64_t> counterVideoFrames;
+extern std::atomic<int64_t> counterAudioData;
+extern std::atomic<int64_t> counterVideoEncoders;
+extern std::atomic<int64_t> counterVideoDecoders;
+extern std::atomic<int64_t> counterAudioEncoders;
+extern std::atomic<int64_t> counterAudioDecoders;
+
+// Legacy counters (maintained for backwards compatibility)
 extern std::atomic<int> counterQueue;
 extern std::atomic<int> counterProcess;
-extern std::atomic<int> counterFrames;
+extern std::atomic<int> counterFrames;  // Alias for counterVideoFrames (deprecated)
 
 //==============================================================================
 // Memory Management (following sharp pattern for Windows compatibility)
