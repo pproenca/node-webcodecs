@@ -15,7 +15,7 @@ jobs:
           node-version: "24"
       - run: npm install --ignore-scripts
       - run: npm run lint-cpp
-      - run: npx @biomejs/biome lint
+      - run: npm run lint-js
       - run: npm run build:ts
       - run: npm run lint-types
 
