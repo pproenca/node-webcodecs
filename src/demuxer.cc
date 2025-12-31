@@ -65,6 +65,11 @@ void Demuxer::Cleanup() {
   tracks_.clear();
   video_stream_index_ = -1;
   audio_stream_index_ = -1;
+
+  // Clear callback references
+  on_track_callback_.Reset();
+  on_chunk_callback_.Reset();
+  on_error_callback_.Reset();
 }
 
 Napi::Value Demuxer::Open(const Napi::CallbackInfo& info) {
