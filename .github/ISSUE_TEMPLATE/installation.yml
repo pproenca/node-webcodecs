@@ -34,8 +34,7 @@ body:
     attributes:
       label: FFmpeg version
       description: |
-        Run: `pkg-config --modversion libavcodec` (Linux/macOS)
-        Or: `ffmpeg -version` (Windows)
+        Run: `pkg-config --modversion libavcodec`
       render: shell
     validations:
       required: true
@@ -60,7 +59,6 @@ body:
         - Ubuntu/Debian
         - Fedora/RHEL
         - Alpine Linux
-        - Windows
         - Other
     validations:
       required: true

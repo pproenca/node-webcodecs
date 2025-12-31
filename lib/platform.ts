@@ -58,7 +58,6 @@ export const prebuiltPlatforms = [
   'darwin-x64',
   'linux-x64',
   'linuxmusl-x64',
-  'win32-x64',
 ] as const;
 
 export type PrebuiltPlatform = (typeof prebuiltPlatforms)[number];

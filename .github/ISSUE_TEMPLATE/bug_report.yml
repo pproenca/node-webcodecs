@@ -54,7 +54,6 @@ body:
         - macOS
         - Linux (glibc)
         - Linux (musl/Alpine)
-        - Windows
     validations:
       required: true
 

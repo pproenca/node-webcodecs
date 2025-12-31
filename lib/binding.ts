@@ -44,11 +44,6 @@ function getPlatformBuildInstructions(): string {
     return `  sudo apt-get install libavcodec-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev pkg-config
   npm run build:native`;
   }
-  if (platform === 'win32') {
-    return `  Download FFmpeg from https://github.com/BtbN/FFmpeg-Builds/releases
-  Set FFMPEG_PATH environment variable
-  npm run build:native`;
-  }
   return `  Install FFmpeg development libraries
   npm run build:native`;
 }

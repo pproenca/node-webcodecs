@@ -1,4 +1,7 @@
 {
+  "variables": {
+    "enable_sanitizers%": 0
+  },
   "targets": [
     {
       "target_name": "node_webcodecs",
@@ -77,24 +80,23 @@
             "-fPIC"
           ]
         }],
-        ["OS=='win'", {
-          "include_dirs": [
-            "<!(echo %FFMPEG_PATH%)/include"
+        ["enable_sanitizers==1", {
+          "cflags_cc": [
+            "-fsanitize=address,undefined",
+            "-fno-omit-frame-pointer"
           ],
-          "libraries": [
-            "-l<!(echo %FFMPEG_PATH%)/lib/avcodec",
-            "-l<!(echo %FFMPEG_PATH%)/lib/avutil",
-            "-l<!(echo %FFMPEG_PATH%)/lib/swscale",
-            "-l<!(echo %FFMPEG_PATH%)/lib/swresample",
-            "-l<!(echo %FFMPEG_PATH%)/lib/avfilter"
+          "ldflags": [
+            "-fsanitize=address,undefined"
           ],
-          "msvs_settings": {
-            "VCCLCompilerTool": {
-              "AdditionalOptions": ["/std:c++17", "/EHsc"],
-              "ExceptionHandling": 1
-            }
-          },
-          "defines": ["_HAS_EXCEPTIONS=1"]
+          "xcode_settings": {
+            "OTHER_CFLAGS": [
+              "-fsanitize=address,undefined",
+              "-fno-omit-frame-pointer"
+            ],
+            "OTHER_LDFLAGS": [
+              "-fsanitize=address,undefined"
+            ]
+          }
         }]
       ]
     }

@@ -115,13 +115,6 @@ function getInstallInstructions() {
   Arch Linux:
     sudo pacman -S ffmpeg
 `,
-    win32: `
-  Windows requires manual FFmpeg installation:
-    1. Download from https://github.com/BtbN/FFmpeg-Builds/releases
-    2. Extract to C:\\ffmpeg
-    3. Set FFMPEG_PATH=C:\\ffmpeg in environment variables
-    4. Restart your terminal and run: npm run build
-`,
   };
 
   return instructions[os] || instructions.linux;
@@ -133,19 +126,6 @@ function main() {
   // Check for prebuilt FFmpeg first
   if (hasPrebuiltFFmpeg()) {
     console.log('\n✓ Using prebuilt FFmpeg. Ready to build.\n');
-    return;
-  }
-
-  // Skip detailed checks on Windows
-  if (platform() === 'win32') {
-    if (!process.env.FFMPEG_PATH) {
-      console.warn(
-        '⚠️  Windows: Set FFMPEG_PATH environment variable to FFmpeg location.',
-      );
-      console.log(getInstallInstructions());
-    } else {
-      console.log('✓ FFMPEG_PATH is set');
-    }
     return;
   }
 

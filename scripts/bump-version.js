@@ -32,7 +32,6 @@ const platforms = [
   'darwin-x64',
   'linux-x64',
   'linuxmusl-x64',
-  'win32-x64',
 ];
 
 function updateJson(filePath, updater) {

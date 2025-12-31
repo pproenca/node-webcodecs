@@ -21,7 +21,7 @@ WebCodecs API for Node.js — encode and decode video/audio with browser-compati
 npm install @pproenca/node-webcodecs
 ```
 
-Prebuilt binaries with FFmpeg included are available for macOS (arm64, x64), Linux (glibc, musl), and Windows (x64).
+Prebuilt binaries with FFmpeg included are available for macOS (arm64, x64) and Linux (glibc, musl).
 
 <details>
 <summary><strong>Building from Source</strong></summary>
@@ -44,13 +44,6 @@ sudo apt-get install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
 
 ```bash
 sudo dnf install ffmpeg-devel pkg-config
-```
-
-**Windows:**
-
-```bash
-# Download FFmpeg from https://github.com/BtbN/FFmpeg-Builds/releases
-set FFMPEG_PATH=C:\ffmpeg
 ```
 
 Then install:
