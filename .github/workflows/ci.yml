@@ -16,6 +16,7 @@ jobs:
       - run: npm install --ignore-scripts
       - run: npm run lint-cpp
       - run: npm run lint-js
+      - run: npm run build:ts
       - run: npm run lint-types
 
   build-and-test:
