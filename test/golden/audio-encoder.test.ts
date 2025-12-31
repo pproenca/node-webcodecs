@@ -7,6 +7,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { expectDOMException, expectDOMExceptionAsync } from '../fixtures/test-helpers';
 
 describe('codec support', () => {
   it('should support FLAC encoding', async () => {
@@ -194,17 +195,13 @@ describe('AudioEncoder W3C Compliance', () => {
     it('should throw InvalidStateError when encoder is closed', () => {
       encoder.close();
 
-      try {
+      expectDOMException('InvalidStateError', () => {
         encoder.configure({
           codec: 'opus',
           sampleRate: 48000,
           numberOfChannels: 2,
         });
-        expect.fail('Should have thrown');
-      } catch (e) {
-        expect(e).toBeInstanceOf(DOMException);
-        expect((e as DOMException).name).toBe('InvalidStateError');
-      }
+      });
     });
 
     it('should transition to configured state on valid config', () => {
@@ -233,13 +230,7 @@ describe('AudioEncoder W3C Compliance', () => {
         data: new Float32Array(1024 * 2),
       });
 
-      try {
-        encoder.encode(audioData);
-        expect.fail('Should have thrown');
-      } catch (e) {
-        expect(e).toBeInstanceOf(DOMException);
-        expect((e as DOMException).name).toBe('InvalidStateError');
-      }
+      expectDOMException('InvalidStateError', () => encoder.encode(audioData));
 
       audioData.close();
       encoder.close();
@@ -262,13 +253,7 @@ describe('AudioEncoder W3C Compliance', () => {
         data: new Float32Array(1024 * 2),
       });
 
-      try {
-        encoder.encode(audioData);
-        expect.fail('Should have thrown');
-      } catch (e) {
-        expect(e).toBeInstanceOf(DOMException);
-        expect((e as DOMException).name).toBe('InvalidStateError');
-      }
+      expectDOMException('InvalidStateError', () => encoder.encode(audioData));
 
       audioData.close();
     });
@@ -281,13 +266,7 @@ describe('AudioEncoder W3C Compliance', () => {
         error: () => {},
       });
 
-      try {
-        await encoder.flush();
-        expect.fail('Should have rejected');
-      } catch (e) {
-        expect(e).toBeInstanceOf(DOMException);
-        expect((e as DOMException).name).toBe('InvalidStateError');
-      }
+      await expectDOMExceptionAsync('InvalidStateError', () => encoder.flush());
 
       encoder.close();
     });
@@ -300,13 +279,7 @@ describe('AudioEncoder W3C Compliance', () => {
 
       encoder.close();
 
-      try {
-        await encoder.flush();
-        expect.fail('Should have rejected');
-      } catch (e) {
-        expect(e).toBeInstanceOf(DOMException);
-        expect((e as DOMException).name).toBe('InvalidStateError');
-      }
+      await expectDOMExceptionAsync('InvalidStateError', () => encoder.flush());
     });
   });
 
@@ -631,83 +604,79 @@ describe('W3C Interface Compliance', () => {
 
   describe('dequeue event', () => {
     it('should fire dequeue event after output callback', async () => {
-      let dequeueFired = false;
+      const dequeuePromise = new Promise<void>((resolve) => {
+        const encoder = new AudioEncoder({
+          output: () => {},
+          error: () => {},
+        });
 
-      const encoder = new AudioEncoder({
-        output: () => {},
-        error: () => {},
+        encoder.addEventListener('dequeue', () => {
+          resolve();
+        });
+
+        encoder.configure({
+          codec: 'opus',
+          sampleRate: 48000,
+          numberOfChannels: 2,
+          bitrate: 128000,
+        });
+
+        const audioData = new AudioData({
+          format: 'f32',
+          sampleRate: 48000,
+          numberOfFrames: 960,
+          numberOfChannels: 2,
+          timestamp: 0,
+          data: new Float32Array(960 * 2),
+        });
+
+        encoder.encode(audioData);
+        encoder.flush().then(() => {
+          audioData.close();
+          encoder.close();
+        });
       });
 
-      encoder.addEventListener('dequeue', () => {
-        dequeueFired = true;
-      });
-
-      encoder.configure({
-        codec: 'opus',
-        sampleRate: 48000,
-        numberOfChannels: 2,
-        bitrate: 128000,
-      });
-
-      const audioData = new AudioData({
-        format: 'f32',
-        sampleRate: 48000,
-        numberOfFrames: 960,
-        numberOfChannels: 2,
-        timestamp: 0,
-        data: new Float32Array(960 * 2),
-      });
-
-      encoder.encode(audioData);
-      await encoder.flush();
-      audioData.close();
-
-      // Give time for async events
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      expect(dequeueFired).toBe(true);
-
-      encoder.close();
+      // Test passes when dequeue event fires (promise resolves)
+      await dequeuePromise;
     });
 
     it('should call ondequeue callback after output', async () => {
-      let callbackCalled = false;
+      const callbackPromise = new Promise<void>((resolve) => {
+        const encoder = new AudioEncoder({
+          output: () => {},
+          error: () => {},
+        });
 
-      const encoder = new AudioEncoder({
-        output: () => {},
-        error: () => {},
+        encoder.ondequeue = () => {
+          resolve();
+        };
+
+        encoder.configure({
+          codec: 'opus',
+          sampleRate: 48000,
+          numberOfChannels: 2,
+          bitrate: 128000,
+        });
+
+        const audioData = new AudioData({
+          format: 'f32',
+          sampleRate: 48000,
+          numberOfFrames: 960,
+          numberOfChannels: 2,
+          timestamp: 0,
+          data: new Float32Array(960 * 2),
+        });
+
+        encoder.encode(audioData);
+        encoder.flush().then(() => {
+          audioData.close();
+          encoder.close();
+        });
       });
 
-      encoder.ondequeue = () => {
-        callbackCalled = true;
-      };
-
-      encoder.configure({
-        codec: 'opus',
-        sampleRate: 48000,
-        numberOfChannels: 2,
-        bitrate: 128000,
-      });
-
-      const audioData = new AudioData({
-        format: 'f32',
-        sampleRate: 48000,
-        numberOfFrames: 960,
-        numberOfChannels: 2,
-        timestamp: 0,
-        data: new Float32Array(960 * 2),
-      });
-
-      encoder.encode(audioData);
-      await encoder.flush();
-      audioData.close();
-
-      // Give time for async callbacks
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      expect(callbackCalled).toBe(true);
-
-      encoder.close();
+      // Test passes when ondequeue callback fires (promise resolves)
+      await callbackPromise;
     });
   });
 
