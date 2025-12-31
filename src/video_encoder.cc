@@ -398,6 +398,59 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
   }
 
   int ret = avcodec_open2(codec_context_.get(), codec_, nullptr);
+
+  // If hardware encoder failed and fallback is allowed, try software encoder
+  if (ret < 0 && is_hw_encoder && hw_accel != "prefer-hardware") {
+    // Reset the failed hardware encoder context
+    codec_context_.reset();
+
+    // Find software encoder as fallback
+    codec_ = avcodec_find_encoder(codec_id);
+    if (codec_) {
+      codec_context_ = ffmpeg::make_codec_context(codec_);
+      if (codec_context_) {
+        // Reconfigure encoder for software
+        codec_context_->width = width_;
+        codec_context_->height = height_;
+        codec_context_->time_base = {1, framerate};
+        codec_context_->framerate = {framerate, 1};
+        codec_context_->pix_fmt = AV_PIX_FMT_YUV420P;
+        if (bitrate_mode == "quantizer") {
+          codec_context_->flags |= AV_CODEC_FLAG_QSCALE;
+          codec_context_->global_quality = FF_QP2LAMBDA * 23;
+        } else {
+          codec_context_->bit_rate = bitrate;
+        }
+        codec_context_->gop_size = kDefaultGopSize;
+        if (latency_mode == "realtime") {
+          codec_context_->max_b_frames = 0;
+        } else {
+          codec_context_->max_b_frames = kDefaultMaxBFrames;
+        }
+        if (bitstream_format_ != "annexb") {
+          codec_context_->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+        }
+
+        // Set software encoder-specific options
+        if (codec_id == AV_CODEC_ID_H264 &&
+            strcmp(codec_->name, "libx264") == 0) {
+          av_opt_set(codec_context_->priv_data, "preset", "fast", 0);
+          av_opt_set(codec_context_->priv_data, "tune", "zerolatency", 0);
+          if (bitrate_mode == "quantizer") {
+            av_opt_set_int(codec_context_->priv_data, "qp", 23, 0);
+          }
+        } else if (codec_id == AV_CODEC_ID_HEVC &&
+                   strcmp(codec_->name, "libx265") == 0) {
+          av_opt_set(codec_context_->priv_data, "preset", "fast", 0);
+          av_opt_set(codec_context_->priv_data, "x265-params", "bframes=0", 0);
+        }
+
+        // Try opening software encoder
+        ret = avcodec_open2(codec_context_.get(), codec_, nullptr);
+      }
+    }
+  }
+
   if (ret < 0) {
     char errbuf[256];
     av_strerror(ret, errbuf, sizeof(errbuf));
