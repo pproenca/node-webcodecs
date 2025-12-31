@@ -34,12 +34,8 @@ AsyncDecodeWorker::AsyncDecodeWorker(VideoDecoder* /* decoder */,
 
 AsyncDecodeWorker::~AsyncDecodeWorker() {
   Stop();
-  if (frame_) {
-    av_frame_free(&frame_);
-  }
-  if (packet_) {
-    av_packet_free(&packet_);
-  }
+  // frame_ and packet_ are RAII-managed, automatically cleaned up
+
   // sws_context_ is created lazily by this worker, so we own it
   if (sws_context_) {
     sws_freeContext(sws_context_);
@@ -57,16 +53,18 @@ AsyncDecodeWorker::~AsyncDecodeWorker() {
 void AsyncDecodeWorker::SetCodecContext(AVCodecContext* ctx,
                                         SwsContext* /* sws_unused */,
                                         int width, int height) {
+  std::lock_guard<std::mutex> lock(codec_mutex_);
   codec_context_ = ctx;
   // sws_context_ is created lazily in EmitFrame when we know the frame format
   sws_context_ = nullptr;
   output_width_ = width;
   output_height_ = height;
-  frame_ = av_frame_alloc();
-  packet_ = av_packet_alloc();
+  frame_ = ffmpeg::make_frame();
+  packet_ = ffmpeg::make_packet();
 }
 
 void AsyncDecodeWorker::SetMetadataConfig(const DecoderMetadataConfig& config) {
+  std::lock_guard<std::mutex> lock(codec_mutex_);
   metadata_config_ = config;
 }
 
@@ -166,17 +164,18 @@ void AsyncDecodeWorker::WorkerThread() {
 }
 
 void AsyncDecodeWorker::ProcessPacket(const DecodeTask& task) {
+  std::lock_guard<std::mutex> lock(codec_mutex_);
   if (!codec_context_ || !packet_ || !frame_) {
     return;
   }
 
   // Set up packet from task data
-  av_packet_unref(packet_);
+  av_packet_unref(packet_.get());
   packet_->data = const_cast<uint8_t*>(task.data.data());
   packet_->size = static_cast<int>(task.data.size());
   packet_->pts = task.timestamp;
 
-  int ret = avcodec_send_packet(codec_context_, packet_);
+  int ret = avcodec_send_packet(codec_context_, packet_.get());
   if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
     // Post error to main thread
     std::string error_msg = "Decode error: " + std::to_string(ret);
@@ -189,9 +188,9 @@ void AsyncDecodeWorker::ProcessPacket(const DecodeTask& task) {
     return;
   }
 
-  while (avcodec_receive_frame(codec_context_, frame_) == 0) {
-    EmitFrame(frame_);
-    av_frame_unref(frame_);
+  while (avcodec_receive_frame(codec_context_, frame_.get()) == 0) {
+    EmitFrame(frame_.get());
+    av_frame_unref(frame_.get());
   }
 }
 
@@ -230,6 +229,10 @@ void AsyncDecodeWorker::EmitFrame(AVFrame* frame) {
     output_height_ = frame->height;
   }
 
+  // Copy metadata under lock to prevent torn reads
+  // Note: codec_mutex_ is already held by ProcessPacket caller
+  DecoderMetadataConfig metadata_copy = metadata_config_;
+
   // Convert YUV to RGBA
   size_t rgba_size = output_width_ * output_height_ * 4;
   auto* rgba_data = AcquireBuffer(rgba_size);
@@ -245,27 +248,27 @@ void AsyncDecodeWorker::EmitFrame(AVFrame* frame) {
   int height = output_height_;
 
   // Capture metadata for lambda
-  int rotation = metadata_config_.rotation;
-  bool flip = metadata_config_.flip;
+  int rotation = metadata_copy.rotation;
+  bool flip = metadata_copy.flip;
 
   // Calculate display dimensions based on aspect ratio (per W3C spec).
   // If displayAspectWidth/displayAspectHeight are set, compute display
   // dimensions maintaining the height and adjusting width to match ratio.
   int disp_width = width;
   int disp_height = height;
-  if (metadata_config_.display_width > 0 && metadata_config_.display_height > 0) {
+  if (metadata_copy.display_width > 0 && metadata_copy.display_height > 0) {
     // Per W3C spec: displayWidth = codedHeight * aspectWidth / aspectHeight
     disp_width = static_cast<int>(
         std::round(static_cast<double>(height) *
-                   static_cast<double>(metadata_config_.display_width) /
-                   static_cast<double>(metadata_config_.display_height)));
+                   static_cast<double>(metadata_copy.display_width) /
+                   static_cast<double>(metadata_copy.display_height)));
     disp_height = height;
   }
-  std::string color_primaries = metadata_config_.color_primaries;
-  std::string color_transfer = metadata_config_.color_transfer;
-  std::string color_matrix = metadata_config_.color_matrix;
-  bool color_full_range = metadata_config_.color_full_range;
-  bool has_color_space = metadata_config_.has_color_space;
+  std::string color_primaries = metadata_copy.color_primaries;
+  std::string color_transfer = metadata_copy.color_transfer;
+  std::string color_matrix = metadata_copy.color_matrix;
+  bool color_full_range = metadata_copy.color_full_range;
+  bool has_color_space = metadata_copy.has_color_space;
 
   // Increment pending BEFORE queueing callback for accurate tracking
   pending_frames_++;

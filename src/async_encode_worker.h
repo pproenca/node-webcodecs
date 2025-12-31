@@ -12,6 +12,8 @@ extern "C" {
 #include <libswscale/swscale.h>
 }
 
+#include "src/ffmpeg_raii.h"
+
 #include <napi.h>
 
 #include <atomic>
@@ -94,6 +96,7 @@ class AsyncEncodeWorker {
   std::thread worker_thread_;
   std::queue<EncodeTask> task_queue_;
   mutable std::mutex queue_mutex_;  // mutable for const QueueSize()
+  std::mutex codec_mutex_;  // Protects codec_context_, sws_context_, frame_, packet_, metadata_config_
   std::condition_variable queue_cv_;
   std::atomic<bool> running_{false};
   std::atomic<bool> flushing_{false};
@@ -102,8 +105,8 @@ class AsyncEncodeWorker {
   // FFmpeg contexts (owned by VideoEncoder, just references here)
   AVCodecContext* codec_context_;
   SwsContext* sws_context_;
-  AVFrame* frame_;
-  AVPacket* packet_;
+  ffmpeg::AVFramePtr frame_;       // RAII-managed, owned by this worker
+  ffmpeg::AVPacketPtr packet_;     // RAII-managed, owned by this worker
   int width_;
   int height_;
 

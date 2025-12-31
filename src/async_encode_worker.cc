@@ -45,32 +45,32 @@ AsyncEncodeWorker::AsyncEncodeWorker(VideoEncoder* /* encoder */,
 
 void AsyncEncodeWorker::SetCodecContext(AVCodecContext* ctx, SwsContext* sws,
                                         int width, int height) {
+  std::lock_guard<std::mutex> lock(codec_mutex_);
   codec_context_ = ctx;
   sws_context_ = sws;
   width_ = width;
   height_ = height;
-  frame_ = av_frame_alloc();
+  frame_ = ffmpeg::make_frame();
   if (frame_) {
     frame_->format = AV_PIX_FMT_YUV420P;
     frame_->width = width;
     frame_->height = height;
-    av_frame_get_buffer(frame_, 32);
+    int ret = av_frame_get_buffer(frame_.get(), 32);
+    if (ret < 0) {
+      frame_.reset();  // Clear on allocation failure
+    }
   }
-  packet_ = av_packet_alloc();
+  packet_ = ffmpeg::make_packet();
 }
 
 void AsyncEncodeWorker::SetMetadataConfig(const EncoderMetadataConfig& config) {
+  std::lock_guard<std::mutex> lock(codec_mutex_);
   metadata_config_ = config;
 }
 
 AsyncEncodeWorker::~AsyncEncodeWorker() {
   Stop();
-  if (frame_) {
-    av_frame_free(&frame_);
-  }
-  if (packet_) {
-    av_packet_free(&packet_);
-  }
+  // frame_ and packet_ are RAII-managed, automatically cleaned up
 }
 
 void AsyncEncodeWorker::Start() {
@@ -157,6 +157,7 @@ void AsyncEncodeWorker::WorkerThread() {
 }
 
 void AsyncEncodeWorker::ProcessFrame(const EncodeTask& task) {
+  std::lock_guard<std::mutex> lock(codec_mutex_);
   if (!codec_context_ || !sws_context_ || !frame_ || !packet_) {
     return;
   }
@@ -165,9 +166,9 @@ void AsyncEncodeWorker::ProcessFrame(const EncodeTask& task) {
   if (task.is_flush) {
     avcodec_send_frame(codec_context_, nullptr);
     // Drain all remaining packets
-    while (avcodec_receive_packet(codec_context_, packet_) == 0) {
-      EmitChunk(packet_);
-      av_packet_unref(packet_);
+    while (avcodec_receive_packet(codec_context_, packet_.get()) == 0) {
+      EmitChunk(packet_.get());
+      av_packet_unref(packet_.get());
     }
     // Clear frame info map after flush
     frame_info_.clear();
@@ -194,7 +195,7 @@ void AsyncEncodeWorker::ProcessFrame(const EncodeTask& task) {
     frame_->quality = 0;  // Let encoder decide
   }
 
-  int ret = avcodec_send_frame(codec_context_, frame_);
+  int ret = avcodec_send_frame(codec_context_, frame_.get());
   if (ret < 0 && ret != AVERROR(EAGAIN)) {
     std::string error_msg = "Encode error: " + std::to_string(ret);
     error_tsfn_.NonBlockingCall(
@@ -206,9 +207,9 @@ void AsyncEncodeWorker::ProcessFrame(const EncodeTask& task) {
     return;
   }
 
-  while (avcodec_receive_packet(codec_context_, packet_) == 0) {
-    EmitChunk(packet_);
-    av_packet_unref(packet_);
+  while (avcodec_receive_packet(codec_context_, packet_.get()) == 0) {
+    EmitChunk(packet_.get());
+    av_packet_unref(packet_.get());
   }
 }
 
