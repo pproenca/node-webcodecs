@@ -4,6 +4,7 @@
 #include "src/common.h"
 
 #include <cstring>
+#include <queue>
 
 namespace webcodecs {
 
@@ -293,6 +294,53 @@ void InitFFmpeg() {
     // Set log level to suppress debug output
     av_log_set_level(AV_LOG_ERROR);
   });
+}
+
+//==============================================================================
+// FFmpeg Logging
+//==============================================================================
+
+static std::queue<std::string> ffmpegWarnings;
+static std::mutex ffmpegWarningsMutex;
+
+void InitFFmpegLogging() {
+  static std::once_flag log_init_once;
+  std::call_once(log_init_once, []() {
+    av_log_set_callback([](void* ptr, int level, const char* fmt, va_list vl) {
+      if (level <= AV_LOG_WARNING) {
+        char buf[1024];
+        vsnprintf(buf, sizeof(buf), fmt, vl);
+
+        // Remove trailing newline
+        size_t len = strlen(buf);
+        if (len > 0 && buf[len - 1] == '\n') buf[len - 1] = '\0';
+
+        // Skip empty messages
+        if (strlen(buf) == 0) return;
+
+        std::lock_guard<std::mutex> lock(ffmpegWarningsMutex);
+        ffmpegWarnings.push(buf);
+      }
+    });
+    av_log_set_level(AV_LOG_WARNING);
+  });
+}
+
+std::vector<std::string> GetFFmpegWarnings() {
+  std::lock_guard<std::mutex> lock(ffmpegWarningsMutex);
+  std::vector<std::string> result;
+  while (!ffmpegWarnings.empty()) {
+    result.push_back(ffmpegWarnings.front());
+    ffmpegWarnings.pop();
+  }
+  return result;
+}
+
+void ClearFFmpegWarnings() {
+  std::lock_guard<std::mutex> lock(ffmpegWarningsMutex);
+  while (!ffmpegWarnings.empty()) {
+    ffmpegWarnings.pop();
+  }
 }
 
 }  // namespace webcodecs

@@ -1900,3 +1900,7 @@ export const WarningAccumulator = native.WarningAccumulator;
 
 // Export ErrorBuilder from native binding
 export const ErrorBuilder = native.ErrorBuilder;
+
+// Export FFmpeg logging functions
+export const getFFmpegWarnings = native.getFFmpegWarnings;
+export const clearFFmpegWarnings = native.clearFFmpegWarnings;

@@ -450,4 +450,8 @@ export interface NativeModule {
   ImageDecoder: NativeImageDecoderConstructor;
   WarningAccumulator: NativeWarningAccumulatorConstructor;
   ErrorBuilder: NativeErrorBuilderConstructor;
+
+  // FFmpeg logging functions
+  getFFmpegWarnings: () => string[];
+  clearFFmpegWarnings: () => void;
 }

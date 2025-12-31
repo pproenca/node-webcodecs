@@ -20,9 +20,26 @@ Napi::Object InitVideoFilter(Napi::Env env, Napi::Object exports);
 Napi::Object InitDemuxer(Napi::Env env, Napi::Object exports);
 Napi::Object InitImageDecoder(Napi::Env env, Napi::Object exports);
 
+// FFmpeg logging helper functions
+Napi::Value GetFFmpegWarningsJS(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  auto warnings = webcodecs::GetFFmpegWarnings();
+
+  Napi::Array result = Napi::Array::New(env, warnings.size());
+  for (size_t i = 0; i < warnings.size(); ++i) {
+    result.Set(i, Napi::String::New(env, warnings[i]));
+  }
+  return result;
+}
+
+void ClearFFmpegWarningsJS(const Napi::CallbackInfo& info) {
+  webcodecs::ClearFFmpegWarnings();
+}
+
 Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
   // Thread-safe FFmpeg initialization
   webcodecs::InitFFmpeg();
+  webcodecs::InitFFmpegLogging();
 
   InitVideoEncoder(env, exports);
   InitVideoDecoder(env, exports);
@@ -37,6 +54,11 @@ Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
   InitImageDecoder(env, exports);
   webcodecs::ErrorBuilder::Init(env, exports);
   webcodecs::WarningAccumulator::Init(env, exports);
+
+  // Export FFmpeg logging functions
+  exports.Set("getFFmpegWarnings", Napi::Function::New(env, GetFFmpegWarningsJS));
+  exports.Set("clearFFmpegWarnings", Napi::Function::New(env, ClearFFmpegWarningsJS));
+
   return exports;
 }
 

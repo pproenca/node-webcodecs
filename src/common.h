@@ -84,6 +84,14 @@ extern std::atomic<int> counterFrames;
 
 void InitFFmpeg();
 
+//==============================================================================
+// FFmpeg Log Capture
+//==============================================================================
+
+void InitFFmpegLogging();
+std::vector<std::string> GetFFmpegWarnings();
+void ClearFFmpegWarnings();
+
 }  // namespace webcodecs
 
 #endif  // SRC_COMMON_H_
