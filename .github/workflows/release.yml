@@ -52,7 +52,7 @@ jobs:
       - name: Install dependencies (Linux musl)
         if: matrix.container == 'alpine:3.19'
         run: |
-          apk add --no-cache build-base nasm yasm pkgconf curl tar xz
+          apk add --no-cache build-base nasm yasm pkgconf curl tar xz bash
 
       - name: Setup MSVC (Windows)
         if: runner.os == 'Windows'
@@ -103,7 +103,8 @@ jobs:
       - name: Build FFmpeg (Windows)
         if: runner.os == 'Windows'
         working-directory: ffmpeg-src
-        run: make -j$env:NUMBER_OF_PROCESSORS
+        shell: bash
+        run: make -j$NUMBER_OF_PROCESSORS
 
       - name: Install FFmpeg
         working-directory: ffmpeg-src
