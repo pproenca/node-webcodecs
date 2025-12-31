@@ -9,7 +9,7 @@
     "url": "https://github.com/pproenca/node-webcodecs.git",
     "directory": "ffmpeg/linux-x64"
   },
-  "files": ["lib", "versions.json", "LICENSE"],
+  "files": ["lib", "include", "versions.json", "LICENSE"],
   "os": ["linux"],
   "cpu": ["x64"],
   "libc": ["glibc"],
@@ -21,6 +21,7 @@
   },
   "exports": {
     "./lib": "./lib/",
+    "./include": "./include/",
     "./versions": "./versions.json",
     "./package": "./package.json"
   }

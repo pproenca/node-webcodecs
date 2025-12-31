@@ -33,14 +33,23 @@ if (!existsSync(artifactDir)) {
 
 console.log(`Populating FFmpeg package for platform: ${platform}`);
 
-// Create lib directory
+// Create lib and include directories
 mkdirSync(libDir, { recursive: true });
+const includeDir = join(destDir, 'include');
+mkdirSync(includeDir, { recursive: true });
 
 // Copy libraries
 const srcLibDir = join(artifactDir, 'lib');
 if (existsSync(srcLibDir)) {
   cpSync(srcLibDir, libDir, { recursive: true });
   console.log('Copied FFmpeg libraries');
+}
+
+// Copy headers
+const srcIncludeDir = join(artifactDir, 'include');
+if (existsSync(srcIncludeDir)) {
+  cpSync(srcIncludeDir, includeDir, { recursive: true });
+  console.log('Copied FFmpeg headers');
 }
 
 // Copy versions.json
@@ -57,7 +66,7 @@ FFmpeg is licensed under the GNU Lesser General Public License (LGPL) version 2.
 
 This package contains prebuilt FFmpeg shared libraries compiled with the following configuration:
 - --enable-shared --disable-static
-- --enable-gpl --enable-libx264 --enable-libx265 --enable-libvpx --enable-libopus
+- --enable-gpl --enable-libx264 --enable-libx265 --enable-libvpx --enable-libopus --enable-libaom
 
 For FFmpeg source code and full license terms, see:
 https://ffmpeg.org/

@@ -39,12 +39,19 @@ function getPrebuiltLibPath() {
 }
 
 function getPrebuiltIncludePath() {
-  // FFmpeg packages include headers in lib/../include
-  const libPath = getPrebuiltLibPath();
-  if (!libPath) return null;
+  const runtimePlatform = getRuntimePlatform();
+  const packageName = `@pproenca/ffmpeg-${runtimePlatform}`;
 
-  const includePath = join(dirname(libPath), 'include');
-  return existsSync(includePath) ? includePath : null;
+  try {
+    const includeEntry = require.resolve(`${packageName}/include`);
+    return dirname(includeEntry);
+  } catch {
+    // Fallback: check relative to lib path
+    const libPath = getPrebuiltLibPath();
+    if (!libPath) return null;
+    const includePath = join(dirname(libPath), 'include');
+    return existsSync(includePath) ? includePath : null;
+  }
 }
 
 // Output for node-gyp variable expansion

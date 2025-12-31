@@ -7,6 +7,10 @@ on:
         description: "FFmpeg version to build"
         required: true
         default: "7.1"
+      publish:
+        description: "Publish to npm after build"
+        type: boolean
+        default: false
   push:
     paths:
       - ".github/workflows/build-ffmpeg.yml"
@@ -90,10 +94,12 @@ jobs:
         working-directory: ffmpeg-src
         run: make install
 
-      - name: Package libraries
+      - name: Package libraries and headers
         run: |
           mkdir -p ffmpeg-${{ matrix.platform }}/lib
+          mkdir -p ffmpeg-${{ matrix.platform }}/include
           cp -P ffmpeg-install/lib/*.{dylib,so}* ffmpeg-${{ matrix.platform }}/lib/ 2>/dev/null || true
+          cp -r ffmpeg-install/include/* ffmpeg-${{ matrix.platform }}/include/
           echo '{"ffmpeg": "${{ github.event.inputs.ffmpeg_version || '7.1' }}"}' > ffmpeg-${{ matrix.platform }}/versions.json
 
       - uses: actions/upload-artifact@v4
@@ -101,3 +107,38 @@ jobs:
           name: ffmpeg-${{ matrix.platform }}
           path: ffmpeg-${{ matrix.platform }}
           retention-days: 7
+
+  publish:
+    if: github.event.inputs.publish == 'true'
+    needs: build-ffmpeg
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [darwin-arm64, darwin-x64, linux-x64, linuxmusl-x64]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+          registry-url: "https://registry.npmjs.org"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ffmpeg-${{ matrix.platform }}
+          path: ffmpeg-${{ matrix.platform }}
+
+      - name: Populate package
+        run: |
+          FFMPEG_ARTIFACT_DIR=${{ github.workspace }}/ffmpeg-${{ matrix.platform }} \
+            node ffmpeg/from-ci-build.js ${{ matrix.platform }}
+
+      - name: Publish to npm
+        working-directory: ffmpeg/${{ matrix.platform }}
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
