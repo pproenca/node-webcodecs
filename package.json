@@ -18,9 +18,12 @@
     "coverage": "npm run test:coverage:js && c8 report --reporter=html",
     "bench": "npx tsx bench/index.ts",
     "bench:gc": "node --expose-gc --import tsx bench/index.ts",
-    "lint": "gts lint",
-    "fix": "gts fix",
-    "typecheck": "tsc --noEmit"
+    "lint": "npm run lint-js && npm run lint-cpp",
+    "lint-js": "biome check --write lib/ test/",
+    "lint-cpp": "cpplint --quiet src/*.h src/*.cc",
+    "format": "biome format --write lib/ test/",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run clean && npm run build && npm test"
   },
   "keywords": [
     "webcodecs",
@@ -35,6 +38,7 @@
     "node-gyp-build": "^4.8.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.3.10",
     "@types/node": "^22.7.5",
     "c8": "^10.1.2",
     "express": "^5.2.1",
