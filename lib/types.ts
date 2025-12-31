@@ -783,34 +783,50 @@ export type WebCodecsErrorCallback = (error: Error | DOMException) => void;
  * WebIDL:
  * typedef (AllowSharedBufferSource or ReadableStream) ImageBufferSource;
  */
-export type ImageBufferSource = AllowSharedBufferSource | ReadableStream;
+export type ImageBufferSource =
+  | AllowSharedBufferSource
+  | ReadableStream<Uint8Array>;
 
 /**
  * WebIDL:
- * dictionary ImageDecoderInit { ... };
+ * dictionary ImageDecoderInit {
+ *   required DOMString type;
+ *   required ImageBufferSource data;
+ *   ColorSpaceConversion colorSpaceConversion = "default";
+ *   [EnforceRange] unsigned long desiredWidth;
+ *   [EnforceRange] unsigned long desiredHeight;
+ *   boolean preferAnimation;
+ *   sequence<ArrayBuffer> transfer = [];
+ * };
  */
 export interface ImageDecoderInit {
   type: string;
   data: ImageBufferSource;
   colorSpaceConversion?: ColorSpaceConversion;
-  desiredWidth?: number; // unsigned long
-  desiredHeight?: number; // unsigned long
+  desiredWidth?: number;
+  desiredHeight?: number;
   preferAnimation?: boolean;
   transfer?: ArrayBuffer[];
 }
 
 /**
  * WebIDL:
- * dictionary ImageDecodeOptions { ... };
+ * dictionary ImageDecodeOptions {
+ *   [EnforceRange] unsigned long frameIndex = 0;
+ *   boolean completeFramesOnly = true;
+ * };
  */
 export interface ImageDecodeOptions {
-  frameIndex?: number; // unsigned long, default 0
-  completeFramesOnly?: boolean; // default true
+  frameIndex?: number;
+  completeFramesOnly?: boolean;
 }
 
 /**
  * WebIDL:
- * dictionary ImageDecodeResult { required VideoFrame image; required boolean complete; };
+ * dictionary ImageDecodeResult {
+ *   required VideoFrame image;
+ *   required boolean complete;
+ * };
  */
 export interface ImageDecodeResult {
   image: VideoFrame;
@@ -818,22 +834,35 @@ export interface ImageDecodeResult {
 }
 
 /**
- * WebIDL: ImageTrack interface
+ * WebIDL:
+ * interface ImageTrack {
+ *   readonly attribute boolean animated;
+ *   readonly attribute unsigned long frameCount;
+ *   readonly attribute unrestricted float repetitionCount;
+ *   attribute boolean selected;
+ * };
  */
 export interface ImageTrack {
   readonly animated: boolean;
-  readonly frameCount: number; // unsigned long
-  readonly repetitionCount: number; // unrestricted float
+  readonly frameCount: number;
+  readonly repetitionCount: number; // unrestricted float, Infinity for infinite loop
   selected: boolean;
 }
 
 /**
- * WebIDL: ImageTrackList interface
+ * WebIDL:
+ * interface ImageTrackList {
+ *   getter ImageTrack (unsigned long index);
+ *   readonly attribute Promise<undefined> ready;
+ *   readonly attribute unsigned long length;
+ *   readonly attribute long selectedIndex;
+ *   readonly attribute ImageTrack? selectedTrack;
+ * };
  */
 export interface ImageTrackList {
   readonly ready: Promise<void>;
-  readonly length: number; // unsigned long
-  readonly selectedIndex: number; // long
+  readonly length: number;
+  readonly selectedIndex: number;
   readonly selectedTrack: ImageTrack | null;
   [index: number]: ImageTrack;
 }
