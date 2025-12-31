@@ -165,11 +165,12 @@ void AsyncEncodeWorker::ProcessFrame(const EncodeTask& task) {
   if (task.is_flush) {
     avcodec_send_frame(codec_context_, nullptr);
     // Drain all remaining packets
-    // For flush, use packet pts as proxy for frame_index (set during encode)
     while (avcodec_receive_packet(codec_context_, packet_) == 0) {
-      EmitChunk(packet_, packet_->pts);
+      EmitChunk(packet_);
       av_packet_unref(packet_);
     }
+    // Clear frame info map after flush
+    frame_info_.clear();
     return;
   }
 
@@ -181,8 +182,10 @@ void AsyncEncodeWorker::ProcessFrame(const EncodeTask& task) {
             frame_->linesize);
 
   // Use frame_index as pts for consistent SVC layer computation
-  // The original timestamp is preserved in the task and passed through
+  // Store original timestamp/duration for lookup when emitting packets
   frame_->pts = task.frame_index;
+  frame_info_[task.frame_index] =
+      std::make_pair(task.timestamp, task.duration);
 
   // Apply per-frame quantizer if specified (matches sync path)
   if (task.quantizer >= 0) {
@@ -225,12 +228,25 @@ void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
   // Increment pending count before async operation
   pending_chunks_.fetch_add(1);
 
+  // pkt->pts is the frame_index (set in ProcessFrame)
+  int64_t frame_index = pkt->pts;
+
+  // Look up original timestamp/duration from the map
+  int64_t timestamp = 0;
+  int64_t duration = 0;
+  auto it = frame_info_.find(frame_index);
+  if (it != frame_info_.end()) {
+    timestamp = it->second.first;
+    duration = it->second.second;
+  }
+
   // Create callback data with all info needed on main thread
   auto* cb_data = new ChunkCallbackData();
   cb_data->data.assign(pkt->data, pkt->data + pkt->size);
-  cb_data->pts = pkt->pts;
-  cb_data->duration = pkt->duration;
+  cb_data->pts = timestamp;  // Use original timestamp, not frame_index
+  cb_data->duration = duration;
   cb_data->is_key = (pkt->flags & AV_PKT_FLAG_KEY) != 0;
+  cb_data->frame_index = frame_index;  // For SVC layer computation
   cb_data->metadata = metadata_config_;
   // Copy extradata from codec_context at emit time (may be set after configure)
   if (codec_context_ && codec_context_->extradata &&
@@ -255,10 +271,10 @@ void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
     Napi::Object metadata = Napi::Object::New(env);
 
     // Add SVC metadata per W3C spec.
-    // Compute temporal layer ID based on frame position and scalabilityMode.
+    // Compute temporal layer ID based on frame_index and scalabilityMode.
     Napi::Object svc = Napi::Object::New(env);
     int temporal_layer = ComputeTemporalLayerId(
-        info->pts, info->metadata.temporal_layer_count);
+        info->frame_index, info->metadata.temporal_layer_count);
     svc.Set("temporalLayerId", Napi::Number::New(env, temporal_layer));
     metadata.Set("svc", svc);
 

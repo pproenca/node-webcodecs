@@ -16,10 +16,12 @@ extern "C" {
 
 #include <atomic>
 #include <condition_variable>
+#include <map>
 #include <mutex>
 #include <queue>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 class VideoEncoder;
@@ -84,7 +86,7 @@ class AsyncEncodeWorker {
  private:
   void WorkerThread();
   void ProcessFrame(const EncodeTask& task);
-  void EmitChunk(AVPacket* packet, int64_t frame_index);
+  void EmitChunk(AVPacket* packet);
 
   VideoEncoder* encoder_;
   Napi::ThreadSafeFunction output_tsfn_;
@@ -108,6 +110,10 @@ class AsyncEncodeWorker {
 
   // Encoder metadata for output chunks
   EncoderMetadataConfig metadata_config_;
+
+  // Map from frame_index (used as pts) to original timestamp/duration
+  // Needed because packets may come out in different order due to B-frames
+  std::map<int64_t, std::pair<int64_t, int64_t>> frame_info_;  // frame_index -> (timestamp, duration)
 };
 
 #endif  // SRC_ASYNC_ENCODE_WORKER_H_

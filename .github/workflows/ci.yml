@@ -41,15 +41,15 @@ jobs:
             nodejs_version: "^22.9.0"
             nodejs_version_major: 22
             platform: linux-x64
-          - os: macos-13
+          - os: macos-15-intel
             nodejs_version: "^18.17.0"
             nodejs_version_major: 18
             platform: darwin-x64
-          - os: macos-13
+          - os: macos-15-intel
             nodejs_version: "^20.3.0"
             nodejs_version_major: 20
             platform: darwin-x64
-          - os: macos-13
+          - os: macos-15-intel
             nodejs_version: "^22.9.0"
             nodejs_version_major: 22
             platform: darwin-x64
