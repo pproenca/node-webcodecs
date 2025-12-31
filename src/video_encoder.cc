@@ -266,6 +266,20 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
       this, output_tsfn_, error_tsfn_);
   async_worker_->SetCodecContext(codec_context_.get(), sws_context_.get(),
                                   width_, height_);
+
+  // Set metadata config for async output chunks
+  EncoderMetadataConfig metadata_config;
+  metadata_config.codec_string = codec_string_;
+  metadata_config.coded_width = width_;
+  metadata_config.coded_height = height_;
+  metadata_config.display_width = display_width_;
+  metadata_config.display_height = display_height_;
+  metadata_config.color_primaries = color_primaries_;
+  metadata_config.color_transfer = color_transfer_;
+  metadata_config.color_matrix = color_matrix_;
+  metadata_config.color_full_range = color_full_range_;
+  async_worker_->SetMetadataConfig(metadata_config);
+
   async_worker_->Start();
 
   return env.Undefined();

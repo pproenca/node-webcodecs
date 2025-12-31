@@ -40,6 +40,20 @@ struct EncodedChunk {
   bool is_key;
 };
 
+// Metadata config passed from VideoEncoder to AsyncEncodeWorker for output
+struct EncoderMetadataConfig {
+  std::string codec_string;
+  int coded_width = 0;
+  int coded_height = 0;
+  int display_width = 0;
+  int display_height = 0;
+  std::string color_primaries;
+  std::string color_transfer;
+  std::string color_matrix;
+  bool color_full_range = false;
+  std::vector<uint8_t> extradata;  // codec description
+};
+
 class AsyncEncodeWorker {
  public:
   explicit AsyncEncodeWorker(VideoEncoder* encoder,
@@ -60,6 +74,7 @@ class AsyncEncodeWorker {
   int GetPendingChunks() const { return pending_chunks_.load(); }
   void SetCodecContext(AVCodecContext* ctx, SwsContext* sws,
                        int width, int height);
+  void SetMetadataConfig(const EncoderMetadataConfig& config);
 
  private:
   void WorkerThread();
@@ -85,6 +100,9 @@ class AsyncEncodeWorker {
   AVPacket* packet_;
   int width_;
   int height_;
+
+  // Encoder metadata for output chunks
+  EncoderMetadataConfig metadata_config_;
 };
 
 #endif  // SRC_ASYNC_ENCODE_WORKER_H_

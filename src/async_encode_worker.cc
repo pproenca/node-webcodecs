@@ -37,6 +37,10 @@ void AsyncEncodeWorker::SetCodecContext(AVCodecContext* ctx, SwsContext* sws,
   packet_ = av_packet_alloc();
 }
 
+void AsyncEncodeWorker::SetMetadataConfig(const EncoderMetadataConfig& config) {
+  metadata_config_ = config;
+}
+
 AsyncEncodeWorker::~AsyncEncodeWorker() {
   Stop();
   if (frame_) {
@@ -174,38 +178,104 @@ void AsyncEncodeWorker::ProcessFrame(const EncodeTask& task) {
   }
 }
 
+// Structure to pass all chunk info through TSFN callback
+struct ChunkCallbackData {
+  std::vector<uint8_t> data;
+  int64_t pts;
+  int64_t duration;
+  bool is_key;
+  EncoderMetadataConfig metadata;
+  std::vector<uint8_t> extradata;  // Copy from codec_context at emit time
+  std::atomic<int>* pending;
+};
+
 void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
   // Increment pending count before async operation
   pending_chunks_.fetch_add(1);
 
-  // Copy packet data for thread-safe transfer
-  auto* chunk_data = new std::vector<uint8_t>(pkt->data, pkt->data + pkt->size);
-  int64_t pts = pkt->pts;
-  int64_t duration = pkt->duration;
-  bool is_key = (pkt->flags & AV_PKT_FLAG_KEY) != 0;
-
-  // Capture pending_chunks_ pointer for decrement in callback
-  std::atomic<int>* pending = &pending_chunks_;
+  // Create callback data with all info needed on main thread
+  auto* cb_data = new ChunkCallbackData();
+  cb_data->data.assign(pkt->data, pkt->data + pkt->size);
+  cb_data->pts = pkt->pts;
+  cb_data->duration = pkt->duration;
+  cb_data->is_key = (pkt->flags & AV_PKT_FLAG_KEY) != 0;
+  cb_data->metadata = metadata_config_;
+  // Copy extradata from codec_context at emit time (may be set after configure)
+  if (codec_context_ && codec_context_->extradata &&
+      codec_context_->extradata_size > 0) {
+    cb_data->extradata.assign(
+        codec_context_->extradata,
+        codec_context_->extradata + codec_context_->extradata_size);
+  }
+  cb_data->pending = &pending_chunks_;
 
   output_tsfn_.NonBlockingCall(
-      chunk_data,
-      [pts, duration, is_key, pending](Napi::Env env, Napi::Function fn,
-                               std::vector<uint8_t>* data) {
+      cb_data,
+      [](Napi::Env env, Napi::Function fn, ChunkCallbackData* info) {
         // Create EncodedVideoChunk-like object (matches synchronous path)
         Napi::Object chunk = Napi::Object::New(env);
-        chunk.Set("type", is_key ? "key" : "delta");
-        chunk.Set("timestamp", Napi::Number::New(env, pts));
-        chunk.Set("duration", Napi::Number::New(env, duration));
-        chunk.Set("data",
-                 Napi::Buffer<uint8_t>::Copy(env, data->data(), data->size()));
+        chunk.Set("type", info->is_key ? "key" : "delta");
+        chunk.Set("timestamp", Napi::Number::New(env, info->pts));
+        chunk.Set("duration", Napi::Number::New(env, info->duration));
+        chunk.Set("data", Napi::Buffer<uint8_t>::Copy(env, info->data.data(),
+                                                       info->data.size()));
 
-        // Create empty metadata object (TypeScript layer will handle wrapping)
+        // Create metadata object matching sync path
         Napi::Object metadata = Napi::Object::New(env);
 
+        // Add SVC metadata per W3C spec (base layer)
+        Napi::Object svc = Napi::Object::New(env);
+        svc.Set("temporalLayerId", Napi::Number::New(env, 0));
+        metadata.Set("svc", svc);
+
+        // Add decoderConfig for keyframes per W3C spec
+        if (info->is_key) {
+          Napi::Object decoder_config = Napi::Object::New(env);
+          decoder_config.Set("codec", info->metadata.codec_string);
+          decoder_config.Set("codedWidth",
+                             Napi::Number::New(env, info->metadata.coded_width));
+          decoder_config.Set("codedHeight",
+                             Napi::Number::New(env, info->metadata.coded_height));
+          decoder_config.Set(
+              "displayAspectWidth",
+              Napi::Number::New(env, info->metadata.display_width));
+          decoder_config.Set(
+              "displayAspectHeight",
+              Napi::Number::New(env, info->metadata.display_height));
+
+          // Add description (extradata) if available
+          if (!info->extradata.empty()) {
+            decoder_config.Set(
+                "description",
+                Napi::Buffer<uint8_t>::Copy(env, info->extradata.data(),
+                                            info->extradata.size()));
+          }
+
+          // Add colorSpace to decoderConfig if configured
+          if (!info->metadata.color_primaries.empty() ||
+              !info->metadata.color_transfer.empty() ||
+              !info->metadata.color_matrix.empty()) {
+            Napi::Object color_space = Napi::Object::New(env);
+            if (!info->metadata.color_primaries.empty()) {
+              color_space.Set("primaries", info->metadata.color_primaries);
+            }
+            if (!info->metadata.color_transfer.empty()) {
+              color_space.Set("transfer", info->metadata.color_transfer);
+            }
+            if (!info->metadata.color_matrix.empty()) {
+              color_space.Set("matrix", info->metadata.color_matrix);
+            }
+            color_space.Set("fullRange", info->metadata.color_full_range);
+            decoder_config.Set("colorSpace", color_space);
+          }
+
+          metadata.Set("decoderConfig", decoder_config);
+        }
+
         fn.Call({chunk, metadata});
-        delete data;
 
         // Decrement pending count after callback completes
-        pending->fetch_sub(1);
+        info->pending->fetch_sub(1);
+        delete info;
       });
 }
