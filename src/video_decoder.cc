@@ -3,10 +3,12 @@
 
 #include "src/video_decoder.h"
 
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <memory>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -88,6 +90,18 @@ void VideoDecoder::Cleanup() {
   // Stop async worker before cleaning up codec context
   if (async_worker_) {
     async_worker_->Stop();
+
+    // Wait for all pending TSFN callbacks to complete before releasing
+    // This prevents use-after-free when callbacks reference codec_context_
+    auto start = std::chrono::steady_clock::now();
+    constexpr auto kDrainTimeout = std::chrono::seconds(5);
+    while (async_worker_->GetPendingFrames() > 0) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      if (std::chrono::steady_clock::now() - start > kDrainTimeout) {
+        break;  // Timeout to avoid infinite wait
+      }
+    }
+
     async_worker_.reset();
   }
 

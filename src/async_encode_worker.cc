@@ -5,6 +5,7 @@
 
 #include "src/async_encode_worker.h"
 
+#include <chrono>
 #include <string>
 #include <utility>
 #include <vector>

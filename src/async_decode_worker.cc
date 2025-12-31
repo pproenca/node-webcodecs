@@ -5,6 +5,7 @@
 
 #include "src/async_decode_worker.h"
 
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <string>

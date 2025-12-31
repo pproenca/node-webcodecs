@@ -3,8 +3,10 @@
 
 #include "src/video_encoder.h"
 
+#include <chrono>
 #include <memory>
 #include <string>
+#include <thread>
 #include <utility>
 
 #include "src/common.h"
@@ -117,6 +119,18 @@ VideoEncoder::~VideoEncoder() {
 void VideoEncoder::Cleanup() {
   if (async_worker_) {
     async_worker_->Stop();
+
+    // Wait for all pending TSFN callbacks to complete before releasing
+    // This prevents use-after-free when callbacks reference codec_context_
+    auto start = std::chrono::steady_clock::now();
+    constexpr auto kDrainTimeout = std::chrono::seconds(5);
+    while (async_worker_->GetPendingChunks() > 0) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      if (std::chrono::steady_clock::now() - start > kDrainTimeout) {
+        break;  // Timeout to avoid infinite wait
+      }
+    }
+
     async_worker_.reset();
   }
 
@@ -349,7 +363,11 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
   frame_->format = codec_context_->pix_fmt;
   frame_->width = width_;
   frame_->height = height_;
-  av_frame_get_buffer(frame_.get(), kFrameBufferAlignment);
+  ret = av_frame_get_buffer(frame_.get(), kFrameBufferAlignment);
+  if (ret < 0) {
+    Cleanup();
+    throw Napi::Error::New(env, "Failed to allocate frame buffer");
+  }
 
   packet_ = ffmpeg::make_packet();
 
