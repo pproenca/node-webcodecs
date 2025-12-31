@@ -80,6 +80,13 @@ class AsyncDecodeWorker {
   AVPacket* packet_;
   int output_width_;
   int output_height_;
+
+  // Buffer pool for decoded frame data to reduce allocations
+  std::vector<std::vector<uint8_t>*> buffer_pool_;
+  std::mutex pool_mutex_;
+
+  std::vector<uint8_t>* AcquireBuffer(size_t size);
+  void ReleaseBuffer(std::vector<uint8_t>* buffer);
 };
 
 #endif  // SRC_ASYNC_DECODE_WORKER_H_

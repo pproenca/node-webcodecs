@@ -23,10 +23,9 @@ export class ResourceManager {
   private static instance: ResourceManager | null = null;
   private codecs: Map<symbol, CodecEntry> = new Map();
   private inactivityTimeout: number = 10000; // 10 seconds per spec
-  private checkInterval: ReturnType<typeof setInterval> | null = null;
 
   private constructor() {
-    this.startMonitoring();
+    // Monitoring happens on-demand via getReclaimableCodecs()
   }
 
   static getInstance(): ResourceManager {
@@ -132,26 +131,11 @@ export class ResourceManager {
     this.inactivityTimeout = ms;
   }
 
-  private startMonitoring(): void {
-    // Check every 5 seconds
-    this.checkInterval = setInterval(() => {
-      // Just track, don't auto-reclaim
-      // Actual reclamation would be triggered by memory pressure
-    }, 5000);
-
-    // Don't keep process alive
-    if (this.checkInterval.unref) {
-      this.checkInterval.unref();
-    }
-  }
-
   /**
    * Stop monitoring (for cleanup).
+   * @deprecated No longer needed - monitoring happens on-demand via getReclaimableCodecs()
    */
   stopMonitoring(): void {
-    if (this.checkInterval) {
-      clearInterval(this.checkInterval);
-      this.checkInterval = null;
-    }
+    // No-op: monitoring now happens on-demand
   }
 }

@@ -237,6 +237,7 @@ void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
   if (it != frame_info_.end()) {
     timestamp = it->second.first;
     duration = it->second.second;
+    frame_info_.erase(it);  // Clean up after use
   }
 
   // Create callback data with all info needed on main thread
@@ -263,8 +264,19 @@ void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
     chunk.Set("type", info->is_key ? "key" : "delta");
     chunk.Set("timestamp", Napi::Number::New(env, info->pts));
     chunk.Set("duration", Napi::Number::New(env, info->duration));
-    chunk.Set("data", Napi::Buffer<uint8_t>::Copy(env, info->data.data(),
-                                                  info->data.size()));
+
+    // Use external buffer with custom destructor to avoid final copy.
+    // The ChunkCallbackData owns the data, so tying its deletion to the
+    // buffer's GC ensures the data stays alive while the buffer is in use.
+    // Note: We must decrement pending count before transferring ownership.
+    info->pending->fetch_sub(1);
+    auto buffer = Napi::Buffer<uint8_t>::New(
+        env, info->data.data(), info->data.size(),
+        [](Napi::Env /*env*/, uint8_t* /*data*/, ChunkCallbackData* hint) {
+          delete hint;  // Delete callback data when buffer is GC'd
+        },
+        info);
+    chunk.Set("data", buffer);
 
     // Create metadata object matching sync path
     Napi::Object metadata = Napi::Object::New(env);
@@ -320,8 +332,6 @@ void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
 
     fn.Call({chunk, metadata});
 
-    // Decrement pending count after callback completes
-    info->pending->fetch_sub(1);
-    delete info;
+    // Note: info is now owned by the buffer and will be deleted when GC'd
   });
 }

@@ -71,6 +71,7 @@ Muxer::Muxer(const Napi::CallbackInfo& info)
   // Open output file.
   ret = avio_open(&format_context_->pb, filename_.c_str(), AVIO_FLAG_WRITE);
   if (ret < 0) {
+    format_context_.reset();  // Explicitly clean up before throw
     char err[AV_ERROR_MAX_STRING_SIZE];
     av_strerror(ret, err, sizeof(err));
     Napi::Error::New(env, std::string("Failed to open output file: ") + err)

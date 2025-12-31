@@ -173,6 +173,12 @@ export interface NativeVideoFilter {
 export interface NativeDemuxer {
   open(path: string): void;
   demux(): void;
+  /**
+   * Read packets from the file in chunks.
+   * @param maxPackets - Maximum number of packets to read. 0 = unlimited.
+   * @returns The number of packets actually read.
+   */
+  demuxPackets(maxPackets: number): number;
   close(): void;
   getVideoTrack(): TrackInfo | null;
   getAudioTrack(): TrackInfo | null;

@@ -20,6 +20,7 @@ Napi::Object Demuxer::Init(Napi::Env env, Napi::Object exports) {
                   {
                       InstanceMethod("open", &Demuxer::Open),
                       InstanceMethod("demux", &Demuxer::DemuxPackets),
+                      InstanceMethod("demuxPackets", &Demuxer::DemuxPackets),
                       InstanceMethod("close", &Demuxer::Close),
                       InstanceMethod("getVideoTrack", &Demuxer::GetVideoTrack),
                       InstanceMethod("getAudioTrack", &Demuxer::GetAudioTrack),
@@ -65,6 +66,11 @@ void Demuxer::Cleanup() {
   tracks_.clear();
   video_stream_index_ = -1;
   audio_stream_index_ = -1;
+
+  // Clear callback references
+  on_track_callback_.Reset();
+  on_chunk_callback_.Reset();
+  on_error_callback_.Reset();
 }
 
 Napi::Value Demuxer::Open(const Napi::CallbackInfo& info) {
@@ -175,6 +181,11 @@ Napi::Value Demuxer::DemuxPackets(const Napi::CallbackInfo& info) {
     return env.Undefined();
   }
 
+  int max_packets = 0;  // 0 = unlimited (backwards compatible)
+  if (info.Length() > 0 && info[0].IsNumber()) {
+    max_packets = info[0].As<Napi::Number>().Int32Value();
+  }
+
   ffmpeg::AVPacketPtr packet = ffmpeg::make_packet();
   if (!packet) {
     Napi::Error::New(env, "Failed to allocate packet")
@@ -182,15 +193,18 @@ Napi::Value Demuxer::DemuxPackets(const Napi::CallbackInfo& info) {
     return env.Undefined();
   }
 
-  while (av_read_frame(format_context_.get(), packet.get()) >= 0) {
+  int packets_read = 0;
+  while ((max_packets == 0 || packets_read < max_packets) &&
+         av_read_frame(format_context_.get(), packet.get()) >= 0) {
     if (packet->stream_index == video_stream_index_ ||
         packet->stream_index == audio_stream_index_) {
       EmitChunk(env, packet.get(), packet->stream_index);
+      packets_read++;
     }
     av_packet_unref(packet.get());
   }
 
-  return env.Undefined();
+  return Napi::Number::New(env, packets_read);
 }
 
 void Demuxer::EmitChunk(Napi::Env env, AVPacket* packet, int track_index) {

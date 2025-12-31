@@ -45,6 +45,16 @@ export class Demuxer {
     return this._native.demux();
   }
 
+  /**
+   * Read packets from the file in chunks.
+   * This is useful for yielding to the event loop during demuxing.
+   * @param maxPackets - Maximum number of packets to read. 0 = unlimited (reads all).
+   * @returns The number of packets actually read.
+   */
+  demuxPackets(maxPackets?: number): number {
+    return this._native.demuxPackets(maxPackets ?? 0);
+  }
+
   close(): void {
     this._native.close();
   }

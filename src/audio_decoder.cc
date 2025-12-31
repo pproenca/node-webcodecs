@@ -236,9 +236,8 @@ void AudioDecoder::Close(const Napi::CallbackInfo& info) {
 Napi::Value AudioDecoder::Reset(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
+  // W3C spec: reset() is a no-op when closed (don't throw)
   if (state_ == "closed") {
-    Napi::Error::New(env, "InvalidStateError: Cannot reset closed decoder")
-        .ThrowAsJavaScriptException();
     return env.Undefined();
   }
 

@@ -673,6 +673,140 @@ describe('VideoEncoder', () => {
     });
   });
 
+  describe('flush event loop behavior', () => {
+    it('should yield to event loop during flush', async () => {
+      const encoder = new VideoEncoder({
+        output: () => {},
+        error: (e) => {
+          throw e;
+        },
+      });
+
+      encoder.configure({
+        codec: 'avc1.42001e',
+        width: 320,
+        height: 240,
+      });
+
+      // Encode frames
+      for (let i = 0; i < 100; i++) {
+        const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+          format: 'RGBA',
+          codedWidth: 320,
+          codedHeight: 240,
+          timestamp: i * 33333,
+        });
+        encoder.encode(frame);
+        frame.close();
+      }
+
+      // Verify event loop yields by checking if a setImmediate callback runs
+      // during flush. This confirms the flush implementation doesn't spin
+      // synchronously while waiting for encoder to complete.
+      let immediateRan = false;
+      const immediateHandle = setImmediate(() => {
+        immediateRan = true;
+      });
+
+      await encoder.flush();
+      clearImmediate(immediateHandle);
+
+      // The immediate callback should have run during the flush await,
+      // proving the event loop was not blocked.
+      expect(immediateRan).toBe(true);
+      encoder.close();
+    });
+  });
+
+  describe('reset() behavior', () => {
+    it('reset() should be no-op when closed (W3C spec)', () => {
+      const encoder = new VideoEncoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      encoder.close();
+
+      // W3C spec: reset() is no-op when closed, should NOT throw
+      expect(() => encoder.reset()).not.toThrow();
+    });
+  });
+
+  describe('hardware acceleration', () => {
+    it('should report hardware encoder availability in isConfigSupported', async () => {
+      const config = {
+        codec: 'avc1.42001e',
+        width: 1920,
+        height: 1080,
+        hardwareAcceleration: 'prefer-hardware' as const,
+      };
+
+      const support = await VideoEncoder.isConfigSupported(config);
+      // Should not throw, may or may not have HW support
+      expect(support.supported).toBeDefined();
+    });
+
+    it('should fall back to software when hardware unavailable', async () => {
+      const encoder = new VideoEncoder({
+        output: () => {},
+        error: (e) => {
+          throw e;
+        },
+      });
+
+      encoder.configure({
+        codec: 'avc1.42001e',
+        width: 320,
+        height: 240,
+        hardwareAcceleration: 'prefer-hardware',
+      });
+
+      // Should configure successfully regardless of HW availability
+      expect(encoder.state).toBe('configured');
+      encoder.close();
+    });
+
+    it('should respect prefer-software setting', async () => {
+      const encoder = new VideoEncoder({
+        output: () => {},
+        error: (e) => {
+          throw e;
+        },
+      });
+
+      encoder.configure({
+        codec: 'avc1.42001e',
+        width: 320,
+        height: 240,
+        hardwareAcceleration: 'prefer-software',
+      });
+
+      // Should configure successfully with software encoder
+      expect(encoder.state).toBe('configured');
+      encoder.close();
+    });
+
+    it('should work with no-preference setting', async () => {
+      const encoder = new VideoEncoder({
+        output: () => {},
+        error: (e) => {
+          throw e;
+        },
+      });
+
+      encoder.configure({
+        codec: 'avc1.42001e',
+        width: 320,
+        height: 240,
+        hardwareAcceleration: 'no-preference',
+      });
+
+      // Should configure successfully
+      expect(encoder.state).toBe('configured');
+      encoder.close();
+    });
+  });
+
   describe('SVC temporal layer tracking', () => {
     it('should report temporalLayerId based on scalabilityMode L1T2', async () => {
       const chunks: Array<{ timestamp: number; layerId: number }> = [];

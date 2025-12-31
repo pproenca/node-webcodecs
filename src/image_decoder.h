@@ -74,6 +74,7 @@ class ImageDecoder : public Napi::ObjectWrap<ImageDecoder> {
   // FFmpeg state for animated image parsing.
   AVFormatContext* format_context_;  // For container parsing
   AVIOContext* avio_context_;        // Custom I/O for memory buffer
+  struct MemoryBufferContext* mem_ctx_;  // Owned, freed in Cleanup()
   int video_stream_index_;           // Stream index for video track
 
   // Decoded frame data (static images).

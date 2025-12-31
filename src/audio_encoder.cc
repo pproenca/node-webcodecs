@@ -94,6 +94,12 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
     codec_id = AV_CODEC_ID_OPUS;
   } else if (codec_str.find("mp4a.40") == 0) {
     codec_id = AV_CODEC_ID_AAC;
+  } else if (codec_str == "flac") {
+    codec_id = AV_CODEC_ID_FLAC;
+  } else if (codec_str == "mp3") {
+    codec_id = AV_CODEC_ID_MP3;
+  } else if (codec_str == "vorbis") {
+    codec_id = AV_CODEC_ID_VORBIS;
   }
 
   // Find encoder.
@@ -133,10 +139,19 @@ Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
   codec_context_->bit_rate = webcodecs::AttrAsInt64(config, "bitrate", 128000);
 
   // Set sample format based on codec.
-  // Opus uses non-planar float (flt), AAC uses planar float (fltp).
+  // Different codecs require different sample formats:
+  // - Opus: non-planar float (flt)
+  // - AAC/Vorbis: planar float (fltp)
+  // - MP3: planar signed 16-bit (s16p) or planar float (fltp)
+  // - FLAC: signed 16-bit (s16) or signed 32-bit (s32)
   if (codec_id == AV_CODEC_ID_OPUS) {
     codec_context_->sample_fmt = AV_SAMPLE_FMT_FLT;
+  } else if (codec_id == AV_CODEC_ID_FLAC) {
+    codec_context_->sample_fmt = AV_SAMPLE_FMT_S16;
+  } else if (codec_id == AV_CODEC_ID_MP3) {
+    codec_context_->sample_fmt = AV_SAMPLE_FMT_S16P;
   } else {
+    // AAC and Vorbis use planar float
     codec_context_->sample_fmt = AV_SAMPLE_FMT_FLTP;
   }
 
@@ -298,9 +313,9 @@ void AudioEncoder::Close(const Napi::CallbackInfo& info) {
 Napi::Value AudioEncoder::Reset(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
+  // W3C spec: reset() is a no-op when closed (don't throw)
   if (state_ == "closed") {
-    throw Napi::Error::New(env,
-                           "InvalidStateError: Cannot reset closed encoder");
+    return env.Undefined();
   }
 
   Cleanup();
@@ -551,6 +566,21 @@ Napi::Value AudioEncoder::IsConfigSupported(const Napi::CallbackInfo& info) {
       }
     } else if (codec.find("mp4a.40") == 0) {
       const AVCodec* c = avcodec_find_encoder(AV_CODEC_ID_AAC);
+      if (!c) {
+        supported = false;
+      }
+    } else if (codec == "flac") {
+      const AVCodec* c = avcodec_find_encoder(AV_CODEC_ID_FLAC);
+      if (!c) {
+        supported = false;
+      }
+    } else if (codec == "mp3") {
+      const AVCodec* c = avcodec_find_encoder(AV_CODEC_ID_MP3);
+      if (!c) {
+        supported = false;
+      }
+    } else if (codec == "vorbis") {
+      const AVCodec* c = avcodec_find_encoder(AV_CODEC_ID_VORBIS);
       if (!c) {
         supported = false;
       }

@@ -94,6 +94,7 @@ ImageDecoder::ImageDecoder(const Napi::CallbackInfo& info)
       packet_(nullptr),
       format_context_(nullptr),
       avio_context_(nullptr),
+      mem_ctx_(nullptr),
       video_stream_index_(-1),
       decoded_width_(0),
       decoded_height_(0),
@@ -225,6 +226,11 @@ void ImageDecoder::Cleanup() {
     avformat_close_input(&format_context_);
     format_context_ = nullptr;
   }
+  // Free MemoryBufferContext BEFORE avio_context_free (it's stored in opaque)
+  if (mem_ctx_) {
+    delete mem_ctx_;
+    mem_ctx_ = nullptr;
+  }
   if (avio_context_) {
     // The buffer is freed by avio_context_free
     av_freep(&avio_context_->buffer);
@@ -295,24 +301,26 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
   }
 
   // Allocate memory buffer context for custom I/O
-  MemoryBufferContext* mem_ctx = new MemoryBufferContext();
-  mem_ctx->data = data_.data();
-  mem_ctx->size = data_.size();
-  mem_ctx->position = 0;
+  mem_ctx_ = new MemoryBufferContext();
+  mem_ctx_->data = data_.data();
+  mem_ctx_->size = data_.size();
+  mem_ctx_->position = 0;
 
   // Allocate AVIO buffer
   uint8_t* avio_buffer = static_cast<uint8_t*>(av_malloc(kAVIOBufferSize));
   if (!avio_buffer) {
-    delete mem_ctx;
+    delete mem_ctx_;
+    mem_ctx_ = nullptr;
     return false;
   }
 
   // Create custom AVIO context
-  avio_context_ = avio_alloc_context(avio_buffer, kAVIOBufferSize, 0, mem_ctx,
+  avio_context_ = avio_alloc_context(avio_buffer, kAVIOBufferSize, 0, mem_ctx_,
                                      ReadPacket, nullptr, SeekPacket);
   if (!avio_context_) {
     av_free(avio_buffer);
-    delete mem_ctx;
+    delete mem_ctx_;
+    mem_ctx_ = nullptr;
     return false;
   }
 
@@ -321,7 +329,8 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
   if (!format_context_) {
     av_freep(&avio_context_->buffer);
     avio_context_free(&avio_context_);
-    delete mem_ctx;
+    delete mem_ctx_;
+    mem_ctx_ = nullptr;
     return false;
   }
 
@@ -345,7 +354,8 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
     av_freep(&avio_context_->buffer);
     avio_context_free(&avio_context_);
     avio_context_ = nullptr;
-    delete mem_ctx;
+    delete mem_ctx_;
+    mem_ctx_ = nullptr;
     return false;
   }
 
@@ -356,7 +366,8 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
     av_freep(&avio_context_->buffer);
     avio_context_free(&avio_context_);
     avio_context_ = nullptr;
-    delete mem_ctx;
+    delete mem_ctx_;
+    mem_ctx_ = nullptr;
     return false;
   }
 
@@ -375,7 +386,8 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
     av_freep(&avio_context_->buffer);
     avio_context_free(&avio_context_);
     avio_context_ = nullptr;
-    delete mem_ctx;
+    delete mem_ctx_;
+    mem_ctx_ = nullptr;
     return false;
   }
 
@@ -393,7 +405,8 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
     av_freep(&avio_context_->buffer);
     avio_context_free(&avio_context_);
     avio_context_ = nullptr;
-    delete mem_ctx;
+    delete mem_ctx_;
+    mem_ctx_ = nullptr;
     return false;
   }
 
@@ -404,7 +417,8 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
     av_freep(&avio_context_->buffer);
     avio_context_free(&avio_context_);
     avio_context_ = nullptr;
-    delete mem_ctx;
+    delete mem_ctx_;
+    mem_ctx_ = nullptr;
     return false;
   }
 
@@ -416,7 +430,8 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
     av_freep(&avio_context_->buffer);
     avio_context_free(&avio_context_);
     avio_context_ = nullptr;
-    delete mem_ctx;
+    delete mem_ctx_;
+    mem_ctx_ = nullptr;
     return false;
   }
 
@@ -428,7 +443,8 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
     av_freep(&avio_context_->buffer);
     avio_context_free(&avio_context_);
     avio_context_ = nullptr;
-    delete mem_ctx;
+    delete mem_ctx_;
+    mem_ctx_ = nullptr;
     return false;
   }
 
@@ -443,7 +459,8 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
     av_freep(&avio_context_->buffer);
     avio_context_free(&avio_context_);
     avio_context_ = nullptr;
-    delete mem_ctx;
+    delete mem_ctx_;
+    mem_ctx_ = nullptr;
     return false;
   }
 
@@ -567,7 +584,7 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
   if (frame_count_ == 0) {
     frame_count_ = 1;
     animated_ = false;
-    delete mem_ctx;
+    // mem_ctx_ will be cleaned up by Cleanup()
     return false;
   }
 
@@ -578,7 +595,7 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
     decoded_height_ = decoded_frames_[0].height;
   }
 
-  delete mem_ctx;
+  // mem_ctx_ stays alive for use by avio_context_, will be cleaned up by Cleanup()
   return true;
 }
 

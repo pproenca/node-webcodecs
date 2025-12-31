@@ -20,9 +20,6 @@ extern "C" {
 
 #include "src/ffmpeg_raii.h"
 
-// Forward declaration
-class AsyncDecodeWorker;
-
 class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
  public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
@@ -61,12 +58,6 @@ class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
   Napi::FunctionReference output_callback_;
   Napi::FunctionReference error_callback_;
 
-  // Async worker for non-blocking decode.
-  std::unique_ptr<AsyncDecodeWorker> async_worker_;
-  Napi::ThreadSafeFunction output_tsfn_;
-  Napi::ThreadSafeFunction error_tsfn_;
-  bool async_mode_ = false;
-
   // State.
   std::string state_;
   int coded_width_;
@@ -101,9 +92,6 @@ class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
   AVPixelFormat last_frame_format_ = AV_PIX_FMT_NONE;
   int last_frame_width_ = 0;
   int last_frame_height_ = 0;
-
-  // Friend declaration
-  friend class AsyncDecodeWorker;
 };
 
 #endif  // SRC_VIDEO_DECODER_H_
