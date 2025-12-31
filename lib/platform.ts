@@ -10,7 +10,6 @@ function detectLibc(): 'glibc' | 'musl' | null {
   if (os.platform() !== 'linux') return null;
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const {familySync} = require('detect-libc');
     return familySync() === 'musl' ? 'musl' : 'glibc';
   } catch {

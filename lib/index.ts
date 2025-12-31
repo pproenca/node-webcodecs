@@ -1909,4 +1909,5 @@ export const clearFFmpegWarnings = native.clearFFmpegWarnings;
 export const testAttrAsEnum = native.testAttrAsEnum;
 
 // Export descriptor factory
-export const createEncoderConfigDescriptor = native.createEncoderConfigDescriptor;
+export const createEncoderConfigDescriptor =
+  native.createEncoderConfigDescriptor;

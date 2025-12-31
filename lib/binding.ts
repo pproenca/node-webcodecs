@@ -5,7 +5,11 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
-import {runtimePlatformArch, isPrebuiltAvailable, getPrebuiltPackageName} from './platform';
+import {
+  runtimePlatformArch,
+  isPrebuiltAvailable,
+  getPrebuiltPackageName,
+} from './platform';
 
 const rootDir = path.resolve(__dirname, '..');
 
@@ -19,7 +23,6 @@ const candidates: LoadCandidate[] = [
   // node-gyp-build compatible
   () => {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require('node-gyp-build')(rootDir);
     } catch {
       throw new Error('node-gyp-build not available');
@@ -29,7 +32,7 @@ const candidates: LoadCandidate[] = [
   // Prebuilt from platform package
   () => {
     const pkg = getPrebuiltPackageName();
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+
     return require(pkg);
   },
 ];
@@ -69,11 +72,11 @@ function buildHelpMessage(errors: Array<{path: string; error: Error}>): string {
   msg += '\nPossible solutions:\n';
 
   if (hasPrebuilt) {
-    msg += `  1. Install with optional dependencies:\n`;
-    msg += `     npm install --include=optional\n\n`;
-    msg += `  2. Build from source:\n`;
+    msg += '  1. Install with optional dependencies:\n';
+    msg += '     npm install --include=optional\n\n';
+    msg += '  2. Build from source:\n';
   } else {
-    msg += `  1. Build from source:\n`;
+    msg += '  1. Build from source:\n';
   }
 
   msg += getPlatformBuildInstructions();
@@ -88,7 +91,11 @@ function loadBinding(): unknown {
     try {
       if (typeof candidate === 'function') {
         const binding = candidate();
-        if (binding && typeof (binding as Record<string, unknown>).VideoEncoder === 'function') {
+        if (
+          binding &&
+          typeof (binding as Record<string, unknown>).VideoEncoder ===
+            'function'
+        ) {
           return binding;
         }
         throw new Error('Invalid binding: missing VideoEncoder');
@@ -98,7 +105,6 @@ function loadBinding(): unknown {
         continue;
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const binding = require(candidate);
       if (typeof binding.VideoEncoder !== 'function') {
         throw new Error('Invalid binding: missing VideoEncoder');
