@@ -11,6 +11,42 @@ const {platform} = require('node:os');
 
 const MIN_FFMPEG_VERSION = '5.0';
 
+/**
+ * Check if prebuilt FFmpeg package is available for this platform.
+ */
+function hasPrebuiltFFmpeg() {
+  const runtimePlatform = getRuntimePlatform();
+  const packageName = `@pproenca/ffmpeg-${runtimePlatform}`;
+
+  try {
+    require.resolve(`${packageName}/lib`);
+    console.log(`✓ Found prebuilt FFmpeg: ${packageName}`);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Get runtime platform string (matches npm package naming).
+ */
+function getRuntimePlatform() {
+  const os = platform();
+  const arch = process.arch;
+
+  if (os === 'linux') {
+    // Check for musl
+    try {
+      const { familySync } = require('detect-libc');
+      if (familySync() === 'musl') {
+        return `linuxmusl-${arch}`;
+      }
+    } catch {}
+  }
+
+  return `${os}-${arch}`;
+}
+
 function checkPkgConfig() {
   const libs = [
     'libavcodec',
@@ -94,6 +130,12 @@ function getInstallInstructions() {
 function main() {
   console.log('node-webcodecs: Checking FFmpeg installation...\n');
 
+  // Check for prebuilt FFmpeg first
+  if (hasPrebuiltFFmpeg()) {
+    console.log('\n✓ Using prebuilt FFmpeg. Ready to build.\n');
+    return;
+  }
+
   // Skip detailed checks on Windows
   if (platform() === 'win32') {
     if (!process.env.FFMPEG_PATH) {
@@ -147,4 +189,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = {checkPkgConfig, getFFmpegVersion};
+module.exports = { checkPkgConfig, getFFmpegVersion, hasPrebuiltFFmpeg, getRuntimePlatform };
