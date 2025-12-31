@@ -258,6 +258,16 @@ describe('W3C VideoEncoder Interface Compliance', () => {
       await expect(encoder.flush()).rejects.toThrow(/configured|InvalidStateError/i);
       encoder.close();
     });
+
+    it('should throw InvalidStateError when reset() called on closed encoder', () => {
+      const encoder = new VideoEncoder({
+        output: () => {},
+        error: () => {},
+      });
+      encoder.close();
+
+      expect(() => encoder.reset()).toThrow(/closed|InvalidStateError/i);
+    });
   });
 
   describe('TypeError validation', () => {

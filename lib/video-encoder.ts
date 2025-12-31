@@ -112,6 +112,10 @@ export class VideoEncoder extends CodecBase {
   }
 
   reset(): void {
+    // W3C spec: throw if closed
+    if (this.state === 'closed') {
+      throw new DOMException('Encoder is closed', 'InvalidStateError');
+    }
     this._controlQueue.clear();
     this._encodeQueueSize = 0;
     this._native.reset();

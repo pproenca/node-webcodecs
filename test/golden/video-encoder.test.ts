@@ -728,7 +728,7 @@ describe('VideoEncoder', () => {
   });
 
   describe('reset() behavior', () => {
-    it('reset() should be no-op when closed (W3C spec)', () => {
+    it('reset() should throw InvalidStateError when closed (W3C spec)', () => {
       const encoder = new VideoEncoder({
         output: () => {},
         error: () => {},
@@ -736,8 +736,8 @@ describe('VideoEncoder', () => {
 
       encoder.close();
 
-      // W3C spec: reset() is no-op when closed, should NOT throw
-      expect(() => encoder.reset()).not.toThrow();
+      // W3C spec: reset() throws InvalidStateError when closed
+      expect(() => encoder.reset()).toThrow(/closed|InvalidStateError/i);
     });
   });
 
