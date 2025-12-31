@@ -1,6 +1,10 @@
 node_modules/
 build/
 dist/
+
+# Ignore lockfile to allow platform-specific optional deps to resolve correctly
+# (same pattern as sharp - see https://github.com/lovell/sharp)
+package-lock.json
 coverage/
 *.node
 .DS_Store
