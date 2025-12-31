@@ -38,9 +38,11 @@ jobs:
             platform: linuxmusl-x64
             container: alpine:3.19
             configure_flags: ""
-          - os: windows-2022
-            platform: win32-x64
-            configure_flags: --toolchain=msvc
+          # Windows build disabled - requires MSYS2 + MSVC toolchain setup
+          # See: https://trac.ffmpeg.org/wiki/CompilationGuide/MSVC
+          # - os: windows-2022
+          #   platform: win32-x64
+          #   configure_flags: --toolchain=msvc
 
     steps:
       - uses: actions/checkout@v4
@@ -48,7 +50,7 @@ jobs:
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install nasm pkg-config
+          brew install nasm pkg-config x264 x265 libvpx opus
 
       - name: Install dependencies (Linux glibc)
         if: runner.os == 'Linux' && !matrix.container
@@ -63,10 +65,20 @@ jobs:
           apk add --no-cache build-base nasm yasm pkgconf curl \
             x264-dev x265-dev libvpx-dev opus-dev
 
-      - name: Download FFmpeg source
+      - name: Download FFmpeg source (Unix)
+        if: runner.os != 'Windows'
         run: |
           curl -L https://ffmpeg.org/releases/ffmpeg-${{ github.event.inputs.ffmpeg_version || '7.1' }}.tar.xz | tar xJ
           mv ffmpeg-* ffmpeg-src
+
+      - name: Download FFmpeg source (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $version = "${{ github.event.inputs.ffmpeg_version || '7.1' }}"
+          Invoke-WebRequest -Uri "https://ffmpeg.org/releases/ffmpeg-$version.tar.xz" -OutFile "ffmpeg.tar.xz"
+          7z x ffmpeg.tar.xz -so | 7z x -si -ttar
+          Move-Item ffmpeg-* ffmpeg-src
 
       - name: Configure FFmpeg
         working-directory: ffmpeg-src
