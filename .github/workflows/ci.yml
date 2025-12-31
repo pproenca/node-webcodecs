@@ -6,8 +6,12 @@ on:
   pull_request:
     branches: [master, main]
 
+permissions: {}
+
 jobs:
   lint:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,13 +26,32 @@ jobs:
         continue-on-error: true  # cpplint may not be installed
 
   build-and-test:
+    permissions:
+      contents: read
     needs: lint
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        node-version: [18, 20, 22]
+        include:
+          - os: ubuntu-latest
+            node-version: 18
+          - os: ubuntu-latest
+            node-version: 20
+          - os: ubuntu-latest
+            node-version: 22
+          - os: macos-13
+            node-version: 18
+          - os: macos-13
+            node-version: 20
+          - os: macos-13
+            node-version: 22
+          - os: macos-latest
+            node-version: 18
+          - os: macos-latest
+            node-version: 20
+          - os: macos-latest
+            node-version: 22
 
     steps:
       - uses: actions/checkout@v4
@@ -71,6 +94,8 @@ jobs:
         run: npm test
 
   sanitizers:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -126,6 +151,8 @@ jobs:
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
 
   static-analysis:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
 
     steps:
@@ -177,6 +204,8 @@ jobs:
             -std=c++17
 
   cpplint:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
 
     steps:
