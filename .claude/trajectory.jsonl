@@ -1,1 +1,0 @@
-{"event_type": "plan_import", "goal": "Bring node-webcodecs into full compliance with the W3C WebCodecs specification, implementing the control message queue architecture, codec saturation tracking, ondequeue event handlers, key chunk requirements, resource reclamation, hardware acceleration hints, and ImageDecoder class.", "task_count": 15}
