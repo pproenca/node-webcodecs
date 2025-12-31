@@ -99,6 +99,7 @@ AudioData::AudioData(const Napi::CallbackInfo& info)
       number_of_channels_(0),
       timestamp_(0),
       closed_(false) {
+  webcodecs::counterAudioData++;
   Napi::Env env = info.Env();
 
   if (info.Length() < 1 || !info[0].IsObject()) {
@@ -205,6 +206,7 @@ AudioData::AudioData(const Napi::CallbackInfo& info)
 }
 
 AudioData::~AudioData() {
+  webcodecs::counterAudioData--;
   // Release external memory tracking if close() was never called.
   if (!data_.empty()) {
     Napi::MemoryManagement::AdjustExternalMemory(

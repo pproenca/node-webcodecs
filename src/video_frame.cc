@@ -266,6 +266,7 @@ VideoFrame::VideoFrame(const Napi::CallbackInfo& info)
       duration_(0),
       has_duration_(false),
       closed_(false) {
+  webcodecs::counterVideoFrames++;
   Napi::Env env = info.Env();
 
   if (info.Length() < 2) {
@@ -422,6 +423,7 @@ VideoFrame::VideoFrame(const Napi::CallbackInfo& info)
 }
 
 VideoFrame::~VideoFrame() {
+  webcodecs::counterVideoFrames--;
   // If close() wasn't called, we still need to release external memory.
   // Note: If close() was called, data_ is already empty, so this is a no-op.
   if (!data_.empty()) {
