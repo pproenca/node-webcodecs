@@ -1,24 +1,29 @@
 {
-  "name": "@aspect/node-webcodecs-linux-x64",
+  "name": "@pproenca/node-webcodecs-linux-x64",
   "version": "0.1.0",
-  "description": "Prebuilt node-webcodecs for Linux x64",
+  "description": "Prebuilt node-webcodecs native addon for Linux x64",
   "license": "MIT",
+  "author": "Pedro Proenca",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aspect-build/node-webcodecs.git",
+    "url": "https://github.com/pproenca/node-webcodecs.git",
     "directory": "npm/linux-x64"
   },
   "files": ["lib", "LICENSE"],
   "os": ["linux"],
   "cpu": ["x64"],
+  "libc": ["glibc"],
   "engines": {
     "node": ">=18.0.0"
+  },
+  "optionalDependencies": {
+    "@pproenca/ffmpeg-linux-x64": "7.1.0"
   },
   "publishConfig": {
     "access": "public"
   },
   "exports": {
-    "./lib/*": "./lib/*",
+    "./node-webcodecs.node": "./lib/node-webcodecs-linux-x64.node",
     "./package.json": "./package.json"
   }
 }

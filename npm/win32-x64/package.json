@@ -1,11 +1,12 @@
 {
-  "name": "@aspect/node-webcodecs-win32-x64",
+  "name": "@pproenca/node-webcodecs-win32-x64",
   "version": "0.1.0",
-  "description": "Prebuilt node-webcodecs for Windows x64",
+  "description": "Prebuilt node-webcodecs native addon for Windows x64",
   "license": "MIT",
+  "author": "Pedro Proenca",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aspect-build/node-webcodecs.git",
+    "url": "https://github.com/pproenca/node-webcodecs.git",
     "directory": "npm/win32-x64"
   },
   "files": ["lib", "LICENSE"],
@@ -14,11 +15,14 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "optionalDependencies": {
+    "@pproenca/ffmpeg-win32-x64": "7.1.0"
+  },
   "publishConfig": {
     "access": "public"
   },
   "exports": {
-    "./lib/*": "./lib/*",
+    "./node-webcodecs.node": "./lib/node-webcodecs-win32-x64.node",
     "./package.json": "./package.json"
   }
 }
