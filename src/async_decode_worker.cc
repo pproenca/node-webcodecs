@@ -6,6 +6,7 @@
 #include "src/async_decode_worker.h"
 
 #include <cmath>
+#include <cstdio>
 #include <string>
 #include <utility>
 #include <vector>
