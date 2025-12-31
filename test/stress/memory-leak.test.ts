@@ -8,7 +8,7 @@
  * For detailed memory analysis: node --expose-gc test/stress/memory-leak.test.ts
  */
 
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   AudioData,
   AudioDecoder,
@@ -17,6 +17,12 @@ import {
   VideoEncoder,
   VideoFrame,
 } from '../../dist/index.js';
+import {
+  assertNoLeaks,
+  type CounterSnapshot,
+  getCounters,
+  waitForGC,
+} from '../helpers/leak-check.js';
 
 // Helper to force garbage collection if available
 function forceGC(): void {
@@ -38,6 +44,8 @@ const ALLOWED_GROWTH_MB = 50;
 const ITERATIONS = 100;
 
 describe('Memory Leak Detection', () => {
+  let initialCounters: CounterSnapshot;
+
   beforeAll(() => {
     // Warm up - create and destroy one instance to initialize any static resources
     const encoder = new VideoEncoder({
@@ -46,6 +54,18 @@ describe('Memory Leak Detection', () => {
     });
     encoder.close();
     forceGC();
+
+    // Capture initial counter state after warmup
+    initialCounters = getCounters();
+  });
+
+  afterAll(async () => {
+    // Wait for GC to clean up any lingering instances
+    await waitForGC();
+
+    // Assert no leaks using counter-based detection
+    const finalCounters = getCounters();
+    assertNoLeaks(initialCounters, finalCounters, 'Memory Leak Tests');
   });
 
   describe('VideoEncoder', () => {
@@ -289,6 +309,18 @@ describe('Memory Leak Detection', () => {
 });
 
 describe('Stress Tests', () => {
+  let initialCounters: CounterSnapshot;
+
+  beforeAll(() => {
+    initialCounters = getCounters();
+  });
+
+  afterAll(async () => {
+    await waitForGC();
+    const finalCounters = getCounters();
+    assertNoLeaks(initialCounters, finalCounters, 'Stress Tests');
+  });
+
   it('handles rapid encoder reconfiguration', async () => {
     const encoder = new VideoEncoder({
       output: () => {},
