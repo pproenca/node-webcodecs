@@ -136,6 +136,38 @@ export function inArray<T>(val: T, list: readonly T[]): boolean {
 }
 
 //==============================================================================
+// ImageData Support (for canvas integration)
+//==============================================================================
+
+/**
+ * ImageData-like interface (from canvas.getContext('2d').getImageData()).
+ * Self-describing: contains width, height, and RGBA pixel data.
+ *
+ * Note: This is a Node.js extension to WebCodecs, providing equivalent
+ * functionality to CanvasImageSource for server-side canvas integration.
+ */
+export interface ImageDataLike {
+  readonly width: number;
+  readonly height: number;
+  readonly data: Uint8ClampedArray;
+}
+
+/**
+ * Is this value an ImageData object (from canvas.getImageData)?
+ * ImageData is self-describing: contains width, height, and Uint8ClampedArray data.
+ * This follows sharp's pattern of accepting self-describing pixel buffers.
+ */
+export function isImageData(val: unknown): val is ImageDataLike {
+  if (!object(val)) return false;
+  const img = val as Record<string, unknown>;
+  return (
+    positiveInteger(img.width) &&
+    positiveInteger(img.height) &&
+    img.data instanceof Uint8ClampedArray
+  );
+}
+
+//==============================================================================
 // Domain-Specific Guards
 //==============================================================================
 

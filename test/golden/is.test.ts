@@ -214,4 +214,32 @@ describe('lib/is - Domain Guards', () => {
       expect(is.codecState('')).toBe(false);
     });
   });
+
+  describe('isImageData', () => {
+    it('should detect ImageData-like objects', () => {
+      const mockImageData = {
+        width: 100,
+        height: 100,
+        data: new Uint8ClampedArray(100 * 100 * 4),
+      };
+      expect(is.isImageData(mockImageData)).toBe(true);
+    });
+
+    it('should reject non-ImageData objects', () => {
+      expect(is.isImageData({})).toBe(false);
+      expect(is.isImageData({ width: 100, height: 100 })).toBe(false);
+      expect(is.isImageData({ data: new Uint8Array(100) })).toBe(false);
+      expect(is.isImageData(null)).toBe(false);
+      expect(is.isImageData(Buffer.alloc(100))).toBe(false);
+    });
+
+    it('should require Uint8ClampedArray for data', () => {
+      const wrongType = {
+        width: 10,
+        height: 10,
+        data: new Uint8Array(400), // Wrong type - should be Uint8ClampedArray
+      };
+      expect(is.isImageData(wrongType)).toBe(false);
+    });
+  });
 });
