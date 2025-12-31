@@ -1,14 +1,15 @@
 import { defineConfig } from 'vitest/config';
 
-// Skip slow reference tests in CI - they require longer timeouts and more resources
-const isCI = process.env.CI === 'true';
+// Reference tests are slow (codec conversion) and should only run on-demand.
+// Use INCLUDE_REFERENCE=true to include them, or use npm run test-reference.
+const includeReference = process.env.INCLUDE_REFERENCE === 'true';
 
 export default defineConfig({
   test: {
     root: './test',
-    include: isCI
-      ? ['golden/**/*.test.{ts,js,mjs}', 'unit/**/*.test.{ts,js,mjs}']
-      : ['golden/**/*.test.{ts,js,mjs}', 'reference/**/*.test.{ts,js,mjs}', 'unit/**/*.test.{ts,js,mjs}'],
+    include: includeReference
+      ? ['golden/**/*.test.{ts,js,mjs}', 'reference/**/*.test.{ts,js,mjs}', 'unit/**/*.test.{ts,js,mjs}']
+      : ['golden/**/*.test.{ts,js,mjs}', 'unit/**/*.test.{ts,js,mjs}'],
     setupFiles: ['./setup.ts'],
     testTimeout: 30000,
     hookTimeout: 10000,
