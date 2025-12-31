@@ -200,6 +200,11 @@ void AsyncDecodeWorker::ProcessPacket(const DecodeTask& task) {
     error_tsfn_.NonBlockingCall(
         new std::string(error_msg),
         [](Napi::Env env, Napi::Function fn, std::string* msg) {
+          // If env is null, TSFN is closing during teardown. Just cleanup.
+          if (env == nullptr) {
+            delete msg;
+            return;
+          }
           fn.Call({Napi::Error::New(env, *msg).Value()});
           delete msg;
         });
@@ -231,6 +236,11 @@ void AsyncDecodeWorker::EmitFrame(AVFrame* frame) {
       error_tsfn_.NonBlockingCall(
           new std::string(error_msg),
           [](Napi::Env env, Napi::Function fn, std::string* msg) {
+            // If env is null, TSFN is closing during teardown. Just cleanup.
+            if (env == nullptr) {
+              delete msg;
+              return;
+            }
             fn.Call({Napi::Error::New(env, *msg).Value()});
             delete msg;
           });
@@ -302,6 +312,14 @@ void AsyncDecodeWorker::EmitFrame(AVFrame* frame) {
        color_full_range,
        has_color_space](Napi::Env env, Napi::Function fn,
                         std::vector<uint8_t>* data) {
+        // CRITICAL: If env is null, TSFN is closing during teardown.
+        // Must still clean up data and counters, then return.
+        if (env == nullptr) {
+          delete data;
+          (*pending_counter)--;
+          return;
+        }
+
         // Always clean up, even if callback throws
         try {
           Napi::Object frame_obj;
