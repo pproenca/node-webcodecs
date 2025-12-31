@@ -38,7 +38,6 @@ export class VideoDecoder extends CodecBase {
     this._resourceId = ResourceManager.getInstance().register(this);
 
     const outputCallback: VideoDecoderOutputCallback = (nativeFrame) => {
-      // Decrement queue size when output received
       this._decodeQueueSize = Math.max(0, this._decodeQueueSize - 1);
 
       // Wrap the native frame as a VideoFrame

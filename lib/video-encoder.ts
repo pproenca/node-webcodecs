@@ -35,7 +35,6 @@ export class VideoEncoder extends CodecBase {
     this._resourceId = ResourceManager.getInstance().register(this);
 
     const outputCallback: VideoEncoderOutputCallback = (chunk, metadata) => {
-      // Decrement queue size when output received
       this._encodeQueueSize = Math.max(0, this._encodeQueueSize - 1);
 
       const wrappedChunk = new EncodedVideoChunk({

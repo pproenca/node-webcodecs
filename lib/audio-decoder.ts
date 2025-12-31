@@ -30,7 +30,6 @@ export class AudioDecoder extends CodecBase {
     this._controlQueue.setErrorHandler(init.error);
 
     const outputCallback: AudioDecoderOutputCallback = (nativeData) => {
-      // Decrement queue size when output received
       this._decodeQueueSize = Math.max(0, this._decodeQueueSize - 1);
 
       // biome-ignore lint/suspicious/noExplicitAny: Object.create wrapper pattern requires any for property assignment

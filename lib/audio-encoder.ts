@@ -38,7 +38,6 @@ export class AudioEncoder extends CodecBase {
     this._controlQueue.setErrorHandler(init.error);
 
     const outputCallback: AudioEncoderOutputCallback = (chunk, metadata) => {
-      // Decrement queue size when output received
       this._encodeQueueSize = Math.max(0, this._encodeQueueSize - 1);
 
       // biome-ignore lint/suspicious/noExplicitAny: Object.create wrapper pattern requires any for property assignment

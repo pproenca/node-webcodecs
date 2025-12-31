@@ -24,7 +24,6 @@ export class EncodedVideoChunk {
     if (init.type !== 'key' && init.type !== 'delta') {
       throw new TypeError(`Invalid type: ${init.type}`);
     }
-    // Convert BufferSource to Buffer for native
     let dataBuffer: Buffer;
     if (init.data instanceof ArrayBuffer) {
       dataBuffer = Buffer.from(init.data);
@@ -81,7 +80,6 @@ export class EncodedAudioChunk {
   private _native: NativeEncodedAudioChunk;
 
   constructor(init: EncodedAudioChunkInit) {
-    // Convert BufferSource to Buffer for native
     let dataBuffer: Buffer;
     if (init.data instanceof ArrayBuffer) {
       dataBuffer = Buffer.from(init.data);

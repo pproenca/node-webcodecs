@@ -77,7 +77,6 @@ export class ControlMessageQueue {
 
     this.processing = false;
 
-    // Continue processing if more messages
     if (this.queue.length > 0) {
       this.scheduleProcessing();
     }
