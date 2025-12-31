@@ -28,3 +28,8 @@ CMakeFiles/
 # Sanitizer/profiler output
 *.profraw
 *.profdata
+
+# npm platform package generated files (not templates)
+npm/*/lib/
+npm/*/LICENSE
+npm/*/README.md

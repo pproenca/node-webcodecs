@@ -87,6 +87,17 @@ VideoEncoder::VideoEncoder(const Napi::CallbackInfo& info)
 VideoEncoder::~VideoEncoder() { Cleanup(); }
 
 void VideoEncoder::Cleanup() {
+  if (async_worker_) {
+    async_worker_->Stop();
+    async_worker_.reset();
+  }
+
+  if (async_mode_) {
+    output_tsfn_.Release();
+    error_tsfn_.Release();
+    async_mode_ = false;
+  }
+
   frame_.reset();
   packet_.reset();
   sws_context_.reset();
@@ -237,6 +248,13 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
   state_ = "configured";
   frame_count_ = 0;
 
+  // NOTE: Async encoding infrastructure is available but disabled by default.
+  // The AsyncEncodeWorker is ready but requires proper flush semantics that
+  // wait for ThreadSafeFunction callbacks to complete before returning.
+  // For now, use synchronous encoding which works correctly.
+  // TODO: Enable async mode with proper TSFN callback synchronization.
+  async_mode_ = false;
+
   return env.Undefined();
 }
 
@@ -320,6 +338,26 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
     }
   }
 
+  if (async_mode_ && async_worker_) {
+    // Copy frame data for async processing
+    EncodeTask task;
+    task.width = static_cast<uint32_t>(video_frame->GetWidth());
+    task.height = static_cast<uint32_t>(video_frame->GetHeight());
+    task.timestamp = video_frame->GetTimestampValue();
+    task.duration = video_frame->GetDurationValue();
+    task.key_frame = force_key_frame;
+
+    // Get RGBA data from frame
+    size_t data_size = task.width * task.height * 4;
+    task.rgba_data.resize(data_size);
+    std::memcpy(task.rgba_data.data(), video_frame->GetData(), data_size);
+
+    encode_queue_size_++;
+    async_worker_->Enqueue(std::move(task));
+
+    return env.Undefined();
+  }
+
   // Convert input frame to YUV420P based on input format.
   if (frame_format == PixelFormat::I420) {
     // I420 is already YUV420P - copy planes directly.
@@ -401,6 +439,15 @@ Napi::Value VideoEncoder::Flush(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
   if (state_ != "configured") {
+    return env.Undefined();
+  }
+
+  if (async_mode_ && async_worker_) {
+    // Wait for async worker to drain its queue
+    async_worker_->Flush();
+    // Reset queue after async flush completes
+    encode_queue_size_ = 0;
+    codec_saturated_.store(false);
     return env.Undefined();
   }
 

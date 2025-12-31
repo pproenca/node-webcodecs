@@ -17,9 +17,13 @@ extern "C" {
 
 #include <atomic>
 #include <cstdint>
+#include <memory>
 #include <string>
 
+#include "src/async_encode_worker.h"
 #include "src/ffmpeg_raii.h"
+
+class AsyncEncodeWorker;
 
 class VideoEncoder : public Napi::ObjectWrap<VideoEncoder> {
  public:
@@ -80,6 +84,12 @@ class VideoEncoder : public Napi::ObjectWrap<VideoEncoder> {
 
   // Saturation status accessor
   bool IsCodecSaturated() const { return codec_saturated_.load(); }
+
+  // Async encoding support
+  std::unique_ptr<AsyncEncodeWorker> async_worker_;
+  Napi::ThreadSafeFunction output_tsfn_;
+  Napi::ThreadSafeFunction error_tsfn_;
+  bool async_mode_ = false;
 };
 
 #endif  // SRC_VIDEO_ENCODER_H_
