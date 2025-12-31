@@ -10,6 +10,7 @@ import type {
   NativeEncodedVideoChunk,
   NativeModule,
 } from './native-types';
+import { detachArrayBuffers } from './transfer';
 import type { EncodedAudioChunkInit, EncodedVideoChunkInit } from './types';
 
 // Load native addon with type assertion
@@ -41,12 +42,7 @@ export class EncodedVideoChunk {
 
     // Handle ArrayBuffer transfer semantics per W3C spec
     if (init.transfer && Array.isArray(init.transfer)) {
-      // Detach transferred ArrayBuffers using structuredClone
-      for (const buffer of init.transfer) {
-        if (buffer instanceof ArrayBuffer) {
-          structuredClone(buffer, { transfer: [buffer] });
-        }
-      }
+      detachArrayBuffers(init.transfer.filter((b): b is ArrayBuffer => b instanceof ArrayBuffer));
     }
   }
 
@@ -112,11 +108,7 @@ export class EncodedAudioChunk {
 
     // Handle ArrayBuffer transfer semantics per W3C spec
     if (init.transfer && Array.isArray(init.transfer)) {
-      for (const buffer of init.transfer) {
-        if (buffer instanceof ArrayBuffer) {
-          structuredClone(buffer, { transfer: [buffer] });
-        }
-      }
+      detachArrayBuffers(init.transfer.filter((b): b is ArrayBuffer => b instanceof ArrayBuffer));
     }
   }
 
