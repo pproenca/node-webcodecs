@@ -84,7 +84,7 @@ class AsyncEncodeWorker {
  private:
   void WorkerThread();
   void ProcessFrame(const EncodeTask& task);
-  void EmitChunk(AVPacket* packet);
+  void EmitChunk(AVPacket* packet, int64_t frame_index);
 
   VideoEncoder* encoder_;
   Napi::ThreadSafeFunction output_tsfn_;
