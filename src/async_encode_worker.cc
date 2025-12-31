@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "src/common.h"
 #include "src/encoded_video_chunk.h"
 #include "src/video_encoder.h"
 
@@ -270,6 +271,7 @@ void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
     // buffer's GC ensures the data stays alive while the buffer is in use.
     // Note: We must decrement pending count before transferring ownership.
     info->pending->fetch_sub(1);
+    webcodecs::counterQueue--;  // Decrement global queue counter
     auto buffer = Napi::Buffer<uint8_t>::New(
         env, info->data.data(), info->data.size(),
         [](Napi::Env /*env*/, uint8_t* /*data*/, ChunkCallbackData* hint) {

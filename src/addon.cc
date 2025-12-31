@@ -41,6 +41,28 @@ void ClearFFmpegWarningsJS(const Napi::CallbackInfo& info) {
   webcodecs::ClearFFmpegWarnings();
 }
 
+// Counter accessor functions (following sharp pattern for observability)
+Napi::Value GetCounterQueueJS(const Napi::CallbackInfo& info) {
+  return Napi::Number::New(info.Env(), webcodecs::counterQueue.load());
+}
+
+Napi::Value GetCounterProcessJS(const Napi::CallbackInfo& info) {
+  return Napi::Number::New(info.Env(), webcodecs::counterProcess.load());
+}
+
+Napi::Value GetCounterFramesJS(const Napi::CallbackInfo& info) {
+  return Napi::Number::New(info.Env(), webcodecs::counterFrames.load());
+}
+
+Napi::Value GetCountersJS(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+  Napi::Object counters = Napi::Object::New(env);
+  counters.Set("queue", webcodecs::counterQueue.load());
+  counters.Set("process", webcodecs::counterProcess.load());
+  counters.Set("frames", webcodecs::counterFrames.load());
+  return counters;
+}
+
 // Test helper for AttrAsEnum template
 Napi::Value TestAttrAsEnum(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
@@ -81,6 +103,13 @@ Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
               Napi::Function::New(env, GetFFmpegWarningsJS));
   exports.Set("clearFFmpegWarnings",
               Napi::Function::New(env, ClearFFmpegWarningsJS));
+
+  // Export global counter functions (following sharp pattern for observability)
+  exports.Set("getCounterQueue", Napi::Function::New(env, GetCounterQueueJS));
+  exports.Set("getCounterProcess",
+              Napi::Function::New(env, GetCounterProcessJS));
+  exports.Set("getCounterFrames", Napi::Function::New(env, GetCounterFramesJS));
+  exports.Set("getCounters", Napi::Function::New(env, GetCountersJS));
 
   // Export test helpers
   exports.Set("testAttrAsEnum", Napi::Function::New(env, TestAttrAsEnum));

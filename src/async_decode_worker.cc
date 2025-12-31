@@ -16,6 +16,7 @@ extern "C" {
 #include <libswscale/swscale.h>
 }
 
+#include "src/common.h"
 #include "src/video_decoder.h"
 #include "src/video_frame.h"
 
@@ -302,5 +303,6 @@ void AsyncDecodeWorker::EmitFrame(AVFrame* frame) {
         // Always release buffer and decrement pending
         worker->ReleaseBuffer(data);
         worker->pending_frames_--;
+        webcodecs::counterQueue--;  // Decrement global queue counter
       });
 }

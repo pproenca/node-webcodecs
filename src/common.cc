@@ -18,6 +18,13 @@ std::atomic<int> counterQueue{0};
 std::atomic<int> counterProcess{0};
 std::atomic<int> counterFrames{0};
 
+// FreeCallback for consistent buffer deallocation (following sharp pattern).
+// Default implementation uses delete[]. Can be overridden for platform-specific
+// memory management (e.g., Windows mixed runtime scenarios).
+std::function<void(void*, uint8_t*)> FreeCallback = [](void*, uint8_t* data) {
+  delete[] data;
+};
+
 //==============================================================================
 // Attribute Helpers
 //==============================================================================
@@ -331,6 +338,15 @@ std::string PixelFormatToString(AVPixelFormat format) {
     default:
       return "";
   }
+}
+
+//==============================================================================
+// String Utilities
+//==============================================================================
+
+std::string TrimEnd(const std::string& str) {
+  size_t end = str.find_last_not_of(" \t\n\r\f\v");
+  return (end == std::string::npos) ? "" : str.substr(0, end + 1);
 }
 
 //==============================================================================

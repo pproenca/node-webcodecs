@@ -54,6 +54,8 @@ VideoDecoder::VideoDecoder(const Napi::CallbackInfo& info)
       state_("unconfigured"),
       coded_width_(0),
       coded_height_(0) {
+  // Track active decoder instance (following sharp pattern)
+  webcodecs::counterProcess++;
   Napi::Env env = info.Env();
 
   if (info.Length() < 1 || !info[0].IsObject()) {
@@ -76,7 +78,11 @@ VideoDecoder::VideoDecoder(const Napi::CallbackInfo& info)
   error_callback_ = Napi::Persistent(init.Get("error").As<Napi::Function>());
 }
 
-VideoDecoder::~VideoDecoder() { Cleanup(); }
+VideoDecoder::~VideoDecoder() {
+  Cleanup();
+  // Track active decoder instance (following sharp pattern)
+  webcodecs::counterProcess--;
+}
 
 void VideoDecoder::Cleanup() {
   // Stop async worker before cleaning up codec context
@@ -353,6 +359,7 @@ Napi::Value VideoDecoder::Decode(const Napi::CallbackInfo& info) {
 
     // Update queue size tracking
     decode_queue_size_++;
+    webcodecs::counterQueue++;  // Global queue tracking
     bool saturated = decode_queue_size_ >= static_cast<int>(kMaxQueueSize);
     codec_saturated_.store(saturated);
 

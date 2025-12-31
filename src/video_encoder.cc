@@ -84,6 +84,8 @@ VideoEncoder::VideoEncoder(const Napi::CallbackInfo& info)
       bitstream_format_("annexb"),
       frame_count_(0),
       encode_queue_size_(0) {
+  // Track active encoder instance (following sharp pattern)
+  webcodecs::counterProcess++;
   Napi::Env env = info.Env();
 
   if (info.Length() < 1 || !info[0].IsObject()) {
@@ -106,7 +108,11 @@ VideoEncoder::VideoEncoder(const Napi::CallbackInfo& info)
   error_callback_ = Napi::Persistent(init.Get("error").As<Napi::Function>());
 }
 
-VideoEncoder::~VideoEncoder() { Cleanup(); }
+VideoEncoder::~VideoEncoder() {
+  Cleanup();
+  // Track active encoder instance (following sharp pattern)
+  webcodecs::counterProcess--;
+}
 
 void VideoEncoder::Cleanup() {
   if (async_worker_) {
@@ -496,6 +502,7 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
     std::memcpy(task.rgba_data.data(), video_frame->GetData(), data_size);
 
     encode_queue_size_++;
+    webcodecs::counterQueue++;  // Global queue tracking
     async_worker_->Enqueue(std::move(task));
 
     return env.Undefined();

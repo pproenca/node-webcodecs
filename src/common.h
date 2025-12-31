@@ -14,6 +14,7 @@ extern "C" {
 #include <napi.h>
 
 #include <atomic>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <tuple>
@@ -115,6 +116,22 @@ std::string PixelFormatToString(AVPixelFormat format);
 extern std::atomic<int> counterQueue;
 extern std::atomic<int> counterProcess;
 extern std::atomic<int> counterFrames;
+
+//==============================================================================
+// Memory Management (following sharp pattern for Windows compatibility)
+//==============================================================================
+
+// FreeCallback for consistent buffer deallocation across platforms.
+// Windows mixed runtime libraries can have issues with different allocators,
+// so using a consistent deallocation function avoids potential crashes.
+extern std::function<void(void*, uint8_t*)> FreeCallback;
+
+//==============================================================================
+// String Utilities
+//==============================================================================
+
+// Trim whitespace from end of string (following sharp pattern)
+std::string TrimEnd(const std::string& str);
 
 //==============================================================================
 // FFmpeg Initialization
