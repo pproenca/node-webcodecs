@@ -11,7 +11,16 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 
-const {Demuxer, Muxer, VideoDecoder, VideoEncoder, VideoFrame} = require('../dist/index.js');
+const {
+  AudioData,
+  AudioEncoder,
+  Demuxer,
+  Muxer,
+  TestVideoGenerator,
+  VideoDecoder,
+  VideoEncoder,
+  VideoFrame,
+} = require('../dist/index.js');
 
 const DEMO_DIR = path.join(__dirname, '.demo-assets');
 const TEST_VIDEO = path.join(DEMO_DIR, 'test-input.mp4');
@@ -108,6 +117,128 @@ function drawWatermark(rgbaData, width, height, timestamp) {
     rgbaData[idx + 1] = 0; // G
     rgbaData[idx + 2] = 0; // B
   }
+}
+
+async function generateTestVideo(outputPath) {
+  const width = 640;
+  const height = 480;
+  const frameRate = 30;
+  const duration = 5;
+
+  // Generate video frames using native TestVideoGenerator
+  const generator = new TestVideoGenerator();
+  generator.configure({width, height, frameRate, duration, pattern: 'testsrc'});
+
+  const videoChunks = [];
+  let codecDescription = null;
+
+  const videoEncoder = new VideoEncoder({
+    output: (chunk, metadata) => {
+      videoChunks.push(chunk);
+      if (metadata?.decoderConfig?.description && !codecDescription) {
+        codecDescription = metadata.decoderConfig.description;
+      }
+    },
+    error: err => console.error('Video encoder error:', err),
+  });
+
+  videoEncoder.configure({
+    codec: 'avc1.42001e',
+    width,
+    height,
+    bitrate: 1_000_000,
+    framerate: frameRate,
+    avc: {format: 'avc'},
+  });
+
+  let frameIndex = 0;
+  await generator.generate(frame => {
+    videoEncoder.encode(frame, {keyFrame: frameIndex === 0});
+    frame.close();
+    frameIndex++;
+  });
+
+  await videoEncoder.flush();
+  videoEncoder.close();
+  generator.close();
+
+  // Generate audio (440Hz sine wave)
+  const sampleRate = 48000;
+  const numChannels = 2;
+  const audioChunks = [];
+
+  const audioEncoder = new AudioEncoder({
+    output: chunk => audioChunks.push(chunk),
+    error: err => console.error('Audio encoder error:', err),
+  });
+
+  audioEncoder.configure({
+    codec: 'mp4a.40.2',
+    sampleRate,
+    numberOfChannels: numChannels,
+    bitrate: 128000,
+  });
+
+  // Generate 5 seconds of audio in chunks
+  const samplesPerChunk = 1024;
+  const totalSamples = sampleRate * duration;
+
+  for (let offset = 0; offset < totalSamples; offset += samplesPerChunk) {
+    const numSamples = Math.min(samplesPerChunk, totalSamples - offset);
+    const audioData = new Float32Array(numSamples * numChannels);
+
+    for (let i = 0; i < numSamples; i++) {
+      const t = (offset + i) / sampleRate;
+      const sample = Math.sin(2 * Math.PI * 440 * t) * 0.5;
+      audioData[i * numChannels] = sample;
+      audioData[i * numChannels + 1] = sample;
+    }
+
+    const frame = new AudioData({
+      format: 'f32',
+      sampleRate,
+      numberOfFrames: numSamples,
+      numberOfChannels: numChannels,
+      timestamp: Math.floor((offset / sampleRate) * 1_000_000),
+      data: audioData,
+    });
+
+    audioEncoder.encode(frame);
+    frame.close();
+  }
+
+  await audioEncoder.flush();
+  audioEncoder.close();
+
+  // Mux to MP4
+  const muxer = new Muxer({filename: outputPath});
+  muxer.addVideoTrack({
+    codec: 'avc1.42001e',
+    width,
+    height,
+    description: codecDescription,
+  });
+  muxer.addAudioTrack({
+    codec: 'mp4a.40.2',
+    sampleRate,
+    numberOfChannels: numChannels,
+  });
+
+  // Sort chunks by timestamp and write
+  const sortedVideoChunks = [...videoChunks].sort(
+    (a, b) => a.timestamp - b.timestamp,
+  );
+  const sortedAudioChunks = [...audioChunks].sort(
+    (a, b) => a.timestamp - b.timestamp,
+  );
+
+  sortedVideoChunks.forEach(chunk => muxer.writeVideoChunk(chunk));
+  sortedAudioChunks.forEach(chunk => muxer.writeAudioChunk(chunk));
+
+  muxer.finalize();
+  muxer.close();
+
+  console.log(`Generated test video: ${outputPath}`);
 }
 
 async function processVideo(inputPath, outputPath) {
@@ -268,7 +399,7 @@ async function main() {
   print('processing capabilities of node-webcodecs.');
   print();
   print('What you will see:');
-  print('  1. Create a test video using FFmpeg');
+  print('  1. Create a test video using native bindings');
   print('  2. Demux the MP4 container');
   print('  3. Decode H.264 frames');
   print('  4. Add a bouncing watermark overlay');
@@ -281,16 +412,9 @@ async function main() {
   // Check dependencies
   printStep(1, 'Checking Dependencies');
 
-  const hasFFmpeg = checkDependency('ffmpeg', 'ffmpeg -version');
+  // ffplay is optional for playback
   const hasFFplay = checkDependency('ffplay', 'ffplay -version');
 
-  if (!hasFFmpeg) {
-    print('\n[ERROR] FFmpeg not found!');
-    print('Install it with: brew install ffmpeg');
-    rl.close();
-    process.exit(1);
-  }
-  print('  FFmpeg: OK');
   print(
     `  FFplay: ${hasFFplay ? 'OK' : 'Not found (playback will be skipped)'}`,
   );
@@ -318,22 +442,14 @@ async function main() {
     fs.mkdirSync(DEMO_DIR, {recursive: true});
   }
 
-  print('Generating a 5-second test video with FFmpeg...');
-  print('(Color bars + timer overlay at 640x480, 30fps)\n');
+  print('Generating a 5-second test video using native bindings...');
+  print('(Test pattern + 440Hz sine wave at 640x480, 30fps)\n');
 
-  const ffmpegCmd = [
-    'ffmpeg -y',
-    '-f lavfi -i "testsrc=duration=5:size=640x480:rate=30"',
-    '-f lavfi -i "sine=frequency=440:duration=5"',
-    '-c:v libx264 -preset fast -crf 23',
-    '-c:a aac -b:a 128k',
-    '-pix_fmt yuv420p',
-    `"${TEST_VIDEO}"`,
-  ].join(' ');
-
-  const result = run(ffmpegCmd);
-  if (!result.success) {
+  try {
+    await generateTestVideo(TEST_VIDEO);
+  } catch (err) {
     print('\n[ERROR] Failed to create test video');
+    print(err.message);
     rl.close();
     process.exit(1);
   }
@@ -392,7 +508,7 @@ async function main() {
 
   print('What happened:');
   print();
-  print('  1. FFmpeg generated a test video with color bars');
+  print('  1. TestVideoGenerator created frames, AudioEncoder added audio');
   print('  2. Demuxer parsed the MP4 container (libavformat)');
   print('  3. VideoDecoder decoded H.264 to RGBA frames');
   print('  4. JavaScript modified pixels (bouncing yellow box)');
