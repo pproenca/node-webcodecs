@@ -50,10 +50,10 @@
             "<!@(node gyp/ffmpeg-paths.js rpath 2>/dev/null || echo '')"
           ],
           "xcode_settings": {
-            "CLANG_CXX_LANGUAGE_STANDARD": "c++17",
+            "CLANG_CXX_LANGUAGE_STANDARD": "c++20",
             "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
             "GCC_ENABLE_CPP_RTTI": "YES",
-            "MACOSX_DEPLOYMENT_TARGET": "10.15",
+            "MACOSX_DEPLOYMENT_TARGET": "11.0",
             "OTHER_CPLUSPLUSFLAGS": [
               "-fexceptions",
               "-Wall",
@@ -72,7 +72,7 @@
             "<!@(node gyp/ffmpeg-paths.js rpath 2>/dev/null || echo '')"
           ],
           "cflags_cc": [
-            "-std=c++17",
+            "-std=c++20",
             "-fexceptions",
             "-Wall",
             "-Wextra",
