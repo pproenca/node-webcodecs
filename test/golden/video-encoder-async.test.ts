@@ -13,6 +13,47 @@ import {describe, it, expect} from 'vitest';
  * - Correct flush semantics with ThreadSafeFunction callbacks
  */
 describe('VideoEncoder async mode', () => {
+  it('should emit dequeue events when queue drains', async () => {
+    const {VideoEncoder, VideoFrame} = await import('../../lib/index');
+
+    let dequeueCount = 0;
+    const encoder = new VideoEncoder({
+      output: () => {},
+      error: (e) => {
+        throw e;
+      },
+    });
+
+    encoder.ondequeue = () => {
+      dequeueCount++;
+    };
+
+    encoder.configure({
+      codec: 'avc1.42001e',
+      width: 320,
+      height: 240,
+      bitrate: 500000,
+    });
+
+    // Queue frames
+    for (let i = 0; i < 3; i++) {
+      const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+        format: 'RGBA',
+        codedWidth: 320,
+        codedHeight: 240,
+        timestamp: i * 33333,
+      });
+      encoder.encode(frame);
+      frame.close();
+    }
+
+    await encoder.flush();
+
+    // Should have received dequeue events
+    expect(dequeueCount).toBeGreaterThan(0);
+
+    encoder.close();
+  });
   it('should encode multiple frames without blocking', async () => {
     const {VideoEncoder, VideoFrame} = await import('../../lib/index');
 
