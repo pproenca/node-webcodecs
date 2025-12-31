@@ -45,20 +45,20 @@ jobs:
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install nasm pkg-config x264 x265 libvpx opus
+          brew install nasm pkg-config x264 x265 libvpx opus aom
 
       - name: Install dependencies (Linux glibc)
         if: runner.os == 'Linux' && !matrix.container
         run: |
           sudo apt-get update
           sudo apt-get install -y nasm yasm pkg-config \
-            libx264-dev libx265-dev libvpx-dev libopus-dev
+            libx264-dev libx265-dev libvpx-dev libopus-dev libaom-dev
 
       - name: Install dependencies (Linux musl)
         if: matrix.container == 'alpine:3.19'
         run: |
           apk add --no-cache build-base nasm yasm pkgconf curl \
-            x264-dev x265-dev libvpx-dev opus-dev
+            x264-dev x265-dev libvpx-dev opus-dev aom-dev
 
       - name: Download FFmpeg source
         run: |
@@ -79,6 +79,7 @@ jobs:
             --enable-libx265 \
             --enable-libvpx \
             --enable-libopus \
+            --enable-libaom \
             ${{ matrix.configure_flags }}
 
       - name: Build FFmpeg
