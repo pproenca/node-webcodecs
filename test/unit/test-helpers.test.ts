@@ -13,7 +13,7 @@ describe('Test Helpers', () => {
       });
 
       // After callback, encoder should be closed
-      expect(capturedEncoder!.state).toBe('closed');
+      expect(capturedEncoder?.state).toBe('closed');
     });
 
     it('should close encoder even when callback throws', async () => {
@@ -24,7 +24,7 @@ describe('Test Helpers', () => {
         throw new Error('Test error');
       })).rejects.toThrow('Test error');
 
-      expect(capturedEncoder!.state).toBe('closed');
+      expect(capturedEncoder?.state).toBe('closed');
     });
   });
 
@@ -41,7 +41,7 @@ describe('Test Helpers', () => {
       );
 
       // Frame should be closed after callback
-      expect(capturedFrame!.format).toBeNull();
+      expect(capturedFrame?.format).toBeNull();
     });
   });
 });
