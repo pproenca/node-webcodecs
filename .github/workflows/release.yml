@@ -32,9 +32,11 @@ jobs:
             platform: linuxmusl-x64
             container: alpine:3.19
             configure_flags: ""
-          - os: windows-2022
-            platform: win32-x64
-            configure_flags: --toolchain=msvc
+          # Windows build is complex - requires MSYS2 shell for configure
+          # Disabled until we set up proper Windows build environment
+          # - os: windows-2022
+          #   platform: win32-x64
+          #   configure_flags: --toolchain=msvc
 
     steps:
       - uses: actions/checkout@v4
@@ -155,8 +157,9 @@ jobs:
           - os: ubuntu-22.04
             platform: linuxmusl-x64
             container: alpine:3.19
-          - os: windows-2022
-            platform: win32-x64
+          # Windows disabled - see build-ffmpeg job
+          # - os: windows-2022
+          #   platform: win32-x64
 
     steps:
       - uses: actions/checkout@v4
@@ -232,14 +235,14 @@ jobs:
       # Populate FFmpeg packages
       - name: Populate FFmpeg packages
         run: |
-          for platform in darwin-arm64 darwin-x64 linux-x64 linuxmusl-x64 win32-x64; do
+          for platform in darwin-arm64 darwin-x64 linux-x64 linuxmusl-x64; do
             FFMPEG_ARTIFACT_DIR=artifacts/ffmpeg-$platform node ffmpeg/from-ci-build.js $platform
           done
 
       # Populate addon packages
       - name: Populate addon packages
         run: |
-          for platform in darwin-arm64 darwin-x64 linux-x64 linuxmusl-x64 win32-x64; do
+          for platform in darwin-arm64 darwin-x64 linux-x64 linuxmusl-x64; do
             cp -r artifacts/addon-$platform/* npm/$platform/
           done
 
