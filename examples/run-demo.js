@@ -217,6 +217,7 @@ async function generateTestVideo(outputPath) {
     height,
     bitrate: 1_000_000,
     framerate: frameRate,
+    latencyMode: 'realtime',  // Disable B-frames for correct MP4 muxing
     avc: {format: 'avc'},
   });
 
@@ -391,6 +392,7 @@ async function processVideo(inputPath, outputPath) {
           height: track.height,
           bitrate: 2_000_000,
           framerate: 30,
+          latencyMode: 'realtime',  // Disable B-frames for correct MP4 muxing
           avc: {format: 'avc'},
         });
       }

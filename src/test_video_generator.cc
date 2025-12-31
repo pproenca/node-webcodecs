@@ -88,9 +88,10 @@ Napi::Value TestVideoGenerator::Configure(const Napi::CallbackInfo& info) {
     return env.Undefined();
   }
 
-  // Initialize swscale for YUV420P -> RGBA conversion
+  // Initialize swscale for RGB24 -> RGBA conversion
+  // Note: testsrc outputs RGB24 by default, not YUV420P
   sws_yuv_to_rgba_.reset(
-      sws_getContext(width_, height_, AV_PIX_FMT_YUV420P, width_, height_,
+      sws_getContext(width_, height_, AV_PIX_FMT_RGB24, width_, height_,
                      AV_PIX_FMT_RGBA, SWS_BILINEAR, nullptr, nullptr, nullptr));
 
   if (!sws_yuv_to_rgba_) {
