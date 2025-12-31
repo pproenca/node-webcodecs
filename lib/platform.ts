@@ -37,6 +37,19 @@ export function runtimePlatformArch(): string {
 }
 
 /**
+ * Get the build-time platform-architecture string.
+ * Used by npm/from-local-build.js for packaging.
+ *
+ * In cross-compilation scenarios, this could differ from runtimePlatformArch().
+ * Currently returns the same value (no cross-compile support yet).
+ */
+export function buildPlatformArch(): string {
+  // For now, build platform equals runtime platform
+  // Cross-compilation would check environment variables like npm_config_arch
+  return runtimePlatformArch();
+}
+
+/**
  * Platforms with prebuilt binaries available.
  */
 export const prebuiltPlatforms = [

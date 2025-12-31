@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {runtimePlatformArch, isPrebuiltAvailable, prebuiltPlatforms} from '../../lib/platform';
+import {runtimePlatformArch, buildPlatformArch, isPrebuiltAvailable, prebuiltPlatforms} from '../../lib/platform';
 
 describe('Platform Detection', () => {
   it('returns valid platform-arch string', () => {
@@ -17,5 +17,15 @@ describe('Platform Detection', () => {
   it('isPrebuiltAvailable returns boolean', () => {
     const available = isPrebuiltAvailable();
     expect(typeof available).toBe('boolean');
+  });
+
+  it('buildPlatformArch returns valid platform string', () => {
+    const platform = buildPlatformArch();
+    expect(platform).toMatch(/^(darwin|linux|linuxmusl|win32)-(x64|arm64)$/);
+  });
+
+  it('buildPlatformArch matches runtime by default', () => {
+    // In non-cross-compile scenario, build platform equals runtime platform
+    expect(buildPlatformArch()).toBe(runtimePlatformArch());
   });
 });
