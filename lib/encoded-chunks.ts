@@ -80,6 +80,11 @@ export class EncodedAudioChunk {
   private _native: NativeEncodedAudioChunk;
 
   constructor(init: EncodedAudioChunkInit) {
+    // W3C spec: type must be 'key' or 'delta'
+    if (init.type !== 'key' && init.type !== 'delta') {
+      throw new TypeError(`Invalid type: ${init.type}`);
+    }
+
     let dataBuffer: Buffer;
     if (init.data instanceof ArrayBuffer) {
       dataBuffer = Buffer.from(init.data);
