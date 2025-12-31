@@ -85,6 +85,12 @@ class VideoEncoder : public Napi::ObjectWrap<VideoEncoder> {
   std::atomic<bool> codec_saturated_{false};
   static constexpr size_t kMaxQueueSize = 16;  // Saturation threshold
 
+  // HARD LIMIT: The "Circuit Breaker".
+  // If the user ignores backpressure signals and keeps pushing frames,
+  // we reject requests to prevent OOM.
+  // 64 frames @ 4K RGBA (3840x2160x4) is ~2GB of RAM.
+  static constexpr size_t kMaxHardQueueSize = 64;
+
   // Saturation status accessor
   bool IsCodecSaturated() const { return codec_saturated_.load(); }
 
