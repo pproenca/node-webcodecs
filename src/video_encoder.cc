@@ -215,7 +215,46 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
     throw Napi::Error::New(env, "Unsupported codec: " + codec_str);
   }
 
-  codec_ = avcodec_find_encoder(codec_id);
+  // Try hardware encoders first based on platform and hardwareAcceleration
+  // setting
+  codec_ = nullptr;
+  std::string hw_accel =
+      webcodecs::AttrAsStr(config, "hardwareAcceleration", "no-preference");
+
+  if (hw_accel != "prefer-software") {
+#ifdef __APPLE__
+    if (codec_id == AV_CODEC_ID_H264) {
+      codec_ = avcodec_find_encoder_by_name("h264_videotoolbox");
+    } else if (codec_id == AV_CODEC_ID_HEVC) {
+      codec_ = avcodec_find_encoder_by_name("hevc_videotoolbox");
+    }
+#endif
+#ifdef _WIN32
+    if (codec_id == AV_CODEC_ID_H264) {
+      codec_ = avcodec_find_encoder_by_name("h264_nvenc");
+      if (!codec_) codec_ = avcodec_find_encoder_by_name("h264_qsv");
+      if (!codec_) codec_ = avcodec_find_encoder_by_name("h264_amf");
+    } else if (codec_id == AV_CODEC_ID_HEVC) {
+      codec_ = avcodec_find_encoder_by_name("hevc_nvenc");
+      if (!codec_) codec_ = avcodec_find_encoder_by_name("hevc_qsv");
+    }
+#endif
+#ifdef __linux__
+    if (codec_id == AV_CODEC_ID_H264) {
+      codec_ = avcodec_find_encoder_by_name("h264_vaapi");
+      if (!codec_) codec_ = avcodec_find_encoder_by_name("h264_nvenc");
+    } else if (codec_id == AV_CODEC_ID_HEVC) {
+      codec_ = avcodec_find_encoder_by_name("hevc_vaapi");
+      if (!codec_) codec_ = avcodec_find_encoder_by_name("hevc_nvenc");
+    }
+#endif
+  }
+
+  // Fallback to software encoder
+  if (!codec_) {
+    codec_ = avcodec_find_encoder(codec_id);
+  }
+
   if (!codec_) {
     throw Napi::Error::New(env, "Encoder not found for codec: " + codec_str);
   }
@@ -243,26 +282,38 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
     codec_context_->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
   }
 
-  // Codec-specific options.
-  if (codec_id == AV_CODEC_ID_H264) {
-    av_opt_set(codec_context_->priv_data, "preset", "fast", 0);
-    av_opt_set(codec_context_->priv_data, "tune", "zerolatency", 0);
-  } else if (codec_id == AV_CODEC_ID_VP8 || codec_id == AV_CODEC_ID_VP9) {
-    // VP8/VP9 specific: set quality (crf) and speed
-    av_opt_set(codec_context_->priv_data, "quality", "realtime", 0);
-    av_opt_set(codec_context_->priv_data, "speed", "6", 0);
-    // VP8/VP9 don't support B-frames
-    codec_context_->max_b_frames = 0;
-  } else if (codec_id == AV_CODEC_ID_AV1) {
-    // AV1 specific options
-    av_opt_set(codec_context_->priv_data, "preset", "8", 0);
-  } else if (codec_id == AV_CODEC_ID_HEVC) {
-    // libx265 specific options
-    av_opt_set(codec_context_->priv_data, "preset", "fast", 0);
-    // Note: libx265 tune options are different from libx264 (grain, animation,
-    // psnr, ssim) "zerolatency" is not valid for x265, using x265-params
-    // instead
-    av_opt_set(codec_context_->priv_data, "x265-params", "bframes=0", 0);
+  // Detect if this is a hardware encoder (for skipping software-specific
+  // options)
+  bool is_hw_encoder =
+      codec_ && (strstr(codec_->name, "videotoolbox") != nullptr ||
+                 strstr(codec_->name, "nvenc") != nullptr ||
+                 strstr(codec_->name, "qsv") != nullptr ||
+                 strstr(codec_->name, "vaapi") != nullptr ||
+                 strstr(codec_->name, "amf") != nullptr);
+
+  // Codec-specific options (only for software encoders).
+  // Hardware encoders have their own internal quality/speed settings.
+  if (!is_hw_encoder) {
+    if (codec_id == AV_CODEC_ID_H264) {
+      av_opt_set(codec_context_->priv_data, "preset", "fast", 0);
+      av_opt_set(codec_context_->priv_data, "tune", "zerolatency", 0);
+    } else if (codec_id == AV_CODEC_ID_VP8 || codec_id == AV_CODEC_ID_VP9) {
+      // VP8/VP9 specific: set quality (crf) and speed
+      av_opt_set(codec_context_->priv_data, "quality", "realtime", 0);
+      av_opt_set(codec_context_->priv_data, "speed", "6", 0);
+      // VP8/VP9 don't support B-frames
+      codec_context_->max_b_frames = 0;
+    } else if (codec_id == AV_CODEC_ID_AV1) {
+      // AV1 specific options
+      av_opt_set(codec_context_->priv_data, "preset", "8", 0);
+    } else if (codec_id == AV_CODEC_ID_HEVC) {
+      // libx265 specific options
+      av_opt_set(codec_context_->priv_data, "preset", "fast", 0);
+      // Note: libx265 tune options are different from libx264 (grain,
+      // animation, psnr, ssim) "zerolatency" is not valid for x265, using
+      // x265-params instead
+      av_opt_set(codec_context_->priv_data, "x265-params", "bframes=0", 0);
+    }
   }
 
   int ret = avcodec_open2(codec_context_.get(), codec_, nullptr);
