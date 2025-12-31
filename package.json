@@ -35,7 +35,8 @@
     "format": "prettier --write \"**/*.md\"",
     "version:bump": "node scripts/bump-version.js",
     "create-platform-packages": "node scripts/create-platform-packages.js",
-    "compliance": "npx tsx scripts/fetch-webcodecs-specs.ts --process && echo '✓ Specs updated. Run /check-compliance to analyze'"
+    "compliance": "npx tsx scripts/fetch-webcodecs-specs.ts --process && echo '✓ Specs updated. Run /check-compliance to analyze'",
+    "generate:types": "npx tsx scripts/generate-types-from-idl.ts"
   },
   "type": "commonjs",
   "main": "dist/index.js",
@@ -89,7 +90,8 @@
     "tsx": "^4.21.0",
     "typedoc": "^0.28.15",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.16"
+    "vitest": "^4.0.16",
+    "webidl2": "^24.5.0"
   },
   "license": "MIT",
   "engines": {

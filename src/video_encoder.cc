@@ -544,7 +544,16 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
 
   // SAFETY VALVE: Reject if queue is too large.
   // This prevents OOM if the consumer ignores backpressure.
-  if (encode_queue_size_ >= static_cast<int>(kMaxHardQueueSize)) {
+  // For async mode, check the async worker's queue; for sync mode, use encode_queue_size_.
+  if (async_mode_ && async_worker_) {
+    size_t async_queue = async_worker_->QueueSize() + async_worker_->GetPendingChunks();
+    if (async_queue >= kMaxHardQueueSize) {
+      throw Napi::Error::New(
+          env,
+          "QuotaExceededError: Encode queue is full. You must handle backpressure "
+          "by waiting for encodeQueueSize to decrease.");
+    }
+  } else if (encode_queue_size_ >= static_cast<int>(kMaxHardQueueSize)) {
     throw Napi::Error::New(
         env,
         "QuotaExceededError: Encode queue is full. You must handle backpressure "
@@ -628,7 +637,8 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
     task.rgba_data.resize(data_size);
     std::memcpy(task.rgba_data.data(), video_frame->GetData(), data_size);
 
-    encode_queue_size_++;
+    // Note: Don't increment encode_queue_size_ for async path.
+    // The hard limit check uses async_worker_->QueueSize() + GetPendingChunks() instead.
     webcodecs::counterQueue++;  // Global queue tracking
     async_worker_->Enqueue(std::move(task));
 

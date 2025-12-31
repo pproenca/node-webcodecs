@@ -503,7 +503,7 @@ async function main() {
     path.join(__dirname, '..', 'dist', 'index.js'),
   );
   const buildExists = fs.existsSync(
-    path.join(__dirname, '..', 'build', 'Release', 'webcodecs.node'),
+    path.join(__dirname, '..', 'build', 'Release', 'node_webcodecs.node'),
   );
 
   if (!distExists || !buildExists) {
