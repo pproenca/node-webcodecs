@@ -2,22 +2,27 @@
  * Demo 02: Video Processing Pipeline
  *
  * Demonstrates real-world video processing:
- * 1. Open MP4 file (auto-generated if missing)
- * 2. Demux video track
+ * 1. Open MP4 file OR generate test frames with TestVideoGenerator
+ * 2. Demux video track (when using external file)
  * 3. Decode frames to RGBA
  * 4. Apply watermark transformation
  * 5. Re-encode to H.264
- * 6. Output playable file
+ * 6. Output playable MP4 file using native Muxer
  */
 
 const fs = require('fs');
 const path = require('path');
-const {execSync} = require('child_process');
-const {Demuxer, VideoDecoder, VideoEncoder, VideoFrame} = require('../../dist');
+const {
+  Demuxer,
+  Muxer,
+  TestVideoGenerator,
+  VideoDecoder,
+  VideoEncoder,
+  VideoFrame,
+} = require('../../dist');
 
 const OUTPUT_DIR = path.join(__dirname, '..', 'output');
 const INPUT_VIDEO = path.join(OUTPUT_DIR, 'input.mp4');
-const OUTPUT_H264 = path.join(OUTPUT_DIR, 'watermarked.h264');
 const OUTPUT_MP4 = path.join(OUTPUT_DIR, 'watermarked.mp4');
 
 // Watermark state
@@ -40,166 +45,243 @@ function drawWatermark(rgbaData, width, height) {
   for (let y = boxY; y < boxY + BOX_SIZE && y < height; y++) {
     for (let x = boxX; x < boxX + BOX_SIZE && x < width; x++) {
       const idx = (y * width + x) * 4;
-      rgbaData[idx] = 255;     // R
+      rgbaData[idx] = 255; // R
       rgbaData[idx + 1] = 255; // G
-      rgbaData[idx + 2] = 0;   // B
+      rgbaData[idx + 2] = 0; // B
     }
   }
 }
 
-async function ensureInputVideo() {
-  if (!fs.existsSync(OUTPUT_DIR)) {
-    fs.mkdirSync(OUTPUT_DIR, {recursive: true});
-  }
+/**
+ * Process video from an external MP4 file using Demuxer + Decoder
+ */
+async function processFromFile(inputPath, processFrame) {
+  return new Promise((resolve, reject) => {
+    let videoTrack = null;
+    let framesProcessed = 0;
 
-  if (!fs.existsSync(INPUT_VIDEO)) {
-    console.log('    Generating test video with FFmpeg...');
-    execSync(
-      `ffmpeg -y -f lavfi -i "testsrc=duration=3:size=320x240:rate=30" ` +
-      `-c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p "${INPUT_VIDEO}"`,
-      {stdio: 'pipe'}
-    );
-    console.log('    Test video created');
-  }
+    const decoder = new VideoDecoder({
+      output: frame => {
+        processFrame(frame);
+        framesProcessed++;
+        if (framesProcessed % 30 === 0) {
+          process.stdout.write(`    Processed ${framesProcessed} frames...\r`);
+        }
+      },
+      error: e => reject(e),
+    });
+
+    const demuxer = new Demuxer({
+      onTrack: track => {
+        if (track.type === 'video') {
+          videoTrack = track;
+          console.log(
+            `    Found video: ${track.width}x${track.height} (${track.codec})`
+          );
+
+          decoder.configure({
+            codec: 'avc1.42001e',
+            codedWidth: track.width,
+            codedHeight: track.height,
+            description: track.extradata,
+          });
+        }
+      },
+      onChunk: (chunk, trackIndex) => {
+        if (videoTrack && trackIndex === videoTrack.index) {
+          decoder.decode(chunk);
+        }
+      },
+      onError: e => reject(e),
+    });
+
+    demuxer
+      .open(inputPath)
+      .then(() => demuxer.demux())
+      .then(() => decoder.flush())
+      .then(() => {
+        demuxer.close();
+        decoder.close();
+        resolve({
+          framesProcessed,
+          width: videoTrack.width,
+          height: videoTrack.height,
+        });
+      })
+      .catch(reject);
+  });
+}
+
+/**
+ * Generate test frames using native TestVideoGenerator
+ * This bypasses the need for Demuxer when no input file exists
+ */
+async function generateTestFrames(processFrame) {
+  const width = 320;
+  const height = 240;
+  const frameRate = 30;
+  const duration = 3;
+
+  console.log('    Generating test video with native TestVideoGenerator...');
+
+  const generator = new TestVideoGenerator();
+  generator.configure({width, height, frameRate, duration, pattern: 'testsrc'});
+
+  let framesProcessed = 0;
+  await generator.generate(frame => {
+    processFrame(frame);
+    framesProcessed++;
+    if (framesProcessed % 30 === 0) {
+      process.stdout.write(`    Generated ${framesProcessed} frames...\r`);
+    }
+  });
+
+  generator.close();
+  console.log(`    Generated ${framesProcessed} test frames`);
+
+  return {framesProcessed, width, height};
 }
 
 async function main() {
   console.log('=== Demo 02: Video Processing Pipeline ===\n');
 
-  // Step 1: Ensure input video exists
-  console.log('[1/6] Preparing input video...');
-  await ensureInputVideo();
-  console.log(`    Input: ${INPUT_VIDEO}\n`);
+  if (!fs.existsSync(OUTPUT_DIR)) {
+    fs.mkdirSync(OUTPUT_DIR, {recursive: true});
+  }
 
   const encodedChunks = [];
-  let videoTrack = null;
   let encoder = null;
   let framesProcessed = 0;
+  let codecDescription = null;
+  let videoWidth = 320;
+  let videoHeight = 240;
 
-  // Step 2: Create decoder
-  console.log('[2/6] Creating VideoDecoder...');
-  const decoder = new VideoDecoder({
-    output: frame => {
-      // Get RGBA data
-      const size = frame.allocationSize({format: 'RGBA'});
-      const rgbaData = new Uint8Array(size);
-      frame.copyTo(rgbaData.buffer, {format: 'RGBA'});
+  // Check if we have an input file or need to generate test content
+  const useExternalFile = fs.existsSync(INPUT_VIDEO);
 
-      // Apply watermark
-      drawWatermark(rgbaData, frame.codedWidth, frame.codedHeight);
+  // Step 1: Prepare input source
+  console.log('[1/6] Preparing input source...');
+  if (useExternalFile) {
+    console.log(`    Using existing file: ${INPUT_VIDEO}\n`);
+  } else {
+    console.log('    No input file found - will generate test frames directly\n');
+  }
 
-      // Create new frame with modified pixels
-      const modifiedFrame = new VideoFrame(Buffer.from(rgbaData), {
-        format: 'RGBA',
-        codedWidth: frame.codedWidth,
-        codedHeight: frame.codedHeight,
-        timestamp: frame.timestamp,
+  // Frame processor function - applies watermark and encodes
+  const processFrame = frame => {
+    // Initialize encoder on first frame if needed
+    if (!encoder) {
+      videoWidth = frame.codedWidth;
+      videoHeight = frame.codedHeight;
+
+      encoder = new VideoEncoder({
+        output: (chunk, metadata) => {
+          encodedChunks.push(chunk);
+          if (metadata?.decoderConfig?.description) {
+            codecDescription = metadata.decoderConfig.description;
+          }
+        },
+        error: e => console.error('Encoder error:', e),
       });
 
-      // Encode
-      encoder.encode(modifiedFrame, {keyFrame: framesProcessed % 30 === 0});
-      modifiedFrame.close();
-      frame.close();
+      encoder.configure({
+        codec: 'avc1.42001e',
+        width: videoWidth,
+        height: videoHeight,
+        bitrate: 1_000_000,
+        framerate: 30,
+        avc: {format: 'avc'},
+      });
+    }
 
-      framesProcessed++;
-      if (framesProcessed % 30 === 0) {
-        process.stdout.write(`    Processed ${framesProcessed} frames...\r`);
-      }
-    },
-    error: e => console.error('Decoder error:', e),
-  });
-  console.log('    Decoder ready\n');
+    // Get RGBA data
+    const size = frame.allocationSize({format: 'RGBA'});
+    const rgbaData = new Uint8Array(size);
+    frame.copyTo(rgbaData.buffer, {format: 'RGBA'});
 
-  // Step 3: Create demuxer
-  console.log('[3/6] Opening video file with Demuxer...');
-  const demuxer = new Demuxer({
-    onTrack: track => {
-      if (track.type === 'video') {
-        videoTrack = track;
-        console.log(`    Found video: ${track.width}x${track.height} (${track.codec})`);
+    // Apply watermark
+    drawWatermark(rgbaData, frame.codedWidth, frame.codedHeight);
 
-        // Configure decoder
-        decoder.configure({
-          codec: 'avc1.42001e',
-          codedWidth: track.width,
-          codedHeight: track.height,
-          description: track.extradata,
-        });
+    // Create new frame with modified pixels
+    const modifiedFrame = new VideoFrame(Buffer.from(rgbaData), {
+      format: 'RGBA',
+      codedWidth: frame.codedWidth,
+      codedHeight: frame.codedHeight,
+      timestamp: frame.timestamp,
+    });
 
-        // Create encoder
-        encoder = new VideoEncoder({
-          output: chunk => encodedChunks.push(chunk),
-          error: e => console.error('Encoder error:', e),
-        });
+    // Encode
+    encoder.encode(modifiedFrame, {keyFrame: framesProcessed % 30 === 0});
+    modifiedFrame.close();
+    frame.close();
+    framesProcessed++;
+  };
 
-        encoder.configure({
-          codec: 'avc1.42001e',
-          width: track.width,
-          height: track.height,
-          bitrate: 1_000_000,
-          framerate: 30,
-        });
-      }
-    },
-    onChunk: (chunk, trackIndex) => {
-      if (videoTrack && trackIndex === videoTrack.index) {
-        decoder.decode(chunk);
-      }
-    },
-    onError: e => console.error('Demuxer error:', e),
-  });
-
-  await demuxer.open(INPUT_VIDEO);
-  console.log('');
+  // Step 2 & 3: Get frames (either from file or generator)
+  if (useExternalFile) {
+    console.log('[2/6] Opening video file with Demuxer...');
+    console.log('[3/6] Creating VideoDecoder...');
+  } else {
+    console.log('[2/6] Setting up TestVideoGenerator...');
+    console.log('[3/6] Skipping decoder (direct frame generation)...');
+  }
 
   // Step 4: Process video
-  console.log('[4/6] Processing frames (demux -> decode -> watermark -> encode)...');
+  console.log('[4/6] Processing frames (watermark -> encode)...');
   const startTime = performance.now();
-  await demuxer.demux();
-  await decoder.flush();
+
+  if (useExternalFile) {
+    await processFromFile(INPUT_VIDEO, processFrame);
+  } else {
+    await generateTestFrames(processFrame);
+  }
+
   await encoder.flush();
+  encoder.close();
   const endTime = performance.now();
 
-  demuxer.close();
-  decoder.close();
-  encoder.close();
-
-  console.log(`\n    Processed ${framesProcessed} frames in ${(endTime - startTime).toFixed(1)}ms\n`);
-
-  // Step 5: Write H.264 output
-  console.log('[5/6] Writing output files...');
-  const outputData = Buffer.concat(
-    encodedChunks.map(chunk => {
-      const buf = new Uint8Array(chunk.byteLength);
-      chunk.copyTo(buf);
-      return Buffer.from(buf);
-    })
+  console.log(
+    `\n    Processed ${framesProcessed} frames in ${(endTime - startTime).toFixed(1)}ms\n`
   );
-  fs.writeFileSync(OUTPUT_H264, outputData);
-  console.log(`    H.264: ${OUTPUT_H264} (${(outputData.length / 1024).toFixed(2)} KB)`);
 
-  // Step 6: Wrap in MP4
-  console.log('[6/6] Wrapping in MP4 container...');
-  try {
-    execSync(`ffmpeg -y -i "${OUTPUT_H264}" -c copy "${OUTPUT_MP4}"`, {stdio: 'pipe'});
-    console.log(`    MP4: ${OUTPUT_MP4}\n`);
-  } catch {
-    console.log('    (FFmpeg wrap skipped - H.264 output available)\n');
-  }
+  // Step 5: Mux directly to MP4 using native Muxer
+  console.log('[5/6] Muxing to MP4 container with native Muxer...');
+  const muxer = new Muxer({filename: OUTPUT_MP4});
+  muxer.addVideoTrack({
+    codec: 'avc1.42001e',
+    width: videoWidth,
+    height: videoHeight,
+    description: codecDescription,
+  });
+
+  // Sort and write chunks
+  const sortedChunks = [...encodedChunks].sort(
+    (a, b) => a.timestamp - b.timestamp
+  );
+  sortedChunks.forEach(chunk => muxer.writeVideoChunk(chunk));
+
+  muxer.finalize();
+  muxer.close();
+
+  // Calculate output size
+  const outputStats = fs.statSync(OUTPUT_MP4);
+  const outputBytes = outputStats.size;
+
+  console.log(`    MP4: ${OUTPUT_MP4} (${(outputBytes / 1024).toFixed(2)} KB)\n`);
+
+  // Step 6: Done
+  console.log('[6/6] Pipeline complete.\n');
 
   console.log('=== Demo 02 Complete ===\n');
   console.log('Output files:');
-  console.log(`  ${OUTPUT_H264}`);
-  if (fs.existsSync(OUTPUT_MP4)) {
-    console.log(`  ${OUTPUT_MP4}`);
-    console.log('\nPlay with: ffplay ' + OUTPUT_MP4);
-  }
+  console.log(`  ${OUTPUT_MP4}`);
+  console.log('\nPlay with: ffplay ' + OUTPUT_MP4);
 
   return {
     framesProcessed,
-    outputBytes: outputData.length,
+    outputBytes,
     processingTimeMs: endTime - startTime,
-    outputPath: fs.existsSync(OUTPUT_MP4) ? OUTPUT_MP4 : OUTPUT_H264,
+    outputPath: OUTPUT_MP4,
   };
 }
 
