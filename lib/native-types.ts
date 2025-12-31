@@ -99,6 +99,7 @@ export interface NativeEncodedVideoChunk {
   readonly byteLength: number;
 
   copyTo(dest: Uint8Array | ArrayBuffer): void;
+  close(): void;
 }
 
 /**
@@ -128,6 +129,7 @@ export interface NativeEncodedAudioChunk {
   readonly byteLength: number;
 
   copyTo(dest: Uint8Array | ArrayBuffer): void;
+  close(): void;
 }
 
 /**

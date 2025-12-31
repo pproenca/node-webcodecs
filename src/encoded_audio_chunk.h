@@ -30,6 +30,7 @@ class EncodedAudioChunk : public Napi::ObjectWrap<EncodedAudioChunk> {
 
   // Methods.
   void CopyTo(const Napi::CallbackInfo& info);
+  void Close(const Napi::CallbackInfo& info);
 
   // Internal access.
   const std::vector<uint8_t>& GetData() const { return data_; }
@@ -41,6 +42,7 @@ class EncodedAudioChunk : public Napi::ObjectWrap<EncodedAudioChunk> {
   int64_t timestamp_;
   int64_t duration_;
   std::vector<uint8_t> data_;
+  bool closed_ = false;
 };
 
 #endif  // SRC_ENCODED_AUDIO_CHUNK_H_

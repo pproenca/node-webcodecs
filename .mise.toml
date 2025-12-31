@@ -4,3 +4,85 @@ act = "latest"
 
 [settings]
 experimental = true
+
+[tasks.format]
+description = "Format markdown files"
+run = "npm run format"
+
+[tasks.lint]
+description = "Run all linters (cpplint, biome, tsd, prettier)"
+run = "npm run lint"
+
+[tasks.typecheck]
+description = "Run TypeScript type checking"
+run = "npx tsc --noEmit"
+
+[tasks.pre-commit]
+description = "Pre-commit checks: format, lint, typecheck"
+run = '''
+#!/usr/bin/env bash
+set -e
+
+echo "Running pre-commit checks..."
+
+# Get staged files
+STAGED_TS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.ts$' || true)
+STAGED_MD=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.md$' || true)
+STAGED_CPP=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(cc|h)$' || true)
+
+# Format markdown files if any are staged
+if [ -n "$STAGED_MD" ]; then
+  echo "Formatting markdown files..."
+  npx prettier --write $STAGED_MD
+  git add $STAGED_MD
+fi
+
+# Run biome lint and format on TypeScript files if any are staged
+if [ -n "$STAGED_TS" ]; then
+  echo "Linting and formatting TypeScript files..."
+  npx biome check --write $STAGED_TS
+  git add $STAGED_TS
+
+  echo "Running TypeScript type check..."
+  npx tsc --noEmit
+
+  echo "Running tsd type tests..."
+  npx tsd
+fi
+
+# Run cpplint on C++ files if any are staged
+if [ -n "$STAGED_CPP" ]; then
+  echo "Running cpplint on C++ files..."
+  npx cpplint --quiet $STAGED_CPP
+fi
+
+echo "Pre-commit checks passed!"
+'''
+
+[tasks."hooks:install"]
+description = "Install git pre-commit hook"
+run = '''
+#!/usr/bin/env bash
+set -e
+
+HOOK_FILE=".git/hooks/pre-commit"
+
+cat > "$HOOK_FILE" << 'EOF'
+#!/usr/bin/env bash
+# Pre-commit hook installed by mise
+# Run: mise run hooks:install
+
+exec mise run pre-commit
+EOF
+
+chmod +x "$HOOK_FILE"
+echo "Git pre-commit hook installed at $HOOK_FILE"
+'''
+
+[tasks."hooks:uninstall"]
+description = "Remove git pre-commit hook"
+run = '''
+#!/usr/bin/env bash
+rm -f .git/hooks/pre-commit
+echo "Git pre-commit hook removed"
+'''

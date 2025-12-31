@@ -270,25 +270,17 @@ void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
 
   output_tsfn_.NonBlockingCall(cb_data, [](Napi::Env env, Napi::Function fn,
                                            ChunkCallbackData* info) {
-    // Create EncodedVideoChunk-like object (matches synchronous path)
-    Napi::Object chunk = Napi::Object::New(env);
-    chunk.Set("type", info->is_key ? "key" : "delta");
-    chunk.Set("timestamp", Napi::Number::New(env, info->pts));
-    chunk.Set("duration", Napi::Number::New(env, info->duration));
-
-    // Use external buffer with custom destructor to avoid final copy.
-    // The ChunkCallbackData owns the data, so tying its deletion to the
-    // buffer's GC ensures the data stays alive while the buffer is in use.
-    // Note: We must decrement pending count before transferring ownership.
+    // Decrement pending count before any operations
     info->pending->fetch_sub(1);
     webcodecs::counterQueue--;  // Decrement global queue counter
-    auto buffer = Napi::Buffer<uint8_t>::New(
-        env, info->data.data(), info->data.size(),
-        [](Napi::Env /*env*/, uint8_t* /*data*/, ChunkCallbackData* hint) {
-          delete hint;  // Delete callback data when buffer is GC'd
-        },
-        info);
-    chunk.Set("data", buffer);
+
+    // Create native EncodedVideoChunk directly to avoid double-copy.
+    // The data is copied once into the chunk's internal buffer.
+    // Previously we created a plain JS object here, which the TS layer
+    // would wrap in a new EncodedVideoChunk, causing a second copy.
+    Napi::Object chunk = EncodedVideoChunk::CreateInstance(
+        env, info->is_key ? "key" : "delta", info->pts, info->duration,
+        info->data.data(), info->data.size());
 
     // Create metadata object matching sync path
     Napi::Object metadata = Napi::Object::New(env);
@@ -344,6 +336,8 @@ void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
 
     fn.Call({chunk, metadata});
 
-    // Note: info is now owned by the buffer and will be deleted when GC'd
+    // ChunkCallbackData is no longer tied to the buffer lifetime.
+    // Delete it now that the data has been copied into the EncodedVideoChunk.
+    delete info;
   });
 }

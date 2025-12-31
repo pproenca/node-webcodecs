@@ -26,6 +26,7 @@ Napi::Object EncodedAudioChunk::Init(Napi::Env env, Napi::Object exports) {
           InstanceAccessor("byteLength", &EncodedAudioChunk::GetByteLength,
                            nullptr),
           InstanceMethod("copyTo", &EncodedAudioChunk::CopyTo),
+          InstanceMethod("close", &EncodedAudioChunk::Close),
       });
 
   constructor_ = Napi::Persistent(func);
@@ -172,4 +173,13 @@ void EncodedAudioChunk::CopyTo(const Napi::CallbackInfo& info) {
   }
 
   std::memcpy(dest_data, data_.data(), data_.size());
+}
+
+void EncodedAudioChunk::Close(const Napi::CallbackInfo& info) {
+  if (!closed_) {
+    // clear() + shrink_to_fit() actually releases memory.
+    data_.clear();
+    data_.shrink_to_fit();
+    closed_ = true;
+  }
 }

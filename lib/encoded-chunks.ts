@@ -16,6 +16,36 @@ import type { EncodedAudioChunkInit, EncodedVideoChunkInit } from './types';
 // Load native addon with type assertion
 const native = binding as NativeModule;
 
+/**
+ * FinalizationRegistry for automatic cleanup of native EncodedVideoChunk objects.
+ * When a JS EncodedVideoChunk wrapper becomes unreachable, the registry callback
+ * fires and releases the native memory via close().
+ *
+ * This provides a safety net for users who forget to call close(), preventing
+ * memory leaks in high-throughput scenarios where GC may be delayed.
+ */
+const videoChunkRegistry = new FinalizationRegistry<NativeEncodedVideoChunk>((native) => {
+  // The weak reference to the JS wrapper is now dead, but the native object
+  // may still be valid. Call close() to release its internal data buffer.
+  // close() is idempotent - safe to call even if already closed.
+  try {
+    native.close();
+  } catch {
+    // Ignore errors - native object may already be destroyed
+  }
+});
+
+/**
+ * FinalizationRegistry for automatic cleanup of native EncodedAudioChunk objects.
+ */
+const audioChunkRegistry = new FinalizationRegistry<NativeEncodedAudioChunk>((native) => {
+  try {
+    native.close();
+  } catch {
+    // Ignore errors - native object may already be destroyed
+  }
+});
+
 export class EncodedVideoChunk {
   /** @internal */
   _native: NativeEncodedVideoChunk;
@@ -40,10 +70,28 @@ export class EncodedVideoChunk {
       data: dataBuffer,
     });
 
+    // Register with FinalizationRegistry for automatic cleanup.
+    // When this JS wrapper is GC'd, the registry callback will call close()
+    // on the native object to release memory.
+    videoChunkRegistry.register(this, this._native, this);
+
     // Handle ArrayBuffer transfer semantics per W3C spec
     if (init.transfer && Array.isArray(init.transfer)) {
       detachArrayBuffers(init.transfer.filter((b): b is ArrayBuffer => b instanceof ArrayBuffer));
     }
+  }
+
+  /**
+   * @internal
+   * Wrap an existing native EncodedVideoChunk without copying data.
+   * Used by the encoder's async output path to avoid double-copying.
+   */
+  static _fromNative(nativeChunk: NativeEncodedVideoChunk): EncodedVideoChunk {
+    const chunk = Object.create(EncodedVideoChunk.prototype) as EncodedVideoChunk;
+    chunk._native = nativeChunk;
+    // Register with FinalizationRegistry for automatic cleanup
+    videoChunkRegistry.register(chunk, nativeChunk, chunk);
+    return chunk;
   }
 
   get type(): 'key' | 'delta' {
@@ -80,6 +128,17 @@ export class EncodedVideoChunk {
       throw new TypeError('Destination must be ArrayBuffer or ArrayBufferView');
     }
   }
+
+  /**
+   * Releases the internal data buffer.
+   * Per W3C WebCodecs spec, this allows early release of memory.
+   */
+  close(): void {
+    // Unregister from FinalizationRegistry to prevent double-close.
+    // If close() is called explicitly, we don't need the registry callback.
+    videoChunkRegistry.unregister(this);
+    this._native.close();
+  }
 }
 
 export class EncodedAudioChunk {
@@ -105,6 +164,11 @@ export class EncodedAudioChunk {
       duration: init.duration,
       data: dataBuffer,
     });
+
+    // Register with FinalizationRegistry for automatic cleanup.
+    // When this JS wrapper is GC'd, the registry callback will call close()
+    // on the native object to release memory.
+    audioChunkRegistry.register(this, this._native, this);
 
     // Handle ArrayBuffer transfer semantics per W3C spec
     if (init.transfer && Array.isArray(init.transfer)) {
@@ -140,6 +204,16 @@ export class EncodedAudioChunk {
       );
       this._native.copyTo(uint8);
     }
+  }
+
+  /**
+   * Releases the internal data buffer.
+   * Per W3C WebCodecs spec, this allows early release of memory.
+   */
+  close(): void {
+    // Unregister from FinalizationRegistry to prevent double-close.
+    audioChunkRegistry.unregister(this);
+    this._native.close();
   }
 
   get _nativeChunk(): NativeEncodedAudioChunk {

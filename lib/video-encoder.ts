@@ -37,12 +37,25 @@ export class VideoEncoder extends CodecBase {
     const outputCallback: VideoEncoderOutputCallback = (chunk, metadata) => {
       this._encodeQueueSize = Math.max(0, this._encodeQueueSize - 1);
 
-      const wrappedChunk = new EncodedVideoChunk({
-        type: chunk.type as 'key' | 'delta',
-        timestamp: chunk.timestamp,
-        duration: chunk.duration ?? undefined,
-        data: chunk.data,
-      });
+      // The native layer now returns an EncodedVideoChunk directly (not a plain object).
+      // Check if it's already a native chunk (has close method) vs plain object (has data buffer).
+      // Native chunks have close() but no 'data' property; plain objects have 'data' buffer.
+      let wrappedChunk: EncodedVideoChunk;
+      if ('data' in chunk && chunk.data instanceof Buffer) {
+        // Legacy path: plain object from sync encoder - wrap it
+        wrappedChunk = new EncodedVideoChunk({
+          type: chunk.type as 'key' | 'delta',
+          timestamp: chunk.timestamp,
+          duration: chunk.duration ?? undefined,
+          data: chunk.data,
+        });
+      } else {
+        // New path: already a native EncodedVideoChunk from async encoder
+        // Wrap without copying data
+        wrappedChunk = EncodedVideoChunk._fromNative(
+          chunk as unknown as import('./native-types').NativeEncodedVideoChunk,
+        );
+      }
       init.output(wrappedChunk, metadata);
 
       // Fire ondequeue after output
