@@ -170,20 +170,21 @@ decoder.close();
 import { Muxer, VideoEncoder, VideoFrame } from '@pproenca/node-webcodecs';
 
 const muxer = new Muxer({ filename: 'output.mp4' });
-let videoTrackId;
+let trackAdded = false;
 
 const encoder = new VideoEncoder({
   output: (chunk, metadata) => {
-    if (metadata?.decoderConfig?.description) {
+    if (!trackAdded && metadata?.decoderConfig?.description) {
       // Add video track on first keyframe
-      videoTrackId = muxer.addVideoTrack({
+      muxer.addVideoTrack({
         codec: 'avc1.42001e',
         width: 1920,
         height: 1080,
         description: metadata.decoderConfig.description,
       });
+      trackAdded = true;
     }
-    muxer.writeVideoChunk(videoTrackId, chunk);
+    muxer.writeVideoChunk(chunk);
   },
   error: console.error,
 });
