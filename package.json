@@ -28,6 +28,7 @@
     "test-contracts": "node test/contracts/video_encoder/state_machine.js && node test/contracts/audio_encoder/state_machine.js && node test/contracts/video_decoder/state_machine.js && node test/contracts/audio_decoder/state_machine.js",
     "test-benchmark": "node --expose-gc test/guardrails/benchmark.js",
     "test-leak": "./test/leak/leak.sh",
+    "test-leak-macos": "./test/leak/leaks-macos.sh",
     "test-stress": "vitest run --config test/vitest.config.ts stress/",
     "test-coverage": "vitest run --config test/vitest.config.ts --coverage",
     "lint": "cpplint --quiet src/*.h src/*.cc && biome lint && tsd && prettier --check \"**/*.md\"",

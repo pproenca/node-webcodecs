@@ -78,6 +78,9 @@ static int64_t SeekPacket(void* opaque, int64_t offset, int whence) {
   return new_pos;
 }
 
+// Static member definition
+Napi::FunctionReference ImageDecoder::constructor_;
+
 Napi::Object ImageDecoder::Init(Napi::Env env, Napi::Object exports) {
   Napi::Function func = DefineClass(
       env, "ImageDecoder",
@@ -90,9 +93,9 @@ Napi::Object ImageDecoder::Init(Napi::Env env, Napi::Object exports) {
           StaticMethod("isTypeSupported", &ImageDecoder::IsTypeSupported),
       });
 
-  Napi::FunctionReference* constructor = new Napi::FunctionReference();
-  *constructor = Napi::Persistent(func);
-  env.SetInstanceData(constructor);
+  // Use static member pattern to avoid heap allocation leak
+  constructor_ = Napi::Persistent(func);
+  constructor_.SuppressDestruct();
 
   exports.Set("ImageDecoder", func);
   return exports;
@@ -101,10 +104,10 @@ Napi::Object ImageDecoder::Init(Napi::Env env, Napi::Object exports) {
 ImageDecoder::ImageDecoder(const Napi::CallbackInfo& info)
     : Napi::ObjectWrap<ImageDecoder>(info),
       codec_(nullptr),
-      codec_context_(nullptr),
+      codec_context_(),
       sws_context_(nullptr),
-      frame_(nullptr),
-      packet_(nullptr),
+      frame_(),
+      packet_(),
       format_context_(nullptr),
       avio_context_(nullptr),
       mem_ctx_(nullptr),
@@ -184,8 +187,8 @@ ImageDecoder::ImageDecoder(const Napi::CallbackInfo& info)
     return;
   }
 
-  // Create codec context
-  codec_context_ = avcodec_alloc_context3(codec_);
+  // Create codec context using RAII wrapper
+  codec_context_ = ffmpeg::make_codec_context(codec_);
   if (!codec_context_) {
     Napi::Error::New(env, "Failed to allocate codec context")
         .ThrowAsJavaScriptException();
@@ -193,15 +196,15 @@ ImageDecoder::ImageDecoder(const Napi::CallbackInfo& info)
   }
 
   // Open codec
-  if (avcodec_open2(codec_context_, codec_, nullptr) < 0) {
+  if (avcodec_open2(codec_context_.get(), codec_, nullptr) < 0) {
     Cleanup();
     Napi::Error::New(env, "Failed to open codec").ThrowAsJavaScriptException();
     return;
   }
 
-  // Allocate frame and packet
-  frame_ = av_frame_alloc();
-  packet_ = av_packet_alloc();
+  // Allocate frame and packet using RAII wrappers
+  frame_ = ffmpeg::make_frame();
+  packet_ = ffmpeg::make_packet();
   if (!frame_ || !packet_) {
     Cleanup();
     Napi::Error::New(env, "Failed to allocate frame/packet")
@@ -234,18 +237,10 @@ void ImageDecoder::Cleanup() {
     sws_freeContext(sws_context_);
     sws_context_ = nullptr;
   }
-  if (frame_) {
-    av_frame_free(&frame_);
-    frame_ = nullptr;
-  }
-  if (packet_) {
-    av_packet_free(&packet_);
-    packet_ = nullptr;
-  }
-  if (codec_context_) {
-    avcodec_free_context(&codec_context_);
-    codec_context_ = nullptr;
-  }
+  // RAII wrappers handle deallocation automatically via reset()
+  frame_.reset();
+  packet_.reset();
+  codec_context_.reset();
   if (format_context_) {
     avformat_close_input(&format_context_);
     format_context_ = nullptr;
@@ -653,18 +648,18 @@ bool ImageDecoder::DecodeImage() {
     return false;
   }
 
-  // Set packet data
+  // Set packet data - use .get() to access raw pointer from RAII wrapper
   packet_->data = data_.data();
   packet_->size = static_cast<int>(data_.size());
 
-  // Send packet to decoder
-  int ret = avcodec_send_packet(codec_context_, packet_);
+  // Send packet to decoder - use .get() for FFmpeg C API
+  int ret = avcodec_send_packet(codec_context_.get(), packet_.get());
   if (ret < 0) {
     return false;
   }
 
-  // Receive decoded frame
-  ret = avcodec_receive_frame(codec_context_, frame_);
+  // Receive decoded frame - use .get() for FFmpeg C API
+  ret = avcodec_receive_frame(codec_context_.get(), frame_.get());
   if (ret < 0) {
     return false;
   }

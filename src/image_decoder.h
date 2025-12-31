@@ -39,6 +39,9 @@ class ImageDecoder : public Napi::ObjectWrap<ImageDecoder> {
   explicit ImageDecoder(const Napi::CallbackInfo& info);
   ~ImageDecoder();
 
+  // Static constructor reference for NAPI class registration
+  static Napi::FunctionReference constructor_;
+
   // Disallow copy and assign.
   ImageDecoder(const ImageDecoder&) = delete;
   ImageDecoder& operator=(const ImageDecoder&) = delete;
@@ -66,10 +69,10 @@ class ImageDecoder : public Napi::ObjectWrap<ImageDecoder> {
 
   // FFmpeg state for static image decoding.
   const AVCodec* codec_;
-  AVCodecContext* codec_context_;
+  ffmpeg::AVCodecContextPtr codec_context_;
   SwsContext* sws_context_;
-  AVFrame* frame_;
-  AVPacket* packet_;
+  ffmpeg::AVFramePtr frame_;
+  ffmpeg::AVPacketPtr packet_;
 
   // FFmpeg state for animated image parsing.
   AVFormatContext* format_context_;  // For container parsing
