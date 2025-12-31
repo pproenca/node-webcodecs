@@ -17,11 +17,17 @@ import type { VideoFrame } from './video-frame';
 // Load native addon with type assertion
 const native = binding as NativeModule;
 
+// Default backpressure threshold for limiting in-flight frames
+const DEFAULT_MAX_QUEUE_DEPTH = 16;
+
 export class VideoEncoder extends CodecBase {
   private _native: NativeVideoEncoder;
   private _controlQueue: ControlMessageQueue;
   private _encodeQueueSize: number = 0;
   private _resourceId: symbol;
+
+  // Backpressure support
+  private _maxQueueDepth: number = DEFAULT_MAX_QUEUE_DEPTH;
 
   constructor(init: VideoEncoderInit) {
     super();
@@ -60,6 +66,7 @@ export class VideoEncoder extends CodecBase {
 
       // Fire ondequeue after output
       this._triggerDequeue();
+
     };
 
     this._native = new native.VideoEncoder({
@@ -78,6 +85,59 @@ export class VideoEncoder extends CodecBase {
 
   get codecSaturated(): boolean {
     return this._native.codecSaturated;
+  }
+
+  /**
+   * Returns a Promise that resolves when the encoder has capacity for more frames.
+   * Use this to implement backpressure in high-throughput encoding pipelines.
+   *
+   * When the internal queue is full (encodeQueueSize >= maxQueueDepth), calling
+   * `await encoder.ready` will pause until capacity is available.
+   *
+   * @example
+   * for (const frame of frames) {
+   *   await encoder.ready;  // Wait for capacity
+   *   encoder.encode(frame);
+   *   frame.close();
+   * }
+   */
+  get ready(): Promise<void> {
+    // If we have capacity, resolve immediately
+    if (this._encodeQueueSize < this._maxQueueDepth) {
+      return Promise.resolve();
+    }
+
+    // Otherwise, poll until capacity is available.
+    // We use setTimeout(1ms) polling to allow TSFN output callbacks to execute.
+    // setTimeout ensures we yield through the full event loop cycle, including
+    // the I/O phase where TSFN callbacks are delivered.
+    return new Promise<void>((resolve) => {
+      const checkCapacity = () => {
+        if (this._encodeQueueSize < this._maxQueueDepth) {
+          resolve();
+        } else {
+          // Yield full event loop cycle to allow output callbacks to run
+          setTimeout(checkCapacity, 1);
+        }
+      };
+      // Initial yield to allow any pending callbacks to run
+      setTimeout(checkCapacity, 1);
+    });
+  }
+
+  /**
+   * The maximum queue depth before backpressure is applied.
+   * Default is 16. Adjust based on memory constraints and frame size.
+   */
+  get maxQueueDepth(): number {
+    return this._maxQueueDepth;
+  }
+
+  set maxQueueDepth(value: number) {
+    if (value < 1) {
+      throw new RangeError('maxQueueDepth must be at least 1');
+    }
+    this._maxQueueDepth = value;
   }
 
   configure(config: VideoEncoderConfig): void {

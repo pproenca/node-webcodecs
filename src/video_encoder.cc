@@ -118,29 +118,21 @@ VideoEncoder::~VideoEncoder() {
 
 void VideoEncoder::Cleanup() {
   if (async_worker_) {
+    // Stop() joins the worker thread - after this, no new TSFN calls will be made
     async_worker_->Stop();
-
-    // Wait for all pending TSFN callbacks to complete before releasing
-    // This prevents use-after-free when callbacks reference codec_context_
-    auto start = std::chrono::steady_clock::now();
-    constexpr auto kDrainTimeout = std::chrono::seconds(5);
-    while (async_worker_->GetPendingChunks() > 0) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
-      if (std::chrono::steady_clock::now() - start > kDrainTimeout) {
-        break;  // Timeout to avoid infinite wait
-      }
-    }
   }
 
-  // Release ThreadSafeFunctions BEFORE destroying async_worker_
-  // Callbacks may still be pending and reference the worker
+  // Abort ThreadSafeFunctions to cancel any pending callbacks.
+  // This is non-blocking and prevents the main thread from stalling.
+  // The shared_ptr<atomic<int>> pending_chunks_ captured by callbacks ensures
+  // thread-safety even if callbacks are cancelled mid-flight.
   if (async_mode_) {
-    output_tsfn_.Release();
-    error_tsfn_.Release();
+    output_tsfn_.Abort();
+    error_tsfn_.Abort();
     async_mode_ = false;
   }
 
-  // Now safe to destroy async_worker_ - all callbacks have completed
+  // Safe to destroy async_worker_ - worker thread has exited and TSFN aborted
   if (async_worker_) {
     async_worker_.reset();
   }

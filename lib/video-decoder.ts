@@ -17,7 +17,7 @@ import { VideoFrame } from './video-frame';
 // Load native addon with type assertion
 const native = binding as NativeModule;
 
-// Default backpressure threshold - matches native kMaxQueueSize
+// Default backpressure threshold for limiting in-flight chunks
 const DEFAULT_MAX_QUEUE_DEPTH = 16;
 
 export class VideoDecoder extends CodecBase {
@@ -96,20 +96,20 @@ export class VideoDecoder extends CodecBase {
     }
 
     // Otherwise, poll until capacity is available.
-    // We use setImmediate polling to allow TSFN output callbacks to execute.
-    // This is necessary because the output callback runs on the event loop,
-    // and we need to yield control to allow it to decrement the queue size.
+    // We use setTimeout(1ms) polling to allow TSFN output callbacks to execute.
+    // setTimeout ensures we yield through the full event loop cycle, including
+    // the I/O phase where TSFN callbacks are delivered.
     return new Promise<void>((resolve) => {
       const checkCapacity = () => {
         if (this._decodeQueueSize < this._maxQueueDepth) {
           resolve();
         } else {
-          // Yield to allow output callbacks to run, then check again
-          setImmediate(checkCapacity);
+          // Yield full event loop cycle to allow output callbacks to run
+          setTimeout(checkCapacity, 1);
         }
       };
       // Initial yield to allow any pending callbacks to run
-      setImmediate(checkCapacity);
+      setTimeout(checkCapacity, 1);
     });
   }
 

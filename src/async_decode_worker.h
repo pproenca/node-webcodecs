@@ -19,7 +19,6 @@ extern "C" {
 #include <atomic>
 #include <condition_variable>
 #include <memory>
-#include <semaphore>
 #include <mutex>
 #include <queue>
 #include <string>
@@ -104,13 +103,6 @@ class AsyncDecodeWorker {
   // the callback lambda, ensuring the atomic counter remains valid.
   std::shared_ptr<std::atomic<int>> pending_frames_ =
       std::make_shared<std::atomic<int>>(0);
-
-  // Backpressure gate to limit in-flight frames between C++ and JS.
-  // Uses shared_ptr because counting_semaphore is not copyable, and TSFN
-  // callbacks may execute after worker destruction.
-  static constexpr int kBackpressureSlots = 16;
-  std::shared_ptr<std::counting_semaphore<kBackpressureSlots>> backpressure_gate_ =
-      std::make_shared<std::counting_semaphore<kBackpressureSlots>>(kBackpressureSlots);
 
   // FFmpeg contexts (owned by VideoDecoder, just references here)
   AVCodecContext* codec_context_;
