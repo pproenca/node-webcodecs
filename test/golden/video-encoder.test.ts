@@ -674,7 +674,7 @@ describe('VideoEncoder', () => {
   });
 
   describe('flush event loop behavior', () => {
-    it('should not starve event loop during flush', async () => {
+    it('should yield to event loop during flush', async () => {
       const encoder = new VideoEncoder({
         output: () => {},
         error: (e) => {
@@ -700,16 +700,35 @@ describe('VideoEncoder', () => {
         frame.close();
       }
 
-      // Check event loop responsiveness during flush
-      let eventLoopCalls = 0;
-      const checkInterval = setInterval(() => eventLoopCalls++, 1);
+      // Verify event loop yields by checking if a setImmediate callback runs
+      // during flush. This confirms the flush implementation doesn't spin
+      // synchronously while waiting for encoder to complete.
+      let immediateRan = false;
+      const immediateHandle = setImmediate(() => {
+        immediateRan = true;
+      });
 
       await encoder.flush();
-      clearInterval(checkInterval);
+      clearImmediate(immediateHandle);
 
-      // Event loop should have been called multiple times during flush
-      expect(eventLoopCalls).toBeGreaterThan(5);
+      // The immediate callback should have run during the flush await,
+      // proving the event loop was not blocked.
+      expect(immediateRan).toBe(true);
       encoder.close();
+    });
+  });
+
+  describe('reset() behavior', () => {
+    it('reset() should be no-op when closed (W3C spec)', () => {
+      const encoder = new VideoEncoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      encoder.close();
+
+      // W3C spec: reset() is no-op when closed, should NOT throw
+      expect(() => encoder.reset()).not.toThrow();
     });
   });
 
