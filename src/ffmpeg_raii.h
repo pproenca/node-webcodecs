@@ -85,6 +85,18 @@ struct AVFormatContextDeleter {
   }
 };
 
+// AVFormatContext deleter (for muxing - uses different cleanup)
+struct AVFormatContextOutputDeleter {
+  void operator()(AVFormatContext* ctx) const noexcept {
+    if (ctx) {
+      if (ctx->pb) {
+        avio_closep(&ctx->pb);
+      }
+      avformat_free_context(ctx);
+    }
+  }
+};
+
 // AVFilterGraph deleter
 struct AVFilterGraphDeleter {
   void operator()(AVFilterGraph* graph) const noexcept {
@@ -111,6 +123,8 @@ using SwsContextPtr = std::unique_ptr<SwsContext, SwsContextDeleter>;
 using SwrContextPtr = std::unique_ptr<SwrContext, SwrContextDeleter>;
 using AVFormatContextPtr =
     std::unique_ptr<AVFormatContext, AVFormatContextDeleter>;
+using AVFormatContextOutputPtr =
+    std::unique_ptr<AVFormatContext, AVFormatContextOutputDeleter>;
 using AVFilterGraphPtr = std::unique_ptr<AVFilterGraph, AVFilterGraphDeleter>;
 using AVFilterInOutPtr = std::unique_ptr<AVFilterInOut, AVFilterInOutDeleter>;
 
