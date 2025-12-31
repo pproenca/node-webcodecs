@@ -12,6 +12,7 @@ declare global {
   var VideoColorSpace: typeof webcodecs.VideoColorSpace;
   var AudioData: typeof webcodecs.AudioData;
   var ImageDecoder: typeof webcodecs.ImageDecoder;
+  var TestVideoGenerator: typeof webcodecs.TestVideoGenerator;
 }
 
 globalThis.VideoDecoder = webcodecs.VideoDecoder;
@@ -24,3 +25,4 @@ globalThis.VideoFrame = webcodecs.VideoFrame;
 globalThis.VideoColorSpace = webcodecs.VideoColorSpace;
 globalThis.AudioData = webcodecs.AudioData;
 globalThis.ImageDecoder = webcodecs.ImageDecoder;
+globalThis.TestVideoGenerator = webcodecs.TestVideoGenerator;

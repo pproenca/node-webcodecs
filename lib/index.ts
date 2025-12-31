@@ -44,6 +44,9 @@ export const ErrorBuilder = native.ErrorBuilder;
 export const testAttrAsEnum = native.testAttrAsEnum;
 export const createEncoderConfigDescriptor = native.createEncoderConfigDescriptor;
 
+// Export TestVideoGenerator (test helper for generating test video frames)
+export const TestVideoGenerator = native.TestVideoGenerator;
+
 export type { ErrorCodeType } from './errors';
 // Re-export error classes and codes
 export {

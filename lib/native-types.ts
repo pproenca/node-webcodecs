@@ -64,6 +64,7 @@ export interface NativeVideoEncoder {
   readonly state: CodecState;
   readonly encodeQueueSize: number;
   readonly codecSaturated: boolean;
+  readonly pendingChunks: number;
 
   configure(config: VideoEncoderConfig): void;
   encode(frame: NativeVideoFrame, options?: { keyFrame?: boolean }): void;
@@ -405,6 +406,26 @@ export interface NativeImageDecoderConstructor {
 }
 
 /**
+ * Native TestVideoGenerator for generating test video frames
+ */
+export interface NativeTestVideoGenerator {
+  readonly state: string;
+  configure(config: {
+    width: number;
+    height: number;
+    frameRate?: number;
+    duration?: number;
+    pattern?: string;
+  }): void;
+  generate(callback: (frame: NativeVideoFrame) => void): Promise<void>;
+  close(): void;
+}
+
+export interface NativeTestVideoGeneratorConstructor {
+  new (): NativeTestVideoGenerator;
+}
+
+/**
  * Native WarningAccumulator for collecting FFmpeg warnings
  */
 export interface NativeWarningAccumulator {
@@ -477,6 +498,7 @@ export interface NativeModule {
   Demuxer: NativeDemuxerConstructor;
   Muxer: NativeMuxerConstructor;
   ImageDecoder: NativeImageDecoderConstructor;
+  TestVideoGenerator: NativeTestVideoGeneratorConstructor;
   WarningAccumulator: NativeWarningAccumulatorConstructor;
   ErrorBuilder: NativeErrorBuilderConstructor;
 

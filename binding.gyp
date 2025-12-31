@@ -17,6 +17,7 @@
         "src/demuxer.cc",
         "src/muxer.cc",
         "src/image_decoder.cc",
+        "src/test_video_generator.cc",
         "src/async_encode_worker.cc",
         "src/async_decode_worker.cc",
         "src/warnings.cc",

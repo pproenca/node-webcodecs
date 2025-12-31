@@ -6,6 +6,7 @@
 #include "src/common.h"
 #include "src/descriptors.h"
 #include "src/error_builder.h"
+#include "src/test_video_generator.h"
 #include "src/warnings.h"
 
 // Forward declarations.
@@ -68,6 +69,7 @@ Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
   InitDemuxer(env, exports);
   InitMuxer(env, exports);
   InitImageDecoder(env, exports);
+  InitTestVideoGenerator(env, exports);
   webcodecs::ErrorBuilder::Init(env, exports);
   webcodecs::WarningAccumulator::Init(env, exports);
   webcodecs::InitDescriptors(env, exports);
