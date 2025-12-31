@@ -5,6 +5,7 @@
  */
 
 import { binding } from './binding';
+import { isImageData, type ImageDataLike } from './is';
 import type { NativeModule, NativeVideoFrame } from './native-types';
 import { detachArrayBuffers } from './transfer';
 import type {
@@ -62,21 +63,65 @@ export class VideoFrame {
   };
 
   /**
-   * Constructs a VideoFrame from raw data or from an existing VideoFrame.
+   * Constructs a VideoFrame from raw data, ImageData, or from an existing VideoFrame.
    *
    * Per W3C WebCodecs spec, VideoFrame can be constructed from:
-   * 1. Raw buffer data with VideoFrameBufferInit
-   * 2. An existing VideoFrame with optional VideoFrameInit overrides
+   * 1. ImageData - self-describing RGBA buffer (Node.js alternative to CanvasImageSource)
+   * 2. Raw buffer data with VideoFrameBufferInit
+   * 3. An existing VideoFrame with optional VideoFrameInit overrides
    */
+  constructor(imageData: ImageDataLike, init?: VideoFrameInit);
   constructor(data: Buffer | Uint8Array | ArrayBuffer, init: VideoFrameBufferInit);
   constructor(source: VideoFrame, init?: VideoFrameInit);
   constructor(
-    dataOrSource: Buffer | Uint8Array | ArrayBuffer | VideoFrame,
+    dataOrSourceOrImageData: Buffer | Uint8Array | ArrayBuffer | VideoFrame | ImageDataLike,
     init?: VideoFrameBufferInit | VideoFrameInit,
   ) {
+    // Check if constructing from ImageData (self-describing RGBA)
+    // ImageData is canvas.getContext('2d').getImageData() compatible
+    if (isImageData(dataOrSourceOrImageData)) {
+      const imageData = dataOrSourceOrImageData;
+      const frameInit = init as VideoFrameInit | undefined;
+
+      // Validate data size matches dimensions (width * height * 4 for RGBA)
+      const expectedSize = imageData.width * imageData.height * 4;
+      if (imageData.data.length !== expectedSize) {
+        throw new TypeError(
+          `ImageData.data length (${imageData.data.length}) does not match ` +
+            `expected size (${expectedSize}) for ${imageData.width}x${imageData.height} RGBA`,
+        );
+      }
+
+      // Convert Uint8ClampedArray to Buffer for native binding
+      const dataBuffer = Buffer.from(
+        imageData.data.buffer,
+        imageData.data.byteOffset,
+        imageData.data.byteLength,
+      );
+
+      // Build VideoFrameBufferInit from ImageData dimensions
+      // ImageData is always RGBA format from canvas
+      const bufferInit: VideoFrameBufferInit = {
+        format: 'RGBA',
+        codedWidth: imageData.width,
+        codedHeight: imageData.height,
+        timestamp: frameInit?.timestamp ?? 0,
+        duration: frameInit?.duration,
+        visibleRect: frameInit?.visibleRect,
+        displayWidth: frameInit?.displayWidth ?? imageData.width,
+        displayHeight: frameInit?.displayHeight ?? imageData.height,
+        metadata: frameInit?.metadata,
+      };
+
+      this._native = new native.VideoFrame(dataBuffer, bufferInit);
+      this._metadata = bufferInit.metadata ?? {};
+      this._closed = false;
+      return;
+    }
+
     // Check if constructing from existing VideoFrame
-    if (dataOrSource instanceof VideoFrame) {
-      const source = dataOrSource;
+    if (dataOrSourceOrImageData instanceof VideoFrame) {
+      const source = dataOrSourceOrImageData;
       const frameInit = init as VideoFrameInit | undefined;
 
       // W3C spec: throw InvalidStateError if source frame is closed (detached)
@@ -125,7 +170,7 @@ export class VideoFrame {
     }
 
     // Original buffer-based construction
-    const data = dataOrSource;
+    const data = dataOrSourceOrImageData;
     const bufferInit = init as VideoFrameBufferInit;
 
     // Convert to Buffer if needed
