@@ -156,4 +156,60 @@ describe('ImageDecoder Configuration Options', () => {
       decoder.close();
     });
   });
+
+  describe('premultiplyAlpha option', () => {
+    it('accepts premultiplyAlpha: premultiply', () => {
+      const data = createMinimalPNG();
+
+      const decoder = new ImageDecoder({
+        type: 'image/png',
+        data,
+        premultiplyAlpha: 'premultiply',
+      });
+
+      expect(decoder.type).toBe('image/png');
+      // Note: complete may be false if the minimal PNG fails FFmpeg validation
+      // The important thing is that the option is accepted without throwing
+      decoder.close();
+    });
+
+    it('accepts premultiplyAlpha: none', () => {
+      const data = createMinimalPNG();
+
+      const decoder = new ImageDecoder({
+        type: 'image/png',
+        data,
+        premultiplyAlpha: 'none',
+      });
+
+      expect(decoder.type).toBe('image/png');
+      decoder.close();
+    });
+
+    it('accepts premultiplyAlpha: default', () => {
+      const data = createMinimalPNG();
+
+      const decoder = new ImageDecoder({
+        type: 'image/png',
+        data,
+        premultiplyAlpha: 'default',
+      });
+
+      expect(decoder.type).toBe('image/png');
+      decoder.close();
+    });
+
+    it('throws TypeError for invalid value', () => {
+      const data = createMinimalPNG();
+
+      expect(
+        () =>
+          new ImageDecoder({
+            type: 'image/png',
+            data,
+            premultiplyAlpha: 'invalid' as 'none' | 'premultiply' | 'default',
+          }),
+      ).toThrow(TypeError);
+    });
+  });
 });

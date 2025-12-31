@@ -90,6 +90,9 @@ class ImageDecoder : public Napi::ObjectWrap<ImageDecoder> {
 
   bool complete_;
   bool closed_;
+
+  // Premultiply alpha option: "none", "premultiply", or "default"
+  std::string premultiply_alpha_;
 };
 
 #endif  // SRC_IMAGE_DECODER_H_

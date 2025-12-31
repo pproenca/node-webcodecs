@@ -82,6 +82,17 @@ export type HardwareAcceleration = 'no-preference' | 'prefer-hardware' | 'prefer
  */
 export type AlphaOption = 'keep' | 'discard';
 
+/**
+ * WebIDL:
+ * enum PremultiplyAlpha { "none", "premultiply", "default" };
+ *
+ * Per W3C WebCodecs spec:
+ * - "none": Do not premultiply alpha
+ * - "premultiply": Premultiply RGB values by alpha
+ * - "default": Use default behavior (typically none)
+ */
+export type PremultiplyAlpha = 'none' | 'premultiply' | 'default';
+
 // =============================================================================
 // LATENCY MODE
 // =============================================================================
@@ -816,6 +827,7 @@ export type ImageBufferSource = AllowSharedBufferSource | ReadableStream<Uint8Ar
  *   required DOMString type;
  *   required ImageBufferSource data;
  *   ColorSpaceConversion colorSpaceConversion = "default";
+ *   PremultiplyAlpha premultiplyAlpha = "default";
  *   [EnforceRange] unsigned long desiredWidth;
  *   [EnforceRange] unsigned long desiredHeight;
  *   boolean preferAnimation;
@@ -826,6 +838,7 @@ export interface ImageDecoderInit {
   type: string;
   data: ImageBufferSource;
   colorSpaceConversion?: ColorSpaceConversion;
+  premultiplyAlpha?: PremultiplyAlpha;
   desiredWidth?: number;
   desiredHeight?: number;
   preferAnimation?: boolean;

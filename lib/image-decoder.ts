@@ -49,6 +49,7 @@ export class ImageDecoder {
     this._initOptions = {
       type: init.type,
       colorSpaceConversion: init.colorSpaceConversion,
+      premultiplyAlpha: init.premultiplyAlpha,
       desiredWidth: init.desiredWidth,
       desiredHeight: init.desiredHeight,
       preferAnimation: init.preferAnimation,
@@ -86,6 +87,7 @@ export class ImageDecoder {
       type: string;
       data: Buffer;
       colorSpaceConversion?: string;
+      premultiplyAlpha?: string;
       desiredWidth?: number;
       desiredHeight?: number;
       preferAnimation?: boolean;
@@ -97,6 +99,9 @@ export class ImageDecoder {
     // Pass additional options if they are present in the full init object
     if ('colorSpaceConversion' in init && init.colorSpaceConversion) {
       nativeInit.colorSpaceConversion = init.colorSpaceConversion;
+    }
+    if ('premultiplyAlpha' in init && init.premultiplyAlpha !== undefined) {
+      nativeInit.premultiplyAlpha = init.premultiplyAlpha;
     }
     if ('desiredWidth' in init && init.desiredWidth !== undefined) {
       nativeInit.desiredWidth = init.desiredWidth;

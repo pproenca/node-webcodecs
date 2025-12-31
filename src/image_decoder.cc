@@ -19,6 +19,19 @@
 // Buffer size for AVIOContext (4KB is typical for image data)
 static const int kAVIOBufferSize = 4096;
 
+// Premultiply alpha in-place for RGBA data.
+// Applies premultiplication: R' = R * A / 255, G' = G * A / 255, B' = B * A / 255
+// Uses (value * alpha + 127) / 255 for correct rounding.
+static void PremultiplyAlpha(uint8_t* rgba_data, int width, int height) {
+  for (int i = 0; i < width * height; i++) {
+    uint8_t* pixel = rgba_data + i * 4;
+    uint8_t alpha = pixel[3];
+    pixel[0] = static_cast<uint8_t>((pixel[0] * alpha + 127) / 255);
+    pixel[1] = static_cast<uint8_t>((pixel[1] * alpha + 127) / 255);
+    pixel[2] = static_cast<uint8_t>((pixel[2] * alpha + 127) / 255);
+  }
+}
+
 // Custom read callback for AVIOContext to read from memory buffer
 struct MemoryBufferContext {
   const uint8_t* data;
@@ -102,7 +115,8 @@ ImageDecoder::ImageDecoder(const Napi::CallbackInfo& info)
       frame_count_(1),
       repetition_count_(0),
       complete_(false),
-      closed_(false) {
+      closed_(false),
+      premultiply_alpha_("default") {
   Napi::Env env = info.Env();
 
   if (info.Length() < 1 || !info[0].IsObject()) {
@@ -120,6 +134,16 @@ ImageDecoder::ImageDecoder(const Napi::CallbackInfo& info)
     return;
   }
   type_ = webcodecs::AttrAsStr(init, "type");
+
+  // Get premultiplyAlpha option
+  premultiply_alpha_ = webcodecs::AttrAsStr(init, "premultiplyAlpha", "default");
+  if (premultiply_alpha_ != "none" && premultiply_alpha_ != "premultiply" &&
+      premultiply_alpha_ != "default") {
+    Napi::TypeError::New(
+        env, "premultiplyAlpha must be 'none', 'premultiply', or 'default'")
+        .ThrowAsJavaScriptException();
+    return;
+  }
 
   // Get data
   if (!init.Has("data")) {
@@ -292,6 +316,12 @@ bool ImageDecoder::ConvertFrameToRGBA(AVFrame* src_frame,
             src_frame->height, dest_data, dest_linesize);
 
   sws_freeContext(local_sws);
+
+  // Apply alpha premultiplication if requested
+  if (premultiply_alpha_ == "premultiply") {
+    PremultiplyAlpha(output->data(), src_frame->width, src_frame->height);
+  }
+
   return true;
 }
 
@@ -664,6 +694,11 @@ bool ImageDecoder::DecodeImage() {
   // Convert
   sws_scale(sws_context_, frame_->data, frame_->linesize, 0, frame_->height,
             dest_data, dest_linesize);
+
+  // Apply alpha premultiplication if requested
+  if (premultiply_alpha_ == "premultiply") {
+    PremultiplyAlpha(decoded_data_.data(), frame_->width, frame_->height);
+  }
 
   return true;
 }
