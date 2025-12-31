@@ -1103,10 +1103,20 @@ export interface ImageDecoderConstructor {
  * WebIDL:
  *   constructor(CanvasImageSource image, optional VideoFrameInit init = {});
  *   constructor(AllowSharedBufferSource data, VideoFrameBufferInit init);
+ *
+ * Note: CanvasImageSource (DOM-based) not available in Node.js.
+ * Node.js alternatives:
+ *   - ImageDataLike: Self-describing RGBA buffer from canvas.getImageData()
+ *   - VideoFrame: Clone/crop existing frames
+ *   - AllowSharedBufferSource: Raw pixel data with explicit format/dimensions
  */
 export interface VideoFrameConstructor {
-  // Note: CanvasImageSource constructor not supported (Node.js has no DOM)
+  /** Construct from ImageData (canvas.getImageData() compatible) */
+  new (imageData: ImageDataLike, init?: VideoFrameInit): VideoFrame;
+  /** Construct from raw pixel buffer with explicit format */
   new (data: AllowSharedBufferSource, init: VideoFrameBufferInit): VideoFrame;
+  /** Construct from existing VideoFrame (clone/crop) */
+  new (source: VideoFrame, init?: VideoFrameInit): VideoFrame;
 }
 
 /**
