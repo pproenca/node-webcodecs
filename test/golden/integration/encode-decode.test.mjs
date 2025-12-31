@@ -2,7 +2,25 @@
  * Integration tests for VideoEncoder/VideoDecoder
  */
 
-import {it, } from 'vitest';
+import {it, expect} from 'vitest';
+
+/**
+ * Extracts dominant color from VideoFrame by sampling center pixel
+ * Returns {y, width, height} where y is luminance in 0-255 range
+ */
+async function getDominantColor(frame) {
+  // Copy frame data to buffer
+  const size = frame.allocationSize();
+  const buffer = new Uint8Array(size);
+  await frame.copyTo(buffer);
+
+  // Sample center pixel (assumes I420 or similar YUV format after decode)
+  // For simplicity, we'll check the Y plane luminance
+  const centerOffset = Math.floor(frame.codedWidth * frame.codedHeight / 2 + frame.codedWidth / 2);
+  const y = buffer[centerOffset];
+
+  return { y, width: frame.codedWidth, height: frame.codedHeight };
+}
 
 it('EncodeSingleFrame', {timeout: 10_000}, async () => {
   const chunks = [];
@@ -199,6 +217,17 @@ it('EncodeDecode', {timeout: 10_000}, async () => {
   // Wait for decoding to complete
   await decoder.flush();
   decoder.close();
+
+  // Verify we got decoded frames
+  expect(decodedFrames.length).toBeGreaterThan(0);
+
+  // Verify pixel data from the first decoded frame
+  const decodedColor = await getDominantColor(decodedFrames[0]);
+
+  // Verify: green frame should produce high Y value (bright)
+  // Pure green (0, 255, 0) in YUV is approximately Y=150
+  expect(decodedColor.y).toBeGreaterThan(100);
+  expect(decodedColor.y).toBeLessThan(200);
 
   // Clean up
   decodedFrames.forEach(f => { f.close(); });
