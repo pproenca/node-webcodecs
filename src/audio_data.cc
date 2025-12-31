@@ -198,6 +198,18 @@ AudioData::AudioData(const Napi::CallbackInfo& info)
         .ThrowAsJavaScriptException();
     return;
   }
+
+  // Inform V8 of external memory allocation for GC pressure calculation.
+  Napi::MemoryManagement::AdjustExternalMemory(
+      env, static_cast<int64_t>(data_.size()));
+}
+
+AudioData::~AudioData() {
+  // Release external memory tracking if close() was never called.
+  if (!data_.empty()) {
+    Napi::MemoryManagement::AdjustExternalMemory(
+        Env(), -static_cast<int64_t>(data_.size()));
+  }
 }
 
 size_t AudioData::GetBytesPerSample() const {
@@ -608,6 +620,10 @@ Napi::Value AudioData::Clone(const Napi::CallbackInfo& info) {
 
 void AudioData::Close(const Napi::CallbackInfo& info) {
   if (!closed_) {
+    if (!data_.empty()) {
+      Napi::MemoryManagement::AdjustExternalMemory(
+          info.Env(), -static_cast<int64_t>(data_.size()));
+    }
     data_.clear();
     data_.shrink_to_fit();
     closed_ = true;

@@ -20,6 +20,7 @@ class AudioData : public Napi::ObjectWrap<AudioData> {
                                      int64_t timestamp, const uint8_t* data,
                                      size_t data_size);
   explicit AudioData(const Napi::CallbackInfo& info);
+  ~AudioData();
 
   // Prevent copy and assignment.
   AudioData(const AudioData&) = delete;

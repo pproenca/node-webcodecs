@@ -12,7 +12,7 @@
  * (e.g., vitest's default worker_threads pool).
  */
 import { beforeAll, describe, expect, it } from 'vitest';
-import { VideoFrame } from '../../dist/index.js';
+import { AudioData, VideoFrame } from '../../dist/index.js';
 
 // Helper to force garbage collection
 function forceGC(): void {
@@ -117,6 +117,37 @@ describe('V8 External Memory Tracking', () => {
 
       // Memory should be released via destructor - should be close to baseline
       expect(afterGC - baseline).toBeLessThan(size * 0.5);
+    });
+  });
+
+  describe('AudioData', () => {
+    it.skipIf(!runTests)('should release external memory when close() is called', () => {
+      // Create 1 second of stereo 48kHz f32 audio (~384KB)
+      const sampleRate = 48000;
+      const channels = 2;
+      const frames = sampleRate; // 1 second
+      const size = frames * channels * 4; // f32 = 4 bytes
+
+      const audioData = new AudioData({
+        format: 'f32',
+        sampleRate,
+        numberOfFrames: frames,
+        numberOfChannels: channels,
+        timestamp: 0,
+        data: new Float32Array(frames * channels),
+      });
+
+      forceGC();
+      const beforeClose = process.memoryUsage().external;
+
+      audioData.close();
+
+      forceGC();
+      const afterClose = process.memoryUsage().external;
+
+      // External memory should have decreased by roughly the audio data size
+      const decrease = beforeClose - afterClose;
+      expect(decrease).toBeGreaterThan(size * 0.9);
     });
   });
 });
