@@ -39,10 +39,12 @@
       "conditions": [
         ["OS=='mac'", {
           "include_dirs": [
-            "<!@(pkg-config --cflags-only-I libavcodec libavutil libswscale libswresample libavfilter 2>/dev/null | sed s/-I//g || echo '/opt/homebrew/include /usr/local/include')"
+            "<!@(node gyp/ffmpeg-paths.js include 2>/dev/null || pkg-config --cflags-only-I libavcodec libavutil libswscale libswresample libavfilter 2>/dev/null | sed s/-I//g || echo '/opt/homebrew/include /usr/local/include')"
           ],
           "libraries": [
-            "<!@(pkg-config --libs libavcodec libavutil libswscale libswresample libavfilter 2>/dev/null || echo '-L/opt/homebrew/lib -L/usr/local/lib -lavcodec -lavutil -lswscale -lswresample -lavfilter')"
+            "<!@(node gyp/ffmpeg-paths.js lib 2>/dev/null || echo '')",
+            "<!@(pkg-config --libs libavcodec libavutil libswscale libswresample libavfilter 2>/dev/null || echo '-L/opt/homebrew/lib -L/usr/local/lib -lavcodec -lavutil -lswscale -lswresample -lavfilter')",
+            "<!@(node gyp/ffmpeg-paths.js rpath 2>/dev/null || echo '')"
           ],
           "xcode_settings": {
             "CLANG_CXX_LANGUAGE_STANDARD": "c++17",
@@ -59,10 +61,12 @@
         }],
         ["OS=='linux'", {
           "include_dirs": [
-            "<!@(pkg-config --cflags-only-I libavcodec libavutil libswscale libswresample libavfilter | sed s/-I//g)"
+            "<!@(node gyp/ffmpeg-paths.js include 2>/dev/null || pkg-config --cflags-only-I libavcodec libavutil libswscale libswresample libavfilter | sed s/-I//g)"
           ],
           "libraries": [
-            "<!@(pkg-config --libs libavcodec libavutil libswscale libswresample libavfilter)"
+            "<!@(node gyp/ffmpeg-paths.js lib 2>/dev/null || echo '')",
+            "<!@(pkg-config --libs libavcodec libavutil libswscale libswresample libavfilter)",
+            "<!@(node gyp/ffmpeg-paths.js rpath 2>/dev/null || echo '')"
           ],
           "cflags_cc": [
             "-std=c++17",
