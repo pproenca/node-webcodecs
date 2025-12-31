@@ -15,7 +15,7 @@ const path = require('node:path');
 // Try to load the module - may not exist yet
 let VideoEncoder, VideoFrame;
 try {
-  const webcodecs = require('../../dist');
+  const webcodecs = require('@pproenca/node-webcodecs');
   VideoEncoder = webcodecs.VideoEncoder;
   VideoFrame = webcodecs.VideoFrame;
 } catch (e) {

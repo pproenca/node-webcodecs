@@ -14,7 +14,7 @@ const assert = require('node:assert');
 // Try to load the module
 let VideoEncoder, VideoFrame, _EncodedVideoChunk;
 try {
-  const webcodecs = require('../../dist');
+  const webcodecs = require('@pproenca/node-webcodecs');
   VideoEncoder = webcodecs.VideoEncoder;
   VideoFrame = webcodecs.VideoFrame;
   _EncodedVideoChunk = webcodecs.EncodedVideoChunk;

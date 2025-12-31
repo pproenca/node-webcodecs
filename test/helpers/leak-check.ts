@@ -8,9 +8,7 @@
  * Works by comparing counter snapshots before and after test execution.
  */
 
-import { binding } from '../../dist/binding.js';
-
-const native = binding as { getCounters: () => Record<string, number> };
+import { getCounters as nativeGetCounters } from '@pproenca/node-webcodecs';
 
 export function forceGC(): void {
   if (global.gc) {
@@ -35,7 +33,7 @@ export interface CounterSnapshot {
 }
 
 export function getCounters(): CounterSnapshot {
-  return native.getCounters();
+  return nativeGetCounters();
 }
 
 export function assertNoLeaks(

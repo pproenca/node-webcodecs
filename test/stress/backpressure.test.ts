@@ -3,13 +3,13 @@
 //
 // Stress test for backpressure gate limiting in-flight frames.
 
-import { describe, expect, it } from 'vitest';
 import {
   EncodedVideoChunk,
   VideoDecoder,
   VideoEncoder,
   VideoFrame,
-} from '../../dist/index.js';
+} from '@pproenca/node-webcodecs';
+import { describe, expect, it } from 'vitest';
 
 describe('Encoder Backpressure', () => {
   it('ready property resolves immediately when under capacity', async () => {

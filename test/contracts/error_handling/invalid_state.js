@@ -19,7 +19,7 @@ const {
   AudioDecoder,
   VideoFrame,
   AudioData,
-} = require('../../../dist');
+} = require('@pproenca/node-webcodecs');
 const assert = require('node:assert');
 
 const tests = [];

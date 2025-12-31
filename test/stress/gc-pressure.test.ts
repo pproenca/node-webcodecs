@@ -9,8 +9,8 @@
  * If working correctly, V8 will aggressively GC based on native allocations.
  */
 
+import { VideoFrame } from '@pproenca/node-webcodecs';
 import { describe, expect, it } from 'vitest';
-import { VideoFrame } from '../../dist/index.js';
 
 describe('GC Pressure', () => {
   it('should survive 1000 large frames without OOM when external memory is tracked', async () => {

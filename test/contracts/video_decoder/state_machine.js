@@ -1,4 +1,4 @@
-const {VideoDecoder, EncodedVideoChunk} = require('../../../dist');
+const {VideoDecoder, EncodedVideoChunk} = require('@pproenca/node-webcodecs');
 const assert = require('node:assert');
 
 const tests = [];

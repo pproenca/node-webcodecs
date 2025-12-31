@@ -9,7 +9,7 @@ const {
   AudioEncoder,
   AudioDecoder,
   AudioData,
-} = require('../../../dist');
+} = require('@pproenca/node-webcodecs');
 const assert = require('node:assert');
 
 const tests = [];

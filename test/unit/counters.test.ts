@@ -1,13 +1,11 @@
 // test/unit/counters.test.ts
-import { describe, expect, it } from 'vitest';
-import { binding } from '../../dist/binding.js';
-import { VideoEncoder, VideoFrame } from '../../dist/index.js';
 
-const native = binding as { getCounters: () => Record<string, number> };
+import { getCounters, VideoEncoder, VideoFrame } from '@pproenca/node-webcodecs';
+import { describe, expect, it } from 'vitest';
 
 describe('Instance Counters', () => {
   it('should track VideoFrame instances', () => {
-    const before = native.getCounters();
+    const before = getCounters();
 
     const frame = new VideoFrame(new Uint8Array(64 * 64 * 4), {
       format: 'RGBA',
@@ -16,7 +14,7 @@ describe('Instance Counters', () => {
       timestamp: 0,
     });
 
-    const during = native.getCounters();
+    const during = getCounters();
     expect(during.videoFrames).toBe(before.videoFrames + 1);
 
     frame.close();
@@ -29,21 +27,21 @@ describe('Instance Counters', () => {
   });
 
   it('should track encoder instances', () => {
-    const before = native.getCounters();
+    const before = getCounters();
 
     const encoder = new VideoEncoder({
       output: () => {},
       error: () => {},
     });
 
-    const during = native.getCounters();
+    const during = getCounters();
     expect(during.videoEncoders).toBe(before.videoEncoders + 1);
 
     encoder.close();
   });
 
   it('should return all counter types', () => {
-    const counters = native.getCounters();
+    const counters = getCounters();
 
     expect(counters).toHaveProperty('videoFrames');
     expect(counters).toHaveProperty('audioData');

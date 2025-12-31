@@ -5,7 +5,7 @@
  * allocationSize(), and copyTo() behaviors per W3C WebCodecs spec.
  */
 
-const {VideoFrame} = require('../../../dist');
+const {VideoFrame} = require('@pproenca/node-webcodecs');
 const assert = require('node:assert');
 
 const tests = [];

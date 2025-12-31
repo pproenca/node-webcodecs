@@ -5,7 +5,7 @@
  * EncodedVideoChunk and EncodedAudioChunk per W3C WebCodecs spec.
  */
 
-const {EncodedVideoChunk, EncodedAudioChunk} = require('../../../dist');
+const {EncodedVideoChunk, EncodedAudioChunk} = require('@pproenca/node-webcodecs');
 const assert = require('node:assert');
 
 const tests = [];

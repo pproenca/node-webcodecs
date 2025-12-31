@@ -11,8 +11,9 @@
  * The tests are skipped in environments where external memory tracking doesn't work
  * (e.g., vitest's default worker_threads pool).
  */
+
+import { AudioData, VideoFrame } from '@pproenca/node-webcodecs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { AudioData, VideoFrame } from '../../dist/index.js';
 
 // Helper to force garbage collection
 function forceGC(): void {

@@ -1,5 +1,5 @@
 // Global setup - inject WebCodecs API into globalThis
-import * as webcodecs from '../dist/index.js';
+import * as webcodecs from '@pproenca/node-webcodecs';
 
 declare global {
   var VideoDecoder: typeof webcodecs.VideoDecoder;

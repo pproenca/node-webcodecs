@@ -1,4 +1,4 @@
-const {AudioDecoder, EncodedAudioChunk} = require('../../../dist');
+const {AudioDecoder, EncodedAudioChunk} = require('@pproenca/node-webcodecs');
 const assert = require('node:assert');
 
 const tests = [];

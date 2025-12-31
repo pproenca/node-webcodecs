@@ -12,7 +12,7 @@
  * RUN: node test/contracts/video_encoder/state_machine.js
  */
 
-const {VideoEncoder, VideoFrame} = require('../../../dist');
+const {VideoEncoder, VideoFrame} = require('@pproenca/node-webcodecs');
 const assert = require('node:assert');
 
 const tests = [];

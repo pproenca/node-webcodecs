@@ -8,7 +8,7 @@
  * - After flush(), codec remains in configured state
  */
 
-const {AudioEncoder, AudioDecoder, AudioData} = require('../../../dist');
+const {AudioEncoder, AudioDecoder, AudioData} = require('@pproenca/node-webcodecs');
 const assert = require('node:assert');
 
 const tests = [];

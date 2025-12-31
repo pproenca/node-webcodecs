@@ -1,4 +1,4 @@
-const {VideoEncoder, VideoFrame} = require('../../dist');
+const {VideoEncoder, VideoFrame} = require('@pproenca/node-webcodecs');
 
 console.log('Input Robustness Fuzzer');
 

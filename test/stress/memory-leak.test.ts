@@ -8,7 +8,6 @@
  * For detailed memory analysis: node --expose-gc test/stress/memory-leak.test.ts
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   AudioData,
   AudioDecoder,
@@ -16,7 +15,8 @@ import {
   VideoDecoder,
   VideoEncoder,
   VideoFrame,
-} from '../../dist/index.js';
+} from '@pproenca/node-webcodecs';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   assertNoLeaks,
   type CounterSnapshot,

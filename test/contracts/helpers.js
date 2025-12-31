@@ -18,7 +18,7 @@ const {
   AudioData,
   EncodedVideoChunk,
   EncodedAudioChunk,
-} = require('../../dist');
+} = require('@pproenca/node-webcodecs');
 const assert = require('node:assert');
 
 /**

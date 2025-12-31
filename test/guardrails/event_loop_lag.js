@@ -1,4 +1,4 @@
-const {VideoEncoder, VideoFrame} = require('../../dist');
+const {VideoEncoder, VideoFrame} = require('@pproenca/node-webcodecs');
 const {performance} = require('node:perf_hooks');
 
 const MAX_LAG_MS = 20;

@@ -1,4 +1,4 @@
-const {VideoEncoder, VideoFrame} = require('../../dist');
+const {VideoEncoder, VideoFrame} = require('@pproenca/node-webcodecs');
 
 const TARGET_FPS = 30;
 const FRAMES = 100;

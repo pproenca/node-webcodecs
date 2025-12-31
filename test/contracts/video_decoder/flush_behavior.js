@@ -12,7 +12,7 @@ const {
   VideoEncoder,
   VideoDecoder,
   VideoFrame,
-} = require('../../../dist');
+} = require('@pproenca/node-webcodecs');
 const assert = require('node:assert');
 
 const tests = [];

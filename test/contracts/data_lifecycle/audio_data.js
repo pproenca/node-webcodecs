@@ -5,7 +5,7 @@
  * allocationSize(), copyTo(), and duration behaviors per W3C WebCodecs spec.
  */
 
-const {AudioData} = require('../../../dist');
+const {AudioData} = require('@pproenca/node-webcodecs');
 const assert = require('node:assert');
 
 const tests = [];

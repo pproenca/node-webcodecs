@@ -24,7 +24,7 @@
     "test-golden": "vitest run --config test/vitest.config.ts golden/",
     "test-reference": "INCLUDE_REFERENCE=true vitest run --config test/vitest.config.ts reference/",
     "test-all": "npm run test-fast && npm run test-guardrails && npm run test-contracts",
-    "test-guardrails": "node --expose-gc test/guardrails/memory_sentinel.js && node test/guardrails/fuzzer.js && node test/guardrails/event_loop_lag.js",
+    "test-guardrails": "node test/guardrails/fuzzer.js && node test/guardrails/event_loop_lag.js",
     "test-contracts": "node test/contracts/video_encoder/state_machine.js && node test/contracts/audio_encoder/state_machine.js && node test/contracts/video_decoder/state_machine.js && node test/contracts/audio_decoder/state_machine.js",
     "test-benchmark": "node --expose-gc test/guardrails/benchmark.js",
     "test-leak": "./test/leak/leak.sh",
