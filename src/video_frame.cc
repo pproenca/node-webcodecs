@@ -318,12 +318,20 @@ Napi::Value VideoFrame::GetDisplayWidth(const Napi::CallbackInfo& info) {
   if (closed_) {
     throw Napi::Error::New(info.Env(), "VideoFrame is closed");
   }
+  // For 90 and 270 degree rotations, swap width and height per W3C spec
+  if (rotation_ == 90 || rotation_ == 270) {
+    return Napi::Number::New(info.Env(), display_height_);
+  }
   return Napi::Number::New(info.Env(), display_width_);
 }
 
 Napi::Value VideoFrame::GetDisplayHeight(const Napi::CallbackInfo& info) {
   if (closed_) {
     throw Napi::Error::New(info.Env(), "VideoFrame is closed");
+  }
+  // For 90 and 270 degree rotations, swap width and height per W3C spec
+  if (rotation_ == 90 || rotation_ == 270) {
+    return Napi::Number::New(info.Env(), display_width_);
   }
   return Napi::Number::New(info.Env(), display_height_);
 }
