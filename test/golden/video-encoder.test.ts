@@ -720,5 +720,90 @@ describe('VideoEncoder', () => {
       expect(chunks[2].layerId).toBe(0);
       expect(chunks[3].layerId).toBe(1);
     });
+
+    it('should report temporalLayerId based on scalabilityMode L1T3', async () => {
+      const chunks: Array<{ timestamp: number; layerId: number }> = [];
+
+      const encoder = new VideoEncoder({
+        output: (chunk, metadata) => {
+          chunks.push({
+            timestamp: chunk.timestamp,
+            layerId: metadata?.svc?.temporalLayerId ?? -1,
+          });
+        },
+        error: (e) => {
+          throw e;
+        },
+      });
+
+      encoder.configure({
+        codec: 'avc1.42E01E',
+        width: 320,
+        height: 240,
+        scalabilityMode: 'L1T3',
+      });
+
+      // Encode 8 frames to see full L1T3 pattern
+      for (let i = 0; i < 8; i++) {
+        const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+          format: 'RGBA',
+          codedWidth: 320,
+          codedHeight: 240,
+          timestamp: i * 33333,
+        });
+        encoder.encode(frame);
+        frame.close();
+      }
+
+      await encoder.flush();
+      encoder.close();
+
+      expect(chunks.length).toBe(8);
+      // Sort by timestamp (B-frames may cause decode order != presentation order)
+      chunks.sort((a, b) => a.timestamp - b.timestamp);
+      // L1T3 pattern: [0, 2, 1, 2, 0, 2, 1, 2]
+      expect(chunks.map((c) => c.layerId)).toEqual([0, 2, 1, 2, 0, 2, 1, 2]);
+    });
+
+    it('should report temporalLayerId 0 when scalabilityMode not set', async () => {
+      const chunks: Array<{ timestamp: number; layerId: number }> = [];
+
+      const encoder = new VideoEncoder({
+        output: (chunk, metadata) => {
+          chunks.push({
+            timestamp: chunk.timestamp,
+            layerId: metadata?.svc?.temporalLayerId ?? -1,
+          });
+        },
+        error: (e) => {
+          throw e;
+        },
+      });
+
+      encoder.configure({
+        codec: 'avc1.42E01E',
+        width: 320,
+        height: 240,
+        // No scalabilityMode - should default to all layer 0
+      });
+
+      for (let i = 0; i < 4; i++) {
+        const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
+          format: 'RGBA',
+          codedWidth: 320,
+          codedHeight: 240,
+          timestamp: i * 33333,
+        });
+        encoder.encode(frame);
+        frame.close();
+      }
+
+      await encoder.flush();
+      encoder.close();
+
+      expect(chunks.length).toBe(4);
+      // All frames should be layer 0 when no scalabilityMode
+      expect(chunks.every((c) => c.layerId === 0)).toBe(true);
+    });
   });
 });
