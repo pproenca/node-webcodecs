@@ -281,6 +281,18 @@ VideoFrame::VideoFrame(const Napi::CallbackInfo& info)
     color_matrix_ = webcodecs::AttrAsStr(cs, "matrix", "");
     color_full_range_ = webcodecs::AttrAsBool(cs, "fullRange", false);
   }
+
+  // W3C WebCodecs: For RGB formats without explicit colorSpace, default to sRGB.
+  // Per spec, RGBA/RGBX/BGRA/BGRX frames use sRGB color space by default.
+  if (!has_color_space_ &&
+      (format_ == PixelFormat::RGBA || format_ == PixelFormat::RGBX ||
+       format_ == PixelFormat::BGRA || format_ == PixelFormat::BGRX)) {
+    has_color_space_ = true;
+    color_primaries_ = "bt709";
+    color_transfer_ = "iec61966-2-1";
+    color_matrix_ = "rgb";
+    color_full_range_ = true;
+  }
 }
 
 VideoFrame::~VideoFrame() {

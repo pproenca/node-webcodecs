@@ -8,7 +8,7 @@
  * - High bit-depth pixel formats for VideoFrame (I420P10, I420P12, I422P10, I422P12, I444P10, I444P12, NV12P10)
  *   Note: VideoEncoder input format conversion does not yet support high bit-depth formats
  * - NV21 pixel format supported (8-bit YUV420 semi-planar with VU ordering)
- * - TODO: VideoFrame constructor from CanvasImageSource not supported (Node.js limitation)
+ * - Note: VideoFrame constructor from CanvasImageSource not supported (Node.js has no DOM)
  * - 10-bit alpha formats (I420AP10, I422AP10, I444AP10) supported; 12-bit alpha not supported by FFmpeg
  */
 

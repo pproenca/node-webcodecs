@@ -112,7 +112,7 @@ test('AAC in ADTS format', async () => {
     codec: 'mp4a.40.2',
     sampleRate: 48000,
     numberOfChannels: 2,
-    // @ts-expect-error Shitty types
+    // @ts-expect-error aac config not in upstream WebCodecs types (node-webcodecs extension)
     aac: {
       format: 'adts',
     },

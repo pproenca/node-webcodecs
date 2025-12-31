@@ -228,7 +228,8 @@ void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
     // Create metadata object matching sync path
     Napi::Object metadata = Napi::Object::New(env);
 
-    // Add SVC metadata per W3C spec (base layer)
+    // TODO(pproenca): Implement actual temporal/spatial layer tracking.
+    // See video_encoder.cc for related TODO. For now, always report layer 0.
     Napi::Object svc = Napi::Object::New(env);
     svc.Set("temporalLayerId", Napi::Number::New(env, 0));
     metadata.Set("svc", svc);

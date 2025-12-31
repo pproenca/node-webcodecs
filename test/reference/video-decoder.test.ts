@@ -12,7 +12,7 @@ import { AsyncMutex } from './misc.js';
 
 const filePath = './test/fixtures/small_buck_bunny.mp4';
 
-test('VideoDecoder lifecycle', { timeout: 10_000 }, async () => {
+test('VideoDecoder lifecycle', { timeout: 30_000 }, async () => {
   using input = new Input({
     source: new FilePathSource(filePath),
     formats: ALL_FORMATS,

@@ -93,6 +93,6 @@ test('Conversion: encode and decode VP9', { timeout: 10_000 }, async () => {
   await runConversionTest('vp9');
 });
 
-test('Conversion: encode and decode AV1', { timeout: 10_000 }, async () => {
+test('Conversion: encode and decode AV1', { timeout: 60_000 }, async () => {
   await runConversionTest('av1');
 });

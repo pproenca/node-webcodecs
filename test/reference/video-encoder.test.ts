@@ -160,7 +160,7 @@ test('HEVC & Annex B', async () => {
     codec: 'hev1.1.L0.0',
     width: 1280,
     height: 720,
-    // @ts-expect-error Type are shitty
+    // @ts-expect-error hevc config not in upstream WebCodecs types (node-webcodecs extension)
     hevc: {
       format: 'annexb',
     },

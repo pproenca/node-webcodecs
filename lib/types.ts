@@ -1077,7 +1077,7 @@ export interface ImageDecoderConstructor {
  *   constructor(AllowSharedBufferSource data, VideoFrameBufferInit init);
  */
 export interface VideoFrameConstructor {
-  // TODO: CanvasImageSource constructor not supported in Node.js
+  // Note: CanvasImageSource constructor not supported (Node.js has no DOM)
   new (data: AllowSharedBufferSource, init: VideoFrameBufferInit): VideoFrame;
 }
 
