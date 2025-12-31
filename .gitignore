@@ -29,8 +29,12 @@ CMakeFiles/
 *.swp
 *.swo
 
-# Claude workflow files
-.claude/
+# Claude Code - ignore personal/session files, keep shareable configs
+.claude/*
+!.claude/skills/
+!.claude/commands/
+!.claude/agents/
+!.claude/prompts/
 
 # Sanitizer/profiler output
 *.profraw
