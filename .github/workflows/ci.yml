@@ -88,6 +88,10 @@ jobs:
             libswscale-dev \
             libswresample-dev \
             libavfilter-dev \
+            libx264-dev \
+            libx265-dev \
+            libvpx-dev \
+            libaom-dev \
             pkg-config
 
       - name: Install FFmpeg (macOS)
