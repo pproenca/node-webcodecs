@@ -14,6 +14,24 @@ namespace {
 
 // Encoder configuration constants.
 constexpr int kDefaultBitrate = 1000000;  // 1 Mbps
+constexpr int kDefaultTemporalLayers = 1;
+
+// Compute temporal layer ID based on frame position and layer count.
+// Uses standard WebRTC temporal layering pattern.
+int ComputeTemporalLayerId(int64_t frame_index, int temporal_layer_count) {
+  if (temporal_layer_count <= 1) return 0;
+
+  if (temporal_layer_count == 2) {
+    // L1T2: alternating pattern [0, 1, 0, 1, ...]
+    return (frame_index % 2 == 0) ? 0 : 1;
+  }
+
+  // L1T3: pyramid pattern [0, 2, 1, 2, 0, 2, 1, 2, ...]
+  int pos = frame_index % 4;
+  if (pos == 0) return 0;  // Base layer
+  if (pos == 2) return 1;  // Middle layer
+  return 2;                // Enhancement layer (pos 1, 3)
+}
 constexpr int kDefaultFramerate = 30;     // 30 fps
 constexpr int kDefaultGopSize = 30;       // Keyframe interval
 constexpr int kDefaultMaxBFrames = 2;
@@ -146,6 +164,21 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
     color_transfer_ = webcodecs::AttrAsStr(cs, "transfer", "");
     color_matrix_ = webcodecs::AttrAsStr(cs, "matrix", "");
     color_full_range_ = webcodecs::AttrAsBool(cs, "fullRange", false);
+  }
+
+  // Parse scalabilityMode to determine temporal layer count.
+  // Format: L{spatial}T{temporal}, e.g., "L1T2", "L1T3", "L2T2"
+  temporal_layer_count_ = kDefaultTemporalLayers;
+  std::string scalability_mode =
+      webcodecs::AttrAsStr(config, "scalabilityMode", "");
+  if (!scalability_mode.empty()) {
+    size_t t_pos = scalability_mode.find('T');
+    if (t_pos != std::string::npos && t_pos + 1 < scalability_mode.size()) {
+      int t_count = scalability_mode[t_pos + 1] - '0';
+      if (t_count >= 1 && t_count <= 3) {
+        temporal_layer_count_ = t_count;
+      }
+    }
   }
 
   // Parse codec-specific bitstream format per W3C codec registration.
@@ -286,6 +319,7 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
   metadata_config.color_transfer = color_transfer_;
   metadata_config.color_matrix = color_matrix_;
   metadata_config.color_full_range = color_full_range_;
+  metadata_config.temporal_layer_count = temporal_layer_count_;
   async_worker_->SetMetadataConfig(metadata_config);
 
   async_worker_->Start();

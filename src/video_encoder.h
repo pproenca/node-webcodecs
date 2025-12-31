@@ -75,6 +75,7 @@ class VideoEncoder : public Napi::ObjectWrap<VideoEncoder> {
   std::string color_transfer_;
   std::string color_matrix_;
   bool color_full_range_;
+  int temporal_layer_count_;
   // Bitstream format for AVC/HEVC (per W3C codec registration).
   // "avc"/"hevc": Description (SPS/PPS) provided separately
   // "annexb": Description embedded in bitstream (default for backwards compat)
