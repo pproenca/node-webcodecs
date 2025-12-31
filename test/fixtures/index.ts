@@ -7,6 +7,7 @@
 
 import * as path from 'node:path';
 
+export * from './test-helpers.js';
 export * from './assertions.js';
 
 //==============================================================================
