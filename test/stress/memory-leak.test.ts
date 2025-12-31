@@ -26,9 +26,11 @@ function forceGC(): void {
 }
 
 // Helper to measure memory usage
-function getHeapUsed(): number {
+// Using RSS (Resident Set Size) instead of heapUsed to capture native memory allocations
+// heapUsed only tracks V8 heap, missing FFmpeg AVFrame/AVPacket allocations
+function getMemoryUsed(): number {
   forceGC();
-  return process.memoryUsage().heapUsed;
+  return process.memoryUsage().rss;
 }
 
 // Allow some memory growth but catch significant leaks
@@ -48,7 +50,7 @@ describe('Memory Leak Detection', () => {
 
   describe('VideoEncoder', () => {
     it('does not leak memory on repeated create/configure/close', async () => {
-      const before = getHeapUsed();
+      const before = getMemoryUsed();
 
       for (let i = 0; i < ITERATIONS; i++) {
         const encoder = new VideoEncoder({
@@ -68,14 +70,14 @@ describe('Memory Leak Detection', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
       forceGC();
 
-      const after = getHeapUsed();
+      const after = getMemoryUsed();
       const growthMB = (after - before) / (1024 * 1024);
 
       expect(growthMB).toBeLessThan(ALLOWED_GROWTH_MB);
     });
 
     it('does not leak memory when encoding frames', async () => {
-      const before = getHeapUsed();
+      const before = getMemoryUsed();
 
       for (let i = 0; i < ITERATIONS; i++) {
         const frames: VideoFrame[] = [];
@@ -115,7 +117,7 @@ describe('Memory Leak Detection', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
       forceGC();
 
-      const after = getHeapUsed();
+      const after = getMemoryUsed();
       const growthMB = (after - before) / (1024 * 1024);
 
       expect(growthMB).toBeLessThan(ALLOWED_GROWTH_MB);
@@ -124,7 +126,7 @@ describe('Memory Leak Detection', () => {
 
   describe('VideoDecoder', () => {
     it('does not leak memory on repeated create/configure/close', async () => {
-      const before = getHeapUsed();
+      const before = getMemoryUsed();
 
       for (let i = 0; i < ITERATIONS; i++) {
         const decoder = new VideoDecoder({
@@ -141,7 +143,7 @@ describe('Memory Leak Detection', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
       forceGC();
 
-      const after = getHeapUsed();
+      const after = getMemoryUsed();
       const growthMB = (after - before) / (1024 * 1024);
 
       expect(growthMB).toBeLessThan(ALLOWED_GROWTH_MB);
@@ -150,7 +152,7 @@ describe('Memory Leak Detection', () => {
 
   describe('VideoFrame', () => {
     it('does not leak memory on repeated create/close', async () => {
-      const before = getHeapUsed();
+      const before = getMemoryUsed();
 
       for (let i = 0; i < ITERATIONS * 10; i++) {
         const frameData = new Uint8Array(256 * 256 * 4); // 256KB per frame
@@ -167,14 +169,14 @@ describe('Memory Leak Detection', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
       forceGC();
 
-      const after = getHeapUsed();
+      const after = getMemoryUsed();
       const growthMB = (after - before) / (1024 * 1024);
 
       expect(growthMB).toBeLessThan(ALLOWED_GROWTH_MB);
     });
 
     it('does not leak memory on clone/close', async () => {
-      const before = getHeapUsed();
+      const before = getMemoryUsed();
 
       for (let i = 0; i < ITERATIONS * 5; i++) {
         const frameData = new Uint8Array(128 * 128 * 4);
@@ -194,7 +196,7 @@ describe('Memory Leak Detection', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
       forceGC();
 
-      const after = getHeapUsed();
+      const after = getMemoryUsed();
       const growthMB = (after - before) / (1024 * 1024);
 
       expect(growthMB).toBeLessThan(ALLOWED_GROWTH_MB);
@@ -203,7 +205,7 @@ describe('Memory Leak Detection', () => {
 
   describe('AudioEncoder', () => {
     it('does not leak memory on repeated create/configure/close', async () => {
-      const before = getHeapUsed();
+      const before = getMemoryUsed();
 
       for (let i = 0; i < ITERATIONS; i++) {
         const encoder = new AudioEncoder({
@@ -223,7 +225,7 @@ describe('Memory Leak Detection', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
       forceGC();
 
-      const after = getHeapUsed();
+      const after = getMemoryUsed();
       const growthMB = (after - before) / (1024 * 1024);
 
       expect(growthMB).toBeLessThan(ALLOWED_GROWTH_MB);
@@ -232,7 +234,7 @@ describe('Memory Leak Detection', () => {
 
   describe('AudioDecoder', () => {
     it('does not leak memory on repeated create/configure/close', async () => {
-      const before = getHeapUsed();
+      const before = getMemoryUsed();
 
       for (let i = 0; i < ITERATIONS; i++) {
         const decoder = new AudioDecoder({
@@ -251,7 +253,7 @@ describe('Memory Leak Detection', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
       forceGC();
 
-      const after = getHeapUsed();
+      const after = getMemoryUsed();
       const growthMB = (after - before) / (1024 * 1024);
 
       expect(growthMB).toBeLessThan(ALLOWED_GROWTH_MB);
@@ -260,7 +262,7 @@ describe('Memory Leak Detection', () => {
 
   describe('AudioData', () => {
     it('does not leak memory on repeated create/close', async () => {
-      const before = getHeapUsed();
+      const before = getMemoryUsed();
 
       for (let i = 0; i < ITERATIONS * 10; i++) {
         const audioData = new AudioData({
@@ -278,7 +280,7 @@ describe('Memory Leak Detection', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
       forceGC();
 
-      const after = getHeapUsed();
+      const after = getMemoryUsed();
       const growthMB = (after - before) / (1024 * 1024);
 
       expect(growthMB).toBeLessThan(ALLOWED_GROWTH_MB);
