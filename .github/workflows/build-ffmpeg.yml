@@ -20,6 +20,7 @@ jobs:
       contents: read
     name: "ffmpeg-${{ matrix.platform }}"
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
@@ -59,7 +60,7 @@ jobs:
       - name: Install dependencies (Linux musl)
         if: matrix.container == 'alpine:3.19'
         run: |
-          apk add --no-cache build-base nasm yasm pkgconf \
+          apk add --no-cache build-base nasm yasm pkgconf curl \
             x264-dev x265-dev libvpx-dev opus-dev
 
       - name: Download FFmpeg source

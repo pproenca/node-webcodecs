@@ -51,16 +51,14 @@ export function buildPlatformArch(): string {
 
 /**
  * Platforms with prebuilt binaries available.
+ * Must match what release.yml actually builds.
  */
 export const prebuiltPlatforms = [
   'darwin-arm64',
   'darwin-x64',
-  'linux-arm64',
   'linux-x64',
   'linuxmusl-x64',
-  'linuxmusl-arm64',
   'win32-x64',
-  'win32-arm64',
 ] as const;
 
 export type PrebuiltPlatform = (typeof prebuiltPlatforms)[number];
