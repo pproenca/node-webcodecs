@@ -164,19 +164,18 @@ void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
       chunk_data,
       [pts, duration, is_key](Napi::Env env, Napi::Function fn,
                                std::vector<uint8_t>* data) {
-        Napi::Object init = Napi::Object::New(env);
-        init.Set("type", is_key ? "key" : "delta");
-        init.Set("timestamp", static_cast<double>(pts));
-        init.Set("duration", static_cast<double>(duration));
-        init.Set("data",
+        // Create EncodedVideoChunk-like object (matches synchronous path)
+        Napi::Object chunk = Napi::Object::New(env);
+        chunk.Set("type", is_key ? "key" : "delta");
+        chunk.Set("timestamp", Napi::Number::New(env, pts));
+        chunk.Set("duration", Napi::Number::New(env, duration));
+        chunk.Set("data",
                  Napi::Buffer<uint8_t>::Copy(env, data->data(), data->size()));
 
-        // Create EncodedVideoChunk via its constructor
-        Napi::Function constructor = env.Global()
-            .Get("EncodedVideoChunk").As<Napi::Function>();
-        Napi::Object chunk = constructor.New({init});
+        // Create empty metadata object (TypeScript layer will handle wrapping)
+        Napi::Object metadata = Napi::Object::New(env);
 
-        fn.Call({chunk});
+        fn.Call({chunk, metadata});
         delete data;
       });
 }
