@@ -237,6 +237,7 @@ void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
   if (it != frame_info_.end()) {
     timestamp = it->second.first;
     duration = it->second.second;
+    frame_info_.erase(it);  // Clean up after use
   }
 
   // Create callback data with all info needed on main thread
