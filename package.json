@@ -35,7 +35,8 @@
     "lint-types": "tsd",
     "package-from-local-build": "node npm/from-local-build.js",
     "package-release-notes": "node npm/release-notes.js",
-    "version:bump": "node scripts/bump-version.js"
+    "version:bump": "node scripts/bump-version.js",
+    "compliance": "npx tsx scripts/fetch-webcodecs-specs.ts --process && echo '✓ Specs updated. Run /check-compliance to analyze'"
   },
   "type": "commonjs",
   "main": "dist/index.js",
