@@ -73,7 +73,6 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.nodejs_version }}
-          cache: 'npm'
 
       - name: Install FFmpeg (Ubuntu)
         if: runner.os == 'Linux'
