@@ -20,10 +20,6 @@ Napi::Object ErrorBuilder::Init(Napi::Env env, Napi::Object exports) {
           InstanceMethod("throwError", &ErrorBuilder::ThrowErrorJS),
       });
 
-  Napi::FunctionReference* constructor = new Napi::FunctionReference();
-  *constructor = Napi::Persistent(func);
-  env.SetInstanceData(constructor);
-
   exports.Set("ErrorBuilder", func);
   return exports;
 }

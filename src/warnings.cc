@@ -20,10 +20,6 @@ Napi::Object WarningAccumulator::Init(Napi::Env env, Napi::Object exports) {
           InstanceMethod("count", &WarningAccumulator::CountJS),
       });
 
-  Napi::FunctionReference* constructor = new Napi::FunctionReference();
-  *constructor = Napi::Persistent(func);
-  env.SetInstanceData(constructor);
-
   exports.Set("WarningAccumulator", func);
   return exports;
 }
