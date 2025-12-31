@@ -46,6 +46,30 @@ bool AttrAsBool(Napi::Object obj, const std::string& attr, bool default_val);
 std::tuple<const uint8_t*, size_t> AttrAsBuffer(Napi::Object obj, const std::string& attr);
 
 //==============================================================================
+// Template Enum Helpers
+//==============================================================================
+
+// Template for FFmpeg enums with string mapping
+template<typename T>
+T AttrAsEnum(Napi::Object obj, const std::string& attr, T default_val,
+             const std::unordered_map<std::string, T>& mapping) {
+  std::string val = AttrAsStr(obj, attr);
+  if (val.empty()) return default_val;
+  auto it = mapping.find(val);
+  return (it != mapping.end()) ? it->second : default_val;
+}
+
+// Predefined enum mappings
+extern const std::unordered_map<std::string, AVColorPrimaries> kColorPrimariesMap;
+extern const std::unordered_map<std::string, AVColorTransferCharacteristic> kTransferMap;
+extern const std::unordered_map<std::string, AVColorSpace> kMatrixMap;
+
+// String conversion for enums
+std::string ColorPrimariesToString(AVColorPrimaries primaries);
+std::string TransferToString(AVColorTransferCharacteristic transfer);
+std::string MatrixToString(AVColorSpace matrix);
+
+//==============================================================================
 // Validation Helpers (throw on failure)
 //==============================================================================
 
@@ -83,6 +107,14 @@ extern std::atomic<int> counterFrames;
 //==============================================================================
 
 void InitFFmpeg();
+
+//==============================================================================
+// FFmpeg Log Capture
+//==============================================================================
+
+void InitFFmpegLogging();
+std::vector<std::string> GetFFmpegWarnings();
+void ClearFFmpegWarnings();
 
 }  // namespace webcodecs
 

@@ -17,7 +17,10 @@
         "src/demuxer.cc",
         "src/image_decoder.cc",
         "src/async_encode_worker.cc",
-        "src/async_decode_worker.cc"
+        "src/async_decode_worker.cc",
+        "src/warnings.cc",
+        "src/error_builder.cc",
+        "src/descriptors.cc"
       ],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")",

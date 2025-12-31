@@ -377,6 +377,63 @@ export interface NativeImageDecoderConstructor {
 }
 
 /**
+ * Native WarningAccumulator for collecting FFmpeg warnings
+ */
+export interface NativeWarningAccumulator {
+  add(warning: string): void;
+  drain(): string[];
+  hasWarnings(): boolean;
+  count(): number;
+}
+
+export interface NativeWarningAccumulatorConstructor {
+  new (): NativeWarningAccumulator;
+}
+
+/**
+ * Native ErrorBuilder for rich FFmpeg error context
+ * Provides fluent API to build descriptive error messages with FFmpeg error codes,
+ * context information, and key-value pairs.
+ */
+export interface NativeErrorBuilder {
+  /**
+   * Add FFmpeg error code to the error message
+   * @param errnum - FFmpeg error number (e.g., -22 for EINVAL)
+   * @returns this for chaining
+   */
+  withFFmpegCode(errnum: number): NativeErrorBuilder;
+
+  /**
+   * Add context string to the error message
+   * @param context - Additional context (e.g., "while encoding frame")
+   * @returns this for chaining
+   */
+  withContext(context: string): NativeErrorBuilder;
+
+  /**
+   * Add a key-value pair to the error message
+   * @param name - Value name (e.g., "pts", "format")
+   * @param value - Value (number or string)
+   * @returns this for chaining
+   */
+  withValue(name: string, value: number | string): NativeErrorBuilder;
+
+  /**
+   * Build and return the error message string
+   */
+  build(): string;
+
+  /**
+   * Throw the built error as a JavaScript exception
+   */
+  throwError(): never;
+}
+
+export interface NativeErrorBuilderConstructor {
+  new (operation: string): NativeErrorBuilder;
+}
+
+/**
  * The native module interface
  */
 export interface NativeModule {
@@ -391,4 +448,34 @@ export interface NativeModule {
   VideoFilter: NativeVideoFilterConstructor;
   Demuxer: NativeDemuxerConstructor;
   ImageDecoder: NativeImageDecoderConstructor;
+  WarningAccumulator: NativeWarningAccumulatorConstructor;
+  ErrorBuilder: NativeErrorBuilderConstructor;
+
+  // FFmpeg logging functions
+  getFFmpegWarnings: () => string[];
+  clearFFmpegWarnings: () => void;
+
+  // Test helpers
+  testAttrAsEnum: (obj: object, attr: string) => string;
+
+  // Descriptor factories
+  createEncoderConfigDescriptor: (config: object) => {
+    codec: string;
+    width: number;
+    height: number;
+    displayWidth: number;
+    displayHeight: number;
+    bitrate: number;
+    framerate: number;
+    latencyMode: string;
+    bitrateMode: string;
+    scalabilityMode: string;
+    hardwareAcceleration: string;
+    avc: string;
+    hevc: string;
+    colorPrimaries: string;
+    colorTransfer: string;
+    colorMatrix: string;
+    colorFullRange: boolean;
+  };
 }

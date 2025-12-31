@@ -1894,3 +1894,20 @@ export {
   ffmpegErrorMessage,
 } from './errors';
 export type {ErrorCodeType} from './errors';
+
+// Export WarningAccumulator from native binding
+export const WarningAccumulator = native.WarningAccumulator;
+
+// Export ErrorBuilder from native binding
+export const ErrorBuilder = native.ErrorBuilder;
+
+// Export FFmpeg logging functions
+export const getFFmpegWarnings = native.getFFmpegWarnings;
+export const clearFFmpegWarnings = native.clearFFmpegWarnings;
+
+// Export test helpers for internal testing
+export const testAttrAsEnum = native.testAttrAsEnum;
+
+// Export descriptor factory
+export const createEncoderConfigDescriptor =
+  native.createEncoderConfigDescriptor;

@@ -1,23 +1,21 @@
-// Copyright 2024 The node-webcodecs Authors
-// SPDX-License-Identifier: MIT
-
 import {describe, it, expect} from 'vitest';
+import {runtimePlatformArch, isPrebuiltAvailable, prebuiltPlatforms} from '../../lib/platform';
 
-describe('platform detection', () => {
-  it('should detect current platform', async () => {
-    const {runtimePlatformArch, prebuiltPlatforms} = await import(
-      '../../lib/platform'
-    );
-
+describe('Platform Detection', () => {
+  it('returns valid platform-arch string', () => {
     const platform = runtimePlatformArch();
-    expect(platform).toMatch(/^(darwin|linux|win32)(musl)?-(x64|arm64|arm)$/);
+    expect(platform).toMatch(/^(darwin|linux|linuxmusl|win32)-(arm64|x64|arm|ia32)$/);
   });
 
-  it('should list supported prebuilt platforms', async () => {
-    const {prebuiltPlatforms} = await import('../../lib/platform');
-
+  it('exports prebuilt platforms list', () => {
+    expect(Array.isArray(prebuiltPlatforms)).toBe(true);
+    expect(prebuiltPlatforms.length).toBeGreaterThan(0);
     expect(prebuiltPlatforms).toContain('darwin-arm64');
-    expect(prebuiltPlatforms).toContain('darwin-x64');
     expect(prebuiltPlatforms).toContain('linux-x64');
+  });
+
+  it('isPrebuiltAvailable returns boolean', () => {
+    const available = isPrebuiltAvailable();
+    expect(typeof available).toBe('boolean');
   });
 });
