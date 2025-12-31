@@ -125,7 +125,7 @@ extern std::atomic<int64_t> counterAudioDecoders;
 // Legacy counters (maintained for backwards compatibility)
 extern std::atomic<int> counterQueue;
 extern std::atomic<int> counterProcess;
-extern std::atomic<int> counterFrames;  // Alias for counterVideoFrames (deprecated)
+extern std::atomic<int> counterFrames;  // Legacy frame counter (use counterVideoFrames)
 
 //==============================================================================
 // Memory Management (following sharp pattern for Windows compatibility)
