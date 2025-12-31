@@ -17,11 +17,10 @@ extern "C" {
 #include "src/video_decoder.h"
 #include "src/video_frame.h"
 
-AsyncDecodeWorker::AsyncDecodeWorker(VideoDecoder* decoder,
+AsyncDecodeWorker::AsyncDecodeWorker(VideoDecoder* /* decoder */,
                                      Napi::ThreadSafeFunction output_tsfn,
                                      Napi::ThreadSafeFunction error_tsfn)
-    : decoder_(decoder),
-      output_tsfn_(output_tsfn),
+    : output_tsfn_(output_tsfn),
       error_tsfn_(error_tsfn),
       codec_context_(nullptr),
       sws_context_(nullptr) {}

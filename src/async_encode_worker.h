@@ -28,11 +28,11 @@ class VideoEncoder;
 
 struct EncodeTask {
   std::vector<uint8_t> rgba_data;
-  uint32_t width;
-  uint32_t height;
-  int64_t timestamp;
-  int64_t duration;
-  bool key_frame;
+  uint32_t width = 0;
+  uint32_t height = 0;
+  int64_t timestamp = 0;
+  int64_t duration = 0;
+  bool key_frame = false;
   bool is_flush = false;    // When true, flush the encoder instead of encoding
   int quantizer = -1;       // -1 means not specified, otherwise 0-63 range
   int64_t frame_index = 0;  // Sequential frame index for SVC layer computation
@@ -88,7 +88,6 @@ class AsyncEncodeWorker {
   void ProcessFrame(const EncodeTask& task);
   void EmitChunk(AVPacket* packet);
 
-  VideoEncoder* encoder_;
   Napi::ThreadSafeFunction output_tsfn_;
   Napi::ThreadSafeFunction error_tsfn_;
 

@@ -34,11 +34,10 @@ int ComputeTemporalLayerId(int64_t frame_index, int temporal_layer_count) {
 
 }  // namespace
 
-AsyncEncodeWorker::AsyncEncodeWorker(VideoEncoder* encoder,
+AsyncEncodeWorker::AsyncEncodeWorker(VideoEncoder* /* encoder */,
                                      Napi::ThreadSafeFunction output_tsfn,
                                      Napi::ThreadSafeFunction error_tsfn)
-    : encoder_(encoder),
-      output_tsfn_(output_tsfn),
+    : output_tsfn_(output_tsfn),
       error_tsfn_(error_tsfn),
       codec_context_(nullptr),
       sws_context_(nullptr) {}

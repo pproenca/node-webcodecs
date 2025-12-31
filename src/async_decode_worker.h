@@ -63,7 +63,6 @@ class AsyncDecodeWorker {
   void ProcessPacket(const DecodeTask& task);
   void EmitFrame(AVFrame* frame);
 
-  VideoDecoder* decoder_;
   Napi::ThreadSafeFunction output_tsfn_;
   Napi::ThreadSafeFunction error_tsfn_;
 
