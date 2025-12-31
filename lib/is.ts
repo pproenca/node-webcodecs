@@ -138,6 +138,72 @@ export function inArray<T>(val: T, list: readonly T[]): boolean {
 }
 
 //==============================================================================
+// Domain-Specific Guards
+//==============================================================================
+
+/** Valid W3C WebCodecs pixel formats */
+const PIXEL_FORMATS = [
+  'I420',
+  'I420P10',
+  'I420P12',
+  'I420A',
+  'I420AP10',
+  'I422',
+  'I422P10',
+  'I422P12',
+  'I422A',
+  'I422AP10',
+  'I444',
+  'I444P10',
+  'I444P12',
+  'I444A',
+  'I444AP10',
+  'NV12',
+  'NV12P10',
+  'NV21',
+  'RGBA',
+  'RGBX',
+  'BGRA',
+  'BGRX',
+] as const;
+
+/** Valid W3C WebCodecs audio sample formats */
+const SAMPLE_FORMATS = [
+  'u8',
+  's16',
+  's32',
+  'f32',
+  'u8-planar',
+  's16-planar',
+  's32-planar',
+  'f32-planar',
+] as const;
+
+/** Valid W3C WebCodecs codec states */
+const CODEC_STATES = ['unconfigured', 'configured', 'closed'] as const;
+
+/**
+ * Is this a valid W3C VideoPixelFormat?
+ */
+export function pixelFormat(val: unknown): val is string {
+  return string(val) && PIXEL_FORMATS.includes(val as (typeof PIXEL_FORMATS)[number]);
+}
+
+/**
+ * Is this a valid W3C AudioSampleFormat?
+ */
+export function sampleFormat(val: unknown): val is string {
+  return string(val) && SAMPLE_FORMATS.includes(val as (typeof SAMPLE_FORMATS)[number]);
+}
+
+/**
+ * Is this a valid W3C CodecState?
+ */
+export function codecState(val: unknown): val is string {
+  return string(val) && CODEC_STATES.includes(val as (typeof CODEC_STATES)[number]);
+}
+
+//==============================================================================
 // Error Factories (following sharp pattern)
 //==============================================================================
 

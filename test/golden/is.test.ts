@@ -182,3 +182,46 @@ describe('lib/is - Assertion Helpers', () => {
     });
   });
 });
+
+describe('lib/is - Domain Guards', () => {
+  describe('pixelFormat', () => {
+    it('returns true for valid pixel formats', () => {
+      expect(is.pixelFormat('I420')).toBe(true);
+      expect(is.pixelFormat('NV12')).toBe(true);
+      expect(is.pixelFormat('RGBA')).toBe(true);
+      expect(is.pixelFormat('BGRA')).toBe(true);
+    });
+
+    it('returns false for invalid pixel formats', () => {
+      expect(is.pixelFormat('INVALID')).toBe(false);
+      expect(is.pixelFormat('')).toBe(false);
+      expect(is.pixelFormat(123)).toBe(false);
+    });
+  });
+
+  describe('sampleFormat', () => {
+    it('returns true for valid sample formats', () => {
+      expect(is.sampleFormat('u8')).toBe(true);
+      expect(is.sampleFormat('s16')).toBe(true);
+      expect(is.sampleFormat('f32-planar')).toBe(true);
+    });
+
+    it('returns false for invalid sample formats', () => {
+      expect(is.sampleFormat('invalid')).toBe(false);
+      expect(is.sampleFormat('')).toBe(false);
+    });
+  });
+
+  describe('codecState', () => {
+    it('returns true for valid codec states', () => {
+      expect(is.codecState('unconfigured')).toBe(true);
+      expect(is.codecState('configured')).toBe(true);
+      expect(is.codecState('closed')).toBe(true);
+    });
+
+    it('returns false for invalid states', () => {
+      expect(is.codecState('open')).toBe(false);
+      expect(is.codecState('')).toBe(false);
+    });
+  });
+});
