@@ -70,6 +70,7 @@
       `).join('');
     }
 
+    // biome-ignore lint/correctness/noUnusedVariables: used in onclick handlers in dynamically generated HTML
     function playVideo(url) {
       const player = document.getElementById('video-player');
       // For raw H.264, we can't play directly - need MP4
