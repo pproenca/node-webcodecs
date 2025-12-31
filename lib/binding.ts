@@ -7,11 +7,12 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import {runtimePlatformArch} from './platform';
 
 // Platform detection
 const platform = os.platform();
 const arch = os.arch();
-const runtimePlatform = `${platform}-${arch}`;
+const runtimePlatform = runtimePlatformArch();
 
 /**
  * Paths to search for the native addon, in priority order.
@@ -22,16 +23,21 @@ const runtimePlatform = `${platform}-${arch}`;
  */
 function getBindingPaths(): string[] {
   const rootDir = path.resolve(__dirname, '..');
+
   return [
     // Development build (node-gyp output)
     path.join(rootDir, 'build', 'Release', 'node_webcodecs.node'),
     path.join(rootDir, 'build', 'Debug', 'node_webcodecs.node'),
 
-    // Prebuilt binaries (future: npm package per platform like @aspect/*)
+    // Prebuilt from npm package (e.g., @aspect/node-webcodecs-darwin-arm64)
+    // This path is resolved by Node's module resolution
+    `@aspect/node-webcodecs-${runtimePlatform}/lib/node-webcodecs-${runtimePlatform}.node`,
+
+    // Local prebuilds directory
     path.join(rootDir, 'prebuilds', runtimePlatform, 'node_webcodecs.node'),
 
     // node-gyp-build compatible location
-    path.join(rootDir, 'prebuilds', `${platform}-${arch}`, 'node.napi.node'),
+    path.join(rootDir, 'prebuilds', runtimePlatform, 'node.napi.node'),
 
     // Fallback: adjacent to dist/
     path.join(rootDir, 'node_webcodecs.node'),
@@ -98,14 +104,27 @@ function loadBinding(): unknown {
 
   for (const bindingPath of paths) {
     try {
-      // Check if file exists before requiring
-      if (!fs.existsSync(bindingPath)) {
-        continue;
+      let resolvedPath: string;
+
+      // Handle npm package paths (start with @) vs filesystem paths
+      if (bindingPath.startsWith('@')) {
+        // Try to resolve the npm package path
+        try {
+          resolvedPath = require.resolve(bindingPath);
+        } catch {
+          // Package not installed, skip
+          continue;
+        }
+      } else {
+        // Filesystem path - check if file exists
+        if (!fs.existsSync(bindingPath)) {
+          continue;
+        }
+        resolvedPath = bindingPath;
       }
 
       // Attempt to load the binding
-
-      const binding = require(bindingPath);
+      const binding = require(resolvedPath);
 
       // Validate that binding has expected exports
       if (typeof binding.VideoEncoder !== 'function') {
