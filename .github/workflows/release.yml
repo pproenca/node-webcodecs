@@ -96,8 +96,5 @@ jobs:
         run: npm test
 
       - name: Publish to npm
-        # Uses OIDC trusted publishing (no token needed after configuring trusted publisher on npmjs.com)
-        # First publish requires NPM_TOKEN; after that, configure trusted publisher and remove the env block
+        # Uses OIDC trusted publishing - no token needed
         run: npm publish --provenance --access public --tag=${{ contains(github.ref, '-rc') && 'next' || 'latest' }}
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
