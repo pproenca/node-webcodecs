@@ -106,9 +106,9 @@ class AsyncDecodeWorker {
 
   // FFmpeg contexts (owned by VideoDecoder, just references here)
   AVCodecContext* codec_context_;
-  SwsContext* sws_context_;  // Created lazily on first frame
-  ffmpeg::AVFramePtr frame_;       // RAII-managed, owned by this worker
-  ffmpeg::AVPacketPtr packet_;     // RAII-managed, owned by this worker
+  ffmpeg::SwsContextPtr sws_context_;  // RAII-managed, created lazily on first frame
+  ffmpeg::AVFramePtr frame_;           // RAII-managed, owned by this worker
+  ffmpeg::AVPacketPtr packet_;         // RAII-managed, owned by this worker
   int output_width_;
   int output_height_;
 

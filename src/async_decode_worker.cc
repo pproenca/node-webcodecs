@@ -35,13 +35,7 @@ AsyncDecodeWorker::AsyncDecodeWorker(VideoDecoder* /* decoder */,
 
 AsyncDecodeWorker::~AsyncDecodeWorker() {
   Stop();
-  // frame_ and packet_ are RAII-managed, automatically cleaned up
-
-  // sws_context_ is created lazily by this worker, so we own it
-  if (sws_context_) {
-    sws_freeContext(sws_context_);
-    sws_context_ = nullptr;
-  }
+  // frame_, packet_, and sws_context_ are RAII-managed, automatically cleaned up
   // Note: codec_context_ is owned by VideoDecoder
 
   // Clean up buffer pool
@@ -57,7 +51,7 @@ void AsyncDecodeWorker::SetCodecContext(AVCodecContext* ctx,
   std::lock_guard<std::mutex> lock(codec_mutex_);
   codec_context_ = ctx;
   // sws_context_ is created lazily in EmitFrame when we know the frame format
-  sws_context_ = nullptr;
+  sws_context_.reset();
   output_width_ = width;
   output_height_ = height;
   frame_ = ffmpeg::make_frame();
@@ -220,19 +214,17 @@ void AsyncDecodeWorker::ProcessPacket(const DecodeTask& task) {
 
 void AsyncDecodeWorker::EmitFrame(AVFrame* frame) {
   // Initialize or recreate SwsContext if frame format/dimensions change
-  // (convert from decoder's pixel format to RGBA).
+  // (convert from decoder's pixel format to RGBA). RAII managed.
   AVPixelFormat frame_format = static_cast<AVPixelFormat>(frame->format);
 
   if (!sws_context_ || last_frame_format_ != frame_format ||
       last_frame_width_ != frame->width ||
       last_frame_height_ != frame->height) {
-    if (sws_context_) {
-      sws_freeContext(sws_context_);
-    }
-    sws_context_ =
+    // RAII handles cleanup of old context automatically via reset()
+    sws_context_.reset(
         sws_getContext(frame->width, frame->height, frame_format, frame->width,
                        frame->height, AV_PIX_FMT_RGBA, SWS_BILINEAR, nullptr,
-                       nullptr, nullptr);
+                       nullptr, nullptr));
 
     if (!sws_context_) {
       std::string error_msg = "Could not create sws context";
@@ -264,7 +256,7 @@ void AsyncDecodeWorker::EmitFrame(AVFrame* frame) {
   uint8_t* dst_data[1] = {rgba_data->data()};
   int dst_linesize[1] = {output_width_ * 4};
 
-  sws_scale(sws_context_, frame->data, frame->linesize, 0, frame->height,
+  sws_scale(sws_context_.get(), frame->data, frame->linesize, 0, frame->height,
             dst_data, dst_linesize);
 
   int64_t timestamp = frame->pts;

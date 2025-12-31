@@ -70,7 +70,7 @@ class ImageDecoder : public Napi::ObjectWrap<ImageDecoder> {
   // FFmpeg state for static image decoding.
   const AVCodec* codec_;
   ffmpeg::AVCodecContextPtr codec_context_;
-  SwsContext* sws_context_;
+  ffmpeg::SwsContextPtr sws_context_;
   ffmpeg::AVFramePtr frame_;
   ffmpeg::AVPacketPtr packet_;
 

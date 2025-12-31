@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "src/common.h"
+#include "src/ffmpeg_raii.h"
 
 extern "C" {
 #include <libavutil/channel_layout.h>
@@ -503,8 +504,8 @@ void AudioData::CopyTo(const Napi::CallbackInfo& info) {
     return;
   }
 
-  // Create resampler context.
-  SwrContext* swr = swr_alloc();
+  // Create resampler context (RAII managed).
+  ffmpeg::SwrContextPtr swr(swr_alloc());
   if (!swr) {
     Napi::Error::New(env, "Failed to allocate SwrContext")
         .ThrowAsJavaScriptException();
@@ -517,18 +518,17 @@ void AudioData::CopyTo(const Napi::CallbackInfo& info) {
   av_channel_layout_default(&ch_layout, number_of_channels_);
 
   // Set input parameters.
-  av_opt_set_chlayout(swr, "in_chlayout", &ch_layout, 0);
-  av_opt_set_int(swr, "in_sample_rate", sample_rate_, 0);
-  av_opt_set_sample_fmt(swr, "in_sample_fmt", src_fmt, 0);
+  av_opt_set_chlayout(swr.get(), "in_chlayout", &ch_layout, 0);
+  av_opt_set_int(swr.get(), "in_sample_rate", sample_rate_, 0);
+  av_opt_set_sample_fmt(swr.get(), "in_sample_fmt", src_fmt, 0);
 
   // Set output parameters.
-  av_opt_set_chlayout(swr, "out_chlayout", &ch_layout, 0);
-  av_opt_set_int(swr, "out_sample_rate", sample_rate_, 0);
-  av_opt_set_sample_fmt(swr, "out_sample_fmt", dst_fmt, 0);
+  av_opt_set_chlayout(swr.get(), "out_chlayout", &ch_layout, 0);
+  av_opt_set_int(swr.get(), "out_sample_rate", sample_rate_, 0);
+  av_opt_set_sample_fmt(swr.get(), "out_sample_fmt", dst_fmt, 0);
 
-  int ret = swr_init(swr);
+  int ret = swr_init(swr.get());
   if (ret < 0) {
-    swr_free(&swr);
     av_channel_layout_uninit(&ch_layout);
     Napi::Error::New(env, "Failed to initialize SwrContext")
         .ThrowAsJavaScriptException();
@@ -566,9 +566,8 @@ void AudioData::CopyTo(const Napi::CallbackInfo& info) {
           temp_buffer.data() + c * frame_count * target_bytes_per_sample;
     }
 
-    ret = swr_convert(swr, dst_data, frame_count, src_data, frame_count);
+    ret = swr_convert(swr.get(), dst_data, frame_count, src_data, frame_count);
     if (ret < 0) {
-      swr_free(&swr);
       av_channel_layout_uninit(&ch_layout);
       Napi::Error::New(env, "swr_convert failed").ThrowAsJavaScriptException();
       return;
@@ -581,16 +580,15 @@ void AudioData::CopyTo(const Napi::CallbackInfo& info) {
     // Interleaved output: write directly to destination.
     dst_data[0] = dest_data;
 
-    ret = swr_convert(swr, dst_data, frame_count, src_data, frame_count);
+    ret = swr_convert(swr.get(), dst_data, frame_count, src_data, frame_count);
     if (ret < 0) {
-      swr_free(&swr);
       av_channel_layout_uninit(&ch_layout);
       Napi::Error::New(env, "swr_convert failed").ThrowAsJavaScriptException();
       return;
     }
   }
 
-  swr_free(&swr);
+  // RAII handles swr cleanup
   av_channel_layout_uninit(&ch_layout);
 }
 

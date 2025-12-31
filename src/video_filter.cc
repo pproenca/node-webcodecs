@@ -295,22 +295,33 @@ Napi::Value VideoFilter::ApplyBlur(const Napi::CallbackInfo& info) {
     return env.Undefined();
   }
 
-  // Parse and link filter graph
-  AVFilterInOut* outputs = avfilter_inout_alloc();
-  AVFilterInOut* inputs = avfilter_inout_alloc();
+  // Parse and link filter graph (RAII for initial allocation safety)
+  ffmpeg::AVFilterInOutPtr outputs_raii = ffmpeg::make_filter_inout();
+  ffmpeg::AVFilterInOutPtr inputs_raii = ffmpeg::make_filter_inout();
 
-  outputs->name = av_strdup("in");
-  outputs->filter_ctx = buffersrc_ctx_;
-  outputs->pad_idx = 0;
-  outputs->next = nullptr;
+  if (!outputs_raii || !inputs_raii) {
+    Napi::Error::New(env, "Failed to allocate filter inout")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
 
-  inputs->name = av_strdup("out");
-  inputs->filter_ctx = buffersink_ctx_;
-  inputs->pad_idx = 0;
-  inputs->next = nullptr;
+  outputs_raii->name = av_strdup("in");
+  outputs_raii->filter_ctx = buffersrc_ctx_;
+  outputs_raii->pad_idx = 0;
+  outputs_raii->next = nullptr;
+
+  inputs_raii->name = av_strdup("out");
+  inputs_raii->filter_ctx = buffersink_ctx_;
+  inputs_raii->pad_idx = 0;
+  inputs_raii->next = nullptr;
+
+  // Release ownership before parse_ptr (it may modify/consume the pointers)
+  AVFilterInOut* outputs = outputs_raii.release();
+  AVFilterInOut* inputs = inputs_raii.release();
 
   ret = avfilter_graph_parse_ptr(filter_graph_.get(), filter_str.c_str(),
                                  &inputs, &outputs, nullptr);
+  // parse_ptr may have modified pointers, free remaining
   avfilter_inout_free(&inputs);
   avfilter_inout_free(&outputs);
 

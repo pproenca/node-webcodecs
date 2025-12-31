@@ -881,9 +881,10 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
     }
 
     // Create sws context with source=copy rect dimensions, dest=copy dimensions
-    SwsContext* sws_ctx = sws_getContext(
+    // (RAII managed)
+    ffmpeg::SwsContextPtr sws_ctx(sws_getContext(
         dest_width, dest_height, src_av_fmt, dest_width, dest_height,
-        dst_av_fmt, SWS_BILINEAR, nullptr, nullptr, nullptr);
+        dst_av_fmt, SWS_BILINEAR, nullptr, nullptr, nullptr));
 
     if (!sws_ctx) {
       throw Napi::Error::New(env, "Failed to create sws context");
@@ -968,10 +969,10 @@ Napi::Value VideoFrame::CopyTo(const Napi::CallbackInfo& info) {
     }
 
     // Perform the conversion/crop
-    sws_scale(sws_ctx, src_data_offset, src_linesize, 0, dest_height, dst_data,
-              dst_linesize);
+    sws_scale(sws_ctx.get(), src_data_offset, src_linesize, 0, dest_height,
+              dst_data, dst_linesize);
 
-    sws_freeContext(sws_ctx);
+    // RAII handles sws_ctx cleanup
   }
 
   // Build plane layout array using copy dimensions and format metadata

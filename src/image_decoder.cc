@@ -105,7 +105,7 @@ ImageDecoder::ImageDecoder(const Napi::CallbackInfo& info)
     : Napi::ObjectWrap<ImageDecoder>(info),
       codec_(nullptr),
       codec_context_(),
-      sws_context_(nullptr),
+      sws_context_(),
       frame_(),
       packet_(),
       format_context_(nullptr),
@@ -233,11 +233,8 @@ ImageDecoder::ImageDecoder(const Napi::CallbackInfo& info)
 ImageDecoder::~ImageDecoder() { Cleanup(); }
 
 void ImageDecoder::Cleanup() {
-  if (sws_context_) {
-    sws_freeContext(sws_context_);
-    sws_context_ = nullptr;
-  }
   // RAII wrappers handle deallocation automatically via reset()
+  sws_context_.reset();
   frame_.reset();
   packet_.reset();
   codec_context_.reset();
@@ -286,12 +283,12 @@ bool ImageDecoder::ConvertFrameToRGBA(AVFrame* src_frame,
     return false;
   }
 
-  // Create swscale context for conversion to RGBA
-  SwsContext* local_sws =
+  // Create swscale context for conversion to RGBA (RAII managed)
+  ffmpeg::SwsContextPtr local_sws(
       sws_getContext(src_frame->width, src_frame->height,
                      static_cast<AVPixelFormat>(src_frame->format),
                      src_frame->width, src_frame->height, AV_PIX_FMT_RGBA,
-                     SWS_BILINEAR, nullptr, nullptr, nullptr);
+                     SWS_BILINEAR, nullptr, nullptr, nullptr));
 
   if (!local_sws) {
     return false;
@@ -307,10 +304,8 @@ bool ImageDecoder::ConvertFrameToRGBA(AVFrame* src_frame,
   int dest_linesize[4] = {src_frame->width * 4, 0, 0, 0};
 
   // Convert
-  sws_scale(local_sws, src_frame->data, src_frame->linesize, 0,
+  sws_scale(local_sws.get(), src_frame->data, src_frame->linesize, 0,
             src_frame->height, dest_data, dest_linesize);
-
-  sws_freeContext(local_sws);
 
   // Apply alpha premultiplication if requested
   if (premultiply_alpha_ == "premultiply") {
@@ -435,8 +430,9 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
     return false;
   }
 
-  // Allocate new codec context for the stream
-  AVCodecContext* stream_codec_ctx = avcodec_alloc_context3(stream_codec);
+  // Allocate new codec context for the stream (RAII managed)
+  ffmpeg::AVCodecContextPtr stream_codec_ctx =
+      ffmpeg::make_codec_context(stream_codec);
   if (!stream_codec_ctx) {
     avformat_close_input(&format_context_);
     av_freep(&avio_context_->buffer);
@@ -448,9 +444,8 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
   }
 
   // Copy codec parameters
-  ret = avcodec_parameters_to_context(stream_codec_ctx, codecpar);
+  ret = avcodec_parameters_to_context(stream_codec_ctx.get(), codecpar);
   if (ret < 0) {
-    avcodec_free_context(&stream_codec_ctx);
     avformat_close_input(&format_context_);
     av_freep(&avio_context_->buffer);
     avio_context_free(&avio_context_);
@@ -461,9 +456,8 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
   }
 
   // Open codec
-  ret = avcodec_open2(stream_codec_ctx, stream_codec, nullptr);
+  ret = avcodec_open2(stream_codec_ctx.get(), stream_codec, nullptr);
   if (ret < 0) {
-    avcodec_free_context(&stream_codec_ctx);
     avformat_close_input(&format_context_);
     av_freep(&avio_context_->buffer);
     avio_context_free(&avio_context_);
@@ -473,13 +467,10 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
     return false;
   }
 
-  // Count frames and decode them
-  AVPacket* pkt = av_packet_alloc();
-  AVFrame* frm = av_frame_alloc();
+  // Count frames and decode them (RAII managed)
+  ffmpeg::AVPacketPtr pkt = ffmpeg::make_packet();
+  ffmpeg::AVFramePtr frm = ffmpeg::make_frame();
   if (!pkt || !frm) {
-    if (pkt) av_packet_free(&pkt);
-    if (frm) av_frame_free(&frm);
-    avcodec_free_context(&stream_codec_ctx);
     avformat_close_input(&format_context_);
     av_freep(&avio_context_->buffer);
     avio_context_free(&avio_context_);
@@ -534,13 +525,13 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
   }
 
   // Read all frames
-  while (av_read_frame(format_context_, pkt) >= 0) {
+  while (av_read_frame(format_context_, pkt.get()) >= 0) {
     if (pkt->stream_index == video_stream_index_) {
-      ret = avcodec_send_packet(stream_codec_ctx, pkt);
+      ret = avcodec_send_packet(stream_codec_ctx.get(), pkt.get());
       if (ret >= 0) {
-        while (avcodec_receive_frame(stream_codec_ctx, frm) >= 0) {
+        while (avcodec_receive_frame(stream_codec_ctx.get(), frm.get()) >= 0) {
           DecodedFrame decoded_frame;
-          if (ConvertFrameToRGBA(frm, &decoded_frame.data)) {
+          if (ConvertFrameToRGBA(frm.get(), &decoded_frame.data)) {
             decoded_frame.width = frm->width;
             decoded_frame.height = frm->height;
 
@@ -570,18 +561,18 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
             decoded_frames_.push_back(std::move(decoded_frame));
             frame_count_++;
           }
-          av_frame_unref(frm);
+          av_frame_unref(frm.get());
         }
       }
     }
-    av_packet_unref(pkt);
+    av_packet_unref(pkt.get());
   }
 
   // Flush decoder
-  avcodec_send_packet(stream_codec_ctx, nullptr);
-  while (avcodec_receive_frame(stream_codec_ctx, frm) >= 0) {
+  avcodec_send_packet(stream_codec_ctx.get(), nullptr);
+  while (avcodec_receive_frame(stream_codec_ctx.get(), frm.get()) >= 0) {
     DecodedFrame decoded_frame;
-    if (ConvertFrameToRGBA(frm, &decoded_frame.data)) {
+    if (ConvertFrameToRGBA(frm.get(), &decoded_frame.data)) {
       decoded_frame.width = frm->width;
       decoded_frame.height = frm->height;
       AVRational time_base = video_stream->time_base;
@@ -595,12 +586,10 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
       decoded_frames_.push_back(std::move(decoded_frame));
       frame_count_++;
     }
-    av_frame_unref(frm);
+    av_frame_unref(frm.get());
   }
 
-  av_packet_free(&pkt);
-  av_frame_free(&frm);
-  avcodec_free_context(&stream_codec_ctx);
+  // RAII handles cleanup of pkt, frm, and stream_codec_ctx
 
   // Determine if animated based on frame count
   animated_ = frame_count_ > 1;
@@ -667,11 +656,12 @@ bool ImageDecoder::DecodeImage() {
   decoded_width_ = frame_->width;
   decoded_height_ = frame_->height;
 
-  // Convert to RGBA
-  sws_context_ = sws_getContext(frame_->width, frame_->height,
-                                static_cast<AVPixelFormat>(frame_->format),
-                                frame_->width, frame_->height, AV_PIX_FMT_RGBA,
-                                SWS_BILINEAR, nullptr, nullptr, nullptr);
+  // Convert to RGBA (RAII managed)
+  sws_context_.reset(sws_getContext(frame_->width, frame_->height,
+                                    static_cast<AVPixelFormat>(frame_->format),
+                                    frame_->width, frame_->height,
+                                    AV_PIX_FMT_RGBA, SWS_BILINEAR, nullptr,
+                                    nullptr, nullptr));
 
   if (!sws_context_) {
     return false;
@@ -687,8 +677,8 @@ bool ImageDecoder::DecodeImage() {
   int dest_linesize[4] = {frame_->width * 4, 0, 0, 0};
 
   // Convert
-  sws_scale(sws_context_, frame_->data, frame_->linesize, 0, frame_->height,
-            dest_data, dest_linesize);
+  sws_scale(sws_context_.get(), frame_->data, frame_->linesize, 0,
+            frame_->height, dest_data, dest_linesize);
 
   // Apply alpha premultiplication if requested
   if (premultiply_alpha_ == "premultiply") {
