@@ -35,6 +35,12 @@ AsyncDecodeWorker::~AsyncDecodeWorker() {
   }
   // Note: codec_context_ and sws_context_ are owned by VideoDecoder
   // They are cleaned up there, not here
+
+  // Clean up buffer pool
+  for (auto* buffer : buffer_pool_) {
+    delete buffer;
+  }
+  buffer_pool_.clear();
 }
 
 void AsyncDecodeWorker::SetCodecContext(AVCodecContext* ctx, SwsContext* sws,
@@ -88,6 +94,28 @@ void AsyncDecodeWorker::Flush() {
 size_t AsyncDecodeWorker::QueueSize() const {
   std::lock_guard<std::mutex> lock(queue_mutex_);
   return task_queue_.size();
+}
+
+std::vector<uint8_t>* AsyncDecodeWorker::AcquireBuffer(size_t size) {
+  std::lock_guard<std::mutex> lock(pool_mutex_);
+  for (auto it = buffer_pool_.begin(); it != buffer_pool_.end(); ++it) {
+    if ((*it)->capacity() >= size) {
+      auto* buffer = *it;
+      buffer_pool_.erase(it);
+      buffer->resize(size);
+      return buffer;
+    }
+  }
+  return new std::vector<uint8_t>(size);
+}
+
+void AsyncDecodeWorker::ReleaseBuffer(std::vector<uint8_t>* buffer) {
+  std::lock_guard<std::mutex> lock(pool_mutex_);
+  if (buffer_pool_.size() < 4) {  // Keep up to 4 buffers
+    buffer_pool_.push_back(buffer);
+  } else {
+    delete buffer;
+  }
 }
 
 void AsyncDecodeWorker::WorkerThread() {
@@ -157,7 +185,7 @@ void AsyncDecodeWorker::EmitFrame(AVFrame* frame) {
 
   // Convert YUV to RGBA
   size_t rgba_size = output_width_ * output_height_ * 4;
-  auto* rgba_data = new std::vector<uint8_t>(rgba_size);
+  auto* rgba_data = AcquireBuffer(rgba_size);
 
   uint8_t* dst_data[1] = {rgba_data->data()};
   int dst_linesize[1] = {output_width_ * 4};
@@ -169,12 +197,15 @@ void AsyncDecodeWorker::EmitFrame(AVFrame* frame) {
   int width = output_width_;
   int height = output_height_;
 
+  // Capture this pointer for buffer pool release
+  AsyncDecodeWorker* worker = this;
   output_tsfn_.NonBlockingCall(
-      rgba_data, [width, height, timestamp](Napi::Env env, Napi::Function fn,
-                                            std::vector<uint8_t>* data) {
+      rgba_data,
+      [worker, width, height, timestamp](Napi::Env env, Napi::Function fn,
+                                         std::vector<uint8_t>* data) {
         Napi::Object frame_obj = VideoFrame::CreateInstance(
             env, data->data(), data->size(), width, height, timestamp, "RGBA");
         fn.Call({frame_obj});
-        delete data;
+        worker->ReleaseBuffer(data);
       });
 }
