@@ -1,65 +1,77 @@
 name: CI
-
 on:
-  push:
-    branches: [master, main]
-  pull_request:
-    branches: [master, main]
-
+  - push
+  - pull_request
 permissions: {}
-
 jobs:
   lint:
     permissions:
       contents: read
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v5
         with:
-          node-version: "22"
-          cache: 'npm'
-      - run: npm ci --ignore-scripts
+          node-version: "24"
+      - run: npm install --ignore-scripts
+      - run: npm run lint-cpp
       - run: npm run lint-js
-      - name: Lint C++
-        run: npm run lint-cpp
-        continue-on-error: true  # cpplint may not be installed
+      - run: npm run lint-types
 
   build-and-test:
     permissions:
       contents: read
     needs: lint
+    name: "build-${{ matrix.platform }} [Node.js ${{ matrix.nodejs_version_major }}]"
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            node-version: 18
-          - os: ubuntu-latest
-            node-version: 20
-          - os: ubuntu-latest
-            node-version: 22
+          - os: ubuntu-24.04
+            nodejs_version: "^18.17.0"
+            nodejs_version_major: 18
+            platform: linux-x64
+          - os: ubuntu-24.04
+            nodejs_version: "^20.3.0"
+            nodejs_version_major: 20
+            platform: linux-x64
+          - os: ubuntu-24.04
+            nodejs_version: "^22.9.0"
+            nodejs_version_major: 22
+            platform: linux-x64
           - os: macos-13
-            node-version: 18
+            nodejs_version: "^18.17.0"
+            nodejs_version_major: 18
+            platform: darwin-x64
           - os: macos-13
-            node-version: 20
+            nodejs_version: "^20.3.0"
+            nodejs_version_major: 20
+            platform: darwin-x64
           - os: macos-13
-            node-version: 22
+            nodejs_version: "^22.9.0"
+            nodejs_version_major: 22
+            platform: darwin-x64
           - os: macos-latest
-            node-version: 18
+            nodejs_version: "^18.17.0"
+            nodejs_version_major: 18
+            platform: darwin-arm64
           - os: macos-latest
-            node-version: 20
+            nodejs_version: "^20.3.0"
+            nodejs_version_major: 20
+            platform: darwin-arm64
           - os: macos-latest
-            node-version: 22
+            nodejs_version: "^22.9.0"
+            nodejs_version_major: 22
+            platform: darwin-arm64
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: ${{ matrix.nodejs_version }}
           cache: 'npm'
 
       - name: Install FFmpeg (Ubuntu)
@@ -80,33 +92,10 @@ jobs:
         run: brew install ffmpeg pkg-config
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
-      - name: Build with warnings
+      - name: Build
         run: npm run build
-        env:
-          CMAKE_BUILD_PARALLEL_LEVEL: 4
 
-      - name: Lint TypeScript
-        run: npm run lint
-
-      - name: Run tests
+      - name: Test
         run: npm test
-
-  # NOTE: sanitizers and static-analysis jobs have been removed.
-  # They required cmake-js and CMakeLists.txt which this project doesn't use.
-  # This project uses node-gyp (binding.gyp) for native builds.
-
-  cpplint:
-    permissions:
-      contents: read
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install cpplint
-        run: pip install cpplint
-
-      - name: Run cpplint
-        run: cpplint --recursive src/

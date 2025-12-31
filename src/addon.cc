@@ -3,6 +3,8 @@
 
 #include <napi.h>
 
+#include <string>
+
 #include "src/common.h"
 #include "src/descriptors.h"
 #include "src/error_builder.h"

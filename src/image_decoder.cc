@@ -256,8 +256,8 @@ bool ImageDecoder::IsAnimatedFormat(const std::string& mime_type) {
 }
 
 bool ImageDecoder::ConvertFrameToRGBA(AVFrame* src_frame,
-                                      std::vector<uint8_t>& output) {
-  if (!src_frame) {
+                                      std::vector<uint8_t>* output) {
+  if (!src_frame || !output) {
     return false;
   }
 
@@ -275,10 +275,10 @@ bool ImageDecoder::ConvertFrameToRGBA(AVFrame* src_frame,
   // Allocate output buffer
   int output_size = av_image_get_buffer_size(AV_PIX_FMT_RGBA, src_frame->width,
                                              src_frame->height, 1);
-  output.resize(output_size);
+  output->resize(output_size);
 
   // Set up output planes
-  uint8_t* dest_data[4] = {output.data(), nullptr, nullptr, nullptr};
+  uint8_t* dest_data[4] = {output->data(), nullptr, nullptr, nullptr};
   int dest_linesize[4] = {src_frame->width * 4, 0, 0, 0};
 
   // Convert
@@ -498,7 +498,7 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
       if (ret >= 0) {
         while (avcodec_receive_frame(stream_codec_ctx, frm) >= 0) {
           DecodedFrame decoded_frame;
-          if (ConvertFrameToRGBA(frm, decoded_frame.data)) {
+          if (ConvertFrameToRGBA(frm, &decoded_frame.data)) {
             decoded_frame.width = frm->width;
             decoded_frame.height = frm->height;
 
@@ -539,7 +539,7 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
   avcodec_send_packet(stream_codec_ctx, nullptr);
   while (avcodec_receive_frame(stream_codec_ctx, frm) >= 0) {
     DecodedFrame decoded_frame;
-    if (ConvertFrameToRGBA(frm, decoded_frame.data)) {
+    if (ConvertFrameToRGBA(frm, &decoded_frame.data)) {
       decoded_frame.width = frm->width;
       decoded_frame.height = frm->height;
       AVRational time_base = video_stream->time_base;

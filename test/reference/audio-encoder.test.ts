@@ -158,6 +158,7 @@ test('FLAC description', async () => {
       expect(meta?.decoderConfig).not.toBeUndefined();
       expect(meta?.decoderConfig?.description).not.toBeUndefined();
 
+      // biome-ignore lint/style/noNonNullAssertion: expect assertions above guarantee these values exist
       const dataView = toDataView(meta!.decoderConfig!.description!);
       expect(dataView.getUint32(0, false)).toBe(0x664c6143); // 'fLaC'
 

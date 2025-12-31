@@ -21,8 +21,10 @@ async function main() {
   const encodedChunks = [];
   const decodedFrames = [];
   const originalHashes = [];
-  let encodeStartTime;
-  let encodeEndTime;
+  /** @type {number} */
+  let encodeStartTime = 0;
+  /** @type {number} */
+  let encodeEndTime = 0;
 
   // Step 1: Create encoder
   console.log('[1/5] Creating VideoEncoder...');

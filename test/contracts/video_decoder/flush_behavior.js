@@ -12,7 +12,6 @@ const {
   VideoEncoder,
   VideoDecoder,
   VideoFrame,
-  EncodedVideoChunk,
 } = require('../../../dist');
 const assert = require('node:assert');
 

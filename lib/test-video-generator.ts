@@ -25,7 +25,7 @@ export class TestVideoGenerator {
 
   async generate(callback: (frame: VideoFrame) => void): Promise<void> {
     return this._native.generate((nativeFrame: NativeVideoFrame) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // biome-ignore lint/suspicious/noExplicitAny: Object.create wrapper pattern requires any for property assignment
       const wrapper = Object.create(VideoFrame.prototype) as any;
       wrapper._native = nativeFrame;
       wrapper._closed = false;

@@ -18,8 +18,17 @@ test('AudioDecoder lifecycle', { timeout: 10_000 }, async () => {
     formats: ALL_FORMATS,
   });
 
-  const audioTrack = (await input.getPrimaryAudioTrack())!;
-  const decoderConfig = (await audioTrack.getDecoderConfig())!;
+  const audioTrack = await input.getPrimaryAudioTrack();
+  expect(audioTrack).toBeDefined();
+  if (!audioTrack) {
+    throw new Error('Audio track should be defined');
+  }
+
+  const decoderConfig = await audioTrack.getDecoderConfig();
+  expect(decoderConfig).toBeDefined();
+  if (!decoderConfig) {
+    throw new Error('Decoder config should be defined');
+  }
 
   let lastTimestamp = -Infinity;
 

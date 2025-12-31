@@ -3,6 +3,8 @@
 
 #include "src/error_builder.h"
 
+#include <string>
+
 #include "src/common.h"
 
 namespace webcodecs {

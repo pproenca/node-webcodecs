@@ -386,8 +386,9 @@ describe('VideoDecoder', () => {
       try {
         decoder.decode(chunk);
         expect.fail('Should have thrown');
-      } catch (e: any) {
-        expect(e.name).toBe('InvalidStateError');
+      } catch (e) {
+        expect(e).toBeInstanceOf(DOMException);
+        expect((e as DOMException).name).toBe('InvalidStateError');
       }
       decoder.close();
     });
@@ -408,8 +409,9 @@ describe('VideoDecoder', () => {
       try {
         decoder.decode(chunk);
         expect.fail('Should have thrown');
-      } catch (e: any) {
-        expect(e.name).toBe('InvalidStateError');
+      } catch (e) {
+        expect(e).toBeInstanceOf(DOMException);
+        expect((e as DOMException).name).toBe('InvalidStateError');
       }
     });
 
@@ -423,8 +425,9 @@ describe('VideoDecoder', () => {
       try {
         decoder.configure({ codec: 'avc1.42E01E' });
         expect.fail('Should have thrown');
-      } catch (e: any) {
-        expect(e.name).toBe('InvalidStateError');
+      } catch (e) {
+        expect(e).toBeInstanceOf(DOMException);
+        expect((e as DOMException).name).toBe('InvalidStateError');
       }
     });
 
@@ -438,8 +441,9 @@ describe('VideoDecoder', () => {
       try {
         decoder.reset();
         expect.fail('Should have thrown');
-      } catch (e: any) {
-        expect(e.name).toBe('InvalidStateError');
+      } catch (e) {
+        expect(e).toBeInstanceOf(DOMException);
+        expect((e as DOMException).name).toBe('InvalidStateError');
       }
     });
 
@@ -452,8 +456,9 @@ describe('VideoDecoder', () => {
       try {
         await decoder.flush();
         expect.fail('Should have rejected');
-      } catch (e: any) {
-        expect(e.name).toBe('InvalidStateError');
+      } catch (e) {
+        expect(e).toBeInstanceOf(DOMException);
+        expect((e as DOMException).name).toBe('InvalidStateError');
       }
       decoder.close();
     });
@@ -468,8 +473,9 @@ describe('VideoDecoder', () => {
       try {
         await decoder.flush();
         expect.fail('Should have rejected');
-      } catch (e: any) {
-        expect(e.name).toBe('InvalidStateError');
+      } catch (e) {
+        expect(e).toBeInstanceOf(DOMException);
+        expect((e as DOMException).name).toBe('InvalidStateError');
       }
     });
   });
@@ -892,8 +898,9 @@ describe('VideoDecoder', () => {
         try {
           decoder.decode(chunk);
           expect.fail('Should have thrown');
-        } catch (e: any) {
-          expect(e.name).toBe('InvalidStateError');
+        } catch (e) {
+          expect(e).toBeInstanceOf(DOMException);
+          expect((e as DOMException).name).toBe('InvalidStateError');
         }
 
         decoder.close();
@@ -915,8 +922,9 @@ describe('VideoDecoder', () => {
         try {
           decoder.decode(chunk);
           expect.fail('Should have thrown');
-        } catch (e: any) {
-          expect(e.name).toBe('InvalidStateError');
+        } catch (e) {
+          expect(e).toBeInstanceOf(DOMException);
+          expect((e as DOMException).name).toBe('InvalidStateError');
         }
       });
 
@@ -930,8 +938,9 @@ describe('VideoDecoder', () => {
         try {
           decoder.configure({ codec: 'avc1.42001e' });
           expect.fail('Should have thrown');
-        } catch (e: any) {
-          expect(e.name).toBe('InvalidStateError');
+        } catch (e) {
+          expect(e).toBeInstanceOf(DOMException);
+          expect((e as DOMException).name).toBe('InvalidStateError');
         }
       });
 
@@ -945,8 +954,9 @@ describe('VideoDecoder', () => {
         try {
           decoder.reset();
           expect.fail('Should have thrown');
-        } catch (e: any) {
-          expect(e.name).toBe('InvalidStateError');
+        } catch (e) {
+          expect(e).toBeInstanceOf(DOMException);
+          expect((e as DOMException).name).toBe('InvalidStateError');
         }
       });
 
@@ -959,8 +969,9 @@ describe('VideoDecoder', () => {
         try {
           await decoder.flush();
           expect.fail('Should have rejected');
-        } catch (e: any) {
-          expect(e.name).toBe('InvalidStateError');
+        } catch (e) {
+          expect(e).toBeInstanceOf(DOMException);
+          expect((e as DOMException).name).toBe('InvalidStateError');
         }
 
         decoder.close();
@@ -976,8 +987,9 @@ describe('VideoDecoder', () => {
         try {
           await decoder.flush();
           expect.fail('Should have rejected');
-        } catch (e: any) {
-          expect(e.name).toBe('InvalidStateError');
+        } catch (e) {
+          expect(e).toBeInstanceOf(DOMException);
+          expect((e as DOMException).name).toBe('InvalidStateError');
         }
       });
 

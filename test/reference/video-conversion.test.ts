@@ -24,7 +24,7 @@ const filePath = './test/fixtures/small_buck_bunny.mp4';
 // These conversion tests are powerful as they test large parts of the whole pipeline:
 // EncodedVideoChunk -> VideoDecoder -> VideoFrame -> VideoEncoder -> EncodedVideoChunk -> VideoDecoder -> VideoFrame
 
-test('Conversion: encode and decode AVC', { timeout: 10_000 }, async () => {
+async function runConversionTest(codec: string) {
   using input = new Input({
     source: new FilePathSource(filePath),
     formats: ALL_FORMATS,
@@ -40,7 +40,7 @@ test('Conversion: encode and decode AVC', { timeout: 10_000 }, async () => {
     output,
     video: {
       forceTranscode: true,
-      codec: 'avc',
+      codec,
     },
     audio: {
       discard: true,
@@ -52,194 +52,47 @@ test('Conversion: encode and decode AVC', { timeout: 10_000 }, async () => {
   });
   await conversion.execute();
 
-  // biome-ignore lint/style/noNonNullAssertion: Buffer is guaranteed after conversion.execute()
+  const buffer = output.target.buffer;
+  expect(buffer).toBeDefined();
+  if (!buffer) {
+    throw new Error('Buffer should be defined after conversion');
+  }
+
   using newInput = new Input({
-    source: new BufferSource(output.target.buffer!),
+    source: new BufferSource(buffer),
     formats: ALL_FORMATS,
   });
 
-  // biome-ignore lint/style/noNonNullAssertion: Video track is guaranteed for valid video input
-  const videoTrack = (await newInput.getPrimaryVideoTrack())!;
+  const videoTrack = await newInput.getPrimaryVideoTrack();
+  expect(videoTrack).toBeDefined();
+  if (!videoTrack) {
+    throw new Error('Video track should be defined for valid video input');
+  }
+
   const sink = new VideoSampleSink(videoTrack);
 
   for await (using sample of sink.samples(0, 1)) {
     expect(sample.displayWidth).toBe(1920);
     expect(sample.displayHeight).toBe(1080);
   }
+}
+
+test('Conversion: encode and decode AVC', { timeout: 10_000 }, async () => {
+  await runConversionTest('avc');
 });
 
 test('Conversion: encode and decode HEVC', { timeout: 10_000 }, async () => {
-  using input = new Input({
-    source: new FilePathSource(filePath),
-    formats: ALL_FORMATS,
-  });
-
-  const output = new Output({
-    format: new Mp4OutputFormat(),
-    target: new BufferTarget(),
-  });
-
-  const conversion = await Conversion.init({
-    input,
-    output,
-    video: {
-      forceTranscode: true,
-      codec: 'hevc',
-    },
-    audio: {
-      discard: true,
-    },
-    trim: {
-      start: 0,
-      end: 5,
-    },
-  });
-  await conversion.execute();
-
-  // biome-ignore lint/style/noNonNullAssertion: Buffer is guaranteed after conversion.execute()
-  using newInput = new Input({
-    source: new BufferSource(output.target.buffer!),
-    formats: ALL_FORMATS,
-  });
-
-  // biome-ignore lint/style/noNonNullAssertion: Video track is guaranteed for valid video input
-  const videoTrack = (await newInput.getPrimaryVideoTrack())!;
-  const sink = new VideoSampleSink(videoTrack);
-
-  for await (using sample of sink.samples(0, 1)) {
-    expect(sample.displayWidth).toBe(1920);
-    expect(sample.displayHeight).toBe(1080);
-  }
+  await runConversionTest('hevc');
 });
 
 test('Conversion: encode and decode VP8', { timeout: 10_000 }, async () => {
-  using input = new Input({
-    source: new FilePathSource(filePath),
-    formats: ALL_FORMATS,
-  });
-
-  const output = new Output({
-    format: new Mp4OutputFormat(),
-    target: new BufferTarget(),
-  });
-
-  const conversion = await Conversion.init({
-    input,
-    output,
-    video: {
-      forceTranscode: true,
-      codec: 'vp8',
-    },
-    audio: {
-      discard: true,
-    },
-    trim: {
-      start: 0,
-      end: 5,
-    },
-  });
-  await conversion.execute();
-
-  // biome-ignore lint/style/noNonNullAssertion: Buffer is guaranteed after conversion.execute()
-  using newInput = new Input({
-    source: new BufferSource(output.target.buffer!),
-    formats: ALL_FORMATS,
-  });
-
-  // biome-ignore lint/style/noNonNullAssertion: Video track is guaranteed for valid video input
-  const videoTrack = (await newInput.getPrimaryVideoTrack())!;
-  const sink = new VideoSampleSink(videoTrack);
-
-  for await (using sample of sink.samples(0, 1)) {
-    expect(sample.displayWidth).toBe(1920);
-    expect(sample.displayHeight).toBe(1080);
-  }
+  await runConversionTest('vp8');
 });
 
 test('Conversion: encode and decode VP9', { timeout: 10_000 }, async () => {
-  using input = new Input({
-    source: new FilePathSource(filePath),
-    formats: ALL_FORMATS,
-  });
-
-  const output = new Output({
-    format: new Mp4OutputFormat(),
-    target: new BufferTarget(),
-  });
-
-  const conversion = await Conversion.init({
-    input,
-    output,
-    video: {
-      forceTranscode: true,
-      codec: 'vp9',
-    },
-    audio: {
-      discard: true,
-    },
-    trim: {
-      start: 0,
-      end: 5,
-    },
-  });
-  await conversion.execute();
-
-  // biome-ignore lint/style/noNonNullAssertion: Buffer is guaranteed after conversion.execute()
-  using newInput = new Input({
-    source: new BufferSource(output.target.buffer!),
-    formats: ALL_FORMATS,
-  });
-
-  // biome-ignore lint/style/noNonNullAssertion: Video track is guaranteed for valid video input
-  const videoTrack = (await newInput.getPrimaryVideoTrack())!;
-  const sink = new VideoSampleSink(videoTrack);
-
-  for await (using sample of sink.samples(0, 1)) {
-    expect(sample.displayWidth).toBe(1920);
-    expect(sample.displayHeight).toBe(1080);
-  }
+  await runConversionTest('vp9');
 });
 
 test('Conversion: encode and decode AV1', { timeout: 10_000 }, async () => {
-  using input = new Input({
-    source: new FilePathSource(filePath),
-    formats: ALL_FORMATS,
-  });
-
-  const output = new Output({
-    format: new Mp4OutputFormat(),
-    target: new BufferTarget(),
-  });
-
-  const conversion = await Conversion.init({
-    input,
-    output,
-    video: {
-      forceTranscode: true,
-      codec: 'av1',
-    },
-    audio: {
-      discard: true,
-    },
-    trim: {
-      start: 0,
-      end: 5,
-    },
-  });
-  await conversion.execute();
-
-  // biome-ignore lint/style/noNonNullAssertion: Buffer is guaranteed after conversion.execute()
-  using newInput = new Input({
-    source: new BufferSource(output.target.buffer!),
-    formats: ALL_FORMATS,
-  });
-
-  // biome-ignore lint/style/noNonNullAssertion: Video track is guaranteed for valid video input
-  const videoTrack = (await newInput.getPrimaryVideoTrack())!;
-  const sink = new VideoSampleSink(videoTrack);
-
-  for await (using sample of sink.samples(0, 1)) {
-    expect(sample.displayWidth).toBe(1920);
-    expect(sample.displayHeight).toBe(1080);
-  }
+  await runConversionTest('av1');
 });

@@ -1,33 +1,64 @@
-name: npm smoke test
-
+name: "CI: npm smoke test"
 on:
   push:
-    tags: ['v*']
-  workflow_dispatch:
-
+    tags:
+      - "v**"
+permissions: {}
 jobs:
-  smoke-test:
-    name: "${{ matrix.os }} - ${{ matrix.pm }}"
+  release-smoke-test:
+    name: "${{ github.ref_name }} ${{ matrix.name }}"
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            pm: npm
-          - os: ubuntu-latest
-            pm: pnpm
-          - os: macos-latest
-            pm: npm
+          - name: linux-x64-node-npm
+            os: ubuntu-24.04
+            runtime: node
+            package-manager: npm
+          - name: linux-x64-node-pnpm
+            os: ubuntu-24.04
+            runtime: node
+            package-manager: pnpm
+          - name: linux-x64-node-yarn
+            os: ubuntu-24.04
+            runtime: node
+            package-manager: yarn
+
+          - name: darwin-x64-node-npm
+            os: macos-13
+            runtime: node
+            package-manager: npm
+          - name: darwin-x64-node-pnpm
+            os: macos-13
+            runtime: node
+            package-manager: pnpm
+          - name: darwin-x64-node-yarn
+            os: macos-13
+            runtime: node
+            package-manager: yarn
+
+          - name: darwin-arm64-node-npm
+            os: macos-latest
+            runtime: node
+            package-manager: npm
+          - name: darwin-arm64-node-pnpm
+            os: macos-latest
+            runtime: node
+            package-manager: pnpm
+          - name: darwin-arm64-node-yarn
+            os: macos-latest
+            runtime: node
+            package-manager: yarn
 
     steps:
-      - name: Setup Node.js
+      - name: Install Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
 
-      - name: Setup pnpm
-        if: matrix.pm == 'pnpm'
+      - name: Install pnpm
+        if: matrix.package-manager == 'pnpm'
         uses: pnpm/action-setup@v4
         with:
           version: 9
@@ -38,36 +69,66 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             libavcodec-dev \
+            libavformat-dev \
             libavutil-dev \
             libswscale-dev \
             libswresample-dev \
-            libavfilter-dev
+            libavfilter-dev \
+            pkg-config
 
       - name: Install FFmpeg (macOS)
         if: runner.os == 'macOS'
-        run: brew install ffmpeg
+        run: brew install ffmpeg pkg-config
 
-      - name: Create test project
+      - name: Version
+        id: version
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.setOutput('semver', context.ref.replace('refs/tags/v',''))
+
+      - name: Create package.json
+        uses: DamianReeves/write-file-action@v1.3
+        with:
+          path: package.json
+          contents: |
+            {
+              "dependencies": {
+                "@pproenca/node-webcodecs": "${{ steps.version.outputs.semver }}"
+              },
+              "type": "module"
+            }
+
+      - name: Create release.mjs
+        uses: DamianReeves/write-file-action@v1.3
+        with:
+          path: release.mjs
+          contents: |
+            import { VideoEncoder, VideoFrame } from '@pproenca/node-webcodecs';
+            console.log('VideoEncoder:', typeof VideoEncoder);
+            console.log('VideoFrame:', typeof VideoFrame);
+            if (typeof VideoEncoder !== 'function') process.exit(1);
+            if (typeof VideoFrame !== 'function') process.exit(1);
+            console.log('Smoke test passed!');
+
+      - name: Run with npm
+        if: matrix.package-manager == 'npm'
         run: |
-          mkdir test-project
-          cd test-project
-          echo '{"name":"test","type":"module"}' > package.json
+          npm install
+          node release.mjs
 
-      - name: Install package (npm)
-        if: matrix.pm == 'npm'
-        run: cd test-project && npm install node-webcodecs
-
-      - name: Install package (pnpm)
-        if: matrix.pm == 'pnpm'
-        run: cd test-project && pnpm install node-webcodecs
-
-      - name: Smoke test
+      - name: Run with pnpm
+        if: matrix.package-manager == 'pnpm'
         run: |
-          cd test-project
-          node -e "
-            import('node-webcodecs').then(({ VideoEncoder, VideoFrame }) => {
-              console.log('VideoEncoder:', typeof VideoEncoder);
-              console.log('VideoFrame:', typeof VideoFrame);
-              if (typeof VideoEncoder !== 'function') process.exit(1);
-            });
-          "
+          pnpm install
+          node release.mjs
+
+      - name: Run with yarn
+        if: matrix.package-manager == 'yarn'
+        run: |
+          corepack enable
+          yarn set version stable
+          yarn config set enableImmutableInstalls false
+          yarn config set nodeLinker node-modules
+          yarn install
+          node release.mjs

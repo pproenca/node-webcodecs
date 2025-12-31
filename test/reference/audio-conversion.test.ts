@@ -24,7 +24,7 @@ const filePath = './test/fixtures/small_buck_bunny.mp4';
 // These conversion tests are powerful as they test large parts of the whole pipeline:
 // EncodedAudioChunk -> AudioDecoder -> AudioData -> AudioEncoder -> EncodedAudioChunk -> AudioDecoder -> AudioData
 
-test('Conversion: encode and decode AAC', { timeout: 10_000 }, async () => {
+async function runAudioConversionTest(codec: string) {
   using input = new Input({
     source: new FilePathSource(filePath),
     formats: ALL_FORMATS,
@@ -43,7 +43,7 @@ test('Conversion: encode and decode AAC', { timeout: 10_000 }, async () => {
     },
     audio: {
       forceTranscode: true,
-      codec: 'aac',
+      codec,
     },
     trim: {
       start: 0,
@@ -52,179 +52,46 @@ test('Conversion: encode and decode AAC', { timeout: 10_000 }, async () => {
   });
   await conversion.execute();
 
+  const buffer = output.target.buffer;
+  expect(buffer).toBeDefined();
+  if (!buffer) {
+    throw new Error('Buffer should be defined after conversion');
+  }
+
   using newInput = new Input({
-    source: new BufferSource(output.target.buffer!),
+    source: new BufferSource(buffer),
     formats: ALL_FORMATS,
   });
 
-  const audioTrack = (await newInput.getPrimaryAudioTrack())!;
+  const audioTrack = await newInput.getPrimaryAudioTrack();
+  expect(audioTrack).toBeDefined();
+  if (!audioTrack) {
+    throw new Error('Audio track should be defined for valid audio input');
+  }
+
   const sink = new AudioSampleSink(audioTrack);
 
   for await (using sample of sink.samples(0, 1)) {
     expect(sample.sampleRate).toBe(48000);
   }
+}
+
+test('Conversion: encode and decode AAC', { timeout: 10_000 }, async () => {
+  await runAudioConversionTest('aac');
 });
 
 test('Conversion: encode and decode Opus', { timeout: 60_000 }, async () => {
-  using input = new Input({
-    source: new FilePathSource(filePath),
-    formats: ALL_FORMATS,
-  });
-
-  const output = new Output({
-    format: new Mp4OutputFormat(),
-    target: new BufferTarget(),
-  });
-
-  const conversion = await Conversion.init({
-    input,
-    output,
-    video: {
-      discard: true,
-    },
-    audio: {
-      forceTranscode: true,
-      codec: 'opus',
-    },
-    trim: {
-      start: 0,
-      end: 5,
-    },
-  });
-  await conversion.execute();
-
-  using newInput = new Input({
-    source: new BufferSource(output.target.buffer!),
-    formats: ALL_FORMATS,
-  });
-
-  const audioTrack = (await newInput.getPrimaryAudioTrack())!;
-  const sink = new AudioSampleSink(audioTrack);
-
-  for await (using sample of sink.samples(0, 1)) {
-    expect(sample.sampleRate).toBe(48000);
-  }
+  await runAudioConversionTest('opus');
 });
 
 test('Conversion: encode and decode Vorbis', { timeout: 60_000 }, async () => {
-  using input = new Input({
-    source: new FilePathSource(filePath),
-    formats: ALL_FORMATS,
-  });
-
-  const output = new Output({
-    format: new Mp4OutputFormat(),
-    target: new BufferTarget(),
-  });
-
-  const conversion = await Conversion.init({
-    input,
-    output,
-    video: {
-      discard: true,
-    },
-    audio: {
-      forceTranscode: true,
-      codec: 'vorbis',
-    },
-    trim: {
-      start: 0,
-      end: 5,
-    },
-  });
-  await conversion.execute();
-
-  using newInput = new Input({
-    source: new BufferSource(output.target.buffer!),
-    formats: ALL_FORMATS,
-  });
-
-  const audioTrack = (await newInput.getPrimaryAudioTrack())!;
-  const sink = new AudioSampleSink(audioTrack);
-
-  for await (using sample of sink.samples(0, 1)) {
-    expect(sample.sampleRate).toBe(48000);
-  }
+  await runAudioConversionTest('vorbis');
 });
 
 test('Conversion: encode and decode FLAC', { timeout: 60_000 }, async () => {
-  using input = new Input({
-    source: new FilePathSource(filePath),
-    formats: ALL_FORMATS,
-  });
-
-  const output = new Output({
-    format: new Mp4OutputFormat(),
-    target: new BufferTarget(),
-  });
-
-  const conversion = await Conversion.init({
-    input,
-    output,
-    video: {
-      discard: true,
-    },
-    audio: {
-      forceTranscode: true,
-      codec: 'flac',
-    },
-    trim: {
-      start: 0,
-      end: 5,
-    },
-  });
-  await conversion.execute();
-
-  using newInput = new Input({
-    source: new BufferSource(output.target.buffer!),
-    formats: ALL_FORMATS,
-  });
-
-  const audioTrack = (await newInput.getPrimaryAudioTrack())!;
-  const sink = new AudioSampleSink(audioTrack);
-
-  for await (using sample of sink.samples(0, 1)) {
-    expect(sample.sampleRate).toBe(48000);
-  }
+  await runAudioConversionTest('flac');
 });
 
 test('Conversion: encode and decode MP3', { timeout: 60_000 }, async () => {
-  using input = new Input({
-    source: new FilePathSource(filePath),
-    formats: ALL_FORMATS,
-  });
-
-  const output = new Output({
-    format: new Mp4OutputFormat(),
-    target: new BufferTarget(),
-  });
-
-  const conversion = await Conversion.init({
-    input,
-    output,
-    video: {
-      discard: true,
-    },
-    audio: {
-      forceTranscode: true,
-      codec: 'mp3',
-    },
-    trim: {
-      start: 0,
-      end: 5,
-    },
-  });
-  await conversion.execute();
-
-  using newInput = new Input({
-    source: new BufferSource(output.target.buffer!),
-    formats: ALL_FORMATS,
-  });
-
-  const audioTrack = (await newInput.getPrimaryAudioTrack())!;
-  const sink = new AudioSampleSink(audioTrack);
-
-  for await (using sample of sink.samples(0, 1)) {
-    expect(sample.sampleRate).toBe(48000);
-  }
+  await runAudioConversionTest('mp3');
 });

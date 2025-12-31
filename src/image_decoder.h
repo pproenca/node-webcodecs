@@ -56,7 +56,7 @@ class ImageDecoder : public Napi::ObjectWrap<ImageDecoder> {
   bool DecodeImage();
   bool DecodeFrame(int frame_index);
   bool ParseAnimatedImageMetadata();
-  bool ConvertFrameToRGBA(AVFrame* frame, std::vector<uint8_t>& output);
+  bool ConvertFrameToRGBA(AVFrame* frame, std::vector<uint8_t>* output);
   static AVCodecID MimeTypeToCodecId(const std::string& mime_type);
   static bool IsAnimatedFormat(const std::string& mime_type);
 

@@ -34,7 +34,6 @@ describe('Muxer', () => {
 
     it('should throw if filename is missing', async () => {
       const { Muxer } = await import('../../dist/index.js');
-      // biome-ignore lint/suspicious/noExplicitAny: Testing invalid input
       expect(() => new Muxer({} as any)).toThrow();
     });
   });

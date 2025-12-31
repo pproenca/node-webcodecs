@@ -9,7 +9,6 @@ const {
   AudioEncoder,
   AudioDecoder,
   AudioData,
-  EncodedAudioChunk,
 } = require('../../../dist');
 const assert = require('node:assert');
 

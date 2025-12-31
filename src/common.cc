@@ -3,8 +3,13 @@
 
 #include "src/common.h"
 
+#include <cstdio>
 #include <cstring>
 #include <queue>
+#include <string>
+#include <tuple>
+#include <unordered_map>
+#include <vector>
 
 namespace webcodecs {
 

@@ -16,7 +16,11 @@ export const toDataView = (source: AllowSharedBufferSource): DataView => {
   }
 };
 
-export const promiseWithResolvers = <T = void>() => {
+export const promiseWithResolvers = <T = void>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+  reject: (reason: unknown) => void;
+} => {
   let resolve: (value: T) => void;
   let reject: (reason: unknown) => void;
   const promise = new Promise<T>((res, rej) => {
@@ -24,7 +28,12 @@ export const promiseWithResolvers = <T = void>() => {
     reject = rej;
   });
 
-  return { promise, resolve: resolve!, reject: reject! };
+  // Promise executor runs synchronously, so resolve/reject are assigned
+  return {
+    promise,
+    resolve: (value: T) => resolve(value),
+    reject: (reason: unknown) => reject(reason),
+  };
 };
 
 export interface AsyncMutexLock extends Disposable {
@@ -68,8 +77,8 @@ export class AsyncMutex {
   }
 
   private dispatch() {
-    if (this.resolverQueue.length > 0) {
-      const resolve = this.resolverQueue.shift()!;
+    const resolve = this.resolverQueue.shift();
+    if (resolve) {
       resolve();
     } else {
       this.locked = false;

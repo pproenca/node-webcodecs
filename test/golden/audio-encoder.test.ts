@@ -68,35 +68,39 @@ describe('AudioEncoder W3C Compliance', () => {
   describe('constructor()', () => {
     it('should throw TypeError when output callback is missing', () => {
       expect(() => {
+        // @ts-expect-error Testing invalid input without output
         new AudioEncoder({
           error: () => {},
-        } as any);
+        });
       }).toThrow(TypeError);
     });
 
     it('should throw TypeError when error callback is missing', () => {
       expect(() => {
+        // @ts-expect-error Testing invalid input without error
         new AudioEncoder({
           output: () => {},
-        } as any);
+        });
       }).toThrow(TypeError);
     });
 
     it('should throw TypeError when output is not a function', () => {
       expect(() => {
+        // @ts-expect-error Testing invalid input with wrong type
         new AudioEncoder({
           output: 'not a function',
           error: () => {},
-        } as any);
+        });
       }).toThrow(TypeError);
     });
 
     it('should throw TypeError when error is not a function', () => {
       expect(() => {
+        // @ts-expect-error Testing invalid input with wrong type
         new AudioEncoder({
           output: () => {},
           error: 'not a function',
-        } as any);
+        });
       }).toThrow(TypeError);
     });
 
@@ -164,8 +168,9 @@ describe('AudioEncoder W3C Compliance', () => {
           numberOfChannels: 2,
         });
         expect.fail('Should have thrown');
-      } catch (e: any) {
-        expect(e.name).toBe('InvalidStateError');
+      } catch (e) {
+        expect(e).toBeInstanceOf(DOMException);
+        expect((e as DOMException).name).toBe('InvalidStateError');
       }
     });
 
@@ -198,8 +203,9 @@ describe('AudioEncoder W3C Compliance', () => {
       try {
         encoder.encode(audioData);
         expect.fail('Should have thrown');
-      } catch (e: any) {
-        expect(e.name).toBe('InvalidStateError');
+      } catch (e) {
+        expect(e).toBeInstanceOf(DOMException);
+        expect((e as DOMException).name).toBe('InvalidStateError');
       }
 
       audioData.close();
@@ -226,8 +232,9 @@ describe('AudioEncoder W3C Compliance', () => {
       try {
         encoder.encode(audioData);
         expect.fail('Should have thrown');
-      } catch (e: any) {
-        expect(e.name).toBe('InvalidStateError');
+      } catch (e) {
+        expect(e).toBeInstanceOf(DOMException);
+        expect((e as DOMException).name).toBe('InvalidStateError');
       }
 
       audioData.close();
@@ -244,8 +251,9 @@ describe('AudioEncoder W3C Compliance', () => {
       try {
         await encoder.flush();
         expect.fail('Should have rejected');
-      } catch (e: any) {
-        expect(e.name).toBe('InvalidStateError');
+      } catch (e) {
+        expect(e).toBeInstanceOf(DOMException);
+        expect((e as DOMException).name).toBe('InvalidStateError');
       }
 
       encoder.close();
@@ -262,8 +270,9 @@ describe('AudioEncoder W3C Compliance', () => {
       try {
         await encoder.flush();
         expect.fail('Should have rejected');
-      } catch (e: any) {
-        expect(e.name).toBe('InvalidStateError');
+      } catch (e) {
+        expect(e).toBeInstanceOf(DOMException);
+        expect((e as DOMException).name).toBe('InvalidStateError');
       }
     });
   });
