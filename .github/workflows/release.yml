@@ -96,6 +96,6 @@ jobs:
         run: npm test
 
       - name: Publish to npm
-        run: npm publish --tag=${{ contains(github.ref, '-rc') && 'next' || 'latest' }}
+        run: npm publish --access public --tag=${{ contains(github.ref, '-rc') && 'next' || 'latest' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
