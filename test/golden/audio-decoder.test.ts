@@ -2,7 +2,8 @@
  * Tests for AudioDecoder
  */
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+import { expectDOMException } from '../fixtures/test-helpers';
 
 describe('AudioDecoder', () => {
   describe('configure() W3C compliance', () => {
@@ -62,23 +63,13 @@ describe('AudioDecoder', () => {
 
       decoder.close();
 
-      expect(() => {
+      expectDOMException('InvalidStateError', () => {
         decoder.configure({
           codec: 'opus',
           sampleRate: 48000,
           numberOfChannels: 2,
         });
-      }).toThrow(DOMException);
-
-      try {
-        decoder.configure({
-          codec: 'opus',
-          sampleRate: 48000,
-          numberOfChannels: 2,
-        });
-      } catch (e) {
-        expect((e as DOMException).name).toBe('InvalidStateError');
-      }
+      });
     });
   });
 
@@ -95,13 +86,7 @@ describe('AudioDecoder', () => {
         data: new Uint8Array([0, 0, 0, 0]),
       });
 
-      expect(() => decoder.decode(chunk)).toThrow(DOMException);
-
-      try {
-        decoder.decode(chunk);
-      } catch (e) {
-        expect((e as DOMException).name).toBe('InvalidStateError');
-      }
+      expectDOMException('InvalidStateError', () => decoder.decode(chunk));
 
       decoder.close();
     });
@@ -120,13 +105,7 @@ describe('AudioDecoder', () => {
         data: new Uint8Array([0, 0, 0, 0]),
       });
 
-      expect(() => decoder.decode(chunk)).toThrow(DOMException);
-
-      try {
-        decoder.decode(chunk);
-      } catch (e) {
-        expect((e as DOMException).name).toBe('InvalidStateError');
-      }
+      expectDOMException('InvalidStateError', () => decoder.decode(chunk));
     });
   });
 
@@ -198,9 +177,28 @@ describe('AudioDecoder', () => {
   });
 
   describe('decodeQueueSize tracking', () => {
+    let decoder: AudioDecoder | null = null;
+    const outputData: AudioData[] = [];
+
+    afterEach(() => {
+      try {
+        decoder?.close();
+      } catch {
+        // Already closed or never created
+      }
+      outputData.forEach((d) => {
+        try {
+          d.close();
+        } catch {
+          // Already closed
+        }
+      });
+      outputData.length = 0;
+      decoder = null;
+    });
+
     it('should track pending decode operations', async () => {
-      const outputData: AudioData[] = [];
-      const decoder = new AudioDecoder({
+      decoder = new AudioDecoder({
         output: (data) => {
           outputData.push(data);
         },
@@ -219,11 +217,6 @@ describe('AudioDecoder', () => {
 
       await decoder.flush();
       expect(decoder.decodeQueueSize).toBe(0);
-
-      for (const d of outputData) {
-        d.close();
-      }
-      decoder.close();
     });
   });
 

@@ -3,6 +3,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { expectDOMException, expectDOMExceptionAsync, TEST_CONSTANTS } from '../fixtures/test-helpers';
 
 describe('VideoDecoder', () => {
   describe('isConfigSupported', () => {
@@ -142,6 +143,26 @@ describe('VideoDecoder', () => {
   });
 
   describe('decodeQueueSize tracking', () => {
+    let decoder: VideoDecoder | null = null;
+    const outputFrames: VideoFrame[] = [];
+
+    afterEach(() => {
+      try {
+        decoder?.close();
+      } catch {
+        // Already closed or never created
+      }
+      outputFrames.forEach((f) => {
+        try {
+          f.close();
+        } catch {
+          // Already closed
+        }
+      });
+      outputFrames.length = 0;
+      decoder = null;
+    });
+
     it('should increment during decode and decrement after output', async () => {
       // First encode a frame to get valid H.264 data
       const encodedChunks: EncodedVideoChunk[] = [];
@@ -164,16 +185,17 @@ describe('VideoDecoder', () => {
         },
       });
 
+      const { width, height } = TEST_CONSTANTS.MEDIUM_FRAME;
       encoder.configure({
         codec: 'avc1.42001e',
-        width: 320,
-        height: 240,
+        width,
+        height,
         bitrate: 500_000,
         framerate: 30,
       });
 
       // Create and encode a test frame
-      const frameData = new Uint8Array(320 * 240 * 4);
+      const frameData = new Uint8Array(width * height * TEST_CONSTANTS.RGBA_BPP);
       for (let i = 0; i < frameData.length; i += 4) {
         frameData[i] = 128; // R
         frameData[i + 1] = 128; // G
@@ -182,8 +204,8 @@ describe('VideoDecoder', () => {
       }
       const frame = new VideoFrame(frameData, {
         format: 'RGBA',
-        codedWidth: 320,
-        codedHeight: 240,
+        codedWidth: width,
+        codedHeight: height,
         timestamp: 0,
       });
 
@@ -195,8 +217,7 @@ describe('VideoDecoder', () => {
       expect(encodedChunks.length).toBeGreaterThan(0);
 
       // Now decode the encoded data
-      const outputFrames: VideoFrame[] = [];
-      const decoder = new VideoDecoder({
+      decoder = new VideoDecoder({
         output: (outputFrame) => {
           outputFrames.push(outputFrame);
         },
@@ -207,8 +228,8 @@ describe('VideoDecoder', () => {
 
       decoder.configure({
         codec: 'avc1.42001e',
-        codedWidth: 320,
-        codedHeight: 240,
+        codedWidth: width,
+        codedHeight: height,
       });
 
       expect(decoder.decodeQueueSize).toBe(0);
@@ -219,15 +240,30 @@ describe('VideoDecoder', () => {
 
       // After flush, queue should be empty
       expect(decoder.decodeQueueSize).toBe(0);
-
-      for (const f of outputFrames) {
-        f.close();
-      }
-      decoder.close();
     });
   });
 
   describe('displayAspectWidth/displayAspectHeight', () => {
+    let decoder: VideoDecoder | null = null;
+    const outputFrames: VideoFrame[] = [];
+
+    afterEach(() => {
+      try {
+        decoder?.close();
+      } catch {
+        // Already closed or never created
+      }
+      outputFrames.forEach((f) => {
+        try {
+          f.close();
+        } catch {
+          // Already closed
+        }
+      });
+      outputFrames.length = 0;
+      decoder = null;
+    });
+
     it('should pass displayAspectWidth/displayAspectHeight to VideoFrame output', async () => {
       // Encode a frame first
       const encodedChunks: EncodedVideoChunk[] = [];
@@ -249,19 +285,20 @@ describe('VideoDecoder', () => {
         },
       });
 
+      const { width, height } = TEST_CONSTANTS.MEDIUM_FRAME;
       encoder.configure({
         codec: 'avc1.42001e',
-        width: 320,
-        height: 240,
+        width,
+        height,
         bitrate: 500_000,
         framerate: 30,
       });
 
-      const frameData = new Uint8Array(320 * 240 * 4).fill(128);
+      const frameData = new Uint8Array(width * height * TEST_CONSTANTS.RGBA_BPP).fill(128);
       const frame = new VideoFrame(frameData, {
         format: 'RGBA',
-        codedWidth: 320,
-        codedHeight: 240,
+        codedWidth: width,
+        codedHeight: height,
         timestamp: 0,
       });
 
@@ -271,8 +308,7 @@ describe('VideoDecoder', () => {
       encoder.close();
 
       // Decode with display aspect ratio specified
-      const outputFrames: VideoFrame[] = [];
-      const decoder = new VideoDecoder({
+      decoder = new VideoDecoder({
         output: (outputFrame) => {
           outputFrames.push(outputFrame);
         },
@@ -283,8 +319,8 @@ describe('VideoDecoder', () => {
 
       decoder.configure({
         codec: 'avc1.42001e',
-        codedWidth: 320,
-        codedHeight: 240,
+        codedWidth: width,
+        codedHeight: height,
         displayAspectWidth: 16,
         displayAspectHeight: 9,
       });
@@ -293,13 +329,8 @@ describe('VideoDecoder', () => {
       await decoder.flush();
 
       expect(outputFrames.length).toBeGreaterThan(0);
-      expect(outputFrames[0].displayWidth).toBe(Math.round((240 * 16) / 9)); // ~427
-      expect(outputFrames[0].displayHeight).toBe(240);
-
-      for (const f of outputFrames) {
-        f.close();
-      }
-      decoder.close();
+      expect(outputFrames[0].displayWidth).toBe(Math.round((height * 16) / 9)); // ~427
+      expect(outputFrames[0].displayHeight).toBe(height);
     });
   });
 
@@ -383,13 +414,7 @@ describe('VideoDecoder', () => {
         data: new Uint8Array([0, 0, 0, 1]),
       });
 
-      try {
-        decoder.decode(chunk);
-        expect.fail('Should have thrown');
-      } catch (e) {
-        expect(e).toBeInstanceOf(DOMException);
-        expect((e as DOMException).name).toBe('InvalidStateError');
-      }
+      expectDOMException('InvalidStateError', () => decoder.decode(chunk));
       decoder.close();
     });
 
@@ -406,13 +431,7 @@ describe('VideoDecoder', () => {
         data: new Uint8Array([0, 0, 0, 1]),
       });
 
-      try {
-        decoder.decode(chunk);
-        expect.fail('Should have thrown');
-      } catch (e) {
-        expect(e).toBeInstanceOf(DOMException);
-        expect((e as DOMException).name).toBe('InvalidStateError');
-      }
+      expectDOMException('InvalidStateError', () => decoder.decode(chunk));
     });
 
     it('should throw InvalidStateError when configure called in closed state', () => {
@@ -422,13 +441,7 @@ describe('VideoDecoder', () => {
       });
       decoder.close();
 
-      try {
-        decoder.configure({ codec: 'avc1.42E01E' });
-        expect.fail('Should have thrown');
-      } catch (e) {
-        expect(e).toBeInstanceOf(DOMException);
-        expect((e as DOMException).name).toBe('InvalidStateError');
-      }
+      expectDOMException('InvalidStateError', () => decoder.configure({ codec: 'avc1.42E01E' }));
     });
 
     it('should throw InvalidStateError when reset called in closed state', () => {
@@ -438,13 +451,7 @@ describe('VideoDecoder', () => {
       });
       decoder.close();
 
-      try {
-        decoder.reset();
-        expect.fail('Should have thrown');
-      } catch (e) {
-        expect(e).toBeInstanceOf(DOMException);
-        expect((e as DOMException).name).toBe('InvalidStateError');
-      }
+      expectDOMException('InvalidStateError', () => decoder.reset());
     });
 
     it('should reject with InvalidStateError when flush called in unconfigured state', async () => {
@@ -453,13 +460,7 @@ describe('VideoDecoder', () => {
         error: () => {},
       });
 
-      try {
-        await decoder.flush();
-        expect.fail('Should have rejected');
-      } catch (e) {
-        expect(e).toBeInstanceOf(DOMException);
-        expect((e as DOMException).name).toBe('InvalidStateError');
-      }
+      await expectDOMExceptionAsync('InvalidStateError', () => decoder.flush());
       decoder.close();
     });
 
@@ -470,13 +471,7 @@ describe('VideoDecoder', () => {
       });
       decoder.close();
 
-      try {
-        await decoder.flush();
-        expect.fail('Should have rejected');
-      } catch (e) {
-        expect(e).toBeInstanceOf(DOMException);
-        expect((e as DOMException).name).toBe('InvalidStateError');
-      }
+      await expectDOMExceptionAsync('InvalidStateError', () => decoder.flush());
     });
   });
 
