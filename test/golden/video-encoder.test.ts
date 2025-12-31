@@ -697,8 +697,8 @@ describe('VideoEncoder', () => {
         height,
       });
 
-      // Encode frames
-      for (let i = 0; i < 100; i++) {
+      // Encode frames (50 frames stays below the 64-frame hard limit)
+      for (let i = 0; i < 50; i++) {
         const frame = new VideoFrame(new Uint8Array(width * height * TEST_CONSTANTS.RGBA_BPP), {
           format: 'RGBA',
           codedWidth: width,

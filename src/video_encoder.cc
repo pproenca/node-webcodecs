@@ -478,6 +478,15 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
     throw Napi::Error::New(env, "Encoder not configured");
   }
 
+  // SAFETY VALVE: Reject if queue is too large.
+  // This prevents OOM if the consumer ignores backpressure.
+  if (encode_queue_size_ >= static_cast<int>(kMaxHardQueueSize)) {
+    throw Napi::Error::New(
+        env,
+        "QuotaExceededError: Encode queue is full. You must handle backpressure "
+        "by waiting for encodeQueueSize to decrease.");
+  }
+
   if (info.Length() < 1 || !info[0].IsObject()) {
     throw Napi::Error::New(env, "encode requires VideoFrame");
   }
