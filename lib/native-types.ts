@@ -185,6 +185,53 @@ export interface NativeDemuxer {
 }
 
 /**
+ * Native Muxer object from C++ addon
+ */
+export interface NativeMuxer {
+  addVideoTrack(config: {
+    codec: string;
+    width: number;
+    height: number;
+    bitrate?: number;
+    framerate?: number;
+    description?: ArrayBuffer | Uint8Array;
+  }): number;
+
+  addAudioTrack(config: {
+    codec: string;
+    sampleRate?: number;
+    numberOfChannels?: number;
+    bitrate?: number;
+    description?: ArrayBuffer | Uint8Array;
+  }): number;
+
+  writeVideoChunk(chunk: {
+    type: string;
+    timestamp: number;
+    duration?: number | null;
+    data?: ArrayBuffer | Uint8Array | Buffer;
+    byteLength?: number;
+    copyTo?: (dest: Uint8Array | ArrayBuffer) => void;
+  }): void;
+
+  writeAudioChunk(chunk: {
+    type: string;
+    timestamp: number;
+    duration?: number | null;
+    data?: ArrayBuffer | Uint8Array | Buffer;
+    byteLength?: number;
+    copyTo?: (dest: Uint8Array | ArrayBuffer) => void;
+  }): void;
+
+  finalize(): void;
+  close(): void;
+}
+
+export interface NativeMuxerConstructor {
+  new (options: {filename: string}): NativeMuxer;
+}
+
+/**
  * Native ImageDecoder object from C++ addon
  */
 export interface NativeImageDecoder {
@@ -447,6 +494,7 @@ export interface NativeModule {
   AudioDecoder: NativeAudioDecoderConstructor;
   VideoFilter: NativeVideoFilterConstructor;
   Demuxer: NativeDemuxerConstructor;
+  Muxer: NativeMuxerConstructor;
   ImageDecoder: NativeImageDecoderConstructor;
   WarningAccumulator: NativeWarningAccumulatorConstructor;
   ErrorBuilder: NativeErrorBuilderConstructor;

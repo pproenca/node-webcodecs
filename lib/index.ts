@@ -13,14 +13,24 @@
  */
 
 import { binding, platformInfo } from './binding';
-import { EncodedVideoChunk } from './encoded-chunks';
+import { EncodedAudioChunk, EncodedVideoChunk } from './encoded-chunks';
 import type {
   NativeDemuxer,
   NativeModule,
+  NativeMuxer,
   NativeVideoFilter,
   NativeVideoFrame,
 } from './native-types';
-import type { BlurRegion, CodecState, DemuxerInit, TrackInfo, VideoFilterConfig } from './types';
+import type {
+  BlurRegion,
+  CodecState,
+  DemuxerInit,
+  MuxerAudioTrackConfig,
+  MuxerInit,
+  MuxerVideoTrackConfig,
+  TrackInfo,
+  VideoFilterConfig,
+} from './types';
 import { VideoFrame } from './video-frame';
 
 // Load native addon with type assertion
@@ -142,6 +152,38 @@ export class Demuxer {
   }
 }
 
+export class Muxer {
+  private _native: NativeMuxer;
+
+  constructor(init: MuxerInit) {
+    this._native = new native.Muxer({filename: init.filename});
+  }
+
+  addVideoTrack(config: MuxerVideoTrackConfig): number {
+    return this._native.addVideoTrack(config);
+  }
+
+  addAudioTrack(config: MuxerAudioTrackConfig): number {
+    return this._native.addAudioTrack(config);
+  }
+
+  writeVideoChunk(chunk: EncodedVideoChunk): void {
+    this._native.writeVideoChunk(chunk);
+  }
+
+  writeAudioChunk(chunk: EncodedAudioChunk): void {
+    this._native.writeAudioChunk(chunk);
+  }
+
+  finalize(): void {
+    this._native.finalize();
+  }
+
+  close(): void {
+    this._native.close();
+  }
+}
+
 export type { ErrorCodeType } from './errors';
 // Re-export error classes and codes
 export {
@@ -219,6 +261,10 @@ export type {
   ImageDecoderConstructor,
   ImageDecoderInit,
   LatencyMode,
+  // Muxer types
+  MuxerAudioTrackConfig,
+  MuxerInit,
+  MuxerVideoTrackConfig,
   OpusEncoderConfig,
   // Plane layout
   PlaneLayout,

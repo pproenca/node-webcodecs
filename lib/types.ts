@@ -1166,3 +1166,38 @@ export interface DemuxerInit {
   onChunk?: (chunk: DemuxerChunk, trackIndex: number) => void;
   onError?: (error: Error) => void;
 }
+
+// =============================================================================
+// MUXER TYPES
+// =============================================================================
+
+/**
+ * Configuration for Muxer initialization
+ */
+export interface MuxerInit {
+  filename: string;
+  format?: 'mp4';  // Currently only MP4 supported
+}
+
+/**
+ * Configuration for adding a video track to the Muxer
+ */
+export interface MuxerVideoTrackConfig {
+  codec: string;
+  width: number;
+  height: number;
+  bitrate?: number;
+  framerate?: number;
+  description?: ArrayBuffer | Uint8Array;
+}
+
+/**
+ * Configuration for adding an audio track to the Muxer
+ */
+export interface MuxerAudioTrackConfig {
+  codec: string;
+  sampleRate?: number;
+  numberOfChannels?: number;
+  bitrate?: number;
+  description?: ArrayBuffer | Uint8Array;
+}
