@@ -41,6 +41,7 @@ async function main() {
     height: HEIGHT,
     bitrate: 1_000_000,
     framerate: FPS,
+    latencyMode: 'realtime',  // Disable B-frames for reliable frame count
   });
   console.log(`    Configured: ${WIDTH}x${HEIGHT} H.264 @ ${FPS}fps\n`);
 

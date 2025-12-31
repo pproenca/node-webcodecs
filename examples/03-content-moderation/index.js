@@ -64,6 +64,7 @@ async function main() {
     height: HEIGHT,
     bitrate: 1_000_000,
     framerate: 30,
+    latencyMode: 'realtime',  // Disable B-frames for correct output
   });
   console.log(`    Filter and encoder ready (${WIDTH}x${HEIGHT})\n`);
 
