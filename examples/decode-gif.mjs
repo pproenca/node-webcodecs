@@ -57,7 +57,7 @@ async function main() {
   let gifData;
 
   if (gifPath) {
-    const fs = await import('fs');
+    const fs = await import('node:fs');
     gifData = fs.readFileSync(gifPath);
     console.log(`📁 Loading GIF from: ${gifPath}`);
   } else {

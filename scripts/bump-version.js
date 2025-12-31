@@ -38,8 +38,8 @@ const platforms = [
 function updateJson(filePath, updater) {
   const content = JSON.parse(readFileSync(filePath, 'utf8'));
   updater(content);
-  writeFileSync(filePath, JSON.stringify(content, null, 2) + '\n');
-  console.log(`✓ ${filePath.replace(ROOT + '/', '')}`);
+  writeFileSync(filePath, `${JSON.stringify(content, null, 2)}\n`);
+  console.log(`✓ ${filePath.replace(`${ROOT}/`, '')}`);
 }
 
 console.log(`\nBumping version to ${version}\n`);
