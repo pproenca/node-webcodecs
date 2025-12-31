@@ -42,7 +42,7 @@ export class VideoDecoder extends CodecBase {
       this._decodeQueueSize = Math.max(0, this._decodeQueueSize - 1);
 
       // Wrap the native frame as a VideoFrame
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // biome-ignore lint/suspicious/noExplicitAny: Object.create wrapper pattern requires any for property assignment
       const wrapper = Object.create(VideoFrame.prototype) as any;
       wrapper._native = nativeFrame;
       wrapper._closed = false;

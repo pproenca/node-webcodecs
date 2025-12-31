@@ -52,11 +52,13 @@ test('Conversion: encode and decode AVC', { timeout: 10_000 }, async () => {
   });
   await conversion.execute();
 
+  // biome-ignore lint/style/noNonNullAssertion: Buffer is guaranteed after conversion.execute()
   using newInput = new Input({
     source: new BufferSource(output.target.buffer!),
     formats: ALL_FORMATS,
   });
 
+  // biome-ignore lint/style/noNonNullAssertion: Video track is guaranteed for valid video input
   const videoTrack = (await newInput.getPrimaryVideoTrack())!;
   const sink = new VideoSampleSink(videoTrack);
 
@@ -94,11 +96,13 @@ test('Conversion: encode and decode HEVC', { timeout: 10_000 }, async () => {
   });
   await conversion.execute();
 
+  // biome-ignore lint/style/noNonNullAssertion: Buffer is guaranteed after conversion.execute()
   using newInput = new Input({
     source: new BufferSource(output.target.buffer!),
     formats: ALL_FORMATS,
   });
 
+  // biome-ignore lint/style/noNonNullAssertion: Video track is guaranteed for valid video input
   const videoTrack = (await newInput.getPrimaryVideoTrack())!;
   const sink = new VideoSampleSink(videoTrack);
 
@@ -136,11 +140,13 @@ test('Conversion: encode and decode VP8', { timeout: 10_000 }, async () => {
   });
   await conversion.execute();
 
+  // biome-ignore lint/style/noNonNullAssertion: Buffer is guaranteed after conversion.execute()
   using newInput = new Input({
     source: new BufferSource(output.target.buffer!),
     formats: ALL_FORMATS,
   });
 
+  // biome-ignore lint/style/noNonNullAssertion: Video track is guaranteed for valid video input
   const videoTrack = (await newInput.getPrimaryVideoTrack())!;
   const sink = new VideoSampleSink(videoTrack);
 
@@ -178,11 +184,13 @@ test('Conversion: encode and decode VP9', { timeout: 10_000 }, async () => {
   });
   await conversion.execute();
 
+  // biome-ignore lint/style/noNonNullAssertion: Buffer is guaranteed after conversion.execute()
   using newInput = new Input({
     source: new BufferSource(output.target.buffer!),
     formats: ALL_FORMATS,
   });
 
+  // biome-ignore lint/style/noNonNullAssertion: Video track is guaranteed for valid video input
   const videoTrack = (await newInput.getPrimaryVideoTrack())!;
   const sink = new VideoSampleSink(videoTrack);
 
@@ -220,11 +228,13 @@ test('Conversion: encode and decode AV1', { timeout: 10_000 }, async () => {
   });
   await conversion.execute();
 
+  // biome-ignore lint/style/noNonNullAssertion: Buffer is guaranteed after conversion.execute()
   using newInput = new Input({
     source: new BufferSource(output.target.buffer!),
     formats: ALL_FORMATS,
   });
 
+  // biome-ignore lint/style/noNonNullAssertion: Video track is guaranteed for valid video input
   const videoTrack = (await newInput.getPrimaryVideoTrack())!;
   const sink = new VideoSampleSink(videoTrack);
 

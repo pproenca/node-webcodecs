@@ -39,6 +39,8 @@ Napi::Object VideoEncoder::Init(Napi::Env env, Napi::Object exports) {
                            nullptr),
           InstanceAccessor("codecSaturated", &VideoEncoder::GetCodecSaturated,
                            nullptr),
+          InstanceAccessor("pendingChunks", &VideoEncoder::GetPendingChunks,
+                           nullptr),
           StaticMethod("isConfigSupported", &VideoEncoder::IsConfigSupported),
       });
 
@@ -248,12 +250,23 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
   state_ = "configured";
   frame_count_ = 0;
 
-  // NOTE: Async encoding infrastructure is available but disabled by default.
-  // The AsyncEncodeWorker is ready but requires proper flush semantics that
-  // wait for ThreadSafeFunction callbacks to complete before returning.
-  // For now, use synchronous encoding which works correctly.
-  // TODO: Enable async mode with proper TSFN callback synchronization.
-  async_mode_ = false;
+  // Enable async encoding via worker thread.
+  // Flush semantics use pendingChunks counter - TypeScript polls with setImmediate
+  // to wait for all TSFN callbacks to complete without blocking the event loop.
+  async_mode_ = true;
+
+  // Create ThreadSafeFunctions for async callbacks
+  output_tsfn_ = Napi::ThreadSafeFunction::New(
+      env, output_callback_.Value(), "VideoEncoderOutput", 0, 1);
+  error_tsfn_ = Napi::ThreadSafeFunction::New(
+      env, error_callback_.Value(), "VideoEncoderError", 0, 1);
+
+  // Create and start the async worker
+  async_worker_ = std::make_unique<AsyncEncodeWorker>(
+      this, output_tsfn_, error_tsfn_);
+  async_worker_->SetCodecContext(codec_context_.get(), sws_context_.get(),
+                                  width_, height_);
+  async_worker_->Start();
 
   return env.Undefined();
 }
@@ -268,6 +281,13 @@ Napi::Value VideoEncoder::GetEncodeQueueSize(const Napi::CallbackInfo& info) {
 
 Napi::Value VideoEncoder::GetCodecSaturated(const Napi::CallbackInfo& info) {
   return Napi::Boolean::New(info.Env(), codec_saturated_.load());
+}
+
+Napi::Value VideoEncoder::GetPendingChunks(const Napi::CallbackInfo& info) {
+  if (async_worker_) {
+    return Napi::Number::New(info.Env(), async_worker_->GetPendingChunks());
+  }
+  return Napi::Number::New(info.Env(), 0);
 }
 
 Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {

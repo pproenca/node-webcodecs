@@ -233,7 +233,7 @@ export class ImageDecoder {
     }
 
     // Wrap the native frame as a VideoFrame
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: Object.create wrapper pattern requires any for property assignment
     const wrapper = Object.create(VideoFrame.prototype) as any;
     wrapper._native = result.image;
     wrapper._closed = false;

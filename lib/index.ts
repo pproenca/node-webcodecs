@@ -44,9 +44,6 @@ export const ErrorBuilder = native.ErrorBuilder;
 export const testAttrAsEnum = native.testAttrAsEnum;
 export const createEncoderConfigDescriptor = native.createEncoderConfigDescriptor;
 
-// Export TestVideoGenerator (test helper for generating test video frames)
-export { TestVideoGenerator } from './test-video-generator';
-
 export type { ErrorCodeType } from './errors';
 // Re-export error classes and codes
 export {
@@ -61,12 +58,13 @@ export {
   UnsupportedCodecError,
   WebCodecsError,
 } from './errors';
-
 // Re-export ImageTrack and ImageTrackList classes
 export { ImageTrack } from './image-track';
 export { ImageTrackList } from './image-track-list';
 // Re-export ResourceManager
 export { ResourceManager } from './resource-manager';
+// Export TestVideoGenerator (test helper for generating test video frames)
+export { TestVideoGenerator } from './test-video-generator';
 // Re-export all types from types.ts (W3C WebCodecs API types)
 export type {
   // Fundamental types

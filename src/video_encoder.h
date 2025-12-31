@@ -46,6 +46,7 @@ class VideoEncoder : public Napi::ObjectWrap<VideoEncoder> {
   Napi::Value GetState(const Napi::CallbackInfo& info);
   Napi::Value GetEncodeQueueSize(const Napi::CallbackInfo& info);
   Napi::Value GetCodecSaturated(const Napi::CallbackInfo& info);
+  Napi::Value GetPendingChunks(const Napi::CallbackInfo& info);
 
   // Internal helpers.
   void Cleanup();

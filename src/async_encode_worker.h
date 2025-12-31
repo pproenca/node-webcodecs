@@ -30,6 +30,7 @@ struct EncodeTask {
   int64_t timestamp;
   int64_t duration;
   bool key_frame;
+  bool is_flush = false;  // When true, flush the encoder instead of encoding
 };
 
 struct EncodedChunk {
@@ -56,6 +57,7 @@ class AsyncEncodeWorker {
   void Flush();
   bool IsRunning() const { return running_.load(); }
   size_t QueueSize() const;
+  int GetPendingChunks() const { return pending_chunks_.load(); }
   void SetCodecContext(AVCodecContext* ctx, SwsContext* sws,
                        int width, int height);
 
@@ -74,6 +76,7 @@ class AsyncEncodeWorker {
   std::condition_variable queue_cv_;
   std::atomic<bool> running_{false};
   std::atomic<bool> flushing_{false};
+  std::atomic<int> pending_chunks_{0};
 
   // FFmpeg contexts (owned by VideoEncoder, just references here)
   AVCodecContext* codec_context_;

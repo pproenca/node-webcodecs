@@ -33,7 +33,7 @@ export class AudioDecoder extends CodecBase {
       // Decrement queue size when output received
       this._decodeQueueSize = Math.max(0, this._decodeQueueSize - 1);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // biome-ignore lint/suspicious/noExplicitAny: Object.create wrapper pattern requires any for property assignment
       const wrapper = Object.create(AudioData.prototype) as any;
       wrapper._native = nativeData;
       wrapper._closed = false;

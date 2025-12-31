@@ -99,10 +99,15 @@ export class VideoEncoder extends CodecBase {
       return Promise.reject(new DOMException('Encoder is closed', 'InvalidStateError'));
     }
     await this._controlQueue.flush();
-    return new Promise((resolve) => {
-      this._native.flush();
-      resolve();
-    });
+
+    // Flush the native encoder (waits for worker queue to drain)
+    this._native.flush();
+
+    // Poll for pending TSFN callbacks to complete.
+    // This allows the event loop to run (delivering callbacks) while we wait.
+    while (this._native.pendingChunks > 0) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
   }
 
   reset(): void {

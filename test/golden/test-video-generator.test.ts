@@ -1,19 +1,6 @@
-import {describe, it, expect, beforeEach, afterEach} from 'vitest';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+import { describe, expect, it } from 'vitest';
 
 describe('TestVideoGenerator', () => {
-  let tempDir: string;
-
-  beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-video-gen-'));
-  });
-
-  afterEach(() => {
-    fs.rmSync(tempDir, {recursive: true, force: true});
-  });
-
   it('should generate test video frames', async () => {
     const generator = new TestVideoGenerator();
 
@@ -36,7 +23,7 @@ describe('TestVideoGenerator', () => {
     expect(frames[0].codedHeight).toBe(240);
 
     // Clean up frames
-    frames.forEach(f => f.close());
+    frames.forEach((f) => f.close());
     generator.close();
   });
 });

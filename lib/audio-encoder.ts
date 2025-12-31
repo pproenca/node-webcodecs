@@ -41,7 +41,7 @@ export class AudioEncoder extends CodecBase {
       // Decrement queue size when output received
       this._encodeQueueSize = Math.max(0, this._encodeQueueSize - 1);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // biome-ignore lint/suspicious/noExplicitAny: Object.create wrapper pattern requires any for property assignment
       const wrapper = Object.create(EncodedAudioChunk.prototype) as any;
       wrapper._native = chunk as unknown as NativeEncodedAudioChunk;
       init.output(wrapper as EncodedAudioChunk, metadata);

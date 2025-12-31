@@ -74,14 +74,24 @@ void AsyncEncodeWorker::Enqueue(EncodeTask task) {
 }
 
 void AsyncEncodeWorker::Flush() {
-  flushing_.store(true);
+  // Enqueue a flush task to drain FFmpeg's internal buffers
+  EncodeTask flush_task;
+  flush_task.is_flush = true;
+  {
+    std::lock_guard<std::mutex> lock(queue_mutex_);
+    task_queue_.push(std::move(flush_task));
+  }
   queue_cv_.notify_one();
 
-  // Wait for queue to drain
-  std::unique_lock<std::mutex> lock(queue_mutex_);
-  queue_cv_.wait(lock, [this] {
-    return task_queue_.empty() || !running_.load();
-  });
+  flushing_.store(true);
+
+  // Wait for queue to drain (including flush task)
+  {
+    std::unique_lock<std::mutex> lock(queue_mutex_);
+    queue_cv_.wait(lock, [this] {
+      return task_queue_.empty() || !running_.load();
+    });
+  }
 
   flushing_.store(false);
 }
@@ -126,6 +136,17 @@ void AsyncEncodeWorker::ProcessFrame(const EncodeTask& task) {
     return;
   }
 
+  // Handle flush task - send NULL frame to drain encoder
+  if (task.is_flush) {
+    avcodec_send_frame(codec_context_, nullptr);
+    // Drain all remaining packets
+    while (avcodec_receive_packet(codec_context_, packet_) == 0) {
+      EmitChunk(packet_);
+      av_packet_unref(packet_);
+    }
+    return;
+  }
+
   // Convert RGBA to YUV420P
   const uint8_t* src_data[1] = {task.rgba_data.data()};
   int src_linesize[1] = {width_ * 4};
@@ -154,15 +175,21 @@ void AsyncEncodeWorker::ProcessFrame(const EncodeTask& task) {
 }
 
 void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
+  // Increment pending count before async operation
+  pending_chunks_.fetch_add(1);
+
   // Copy packet data for thread-safe transfer
   auto* chunk_data = new std::vector<uint8_t>(pkt->data, pkt->data + pkt->size);
   int64_t pts = pkt->pts;
   int64_t duration = pkt->duration;
   bool is_key = (pkt->flags & AV_PKT_FLAG_KEY) != 0;
 
+  // Capture pending_chunks_ pointer for decrement in callback
+  std::atomic<int>* pending = &pending_chunks_;
+
   output_tsfn_.NonBlockingCall(
       chunk_data,
-      [pts, duration, is_key](Napi::Env env, Napi::Function fn,
+      [pts, duration, is_key, pending](Napi::Env env, Napi::Function fn,
                                std::vector<uint8_t>* data) {
         // Create EncodedVideoChunk-like object (matches synchronous path)
         Napi::Object chunk = Napi::Object::New(env);
@@ -177,5 +204,8 @@ void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
 
         fn.Call({chunk, metadata});
         delete data;
+
+        // Decrement pending count after callback completes
+        pending->fetch_sub(1);
       });
 }
