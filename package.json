@@ -29,10 +29,8 @@
     "test-leak": "./test/leak/leak.sh",
     "test-stress": "vitest run --config test/vitest.config.ts stress/",
     "test-coverage": "vitest run --config test/vitest.config.ts --coverage",
-    "lint": "npm run lint-cpp && npm run lint-js && npm run lint-types",
-    "lint-cpp": "cpplint --quiet src/*.h src/*.cc",
-    "lint-js": "biome lint",
-    "lint-types": "tsd",
+    "lint": "cpplint --quiet src/*.h src/*.cc && biome lint && tsd && prettier --check \"**/*.md\"",
+    "format": "prettier --write \"**/*.md\"",
     "package-from-local-build": "node npm/from-local-build.js",
     "package-release-notes": "node npm/release-notes.js",
     "version:bump": "node scripts/bump-version.js",
@@ -78,6 +76,7 @@
     "mediabunny": "^1.27.3",
     "node-addon-api": "^8.5.0",
     "node-gyp": "^12.1.0",
+    "prettier": "^3.7.4",
     "tsd": "^0.33.0",
     "tsx": "^4.21.0",
     "typedoc": "^0.28.15",
@@ -86,7 +85,7 @@
   },
   "license": "MIT",
   "engines": {
-    "node": "^20.17.0 || >=22.9.0"
+    "node": "^20.17.0 || ^22.9.0 || >=24"
   },
   "publishConfig": {
     "access": "public",

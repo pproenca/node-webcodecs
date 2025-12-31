@@ -33,8 +33,11 @@ Please create a [new issue](https://github.com/aspect-build/node-webcodecs/issue
 
 ## Code Style
 
-- **TypeScript:** Formatted with Biome. Run `npm run lint-js` to check.
-- **C++:** Follows Google C++ style. Run `npm run lint-cpp` to check.
+- **TypeScript/JavaScript:** Linted with Biome
+- **C++:** Google C++ style (cpplint)
+- **Markdown:** Formatted with Prettier
+
+Run `npm run lint` to check all, `npm run format` to fix markdown.
 
 ## Pull Requests
 

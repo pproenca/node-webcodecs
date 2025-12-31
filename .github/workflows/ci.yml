@@ -1,23 +1,26 @@
 name: CI
+
 on:
-  - push
-  - pull_request
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
 permissions: {}
+
 jobs:
   lint:
     permissions:
       contents: read
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
         with:
-          node-version: "24"
-      - run: npm install --ignore-scripts
-      - run: npm run lint-cpp
-      - run: npm run lint-js
+          node-version: "22.x"
+      - run: npm ci --ignore-scripts --omit=optional
       - run: npm run build:ts
-      - run: npm run lint-types
+      - run: npm run lint
 
   build-and-test:
     permissions:
@@ -30,47 +33,47 @@ jobs:
       matrix:
         include:
           - os: ubuntu-24.04
-            nodejs_version: "^18.17.0"
-            nodejs_version_major: 18
-            platform: linux-x64
-          - os: ubuntu-24.04
-            nodejs_version: "^20.3.0"
+            nodejs_version: "20.x"
             nodejs_version_major: 20
             platform: linux-x64
           - os: ubuntu-24.04
-            nodejs_version: "^22.9.0"
+            nodejs_version: "22.x"
             nodejs_version_major: 22
             platform: linux-x64
-          - os: macos-15-intel
-            nodejs_version: "^18.17.0"
-            nodejs_version_major: 18
-            platform: darwin-x64
-          - os: macos-15-intel
-            nodejs_version: "^20.3.0"
+          - os: ubuntu-24.04
+            nodejs_version: "24.x"
+            nodejs_version_major: 24
+            platform: linux-x64
+          - os: macos-13
+            nodejs_version: "20.x"
             nodejs_version_major: 20
             platform: darwin-x64
-          - os: macos-15-intel
-            nodejs_version: "^22.9.0"
+          - os: macos-13
+            nodejs_version: "22.x"
             nodejs_version_major: 22
             platform: darwin-x64
+          - os: macos-13
+            nodejs_version: "24.x"
+            nodejs_version_major: 24
+            platform: darwin-x64
           - os: macos-latest
-            nodejs_version: "^18.17.0"
-            nodejs_version_major: 18
-            platform: darwin-arm64
-          - os: macos-latest
-            nodejs_version: "^20.3.0"
+            nodejs_version: "20.x"
             nodejs_version_major: 20
             platform: darwin-arm64
           - os: macos-latest
-            nodejs_version: "^22.9.0"
+            nodejs_version: "22.x"
             nodejs_version_major: 22
+            platform: darwin-arm64
+          - os: macos-latest
+            nodejs_version: "24.x"
+            nodejs_version_major: 24
             platform: darwin-arm64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.nodejs_version }}
 
@@ -92,10 +95,10 @@ jobs:
         run: brew install ffmpeg pkg-config
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build
-        run: npm run build
+        run: npm run build --if-present
 
       - name: Test
         run: npm test

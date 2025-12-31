@@ -1,12 +1,14 @@
 name: "CI: npm smoke test"
+
 on:
-  push:
-    tags:
-      - "v**"
+  release:
+    types: [published]
+
 permissions: {}
+
 jobs:
   release-smoke-test:
-    name: "${{ github.ref_name }} ${{ matrix.name }}"
+    name: "${{ github.event.release.tag_name }} ${{ matrix.name }}"
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -53,9 +55,9 @@ jobs:
 
     steps:
       - name: Install Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: "22.x"
 
       - name: Install pnpm
         if: matrix.package-manager == 'pnpm'
@@ -85,7 +87,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            core.setOutput('semver', context.ref.replace('refs/tags/v',''))
+            core.setOutput('semver', context.payload.release.tag_name.replace('v',''))
 
       - name: Create package.json
         uses: DamianReeves/write-file-action@v1.3

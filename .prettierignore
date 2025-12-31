@@ -1,0 +1,4 @@
+# Only format markdown files - JS/TS uses Biome
+*
+!*.md
+!**/*.md

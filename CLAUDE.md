@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 You are acting as a Principal Systems Engineer (IC7) at a major tech company, specializing in High-Performance Media Infrastructure. Your domain is the volatile intersection of Node.js (N-API/V8) and C++ (FFmpeg/libav).
 
 Your operating principles are absolute:
+
 1.  **Safety Over Feature Velocity**: In a Node.js addon, a C++ segfault crashes the entire main process. This is unacceptable. You prioritize memory safety and exception handling above all else.
 2.  **RAII is Non-Negotiable**: You never use `malloc/free` or manual `av_free`. You strictly use the `std::unique_ptr` wrappers defined in `src/ffmpeg_raii.h`.
 3.  **Thread-Safety Paranoia**: You operate under the assumption that `AVCodecContext` is hostile to threading. You ensure it is never accessed concurrently. You enforce strict isolation between the JS Main Thread and `AsyncWorker` threads.
@@ -63,13 +64,11 @@ Tests inject WebCodecs classes into `globalThis` via `test/setup.ts`. Reference 
 - `test/stress/` - Memory leak tests under sustained load
 - `test/fixtures/` - Test media files, use `TestVideoGenerator` for synthetic frames
 
-## Linting
+## Linting & Formatting
 
 ```bash
-npm run lint               # All linters
-npm run lint-js            # Biome (TypeScript/JavaScript)
-npm run lint-cpp           # cpplint (C++ - Google style)
-npm run lint-types         # tsd (TypeScript type definitions)
+npm run lint               # All linters (cpplint, biome, tsd, prettier)
+npm run format             # Format markdown files
 ```
 
 ## Architecture
@@ -77,6 +76,7 @@ npm run lint-types         # tsd (TypeScript type definitions)
 ### Two-Layer Design
 
 **TypeScript Layer (`lib/`)** - W3C spec compliance and state management:
+
 - `codec-base.ts` - Base class with EventTarget inheritance
 - `video-encoder.ts`, `video-decoder.ts`, `audio-encoder.ts`, `audio-decoder.ts` - Codec wrappers
 - `video-frame.ts`, `audio-data.ts` - Media data containers
@@ -86,6 +86,7 @@ npm run lint-types         # tsd (TypeScript type definitions)
 - `errors.ts` - Structured error hierarchy with error codes
 
 **Native Layer (`src/`)** - C++17 NAPI addon wrapping FFmpeg:
+
 - `addon.cc` - Module initialization
 - `*_encoder.cc`, `*_decoder.cc` - FFmpeg codec wrappers
 - `async_encode_worker.cc`, `async_decode_worker.cc` - Background thread workers
@@ -98,6 +99,7 @@ npm run lint-types         # tsd (TypeScript type definitions)
 1. **TypeScript wraps Native**: Each native class has a TS wrapper adding W3C spec compliance. Native code focuses on FFmpeg operations; TS handles state validation.
 
 2. **RAII Everywhere**: All FFmpeg resources use `std::unique_ptr` wrappers from `ffmpeg_raii.h`:
+
    ```cpp
    AVFramePtr frame = ffmpeg::make_frame();
    AVPacketPtr packet = ffmpeg::make_packet();
@@ -113,6 +115,7 @@ npm run lint-types         # tsd (TypeScript type definitions)
 ## Codec String Format
 
 Video codecs use profile strings:
+
 - H.264: `avc1.42001e` (Baseline), `avc1.4d001e` (Main), `avc1.64001e` (High)
 - H.265: `hvc1.*`, `hev1.*`
 - VP9: `vp09.00.10.08`
@@ -123,6 +126,7 @@ Audio codecs: `mp4a.40.2` (AAC), `opus`, `mp3`, `flac`
 ## Platform Builds
 
 Prebuilt binaries follow the "sharp pattern" with optional packages:
+
 - `@pproenca/node-webcodecs-{darwin-arm64|darwin-x64|linux-x64|linuxmusl-x64|win32-x64}`
 
 For source builds, FFmpeg 5.0+ (libavcodec 59+) required. See README.md for platform-specific instructions.

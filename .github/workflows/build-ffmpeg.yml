@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       ffmpeg_version:
-        description: 'FFmpeg version to build'
+        description: "FFmpeg version to build"
         required: true
-        default: '7.1'
+        default: "7.1"
   push:
     paths:
-      - '.github/workflows/build-ffmpeg.yml'
-      - 'ffmpeg/**'
+      - ".github/workflows/build-ffmpeg.yml"
+      - "ffmpeg/**"
 
 permissions: {}
 
@@ -28,7 +28,7 @@ jobs:
           - os: macos-14
             platform: darwin-arm64
             configure_flags: --enable-cross-compile --arch=arm64
-          - os: macos-15-intel
+          - os: macos-13
             platform: darwin-x64
             configure_flags: ""
           - os: ubuntu-22.04
@@ -38,14 +38,9 @@ jobs:
             platform: linuxmusl-x64
             container: alpine:3.19
             configure_flags: ""
-          # Windows build disabled - requires MSYS2 + MSVC toolchain setup
-          # See: https://trac.ffmpeg.org/wiki/CompilationGuide/MSVC
-          # - os: windows-2022
-          #   platform: win32-x64
-          #   configure_flags: --toolchain=msvc
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
@@ -65,20 +60,10 @@ jobs:
           apk add --no-cache build-base nasm yasm pkgconf curl \
             x264-dev x265-dev libvpx-dev opus-dev
 
-      - name: Download FFmpeg source (Unix)
-        if: runner.os != 'Windows'
+      - name: Download FFmpeg source
         run: |
           curl -L https://ffmpeg.org/releases/ffmpeg-${{ github.event.inputs.ffmpeg_version || '7.1' }}.tar.xz | tar xJ
           mv ffmpeg-* ffmpeg-src
-
-      - name: Download FFmpeg source (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $version = "${{ github.event.inputs.ffmpeg_version || '7.1' }}"
-          Invoke-WebRequest -Uri "https://ffmpeg.org/releases/ffmpeg-$version.tar.xz" -OutFile "ffmpeg.tar.xz"
-          7z x ffmpeg.tar.xz -so | 7z x -si -ttar
-          Move-Item ffmpeg-* ffmpeg-src
 
       - name: Configure FFmpeg
         working-directory: ffmpeg-src
@@ -104,20 +89,10 @@ jobs:
         working-directory: ffmpeg-src
         run: make install
 
-      - name: Package libraries (Unix)
-        if: runner.os != 'Windows'
+      - name: Package libraries
         run: |
           mkdir -p ffmpeg-${{ matrix.platform }}/lib
           cp -P ffmpeg-install/lib/*.{dylib,so}* ffmpeg-${{ matrix.platform }}/lib/ 2>/dev/null || true
-          # Create versions.json
-          echo '{"ffmpeg": "${{ github.event.inputs.ffmpeg_version || '7.1' }}"}' > ffmpeg-${{ matrix.platform }}/versions.json
-
-      - name: Package libraries (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          mkdir -p ffmpeg-${{ matrix.platform }}/lib
-          cp ffmpeg-install/bin/*.dll ffmpeg-${{ matrix.platform }}/lib/
           echo '{"ffmpeg": "${{ github.event.inputs.ffmpeg_version || '7.1' }}"}' > ffmpeg-${{ matrix.platform }}/versions.json
 
       - uses: actions/upload-artifact@v4
