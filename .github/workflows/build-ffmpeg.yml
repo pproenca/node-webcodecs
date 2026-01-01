@@ -140,6 +140,15 @@ jobs:
             pkg-config --modversion SvtAv1Enc 2>/dev/null || echo "  (pkg-config check failed)"
           fi
 
+          # Check if libmp3lame is available
+          if pkg-config --exists "libmp3lame >= 3.98.3" 2>/dev/null; then
+            echo "mp3lame=--enable-libmp3lame" >> $GITHUB_OUTPUT
+            echo "libmp3lame available: $(pkg-config --modversion libmp3lame)"
+          else
+            echo "mp3lame=" >> $GITHUB_OUTPUT
+            echo "libmp3lame not available via pkg-config, disabling"
+          fi
+
       - name: Configure FFmpeg
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         working-directory: ffmpeg-src
@@ -165,12 +174,12 @@ jobs:
             --enable-libvpx \
             --enable-libopus \
             --enable-libaom \
-            --enable-libmp3lame \
+            ${{ steps.codec-check.outputs.mp3lame }} \
             --enable-libdav1d \
             ${{ steps.codec-check.outputs.svtav1 }} \
             --enable-libvorbis \
-            --extra-cflags="${CFLAGS}" \
-            --extra-ldflags="${LDFLAGS}" \
+            --extra-cflags="${CFLAGS:-}" \
+            --extra-ldflags="${LDFLAGS:-}" \
             ${{ matrix.configure_flags }}
 
       - name: Build FFmpeg
