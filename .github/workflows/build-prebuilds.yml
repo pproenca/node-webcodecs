@@ -84,9 +84,9 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ffmpeg-install
-          key: ffmpeg-${{ matrix.platform }}-${{ inputs.ffmpeg_version }}-${{ inputs.cache_version }}
+          key: ffmpeg-${{ matrix.platform }}-${{ inputs.ffmpeg_version || '8.0.1' }}-${{ inputs.cache_version || 'v4' }}
           restore-keys: |
-            ffmpeg-${{ matrix.platform }}-${{ inputs.ffmpeg_version }}-
+            ffmpeg-${{ matrix.platform }}-${{ inputs.ffmpeg_version || '8.0.1' }}-
 
       - name: Setup cached FFmpeg
         if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
@@ -96,6 +96,14 @@ jobs:
           echo "PKG_CONFIG_PATH=${{ github.workspace }}/ffmpeg-install/lib/pkgconfig" >> $GITHUB_ENV
           echo "LD_LIBRARY_PATH=${{ github.workspace }}/ffmpeg-install/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
           echo "DYLD_LIBRARY_PATH=${{ github.workspace }}/ffmpeg-install/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
+
+      - name: Fix macOS 15 PerfPowerServices CPU bug
+        if: runner.os == 'macOS' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        run: |
+          # Workaround for known macOS 15 bug where PerfPowerServices consumes 100% CPU
+          # See: https://github.com/actions/runner-images/issues/13358
+          sudo defaults -currentHost write /Library/Preferences/com.apple.powerlogd SMCMonitorCadence 0
+          sudo killall PerfPowerServices || true
 
       - name: Install FFmpeg (macOS) - cache miss
         if: runner.os == 'macOS' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
