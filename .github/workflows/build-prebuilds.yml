@@ -105,16 +105,38 @@ jobs:
           sudo defaults -currentHost write /Library/Preferences/com.apple.powerlogd SMCMonitorCadence 0
           sudo killall PerfPowerServices || true
 
+      # Codec runtime libraries are required even with FFmpeg cache hit
+      # because FFmpeg's shared libraries dynamically link against them.
+      # We install -dev packages which pull in runtime libs as dependencies.
+      - name: Install codec dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install x264 x265 libvpx aom lame pkg-config
+
+      - name: Install codec dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libx264-dev \
+            libx265-dev \
+            libvpx-dev \
+            libaom-dev \
+            libmp3lame-dev \
+            libdav1d-dev \
+            libsvtav1enc-dev \
+            libvorbis-dev \
+            libopus-dev \
+            pkg-config
+
       - name: Install FFmpeg (macOS) - cache miss
         if: runner.os == 'macOS' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
-          brew install x264 x265 libvpx aom lame pkg-config
           brew install ffmpeg
 
       - name: Install FFmpeg (Ubuntu) - cache miss
         if: runner.os == 'Linux' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
-          sudo apt-get update
           sudo apt-get install -y \
             ffmpeg \
             libavcodec-dev \
@@ -122,13 +144,7 @@ jobs:
             libavutil-dev \
             libswscale-dev \
             libswresample-dev \
-            libavfilter-dev \
-            libx264-dev \
-            libx265-dev \
-            libvpx-dev \
-            libaom-dev \
-            libmp3lame-dev \
-            pkg-config
+            libavfilter-dev
 
       - name: Install dependencies
         run: npm install --ignore-scripts
