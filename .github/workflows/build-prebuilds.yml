@@ -9,13 +9,13 @@ concurrency:
 on:
   workflow_dispatch:
     inputs:
-      cache_version:
-        description: "Cache version (bump to force rebuild)"
+      deps_version:
+        description: "FFmpeg dependencies version tag"
         default: "v1"
   workflow_call:
     inputs:
-      cache_version:
-        description: "Cache version (bump to force rebuild)"
+      deps_version:
+        description: "FFmpeg dependencies version tag"
         type: string
         default: "v1"
   push:
@@ -34,17 +34,7 @@ on:
 permissions: {}
 
 jobs:
-  build-ffmpeg:
-    permissions:
-      contents: read
-      id-token: write
-      attestations: write
-    uses: ./.github/workflows/build-ffmpeg.yml
-    with:
-      cache_version: ${{ inputs.cache_version || 'v1' }}
-
   build-prebuilds:
-    needs: build-ffmpeg
     permissions:
       contents: read
       id-token: write
@@ -52,7 +42,7 @@ jobs:
     name: "prebuild-${{ matrix.platform }}"
     runs-on: ${{ matrix.os }}
     env:
-      CACHE_VERSION: ${{ inputs.cache_version || 'v1' }}
+      DEPS_VERSION: ${{ inputs.deps_version || 'v1' }}
     strategy:
       fail-fast: false
       matrix:
@@ -77,27 +67,6 @@ jobs:
         with:
           node-version: "22.x"
 
-      - name: Get jellyfin-ffmpeg commit hash
-        id: ffmpeg-hash
-        run: |
-          cd externals/jellyfin-ffmpeg
-          echo "hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
-      - name: Restore FFmpeg cache
-        id: cache-ffmpeg
-        uses: actions/cache/restore@v5
-        with:
-          path: ffmpeg-install
-          key: ffmpeg-${{ matrix.platform }}-${{ steps.ffmpeg-hash.outputs.hash }}-${{ env.CACHE_VERSION }}
-
-      - name: Setup cached FFmpeg
-        if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
-        run: |
-          echo "Using cached FFmpeg from jellyfin-ffmpeg build"
-          ls -la ffmpeg-install/
-          ls -la ffmpeg-install/lib/
-          echo "PKG_CONFIG_PATH=${{ github.workspace }}/ffmpeg-install/lib/pkgconfig" >> $GITHUB_ENV
-
       - name: Fix macOS 15 PerfPowerServices CPU bug
         if: runner.os == 'macOS'
         run: |
@@ -117,25 +86,25 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y pkg-config
 
-      # Fallback: Install system FFmpeg if cache miss (for local development)
-      - name: Install FFmpeg (macOS) - cache miss
-        if: runner.os == 'macOS' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
-        run: |
-          echo "::warning::FFmpeg cache miss - installing system FFmpeg (shared, not static)"
-          brew install ffmpeg
+      - name: Download FFmpeg from Release
+        uses: dsaltares/fetch-gh-release-asset@1.1.2
+        with:
+          repo: ${{ github.repository }}
+          version: tags/deps-${{ env.DEPS_VERSION }}
+          file: ffmpeg-${{ matrix.platform }}.tar.gz
+          target: ffmpeg-${{ matrix.platform }}.tar.gz
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install FFmpeg (Ubuntu) - cache miss
-        if: runner.os == 'Linux' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
+      - name: Extract FFmpeg and Set Environment
         run: |
-          echo "::warning::FFmpeg cache miss - installing system FFmpeg (shared, not static)"
-          sudo apt-get install -y \
-            ffmpeg \
-            libavcodec-dev \
-            libavformat-dev \
-            libavutil-dev \
-            libswscale-dev \
-            libswresample-dev \
-            libavfilter-dev
+          mkdir -p ffmpeg-install
+          tar -xzvf ffmpeg-${{ matrix.platform }}.tar.gz -C ffmpeg-install
+
+          # Set FFMPEG_ROOT for ffmpeg-paths.js to use --define-variable=prefix=
+          echo "FFMPEG_ROOT=${{ github.workspace }}/ffmpeg-install" >> $GITHUB_ENV
+
+          ls -la ffmpeg-install/lib/
+          ls -la ffmpeg-install/lib/pkgconfig/ || { echo "ERROR: No pkgconfig directory"; exit 1; }
 
       - name: Install dependencies
         run: npm install --ignore-scripts
