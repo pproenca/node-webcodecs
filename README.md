@@ -21,12 +21,22 @@ WebCodecs API for Node.js — encode and decode video/audio with browser-compati
 npm install @pproenca/node-webcodecs
 ```
 
-Prebuilt binaries with FFmpeg included are available for macOS (arm64, x64) and Linux (x64).
+Prebuilt binaries with FFmpeg statically linked are included for:
+
+- macOS ARM64 (Apple Silicon)
+- macOS x64 (Intel)
+- Linux x64 (glibc)
 
 <details>
 <summary><strong>Building from Source</strong></summary>
 
-For other platforms, install FFmpeg development libraries first:
+For other platforms or to force a source build:
+
+```bash
+npm install @pproenca/node-webcodecs --build-from-source
+```
+
+This requires FFmpeg 5.0+ development libraries:
 
 **macOS:**
 
@@ -37,20 +47,14 @@ brew install ffmpeg pkg-config
 **Ubuntu/Debian:**
 
 ```bash
-sudo apt-get install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev pkg-config
+sudo apt-get install libavcodec-dev libavformat-dev libavutil-dev \
+  libswscale-dev libswresample-dev libavfilter-dev pkg-config
 ```
 
 **Fedora/RHEL:**
 
 ```bash
 sudo dnf install ffmpeg-devel pkg-config
-```
-
-Then install:
-
-```bash
-npm install @pproenca/node-webcodecs
-npm run build:native
 ```
 
 </details>

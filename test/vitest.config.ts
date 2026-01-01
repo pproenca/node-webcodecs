@@ -6,6 +6,8 @@ const includeReference = process.env.INCLUDE_REFERENCE === 'true';
 
 export default defineConfig({
   test: {
+    // Disable watch mode - always run once and exit
+    watch: false,
     root: './test',
     include: includeReference
       ? ['golden/**/*.test.{ts,js,mjs}', 'reference/**/*.test.{ts,js,mjs}', 'unit/**/*.test.{ts,js,mjs}']

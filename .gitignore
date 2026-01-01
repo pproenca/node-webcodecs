@@ -40,14 +40,7 @@ CMakeFiles/
 *.profraw
 *.profdata
 
-# Platform packages (generated during CI, not committed)
-packages/darwin-arm64/
-packages/darwin-x64/
-packages/linux-x64/
-# Keep the template
-!packages/platform-template.json
-
-# Prebuilds (generated during CI)
+# Prebuilds (generated during CI, bundled in npm package)
 prebuilds/
 
 # Binary directory (local development)

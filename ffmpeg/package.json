@@ -1,9 +1,0 @@
-{
-  "name": "@pproenca/ffmpeg-packages",
-  "private": true,
-  "workspaces": [
-    "darwin-arm64",
-    "darwin-x64",
-    "linux-x64"
-  ]
-}
