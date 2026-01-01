@@ -2,8 +2,9 @@ node_modules/
 build/
 dist/
 
-# Note: package-lock.json is committed for reproducible CI builds.
-# It's excluded from npm package via the `files` whitelist in package.json.
+# Ignore lockfile to allow platform-specific optional deps to resolve correctly
+# (same pattern as sharp - see https://github.com/lovell/sharp)
+package-lock.json
 coverage/
 *.node
 .DS_Store

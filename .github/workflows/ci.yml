@@ -38,7 +38,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22.x"
-          cache: 'npm'
       - run: npm install --ignore-scripts
       - run: npm run build:ts
       - run: npm run lint
@@ -97,7 +96,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.nodejs_version }}
-          cache: 'npm'
 
       # Try to restore pre-built FFmpeg from cache (shared with build-ffmpeg.yml)
       - name: Restore FFmpeg cache
