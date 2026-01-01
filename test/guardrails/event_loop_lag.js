@@ -42,6 +42,7 @@ async function run() {
   }
 
   await encoder.flush();
+  encoder.close();
   clearInterval(timer);
 
   console.log(

@@ -77,8 +77,10 @@ console.log(
 
 if (failed) {
   console.error('FAILURE: Some malformed inputs were accepted!');
+  encoder.close();
   process.exit(1);
 }
 
 // Note: If we got here without segfault, that's also a pass
 console.log('SUCCESS: All malformed inputs rejected safely (no segfaults).');
+encoder.close();
