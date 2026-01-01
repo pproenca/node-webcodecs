@@ -10,7 +10,7 @@ describe('binding loader', () => {
     expect(binding).toBeDefined();
     expect(typeof binding.VideoEncoder).toBe('function');
     expect(typeof binding.VideoDecoder).toBe('function');
-    expect(platformInfo.runtimePlatform).toMatch(/^(darwin|linux|win32)/);
+    expect(platformInfo.platform).toMatch(/^(darwin|linux|win32)/);
   });
 
   it('should export platform info', async () => {
@@ -18,6 +18,7 @@ describe('binding loader', () => {
 
     expect(platformInfo).toHaveProperty('platform');
     expect(platformInfo).toHaveProperty('arch');
-    expect(platformInfo).toHaveProperty('runtimePlatform');
+    expect(platformInfo).toHaveProperty('nodeVersion');
+    expect(platformInfo).toHaveProperty('napiVersion');
   });
 });

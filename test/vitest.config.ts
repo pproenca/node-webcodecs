@@ -24,10 +24,8 @@ export default defineConfig({
     // Single fork ensures clean sequential teardown of FFmpeg resources.
     // See: https://github.com/vitest-dev/vitest/discussions/6285
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
+    forks: {
+      singleFork: true,
     },
     coverage: {
       enabled: process.env.CI === 'true',

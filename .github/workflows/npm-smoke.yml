@@ -65,22 +65,9 @@ jobs:
         with:
           version: 9
 
-      - name: Install FFmpeg (Ubuntu)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libavcodec-dev \
-            libavformat-dev \
-            libavutil-dev \
-            libswscale-dev \
-            libswresample-dev \
-            libavfilter-dev \
-            pkg-config
-
-      - name: Install FFmpeg (macOS)
-        if: runner.os == 'macOS'
-        run: brew install ffmpeg pkg-config
+      # Note: FFmpeg is NOT installed here intentionally.
+      # Prebuilds use static linking via jellyfin-ffmpeg and should be self-contained.
+      # If smoke tests fail without FFmpeg, it indicates a static linking problem.
 
       - name: Version
         id: version

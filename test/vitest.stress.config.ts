@@ -14,10 +14,8 @@ export default defineConfig({
     // Use single fork to prevent "Worker exited unexpectedly" crashes during cleanup.
     // See vitest.config.ts for details.
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
+    forks: {
+      singleFork: true,
     },
   },
 });
