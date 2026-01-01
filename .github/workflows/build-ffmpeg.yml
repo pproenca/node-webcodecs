@@ -82,9 +82,32 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install nasm pkg-config x264 x265 libvpx opus aom lame dav1d svt-av1 libvorbis
-          # Set PKG_CONFIG_PATH for Homebrew (ARM64: /opt/homebrew, Intel: /usr/local)
           HOMEBREW_PREFIX=$(brew --prefix)
-          echo "PKG_CONFIG_PATH=${HOMEBREW_PREFIX}/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/lame/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
+
+          # Homebrew's lame doesn't include a pkg-config file, so we create one
+          LAME_PREFIX="${HOMEBREW_PREFIX}/opt/lame"
+          mkdir -p "${LAME_PREFIX}/lib/pkgconfig"
+          cat > "${LAME_PREFIX}/lib/pkgconfig/mp3lame.pc" <<EOF
+          prefix=${LAME_PREFIX}
+          exec_prefix=\${prefix}
+          libdir=\${prefix}/lib
+          includedir=\${prefix}/include
+
+          Name: mp3lame
+          Description: LAME MP3 encoder library
+          Version: 3.100
+          Libs: -L\${libdir} -lmp3lame
+          Cflags: -I\${includedir}
+          EOF
+          # Strip leading whitespace from each line (heredoc in YAML includes indentation)
+          sed -i '' 's/^          //' "${LAME_PREFIX}/lib/pkgconfig/mp3lame.pc"
+
+          # Set PKG_CONFIG_PATH for Homebrew (ARM64: /opt/homebrew, Intel: /usr/local)
+          echo "PKG_CONFIG_PATH=${HOMEBREW_PREFIX}/lib/pkgconfig:${LAME_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
+
+          # Verify lame is now findable
+          export PKG_CONFIG_PATH="${HOMEBREW_PREFIX}/lib/pkgconfig:${LAME_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          pkg-config --modversion mp3lame
 
       - name: Install dependencies (Linux glibc)
         if: runner.os == 'Linux' && !matrix.container
