@@ -12,7 +12,7 @@ on:
         default: "8.0.1"
       cache_version:
         description: "Cache version (bump to force rebuild)"
-        default: "v4"
+        default: "v5"
       force_rebuild:
         description: "Force rebuild (ignore cache)"
         type: boolean
@@ -52,7 +52,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       FFMPEG_VERSION: ${{ inputs.ffmpeg_version || '8.0.1' }}
-      CACHE_VERSION: ${{ inputs.cache_version || 'v4' }}
+      CACHE_VERSION: ${{ inputs.cache_version || 'v5' }}
     strategy:
       fail-fast: false
       matrix:

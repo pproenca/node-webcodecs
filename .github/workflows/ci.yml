@@ -14,7 +14,7 @@ on:
         default: "8.0.1"
       cache_version:
         description: "Cache version"
-        default: "v4"
+        default: "v5"
   push:
     branches: [master]
   pull_request:
