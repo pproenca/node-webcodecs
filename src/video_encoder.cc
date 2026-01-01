@@ -399,8 +399,9 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
 
   int ret = avcodec_open2(codec_context_.get(), codec_, nullptr);
 
-  // If hardware encoder failed and fallback is allowed, try software encoder
-  if (ret < 0 && is_hw_encoder && hw_accel != "prefer-hardware") {
+  // If hardware encoder failed, fall back to software encoder.
+  // Per W3C spec, "prefer-hardware" still allows software fallback.
+  if (ret < 0 && is_hw_encoder) {
     // Reset the failed hardware encoder context
     codec_context_.reset();
 
