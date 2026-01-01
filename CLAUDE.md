@@ -22,25 +22,19 @@ node-webcodecs is a W3C WebCodecs API implementation for Node.js using FFmpeg as
 ## Build Commands
 
 ```bash
-npm run build              # Full build: native C++ addon + TypeScript
-npm run build:ts           # TypeScript only
-npm run build:native       # C++ addon only (node-gyp)
-npm run build:native:debug # Debug build of C++ addon
-npm run clean              # Remove build artifacts
+npm run build        # Full build: native C++ addon + TypeScript
+npm run build:debug  # Debug build of C++ addon + TypeScript
+npm run clean        # Remove build artifacts
 ```
 
 ## Testing
 
 ```bash
-npm test                   # Run all tests (lint + fast + guardrails)
-npm run test-fast          # Unit + golden tests (quicker, use during development)
-npm run test-unit          # Unit tests only
-npm run test-golden        # Golden/reference tests only
-npm run test-guardrails    # Memory sentinel, fuzzer, event loop lag tests
-npm run test-contracts     # State machine contract tests
-npm run test-leak          # Memory leak detection (requires valgrind)
-npm run test-stress        # Stress tests for memory leaks under load
-npm run test-all           # fast + guardrails + contracts
+npm run check        # Full validation (lint + test) - matches CI exactly
+npm test             # Tests only (vitest + guardrails)
+npm run test:unit    # Unit tests only (fast iteration)
+npm run test:contracts  # State machine contract tests
+npm run lint         # Run all linters
 
 # Run a specific test file
 npx vitest run test/golden/video-encoder.test.ts
@@ -48,8 +42,12 @@ npx vitest run test/golden/video-encoder.test.ts
 # Run tests matching a pattern
 npx vitest run -t "VideoFrame"
 
-# Run with coverage (CI only by default)
-npm run test-coverage
+# Less common commands (run directly):
+npx vitest run --config test/vitest.config.ts golden/     # Golden tests only
+npx vitest run --config test/vitest.config.ts stress/     # Stress tests
+npx vitest run --config test/vitest.config.ts --coverage  # With coverage
+./test/leak/leak.sh                                       # Memory leak detection (valgrind)
+./test/leak/leaks-macos.sh                                # macOS leak detection
 ```
 
 Tests inject WebCodecs classes into `globalThis` via `test/setup.ts`. Reference tests (codec conversion) are skipped in CI due to resource requirements.
