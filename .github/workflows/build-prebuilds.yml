@@ -59,19 +59,19 @@ jobs:
     container: ${{ matrix.container || '' }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       # Alpine: Download FFmpeg from build-ffmpeg job (cache doesn't work in containers)
       - name: Download FFmpeg artifact (Alpine)
         if: ${{ matrix.container }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: ffmpeg-${{ matrix.platform }}
           path: ffmpeg-install
 
       - name: Setup Node.js
         if: ${{ !matrix.container }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "22.x"
 
@@ -85,7 +85,7 @@ jobs:
       - name: Restore FFmpeg cache
         if: ${{ !matrix.container }}
         id: cache-ffmpeg
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ffmpeg-install
           key: ffmpeg-${{ matrix.platform }}-${{ env.FFMPEG_VERSION }}-${{ env.CACHE_VERSION }}
@@ -183,7 +183,7 @@ jobs:
           ls -la prebuild-${{ matrix.platform }}/
 
       - name: Upload prebuild
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: prebuild-${{ matrix.platform }}
           path: prebuild-${{ matrix.platform }}/
