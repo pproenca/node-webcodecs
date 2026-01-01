@@ -237,6 +237,11 @@ jobs:
             -e CCACHE_DIR=/root/.ccache \
             "${IMAGE}" bash -c '
               set -xe
+
+              # Install ccache at runtime (not in base image to avoid submodule changes)
+              apt-get update -qq
+              apt-get install -y -qq ccache
+
               cd /ffbuild/ffmpeg
 
               # Apply patches if available
