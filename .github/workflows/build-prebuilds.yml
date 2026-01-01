@@ -70,39 +70,16 @@ jobs:
           - os: ubuntu-24.04
             platform: linux-x64
             arch: x64
-          - os: ubuntu-24.04
-            platform: linuxmusl-x64
-            arch: x64
-            container: alpine:${{ vars.ALPINE_VERSION || '3.19' }}
-
-    container: ${{ matrix.container || '' }}
 
     steps:
       - uses: actions/checkout@v6
 
-      # Alpine: Download FFmpeg from build-ffmpeg job (cache doesn't work in containers)
-      - name: Download FFmpeg artifact (Alpine)
-        if: ${{ matrix.container }}
-        uses: actions/download-artifact@v7
-        with:
-          name: ffmpeg-${{ matrix.platform }}
-          path: ffmpeg-install
-
       - name: Setup Node.js
-        if: ${{ !matrix.container }}
         uses: actions/setup-node@v6
         with:
           node-version: "22.x"
 
-      - name: Setup Node.js (Alpine)
-        if: ${{ matrix.container }}
-        run: |
-          apk add --no-cache nodejs npm
-
-      # Try to restore pre-built FFmpeg from cache (shared with build-ffmpeg.yml)
-      # Note: Cache doesn't work well in Alpine containers, so skip for linuxmusl
       - name: Restore FFmpeg cache
-        if: ${{ !matrix.container }}
         id: cache-ffmpeg
         uses: actions/cache/restore@v5
         with:
@@ -112,7 +89,7 @@ jobs:
             ffmpeg-${{ matrix.platform }}-${{ inputs.ffmpeg_version }}-
 
       - name: Setup cached FFmpeg
-        if: ${{ !matrix.container && steps.cache-ffmpeg.outputs.cache-hit == 'true' }}
+        if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
         run: |
           echo "Using cached FFmpeg from build-ffmpeg workflow"
           ls -la ffmpeg-install/
@@ -127,7 +104,7 @@ jobs:
           brew install ffmpeg
 
       - name: Install FFmpeg (Ubuntu) - cache miss
-        if: runner.os == 'Linux' && !matrix.container && steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        if: runner.os == 'Linux' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -144,24 +121,6 @@ jobs:
             libaom-dev \
             libmp3lame-dev \
             pkg-config
-
-      - name: Install build tools (Alpine)
-        if: ${{ matrix.container }}
-        run: |
-          apk add --no-cache \
-            build-base \
-            python3 \
-            pkgconf
-          # Note: Using custom FFmpeg from artifact, not system packages
-
-      - name: Setup custom FFmpeg (Alpine)
-        if: ${{ matrix.container }}
-        run: |
-          echo "Using custom FFmpeg from build-ffmpeg artifact"
-          ls -la ffmpeg-install/
-          ls -la ffmpeg-install/lib/ || true
-          echo "PKG_CONFIG_PATH=${{ github.workspace }}/ffmpeg-install/lib/pkgconfig" >> $GITHUB_ENV
-          echo "LD_LIBRARY_PATH=${{ github.workspace }}/ffmpeg-install/lib" >> $GITHUB_ENV
 
       - name: Install dependencies
         run: npm install --ignore-scripts

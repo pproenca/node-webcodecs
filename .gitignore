@@ -44,7 +44,6 @@ CMakeFiles/
 packages/darwin-arm64/
 packages/darwin-x64/
 packages/linux-x64/
-packages/linuxmusl-x64/
 # Keep the template
 !packages/platform-template.json
 

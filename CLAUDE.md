@@ -125,7 +125,7 @@ Audio codecs: `mp4a.40.2` (AAC), `opus`, `mp3`, `flac`
 
 Prebuilt binaries follow the "sharp pattern" with optional packages:
 
-- `@pproenca/node-webcodecs-{darwin-arm64|darwin-x64|linux-x64|linuxmusl-x64|win32-x64}`
+- `@pproenca/node-webcodecs-{darwin-arm64|darwin-x64|linux-x64}`
 
 For source builds, FFmpeg 5.0+ (libavcodec 59+) required. See README.md for platform-specific instructions.
 
@@ -152,12 +152,11 @@ act push -j build-ffmpeg --container-architecture linux/amd64 -W .github/workflo
 act -n -j build-ffmpeg --container-architecture linux/amd64 -W .github/workflows/build-ffmpeg.yml
 
 # Filter to specific matrix platform
-act push -j build-ffmpeg --container-architecture linux/amd64 -W .github/workflows/build-ffmpeg.yml --matrix platform:linuxmusl-x64
+act push -j build-ffmpeg --container-architecture linux/amd64 -W .github/workflows/build-ffmpeg.yml --matrix platform:linux-x64
 ```
 
 Key points:
 
 - Use `--container-architecture linux/amd64` on Apple Silicon to run Linux containers
 - The `act` tool simulates GitHub Actions locally using Docker
-- Alpine (linuxmusl-x64) jobs use container builds - cache doesn't work, must always build from source
 - When a step's `if:` condition references a skipped step's outputs, the output is empty string not undefined

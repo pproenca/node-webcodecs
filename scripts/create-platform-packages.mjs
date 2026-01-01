@@ -18,7 +18,6 @@ const platforms = [
   { name: 'darwin-arm64', os: 'darwin', cpu: 'arm64' },
   { name: 'darwin-x64', os: 'darwin', cpu: 'x64' },
   { name: 'linux-x64', os: 'linux', cpu: 'x64', libc: 'glibc' },
-  { name: 'linuxmusl-x64', os: 'linux', cpu: 'x64', libc: 'musl' },
 ];
 
 // Read template
