@@ -42,7 +42,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: "22.x"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
@@ -140,6 +140,8 @@ jobs:
             fi
           done
 
+      # OIDC Trusted Publishing - no NPM_TOKEN needed (Node 24+)
+      # Configure trusted publisher at npmjs.com package settings
       - name: Publish FFmpeg packages
         run: |
           for platform in $PLATFORMS; do
@@ -147,8 +149,6 @@ jobs:
             npm publish --provenance --access public || echo "Package may already exist"
             cd ../..
           done
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish addon packages
         run: |
@@ -157,10 +157,6 @@ jobs:
             npm publish --provenance --access public || echo "Package may already exist"
             cd ../..
           done
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish main package
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
