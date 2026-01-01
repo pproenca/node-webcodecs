@@ -160,6 +160,8 @@ jobs:
           # Copy libraries (macOS uses .dylib, Linux uses .so)
           cp -P ffmpeg-install/lib/*.dylib ffmpeg-${{ matrix.platform }}/lib/ 2>/dev/null || true
           cp -P ffmpeg-install/lib/*.so* ffmpeg-${{ matrix.platform }}/lib/ 2>/dev/null || true
+          # Copy pkgconfig files (needed for compilation against this FFmpeg)
+          cp -r ffmpeg-install/lib/pkgconfig ffmpeg-${{ matrix.platform }}/lib/ 2>/dev/null || true
           # Copy headers (use cp -r on directory itself to avoid glob issues on Alpine)
           cp -r ffmpeg-install/include/. ffmpeg-${{ matrix.platform }}/include/
           echo "{\"ffmpeg\": \"${FFMPEG_VERSION}\"}" > ffmpeg-${{ matrix.platform }}/versions.json

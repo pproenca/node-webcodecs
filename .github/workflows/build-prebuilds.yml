@@ -59,11 +59,20 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Alpine: Download FFmpeg from build-ffmpeg job (cache doesn't work in containers)
+      - name: Download FFmpeg artifact (Alpine)
+        if: ${{ matrix.container }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ffmpeg-${{ matrix.platform }}
+          path: ffmpeg-install
+
       - name: Setup Node.js
         if: ${{ !matrix.container }}
         uses: actions/setup-node@v4
         with:
           node-version: "22.x"
+          cache: 'npm'
 
       - name: Setup Node.js (Alpine)
         if: ${{ matrix.container }}
@@ -116,20 +125,23 @@ jobs:
             libmp3lame-dev \
             pkg-config
 
-      - name: Install FFmpeg (Alpine)
+      - name: Install build tools (Alpine)
         if: ${{ matrix.container }}
         run: |
           apk add --no-cache \
             build-base \
             python3 \
-            ffmpeg-dev \
-            x264-dev \
-            x265-dev \
-            libvpx-dev \
-            opus-dev \
-            aom-dev \
-            lame-dev \
             pkgconf
+          # Note: Using custom FFmpeg from artifact, not system packages
+
+      - name: Setup custom FFmpeg (Alpine)
+        if: ${{ matrix.container }}
+        run: |
+          echo "Using custom FFmpeg from build-ffmpeg artifact"
+          ls -la ffmpeg-install/
+          ls -la ffmpeg-install/lib/ || true
+          echo "PKG_CONFIG_PATH=${{ github.workspace }}/ffmpeg-install/lib/pkgconfig" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=${{ github.workspace }}/ffmpeg-install/lib" >> $GITHUB_ENV
 
       - name: Install dependencies
         run: npm install --ignore-scripts

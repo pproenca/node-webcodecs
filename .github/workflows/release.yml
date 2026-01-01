@@ -12,18 +12,14 @@ env:
 permissions: {}
 
 jobs:
-  # Build prebuilt binaries for all platforms
+  # Build prebuilt binaries for all platforms (also builds FFmpeg via nested workflow call)
   build-prebuilds:
     uses: ./.github/workflows/build-prebuilds.yml
-
-  # Build FFmpeg for all platforms (uses default version from build-ffmpeg.yml)
-  build-ffmpeg:
-    uses: ./.github/workflows/build-ffmpeg.yml
 
   # Package and publish everything
   package-and-publish:
     name: "Package and Publish"
-    needs: [build-prebuilds, build-ffmpeg]
+    needs: [build-prebuilds]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -35,6 +31,7 @@ jobs:
         with:
           node-version: "22.x"
           registry-url: "https://registry.npmjs.org"
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm install --ignore-scripts
