@@ -90,15 +90,17 @@ jobs:
           mkdir -p "${LAME_PREFIX}/lib/pkgconfig"
           printf 'prefix=%s\nexec_prefix=${prefix}\nlibdir=${prefix}/lib\nincludedir=${prefix}/include\n\nName: libmp3lame\nDescription: LAME MP3 encoder library\nVersion: 3.100\nLibs: -L${libdir} -lmp3lame\nCflags: -I${includedir}\n' "${LAME_PREFIX}" > "${LAME_PREFIX}/lib/pkgconfig/libmp3lame.pc"
 
-          # Set PKG_CONFIG_PATH for Homebrew (ARM64: /opt/homebrew, Intel: /usr/local)
+          # Set environment for FFmpeg configure
           echo "PKG_CONFIG_PATH=${HOMEBREW_PREFIX}/lib/pkgconfig:${LAME_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
+          # Also set CFLAGS/LDFLAGS for libraries that need explicit paths
+          echo "CFLAGS=-I${HOMEBREW_PREFIX}/include -I${LAME_PREFIX}/include" >> $GITHUB_ENV
+          echo "LDFLAGS=-L${HOMEBREW_PREFIX}/lib -L${LAME_PREFIX}/lib" >> $GITHUB_ENV
 
           # Verify lame is now findable
           export PKG_CONFIG_PATH="${HOMEBREW_PREFIX}/lib/pkgconfig:${LAME_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}"
           echo "Created libmp3lame.pc at ${LAME_PREFIX}/lib/pkgconfig/"
-          cat "${LAME_PREFIX}/lib/pkgconfig/libmp3lame.pc"
           pkg-config --modversion libmp3lame
-          pkg-config --libs libmp3lame
+          pkg-config --cflags --libs libmp3lame
 
       - name: Install dependencies (Linux glibc)
         if: runner.os == 'Linux' && !matrix.container
@@ -144,6 +146,8 @@ jobs:
         run: |
           # Debug: verify pkg-config can find libraries
           echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}"
+          echo "CFLAGS=${CFLAGS}"
+          echo "LDFLAGS=${LDFLAGS}"
           echo "Checking libmp3lame..."
           pkg-config --exists libmp3lame && echo "libmp3lame found" || echo "libmp3lame NOT found"
           pkg-config --modversion libmp3lame || true
@@ -165,6 +169,8 @@ jobs:
             --enable-libdav1d \
             ${{ steps.codec-check.outputs.svtav1 }} \
             --enable-libvorbis \
+            --extra-cflags="${CFLAGS}" \
+            --extra-ldflags="${LDFLAGS}" \
             ${{ matrix.configure_flags }}
 
       - name: Build FFmpeg
