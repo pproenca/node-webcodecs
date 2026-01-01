@@ -136,3 +136,27 @@ For source builds, FFmpeg 5.0+ (libavcodec 59+) required. See README.md for plat
 - **Error codes**: Always check return values. Use `FFmpegErrorString()` for messages.
 - **Timebases**: Never assume 1:1 packet/frame relationship. Handle timebase conversions explicitly.
 - **Threading**: `AVCodecContext` is not thread-safe. Isolate access between main thread and workers.
+
+## CI Workflow Testing
+
+**IMPORTANT**: When modifying GitHub Actions workflows, always test locally before pushing.
+
+```bash
+# List available workflows and jobs
+act -l
+
+# Test the build-ffmpeg workflow (all platforms)
+act push -j build-ffmpeg --container-architecture linux/amd64 -W .github/workflows/build-ffmpeg.yml
+
+# Dry-run to see what would execute without actually running
+act -n -j build-ffmpeg --container-architecture linux/amd64 -W .github/workflows/build-ffmpeg.yml
+
+# Filter to specific matrix platform
+act push -j build-ffmpeg --container-architecture linux/amd64 -W .github/workflows/build-ffmpeg.yml --matrix platform:linuxmusl-x64
+```
+
+Key points:
+- Use `--container-architecture linux/amd64` on Apple Silicon to run Linux containers
+- The `act` tool simulates GitHub Actions locally using Docker
+- Alpine (linuxmusl-x64) jobs use container builds - cache doesn't work, must always build from source
+- When a step's `if:` condition references a skipped step's outputs, the output is empty string not undefined
