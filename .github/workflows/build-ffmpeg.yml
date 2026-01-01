@@ -73,11 +73,38 @@ jobs:
       # =========================================================================
       # macOS Build using jellyfin-ffmpeg builder
       # =========================================================================
+      - name: Cache Homebrew packages
+        if: runner.os == 'macOS' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/Library/Caches/Homebrew
+            /opt/homebrew/Cellar
+            /opt/homebrew/opt
+            /usr/local/Cellar
+            /usr/local/opt
+          key: brew-ffmpeg-${{ runner.arch }}-v1
+          restore-keys: |
+            brew-ffmpeg-${{ runner.arch }}-
+
       - name: Install build tools (macOS)
         if: runner.os == 'macOS' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
           # Install dependencies as listed in jellyfin-ffmpeg/builder/Buildmac.md
-          brew install nasm pkg-config autoconf automake libtool cmake meson ninja quilt
+          # Only install packages not already present (from cache)
+          PACKAGES="nasm pkg-config autoconf automake libtool cmake meson ninja quilt"
+          MISSING=""
+          for pkg in $PACKAGES; do
+            if ! brew list "$pkg" &>/dev/null; then
+              MISSING="$MISSING $pkg"
+            fi
+          done
+          if [[ -n "$MISSING" ]]; then
+            echo "Installing missing packages:$MISSING"
+            brew install $MISSING
+          else
+            echo "All packages already installed (from cache)"
+          fi
 
       - name: Prepare FFmpeg prefix (macOS)
         if: runner.os == 'macOS' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
@@ -131,21 +158,21 @@ jobs:
           cd externals/jellyfin-ffmpeg/builder
           echo "=== Building jellyfin-ffmpeg for Linux ${{ matrix.target }} ==="
 
-          # Define the Docker image we need (use pproenca fork with SIZE_SPECIFIER fix)
-          IMAGE="ghcr.io/pproenca/jellyfin-ffmpeg/${{ matrix.target }}-gpl:latest"
+          # Pre-pull the Docker image - fail fast if missing
+          IMAGE="ghcr.io/${{ github.repository_owner }}/jellyfin-ffmpeg/${{ matrix.target }}-gpl:latest"
 
-          # Pre-pull the Docker image with fallback to local build
-          if docker pull "${IMAGE}" 2>/dev/null; then
-            echo "✓ Using pre-built Docker image: ${IMAGE}"
-          else
-            echo "⚠ Docker image not found, building locally..."
-            export GITHUB_REPOSITORY="pproenca/jellyfin-ffmpeg"
-            ./makeimage.sh ${{ matrix.target }} gpl
+          echo "::group::Docker Image Pull"
+          if ! docker pull "${IMAGE}"; then
+            echo "::error::Docker image not found: ${IMAGE}"
+            echo "::error::Run the build-docker-images workflow first, or check GHCR permissions"
+            exit 1
           fi
+          echo "✓ Using pre-built Docker image: ${IMAGE}"
+          echo "::endgroup::"
 
-          # Override GITHUB_REPOSITORY to use pproenca's images
+          # Override GITHUB_REPOSITORY to use repository owner's images
           # Must export inside script - GitHub Actions injects its own value that takes precedence over env: block
-          export GITHUB_REPOSITORY="pproenca/jellyfin-ffmpeg"
+          export GITHUB_REPOSITORY="${{ github.repository_owner }}/jellyfin-ffmpeg"
 
           # Build FFmpeg using Docker (includes make install)
           ./build.sh ${{ matrix.target }} gpl
