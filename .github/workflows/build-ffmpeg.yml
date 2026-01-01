@@ -1,5 +1,9 @@
 name: build-ffmpeg
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
     inputs:
@@ -28,6 +32,10 @@ on:
         type: string
         default: "v3"
   push:
+    paths:
+      - ".github/workflows/build-ffmpeg.yml"
+      - "ffmpeg/**"
+  pull_request:
     paths:
       - ".github/workflows/build-ffmpeg.yml"
       - "ffmpeg/**"
@@ -193,7 +201,7 @@ jobs:
         run: make install
 
       - name: Save FFmpeg cache
-        if: ${{ !matrix.container && steps.cache-ffmpeg.outputs.cache-hit != 'true' }}
+        if: ${{ !matrix.container && steps.cache-ffmpeg.outputs.cache-hit != 'true' && success() }}
         uses: actions/cache/save@v5
         with:
           path: ffmpeg-install
