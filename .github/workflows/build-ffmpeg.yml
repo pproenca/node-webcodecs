@@ -107,7 +107,7 @@ jobs:
           FFMPEG_VERSION: ${{ github.event.inputs.ffmpeg_version || env.DEFAULT_FFMPEG_VERSION }}
         run: |
           curl -L https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz | tar xJ
-          mv ffmpeg-* ffmpeg-src
+          mv ffmpeg-${FFMPEG_VERSION} ffmpeg-src
 
       - name: Configure FFmpeg
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
