@@ -9,5 +9,13 @@ export default defineConfig({
     hookTimeout: 30000,
     isolate: true,
     fileParallelism: false, // Run stress tests sequentially to avoid resource contention
+    // Use single fork to prevent "Worker exited unexpectedly" crashes during cleanup.
+    // See vitest.config.ts for details.
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
   },
 });
