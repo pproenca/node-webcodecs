@@ -45,8 +45,7 @@
             "<!@(node gyp/ffmpeg-paths.js include 2>/dev/null || pkg-config --cflags-only-I libavcodec libavutil libswscale libswresample libavfilter 2>/dev/null | sed s/-I//g || echo '/opt/homebrew/include /usr/local/include')"
           ],
           "libraries": [
-            "<!@(node gyp/ffmpeg-paths.js lib 2>/dev/null || echo '')",
-            "<!@(pkg-config --libs --static libavcodec libavutil libswscale libswresample libavfilter 2>/dev/null || echo '-L/opt/homebrew/lib -L/usr/local/lib -lavcodec -lavutil -lswscale -lswresample -lavfilter')",
+            "<!@(node gyp/ffmpeg-paths.js lib 2>/dev/null || pkg-config --libs --static libavcodec libavformat libavutil libswscale libswresample libavfilter 2>/dev/null || echo '-L/opt/homebrew/lib -L/usr/local/lib -lavcodec -lavformat -lavutil -lswscale -lswresample -lavfilter')",
             "-framework VideoToolbox",
             "-framework AudioToolbox",
             "-framework CoreMedia",
@@ -76,8 +75,7 @@
             "<!@(node gyp/ffmpeg-paths.js include 2>/dev/null || pkg-config --cflags-only-I libavcodec libavutil libswscale libswresample libavfilter | sed s/-I//g)"
           ],
           "libraries": [
-            "<!@(node gyp/ffmpeg-paths.js lib 2>/dev/null || echo '')",
-            "<!@(pkg-config --libs --static libavcodec libavutil libswscale libswresample libavfilter)",
+            "<!@(node gyp/ffmpeg-paths.js lib 2>/dev/null || pkg-config --libs --static libavcodec libavformat libavutil libswscale libswresample libavfilter)",
             "-lpthread",
             "-lm",
             "-ldl",
