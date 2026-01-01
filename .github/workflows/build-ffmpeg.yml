@@ -172,6 +172,10 @@ jobs:
           # Install FFmpeg libraries to prefix (buildmac.sh only builds, doesn't install)
           make install prefix=/opt/ffbuild/prefix
 
+          # Show ccache stats
+          echo "=== ccache statistics ==="
+          ccache -s
+
           # Copy to workspace for caching
           cp -r /opt/ffbuild/prefix ${{ github.workspace }}/ffmpeg-install
 
@@ -217,12 +221,46 @@ jobs:
           echo "✓ Using pre-built Docker image: ${IMAGE}"
           echo "::endgroup::"
 
-          # Override GITHUB_REPOSITORY to use repository owner's images
-          # Must export inside script - GitHub Actions injects its own value that takes precedence over env: block
-          export GITHUB_REPOSITORY="${{ github.repository_owner }}/jellyfin-ffmpeg"
+          # Prepare build directory (replicate what build.sh does)
+          rm -rf ffbuild
+          mkdir -p ffbuild/ffmpeg
+          rsync -a .. ffbuild/ffmpeg --exclude=builder
 
-          # Build FFmpeg using Docker (includes make install)
-          ./build.sh ${{ matrix.target }} gpl
+          # Prepare ccache directory
+          mkdir -p ~/.ccache
+
+          echo "::group::FFmpeg Build with ccache"
+          # Run docker directly with ccache mount (build.sh doesn't support this)
+          docker run --rm \
+            -v "$PWD/ffbuild:/ffbuild" \
+            -v "$HOME/.ccache:/root/.ccache" \
+            -e CCACHE_DIR=/root/.ccache \
+            "${IMAGE}" bash -c '
+              set -xe
+              cd /ffbuild/ffmpeg
+
+              # Apply patches if available
+              if [[ -f "debian/patches/series" ]]; then
+                ln -sf debian/patches patches
+                quilt push -a || true
+              fi
+
+              # Use ccache for compilation
+              export CC="ccache gcc"
+              export CXX="ccache g++"
+
+              # Configure and build
+              ./configure --prefix=/ffbuild/prefix \
+                $FFBUILD_TARGET_FLAGS \
+                --extra-version="Jellyfin"
+              make -j$(nproc) V=1
+              make install
+
+              # Show ccache stats
+              echo "=== ccache statistics ==="
+              ccache -s
+            '
+          echo "::endgroup::"
 
           # Verify build output exists
           if [ ! -d ffbuild/prefix/lib ]; then
