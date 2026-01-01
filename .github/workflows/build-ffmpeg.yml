@@ -80,6 +80,14 @@ jobs:
           restore-keys: |
             ffmpeg-${{ matrix.platform }}-${{ env.FFMPEG_VERSION }}-
 
+      - name: Fix macOS 15 PerfPowerServices CPU bug
+        if: runner.os == 'macOS'
+        run: |
+          # Workaround for known macOS 15 bug where PerfPowerServices consumes 100% CPU
+          # See: https://github.com/actions/runner-images/issues/13358
+          sudo defaults -currentHost write /Library/Preferences/com.apple.powerlogd SMCMonitorCadence 0
+          sudo killall PerfPowerServices || true
+
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
