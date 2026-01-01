@@ -1,8 +1,10 @@
 name: build-prebuilds
 
+# Concurrency: When called via workflow_call, inherits caller's concurrency.
+# For direct triggers (workflow_dispatch, push), each run is independent.
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # FFmpeg version and cache version are centralized via repository variables.
 # Set in GitHub Settings > Secrets and variables > Actions > Variables

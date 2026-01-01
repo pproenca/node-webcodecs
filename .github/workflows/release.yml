@@ -1,5 +1,10 @@
 name: release
 
+# Releases must NEVER be canceled - partial releases are dangerous
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 on:
   release:
     types: [published]
