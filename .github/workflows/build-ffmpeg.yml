@@ -61,6 +61,23 @@ jobs:
         with:
           path: ffmpeg-install
           key: ffmpeg-${{ matrix.platform }}-${{ steps.ffmpeg-hash.outputs.hash }}-${{ env.CACHE_VERSION }}
+          restore-keys: |
+            ffmpeg-${{ matrix.platform }}-${{ steps.ffmpeg-hash.outputs.hash }}-
+            ffmpeg-${{ matrix.platform }}-
+
+      - name: Log cache status
+        run: |
+          echo "::group::Cache Diagnostics"
+          echo "Cache hit: ${{ steps.cache-ffmpeg.outputs.cache-hit }}"
+          echo "Cache key: ffmpeg-${{ matrix.platform }}-${{ steps.ffmpeg-hash.outputs.hash }}-${{ env.CACHE_VERSION }}"
+          echo "FFmpeg hash: ${{ steps.ffmpeg-hash.outputs.hash }}"
+          echo "Cache version: ${{ env.CACHE_VERSION }}"
+          if [[ "${{ steps.cache-ffmpeg.outputs.cache-hit }}" == "true" ]]; then
+            echo "✓ Cache HIT - skipping build"
+          else
+            echo "⚠ Cache MISS - will rebuild FFmpeg"
+          fi
+          echo "::endgroup::"
 
       - name: Fix macOS 15 PerfPowerServices CPU bug
         if: runner.os == 'macOS'
