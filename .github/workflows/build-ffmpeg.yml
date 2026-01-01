@@ -142,6 +142,13 @@ jobs:
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         working-directory: ffmpeg-src
         run: |
+          # Debug: verify pkg-config can find libraries
+          echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}"
+          echo "Checking libmp3lame..."
+          pkg-config --exists libmp3lame && echo "libmp3lame found" || echo "libmp3lame NOT found"
+          pkg-config --modversion libmp3lame || true
+          pkg-config --cflags --libs libmp3lame || true
+
           ./configure \
             --prefix=${{ github.workspace }}/ffmpeg-install \
             --enable-shared \
