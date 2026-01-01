@@ -30,9 +30,9 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "22.x"
           registry-url: "https://registry.npmjs.org"
@@ -44,13 +44,13 @@ jobs:
         run: npm run build:ts
 
       - name: Download all prebuilds
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: prebuild-*
           path: prebuilds-artifacts
 
       - name: Download all FFmpeg artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: ffmpeg-*
           path: ffmpeg-artifacts
