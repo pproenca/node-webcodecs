@@ -170,8 +170,13 @@ jobs:
           pkg-config --modversion libmp3lame || true
           pkg-config --cflags --libs libmp3lame || true
 
+          # Use runtime-resolved path for container compatibility
+          # (github.workspace is the HOST path, but containers use a different mount point)
+          INSTALL_PREFIX="$(cd .. && pwd)/ffmpeg-install"
+          echo "Install prefix: ${INSTALL_PREFIX}"
+
           ./configure \
-            --prefix=${{ github.workspace }}/ffmpeg-install \
+            --prefix="${INSTALL_PREFIX}" \
             --enable-shared \
             --disable-static \
             --disable-programs \
@@ -199,16 +204,18 @@ jobs:
         if: matrix.container || steps.cache-ffmpeg.outputs.cache-hit != 'true'
         working-directory: ffmpeg-src
         run: |
-          echo "Installing FFmpeg to ${{ github.workspace }}/ffmpeg-install..."
+          # Use runtime-resolved path (same as Configure step)
+          INSTALL_PREFIX="$(cd .. && pwd)/ffmpeg-install"
+          echo "Installing FFmpeg to ${INSTALL_PREFIX}..."
           make install V=1
           # Verify installation succeeded
-          if [ ! -d "${{ github.workspace }}/ffmpeg-install/include" ]; then
+          if [ ! -d "${INSTALL_PREFIX}/include" ]; then
             echo "::error::FFmpeg installation failed - include directory not found"
-            ls -la "${{ github.workspace }}/" || true
+            ls -la "$(cd .. && pwd)/" || true
             exit 1
           fi
           echo "Installation verified:"
-          ls -la "${{ github.workspace }}/ffmpeg-install/"
+          ls -la "${INSTALL_PREFIX}/"
 
       - name: Save FFmpeg cache
         if: ${{ !matrix.container && steps.cache-ffmpeg.outputs.cache-hit != 'true' && success() }}
