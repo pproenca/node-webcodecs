@@ -52,8 +52,7 @@ body:
       label: Operating system
       options:
         - macOS
-        - Linux (glibc)
-        - Linux (musl/Alpine)
+        - Linux
     validations:
       required: true
 

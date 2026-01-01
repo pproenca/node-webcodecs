@@ -21,7 +21,7 @@ WebCodecs API for Node.js — encode and decode video/audio with browser-compati
 npm install @pproenca/node-webcodecs
 ```
 
-Prebuilt binaries with FFmpeg included are available for macOS (arm64, x64) and Linux (glibc, musl).
+Prebuilt binaries with FFmpeg included are available for macOS (arm64, x64) and Linux (x64).
 
 <details>
 <summary><strong>Building from Source</strong></summary>

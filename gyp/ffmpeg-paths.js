@@ -11,19 +11,7 @@ const { join, dirname } = require('node:path');
 const { platform, arch } = require('node:os');
 
 function getRuntimePlatform() {
-  const os = platform();
-  const cpu = arch();
-
-  if (os === 'linux') {
-    try {
-      const { familySync } = require('detect-libc');
-      if (familySync() === 'musl') {
-        return `linuxmusl-${cpu}`;
-      }
-    } catch {}
-  }
-
-  return `${os}-${cpu}`;
+  return `${platform()}-${arch()}`;
 }
 
 function getPrebuiltLibPath() {

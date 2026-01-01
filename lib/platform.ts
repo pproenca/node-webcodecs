@@ -5,35 +5,11 @@
 
 import * as os from 'node:os';
 
-// Try to detect musl vs glibc on Linux
-function detectLibc(): 'glibc' | 'musl' | null {
-  if (os.platform() !== 'linux') return null;
-
-  try {
-    const { familySync } = require('detect-libc');
-    return familySync() === 'musl' ? 'musl' : 'glibc';
-  } catch {
-    // detect-libc not available, assume glibc
-    return 'glibc';
-  }
-}
-
 /**
  * Get the runtime platform-architecture string.
- * Handles musl vs glibc distinction on Linux.
  */
 export function runtimePlatformArch(): string {
-  const platform = os.platform();
-  const arch = os.arch();
-
-  if (platform === 'linux') {
-    const libc = detectLibc();
-    if (libc === 'musl') {
-      return `linuxmusl-${arch}`;
-    }
-  }
-
-  return `${platform}-${arch}`;
+  return `${os.platform()}-${os.arch()}`;
 }
 
 /**
@@ -57,7 +33,6 @@ export const prebuiltPlatforms = [
   'darwin-arm64',
   'darwin-x64',
   'linux-x64',
-  'linuxmusl-x64',
 ] as const;
 
 export type PrebuiltPlatform = (typeof prebuiltPlatforms)[number];

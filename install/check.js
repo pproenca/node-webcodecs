@@ -31,20 +31,7 @@ function hasPrebuiltFFmpeg() {
  * Get runtime platform string (matches npm package naming).
  */
 function getRuntimePlatform() {
-  const os = platform();
-  const arch = process.arch;
-
-  if (os === 'linux') {
-    // Check for musl
-    try {
-      const { familySync } = require('detect-libc');
-      if (familySync() === 'musl') {
-        return `linuxmusl-${arch}`;
-      }
-    } catch {}
-  }
-
-  return `${os}-${arch}`;
+  return `${platform()}-${process.arch}`;
 }
 
 function checkPkgConfig() {

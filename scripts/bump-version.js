@@ -31,7 +31,6 @@ const platforms = [
   'darwin-arm64',
   'darwin-x64',
   'linux-x64',
-  'linuxmusl-x64',
 ];
 
 function updateJson(filePath, updater) {

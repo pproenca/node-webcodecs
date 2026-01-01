@@ -50,7 +50,6 @@ jobs:
       attestations: write
     name: "ffmpeg-${{ matrix.platform }}"
     runs-on: ${{ matrix.os }}
-    container: ${{ matrix.container }}
     env:
       FFMPEG_VERSION: ${{ inputs.ffmpeg_version || '8.0.1' }}
       CACHE_VERSION: ${{ inputs.cache_version || 'v4' }}
@@ -67,17 +66,12 @@ jobs:
           - os: ubuntu-24.04
             platform: linux-x64
             configure_flags: ""
-          - os: ubuntu-24.04
-            platform: linuxmusl-x64
-            container: alpine:${{ vars.ALPINE_VERSION || '3.19' }}
-            configure_flags: ""
 
     steps:
       - uses: actions/checkout@v6
 
-      # Cache FFmpeg build (skip for Alpine container - cache action doesn't work well there)
       - name: Restore FFmpeg cache
-        if: ${{ !matrix.container && github.event.inputs.force_rebuild != 'true' }}
+        if: ${{ github.event.inputs.force_rebuild != 'true' }}
         id: cache-ffmpeg
         uses: actions/cache/restore@v5
         with:
@@ -110,8 +104,8 @@ jobs:
           pkg-config --modversion libmp3lame
           pkg-config --cflags --libs libmp3lame
 
-      - name: Install dependencies (Linux glibc)
-        if: runner.os == 'Linux' && !matrix.container
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           # Note: libsvtav1enc-dev (not libsvtav1-dev) contains the pkg-config file
@@ -121,21 +115,14 @@ jobs:
           # Verify SVT-AV1 is available
           pkg-config --modversion SvtAv1Enc
 
-      - name: Install dependencies (Linux musl)
-        if: matrix.container
-        run: |
-          apk add --no-cache build-base nasm yasm pkgconf curl \
-            x264-dev x265-dev libvpx-dev opus-dev aom-dev lame-dev \
-            dav1d-dev svt-av1-dev libvorbis-dev
-
       - name: Download FFmpeg source
-        if: matrix.container || steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
           curl -L https://ffmpeg.org/releases/ffmpeg-${{ env.FFMPEG_VERSION }}.tar.xz | tar xJ
           mv ffmpeg-${{ env.FFMPEG_VERSION }} ffmpeg-src
 
       - name: Check codec availability
-        if: matrix.container || steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         id: codec-check
         run: |
           # Check if SVT-AV1 is available and working
@@ -158,7 +145,7 @@ jobs:
           fi
 
       - name: Configure FFmpeg
-        if: matrix.container || steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         working-directory: ffmpeg-src
         run: |
           # Debug: verify pkg-config can find libraries
@@ -170,8 +157,6 @@ jobs:
           pkg-config --modversion libmp3lame || true
           pkg-config --cflags --libs libmp3lame || true
 
-          # Use runtime-resolved path for container compatibility
-          # (github.workspace is the HOST path, but containers use a different mount point)
           INSTALL_PREFIX="$(cd .. && pwd)/ffmpeg-install"
           echo "Install prefix: ${INSTALL_PREFIX}"
 
@@ -196,15 +181,14 @@ jobs:
             ${{ matrix.configure_flags }}
 
       - name: Build FFmpeg
-        if: matrix.container || steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         working-directory: ffmpeg-src
         run: make -j$(nproc || sysctl -n hw.ncpu)
 
       - name: Install FFmpeg
-        if: matrix.container || steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         working-directory: ffmpeg-src
         run: |
-          # Use runtime-resolved path (same as Configure step)
           INSTALL_PREFIX="$(cd .. && pwd)/ffmpeg-install"
           echo "Installing FFmpeg to ${INSTALL_PREFIX}..."
           make install V=1
@@ -218,7 +202,7 @@ jobs:
           ls -la "${INSTALL_PREFIX}/"
 
       - name: Save FFmpeg cache
-        if: ${{ !matrix.container && steps.cache-ffmpeg.outputs.cache-hit != 'true' && success() }}
+        if: ${{ steps.cache-ffmpeg.outputs.cache-hit != 'true' && success() }}
         uses: actions/cache/save@v5
         with:
           path: ffmpeg-install
@@ -248,7 +232,7 @@ jobs:
           cp -P ffmpeg-install/lib/*.so* ffmpeg-${{ matrix.platform }}/lib/ 2>/dev/null || true
           # Copy pkgconfig files
           cp -r ffmpeg-install/lib/pkgconfig ffmpeg-${{ matrix.platform }}/lib/ 2>/dev/null || true
-          # Copy headers (portable syntax for BusyBox and GNU cp)
+          # Copy headers
           cp -r ffmpeg-install/include/* ffmpeg-${{ matrix.platform }}/include/
           echo '{"ffmpeg": "${{ env.FFMPEG_VERSION }}"}' > ffmpeg-${{ matrix.platform }}/versions.json
 
