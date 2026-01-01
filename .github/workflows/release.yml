@@ -57,8 +57,9 @@ jobs:
             if [ -d "${artifact_dir}prebuilds" ]; then
               cp -r "${artifact_dir}prebuilds"/* prebuilds/
             else
-              # Handle case where artifact is directly the prebuilds content
-              cp -r "$artifact_dir"* prebuilds/ 2>/dev/null || true
+              # Fallback: artifact might be directly the prebuilds content
+              echo "::warning::Unexpected artifact structure in $artifact_dir - attempting fallback copy"
+              cp -r "$artifact_dir"* prebuilds/ || echo "::warning::Fallback copy failed for $artifact_dir"
             fi
           done
 

@@ -27,12 +27,6 @@ if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(version)) {
   process.exit(1);
 }
 
-const platforms = [
-  'darwin-arm64',
-  'darwin-x64',
-  'linux-x64',
-];
-
 function updateJson(filePath, updater) {
   const content = JSON.parse(readFileSync(filePath, 'utf8'));
   updater(content);
@@ -42,20 +36,10 @@ function updateJson(filePath, updater) {
 
 console.log(`\nBumping version to ${version}\n`);
 
-// Update main package.json (includes optionalDependencies for platform packages)
+// Update main package.json
 updateJson(join(ROOT, 'package.json'), (pkg) => {
   pkg.version = version;
-  // Update optionalDependencies to match
-  for (const platform of platforms) {
-    const depName = `@pproenca/node-webcodecs-${platform}`;
-    if (pkg.optionalDependencies?.[depName]) {
-      pkg.optionalDependencies[depName] = version;
-    }
-  }
 });
-
-// Note: Platform packages (packages/*) are generated dynamically during CI
-// and get their version from the release workflow, not from files in the repo.
 
 console.log(`\nVersion bumped to ${version}`);
 console.log('\nNext steps:');
