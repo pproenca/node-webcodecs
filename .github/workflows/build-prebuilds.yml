@@ -23,7 +23,15 @@ on:
 permissions: {}
 
 jobs:
+  build-ffmpeg:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-ffmpeg.yml
+    with:
+      ffmpeg_version: ""
+
   build-prebuilds:
+    needs: build-ffmpeg
     permissions:
       contents: read
     name: "prebuild-${{ matrix.platform }}"

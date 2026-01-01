@@ -20,6 +20,13 @@ on:
 permissions: {}
 
 jobs:
+  build-ffmpeg:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-ffmpeg.yml
+    with:
+      ffmpeg_version: ""
+
   lint:
     permissions:
       contents: read
@@ -36,7 +43,7 @@ jobs:
   build-and-test:
     permissions:
       contents: read
-    needs: lint
+    needs: [lint, build-ffmpeg]
     name: "build-${{ matrix.platform }} [Node.js ${{ matrix.nodejs_version_major }}]"
     runs-on: ${{ matrix.os }}
     strategy:
