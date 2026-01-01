@@ -8,9 +8,6 @@ concurrency:
 on:
   workflow_dispatch:
     inputs:
-      ffmpeg_version:
-        description: "FFmpeg version"
-        default: "8.0.1"
       platforms:
         description: "Platforms to publish (space-separated)"
         default: "darwin-arm64 darwin-x64 linux-x64"
@@ -35,10 +32,11 @@ jobs:
     steps:
       - name: Set release variables
         run: |
-          echo "FFMPEG_VERSION=${{ inputs.ffmpeg_version || '8.0.1' }}" >> $GITHUB_ENV
           echo "PLATFORMS=${{ inputs.platforms || 'darwin-arm64 darwin-x64 linux-x64' }}" >> $GITHUB_ENV
 
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - uses: actions/setup-node@v6
         with:
@@ -122,6 +120,14 @@ jobs:
           VERSION="${GITHUB_REF#refs/tags/v}"
           echo "Version: $VERSION"
 
+          # Get jellyfin-ffmpeg version from submodule
+          cd externals/jellyfin-ffmpeg
+          FFMPEG_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "$VERSION")
+          # Remove 'v' prefix if present
+          FFMPEG_VERSION="${FFMPEG_VERSION#v}"
+          cd ../..
+          echo "FFmpeg version: $FFMPEG_VERSION"
+
           # Update platform package versions
           for pkg in packages/*/package.json; do
             if [ -f "$pkg" ]; then
@@ -131,7 +137,7 @@ jobs:
             fi
           done
 
-          # Update FFmpeg package versions
+          # Update FFmpeg package versions (use jellyfin-ffmpeg version)
           for pkg in ffmpeg/*/package.json; do
             if [ -f "$pkg" ] && [ "$(dirname "$pkg")" != "ffmpeg" ]; then
               cd $(dirname "$pkg")
