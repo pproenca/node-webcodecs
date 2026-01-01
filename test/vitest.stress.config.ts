@@ -2,6 +2,8 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
+    // Disable watch mode - always run once and exit
+    watch: false,
     root: './test',
     include: ['stress/**/*.test.{ts,js,mjs}'],
     setupFiles: ['./setup.ts'],

@@ -8,99 +8,41 @@
 //
 // Path resolution order:
 // 1. CI-built FFmpeg in ffmpeg-install/ directory (from jellyfin-ffmpeg build)
-// 2. Prebuilt @pproenca/ffmpeg-{platform} npm package
-// 3. Fall back to pkg-config (handled by binding.gyp fallback)
+// 2. Fall back to pkg-config (handled by binding.gyp fallback)
 
 'use strict';
 
 const { existsSync } = require('node:fs');
-const { join, dirname, resolve } = require('node:path');
-const { platform, arch } = require('node:os');
-
-function getRuntimePlatform() {
-  return `${platform()}-${arch()}`;
-}
+const { join, resolve } = require('node:path');
 
 // Check for CI-built FFmpeg (from jellyfin-ffmpeg workflow)
 function getCIBuildPath(type) {
-  // Check relative to project root
   const projectRoot = resolve(__dirname, '..');
   const ffmpegInstall = join(projectRoot, 'ffmpeg-install');
 
-  if (type === 'lib') {
-    const libPath = join(ffmpegInstall, 'lib');
-    if (existsSync(libPath)) {
-      return libPath;
-    }
-  } else if (type === 'include') {
-    const includePath = join(ffmpegInstall, 'include');
-    if (existsSync(includePath)) {
-      return includePath;
-    }
-  }
-
-  return null;
-}
-
-function getPrebuiltLibPath() {
-  const runtimePlatform = getRuntimePlatform();
-  const packageName = `@pproenca/ffmpeg-${runtimePlatform}`;
-
-  try {
-    const libEntry = require.resolve(`${packageName}/lib`);
-    return dirname(libEntry);
-  } catch {
-    return null;
-  }
-}
-
-function getPrebuiltIncludePath() {
-  const runtimePlatform = getRuntimePlatform();
-  const packageName = `@pproenca/ffmpeg-${runtimePlatform}`;
-
-  try {
-    const includeEntry = require.resolve(`${packageName}/include`);
-    return dirname(includeEntry);
-  } catch {
-    // Fallback: check relative to lib path
-    const libPath = getPrebuiltLibPath();
-    if (!libPath) return null;
-    const includePath = join(dirname(libPath), 'include');
-    return existsSync(includePath) ? includePath : null;
-  }
+  const targetPath = join(ffmpegInstall, type === 'lib' ? 'lib' : 'include');
+  return existsSync(targetPath) ? targetPath : null;
 }
 
 // Output for node-gyp variable expansion
 const mode = process.argv[2] || 'lib';
 
 if (mode === 'lib') {
-  // Priority: CI build > prebuilt package > pkg-config (fallback in binding.gyp)
   const ciPath = getCIBuildPath('lib');
   if (ciPath) {
     console.log(`-L${ciPath}`);
     process.exit(0);
   }
-
-  const libPath = getPrebuiltLibPath();
-  if (libPath) {
-    console.log(`-L${libPath}`);
-  } else {
-    process.exit(1);
-  }
+  // No CI path - let binding.gyp fallback to pkg-config
+  process.exit(1);
 } else if (mode === 'include') {
-  // Priority: CI build > prebuilt package > pkg-config (fallback in binding.gyp)
   const ciPath = getCIBuildPath('include');
   if (ciPath) {
     console.log(ciPath);
     process.exit(0);
   }
-
-  const includePath = getPrebuiltIncludePath();
-  if (includePath) {
-    console.log(includePath);
-  } else {
-    process.exit(1);
-  }
+  // No CI path - let binding.gyp fallback to pkg-config
+  process.exit(1);
 } else if (mode === 'rpath') {
   // rpath is not needed for static linking - all symbols are linked into the binary
   // This mode is kept for backwards compatibility but outputs nothing

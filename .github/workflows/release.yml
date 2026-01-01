@@ -7,10 +7,6 @@ concurrency:
 
 on:
   workflow_dispatch:
-    inputs:
-      platforms:
-        description: "Platforms to publish (space-separated)"
-        default: "darwin-arm64 darwin-x64 linux-x64"
   release:
     types: [published]
 
@@ -21,19 +17,15 @@ jobs:
   build-prebuilds:
     uses: ./.github/workflows/build-prebuilds.yml
 
-  # Package and publish everything
-  package-and-publish:
-    name: "Package and Publish"
+  # Publish main package with bundled prebuilds
+  publish:
+    name: "Publish"
     needs: [build-prebuilds]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
     steps:
-      - name: Set release variables
-        run: |
-          echo "PLATFORMS=${{ inputs.platforms || 'darwin-arm64 darwin-x64 linux-x64' }}" >> $GITHUB_ENV
-
       - uses: actions/checkout@v6
         with:
           submodules: recursive
@@ -55,114 +47,34 @@ jobs:
           pattern: prebuild-*
           path: prebuilds-artifacts
 
-      - name: Download all FFmpeg artifacts
-        uses: actions/download-artifact@v7
-        with:
-          pattern: ffmpeg-*
-          path: ffmpeg-artifacts
-
-      - name: Prepare prebuilds structure
+      - name: Assemble prebuilds directory
         run: |
           mkdir -p prebuilds
 
-          # Copy all prebuilds to a single directory structure
-          for dir in prebuilds-artifacts/*/; do
-            platform=$(basename "$dir" | sed 's/prebuild-//')
-            mkdir -p "prebuilds/$platform"
-            cp -r "$dir"* "prebuilds/$platform/"
+          # Each artifact contains prebuilds/{platform}-{arch}/node.napi.node
+          # Merge them into a single prebuilds/ directory
+          for artifact_dir in prebuilds-artifacts/*/; do
+            if [ -d "${artifact_dir}prebuilds" ]; then
+              cp -r "${artifact_dir}prebuilds"/* prebuilds/
+            else
+              # Handle case where artifact is directly the prebuilds content
+              cp -r "$artifact_dir"* prebuilds/ 2>/dev/null || true
+            fi
           done
 
-          echo "Combined prebuilds structure:"
+          echo "Final prebuilds structure:"
           ls -laR prebuilds/
 
-          # Verify we have all expected platforms
-          echo -e "\nVerifying platform coverage:"
-          for platform in $PLATFORMS; do
-            if [ -d "prebuilds/$platform" ]; then
-              echo "✓ $platform"
-            else
-              echo "✗ $platform missing"
+          # Verify all platforms present
+          for platform in darwin-arm64 darwin-x64 linux-x64; do
+            if [ ! -f "prebuilds/$platform/node.napi.node" ]; then
+              echo "Error: Missing prebuild for $platform"
               exit 1
             fi
-          done
-
-      - name: Create platform packages
-        run: |
-          node scripts/create-platform-packages.mjs
-
-          # Compress and copy prebuilds to platform packages
-          for platform in $PLATFORMS; do
-            if [ -d "prebuilds/$platform" ]; then
-              # Create ZIP containing the .node file
-              cd "prebuilds/$platform"
-              zip -9 "../../packages/$platform/node-webcodecs.node.zip" node-webcodecs.node
-              cd ../..
-              echo "Compressed and copied binary for $platform"
-            fi
-          done
-
-          echo "Platform packages created:"
-          ls -la packages/
-          for pkg in packages/*/; do
-            echo "Contents of $pkg:"
-            ls -la "$pkg"
-          done
-
-      - name: Populate FFmpeg packages
-        run: |
-          for platform in $PLATFORMS; do
-            FFMPEG_ARTIFACT_DIR=ffmpeg-artifacts/ffmpeg-$platform node ffmpeg/from-ci-build.js $platform
-          done
-
-      - name: Update versions
-        run: |
-          # Extract version from tag
-          VERSION="${GITHUB_REF#refs/tags/v}"
-          echo "Version: $VERSION"
-
-          # Get jellyfin-ffmpeg version from submodule
-          cd externals/jellyfin-ffmpeg
-          FFMPEG_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "$VERSION")
-          # Remove 'v' prefix if present
-          FFMPEG_VERSION="${FFMPEG_VERSION#v}"
-          cd ../..
-          echo "FFmpeg version: $FFMPEG_VERSION"
-
-          # Update platform package versions
-          for pkg in packages/*/package.json; do
-            if [ -f "$pkg" ]; then
-              cd $(dirname "$pkg")
-              npm version $VERSION --no-git-tag-version --allow-same-version
-              cd -
-            fi
-          done
-
-          # Update FFmpeg package versions (use jellyfin-ffmpeg version)
-          for pkg in ffmpeg/*/package.json; do
-            if [ -f "$pkg" ] && [ "$(dirname "$pkg")" != "ffmpeg" ]; then
-              cd $(dirname "$pkg")
-              npm version "$FFMPEG_VERSION" --no-git-tag-version --allow-same-version
-              cd -
-            fi
+            echo "OK: prebuilds/$platform/node.napi.node"
           done
 
       # OIDC Trusted Publishing - no NPM_TOKEN needed (Node 24+)
       # Configure trusted publisher at npmjs.com package settings
-      - name: Publish FFmpeg packages
-        run: |
-          for platform in $PLATFORMS; do
-            cd "ffmpeg/$platform"
-            npm publish --provenance --access public || echo "Package may already exist"
-            cd ../..
-          done
-
-      - name: Publish addon packages
-        run: |
-          for platform in $PLATFORMS; do
-            cd "packages/$platform"
-            npm publish --provenance --access public || echo "Package may already exist"
-            cd ../..
-          done
-
       - name: Publish main package
         run: npm publish --provenance --access public

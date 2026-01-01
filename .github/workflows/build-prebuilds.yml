@@ -144,45 +144,32 @@ jobs:
         run: |
           npx prebuildify --napi --strip --arch=${{ matrix.arch }}
 
-          # Rename the built file to node_webcodecs.node for consistency
-          BUILT_FILE=$(find prebuilds -name "*.node" -type f | head -1)
-          if [ -n "$BUILT_FILE" ]; then
-            DIR=$(dirname "$BUILT_FILE")
-            mv "$BUILT_FILE" "$DIR/node_webcodecs.node"
-            echo "Renamed $(basename $BUILT_FILE) -> node_webcodecs.node"
-          else
-            echo "Error: No .node file found in prebuilds directory"
+          # Verify expected structure (node-gyp-build expects node.napi.node)
+          PLATFORM="${{ runner.os == 'macOS' && 'darwin' || 'linux' }}"
+          PREBUILD_DIR="prebuilds/${PLATFORM}-${{ matrix.arch }}"
+
+          if [ ! -f "$PREBUILD_DIR/node.napi.node" ]; then
+            echo "Error: Expected $PREBUILD_DIR/node.napi.node"
+            ls -laR prebuilds/
             exit 1
           fi
-
-          # Copy binary for tests
-          mkdir -p binary
-          cp "$DIR/node_webcodecs.node" binary/node_webcodecs.node
-          echo "Copied binary for tests"
+          echo "Prebuild OK: $PREBUILD_DIR/node.napi.node"
+          ls -la "$PREBUILD_DIR/"
 
       - name: Build TypeScript
         run: npm run build:ts
 
       - name: Run Tests
-        env:
-          WEBCODECS_FROM_SOURCE: "1"
         run: npm run test:fast
-
-      - name: Prepare prebuild artifact
-        run: |
-          mkdir -p prebuild-${{ matrix.platform }}
-          cp prebuilds/*/node_webcodecs.node prebuild-${{ matrix.platform }}/node-webcodecs.node
-          echo "Prepared prebuild for ${{ matrix.platform }}"
-          ls -la prebuild-${{ matrix.platform }}/
 
       - name: Upload prebuild
         uses: actions/upload-artifact@v6
         with:
           name: prebuild-${{ matrix.platform }}
-          path: prebuild-${{ matrix.platform }}/
+          path: prebuilds/
           retention-days: 7
 
       - name: Attest prebuild artifact
         uses: actions/attest-build-provenance@v2
         with:
-          subject-path: prebuild-${{ matrix.platform }}/node-webcodecs.node
+          subject-path: prebuilds/*/node.napi.node
