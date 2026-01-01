@@ -139,6 +139,6 @@ jobs:
           retention-days: 7
 
       - name: Attest prebuild artifact
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v3
         with:
           subject-path: prebuilds/*/node.napi.node
