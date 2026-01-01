@@ -156,6 +156,7 @@ act push -j build-ffmpeg --container-architecture linux/amd64 -W .github/workflo
 ```
 
 Key points:
+
 - Use `--container-architecture linux/amd64` on Apple Silicon to run Linux containers
 - The `act` tool simulates GitHub Actions locally using Docker
 - Alpine (linuxmusl-x64) jobs use container builds - cache doesn't work, must always build from source
