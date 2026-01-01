@@ -1,4 +1,4 @@
-name: Build FFmpeg
+name: build-ffmpeg
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}

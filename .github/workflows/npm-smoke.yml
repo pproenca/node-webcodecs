@@ -1,4 +1,4 @@
-name: "CI: npm smoke test"
+name: npm-smoke
 
 on:
   release:
