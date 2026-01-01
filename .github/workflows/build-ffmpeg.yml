@@ -82,14 +82,20 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install nasm pkg-config x264 x265 libvpx opus aom lame dav1d svt-av1 libvorbis
+          # Set PKG_CONFIG_PATH for Homebrew (ARM64: /opt/homebrew, Intel: /usr/local)
+          HOMEBREW_PREFIX=$(brew --prefix)
+          echo "PKG_CONFIG_PATH=${HOMEBREW_PREFIX}/lib/pkgconfig:${HOMEBREW_PREFIX}/opt/lame/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
 
       - name: Install dependencies (Linux glibc)
         if: runner.os == 'Linux' && !matrix.container
         run: |
           sudo apt-get update
+          # Note: libsvtav1enc-dev (not libsvtav1-dev) contains the pkg-config file
           sudo apt-get install -y nasm yasm pkg-config \
             libx264-dev libx265-dev libvpx-dev libopus-dev libaom-dev libmp3lame-dev \
-            libdav1d-dev libsvtav1-dev libvorbis-dev
+            libdav1d-dev libsvtav1enc-dev libvorbis-dev
+          # Verify SVT-AV1 is available
+          pkg-config --modversion SvtAv1Enc
 
       - name: Install dependencies (Linux musl)
         if: matrix.container
@@ -103,6 +109,20 @@ jobs:
         run: |
           curl -L https://ffmpeg.org/releases/ffmpeg-${{ env.FFMPEG_VERSION }}.tar.xz | tar xJ
           mv ffmpeg-${{ env.FFMPEG_VERSION }} ffmpeg-src
+
+      - name: Check codec availability
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        id: codec-check
+        run: |
+          # Check if SVT-AV1 is available and working
+          if pkg-config --exists "SvtAv1Enc >= 0.9.0" 2>/dev/null; then
+            echo "svtav1=--enable-libsvtav1" >> $GITHUB_OUTPUT
+            echo "SVT-AV1 available: $(pkg-config --modversion SvtAv1Enc)"
+          else
+            echo "svtav1=" >> $GITHUB_OUTPUT
+            echo "SVT-AV1 not available or version too old, disabling"
+            pkg-config --modversion SvtAv1Enc 2>/dev/null || echo "  (pkg-config check failed)"
+          fi
 
       - name: Configure FFmpeg
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
@@ -122,7 +142,7 @@ jobs:
             --enable-libaom \
             --enable-libmp3lame \
             --enable-libdav1d \
-            --enable-libsvtav1 \
+            ${{ steps.codec-check.outputs.svtav1 }} \
             --enable-libvorbis \
             ${{ matrix.configure_flags }}
 
