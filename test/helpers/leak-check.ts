@@ -41,7 +41,7 @@ export function assertNoLeaks(
   after: CounterSnapshot,
   context = ''
 ): void {
-  const prefix = context ? '[' + context + '] ' : '';
+  const prefix = context ? `[${context}] ` : '';
   const leaks: string[] = [];
 
   if (after.videoFrames !== before.videoFrames) {

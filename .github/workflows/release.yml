@@ -90,7 +90,7 @@ jobs:
 
       - name: Create platform packages
         run: |
-          node scripts/create-platform-packages.js
+          node scripts/create-platform-packages.mjs
 
           # Compress and copy prebuilds to platform packages
           for platform in $PLATFORMS; do

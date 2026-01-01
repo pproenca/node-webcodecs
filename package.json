@@ -28,7 +28,7 @@
     "lint": "cpplint --quiet src/*.h src/*.cc && biome lint && tsd && prettier --check \"**/*.md\"",
     "format": "prettier --write \"**/*.md\"",
     "version:bump": "node scripts/bump-version.js",
-    "create-platform-packages": "node scripts/create-platform-packages.js"
+    "create-platform-packages": "node scripts/create-platform-packages.mjs"
   },
   "type": "commonjs",
   "main": "dist/index.js",

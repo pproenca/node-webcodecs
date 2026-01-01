@@ -47,8 +47,8 @@ describe('VideoEncoder Circuit Breaker', () => {
     }
 
     expect(thrownError).not.toBeNull();
-    expect(thrownError!.message).toContain('QuotaExceededError');
-    expect(thrownError!.message).toContain('backpressure');
+    expect(thrownError?.message).toContain('QuotaExceededError');
+    expect(thrownError?.message).toContain('backpressure');
   });
 
   it('should allow encoding after queue drains', async () => {

@@ -13,7 +13,7 @@
  */
 
 import { AudioData, VideoFrame } from '@pproenca/node-webcodecs';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 // Helper to force garbage collection
 function forceGC(): void {
