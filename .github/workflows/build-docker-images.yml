@@ -1,0 +1,91 @@
+name: build-docker-images
+
+# Build and push Docker images when jellyfin-ffmpeg submodule changes.
+# This ensures build-ffmpeg.yml can always pull pre-built images.
+
+on:
+  push:
+    paths:
+      - "externals/jellyfin-ffmpeg/**"
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: "Force rebuild (ignore cache)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-images:
+    name: "docker-${{ matrix.target }}"
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux64
+            variant: gpl
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Get jellyfin-ffmpeg commit hash
+        id: ffmpeg-hash
+        run: |
+          cd externals/jellyfin-ffmpeg
+          echo "hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "full_hash=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push base image
+        uses: docker/build-push-action@v6
+        with:
+          context: externals/jellyfin-ffmpeg/builder/images/base
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/jellyfin-ffmpeg/base:latest
+            ghcr.io/${{ github.repository_owner }}/jellyfin-ffmpeg/base:${{ steps.ffmpeg-hash.outputs.hash }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push target image
+        uses: docker/build-push-action@v6
+        with:
+          context: externals/jellyfin-ffmpeg/builder/images/base-${{ matrix.target }}
+          build-args: |
+            GH_REPO=ghcr.io/${{ github.repository_owner }}/jellyfin-ffmpeg
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/jellyfin-ffmpeg/${{ matrix.target }}-${{ matrix.variant }}:latest
+            ghcr.io/${{ github.repository_owner }}/jellyfin-ffmpeg/${{ matrix.target }}-${{ matrix.variant }}:${{ steps.ffmpeg-hash.outputs.hash }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Generate final image with FFmpeg scripts
+        run: |
+          cd externals/jellyfin-ffmpeg/builder
+
+          # Generate the Dockerfile for the full build image
+          export GITHUB_REPOSITORY="${{ github.repository_owner }}/jellyfin-ffmpeg"
+          ./generate.sh ${{ matrix.target }} ${{ matrix.variant }}
+
+          # Build and push the final image
+          docker buildx build \
+            --push \
+            --tag "ghcr.io/${{ github.repository_owner }}/jellyfin-ffmpeg/${{ matrix.target }}-${{ matrix.variant }}:latest" \
+            --tag "ghcr.io/${{ github.repository_owner }}/jellyfin-ffmpeg/${{ matrix.target }}-${{ matrix.variant }}:${{ steps.ffmpeg-hash.outputs.hash }}" \
+            --cache-from "type=registry,ref=ghcr.io/${{ github.repository_owner }}/jellyfin-ffmpeg/${{ matrix.target }}-${{ matrix.variant }}:latest" \
+            .
