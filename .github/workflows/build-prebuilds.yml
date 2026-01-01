@@ -14,7 +14,7 @@ on:
         default: "8.0.1"
       cache_version:
         description: "Cache version (bump to force rebuild)"
-        default: "v3"
+        default: "v4"
   workflow_call:
     inputs:
       ffmpeg_version:
@@ -24,7 +24,7 @@ on:
       cache_version:
         description: "Cache version (bump to force rebuild)"
         type: string
-        default: "v3"
+        default: "v4"
   push:
     paths:
       - "src/**"
