@@ -3,48 +3,98 @@
 // SPDX-License-Identifier: MIT
 //
 // Resolve FFmpeg paths for node-gyp binding.
-// FFmpeg is statically linked, so we only need lib path (-L) and include path.
-// No rpath is needed since all symbols are statically linked into the .node binary.
+// Uses pkg-config with PKG_CONFIG_PATH pointing to CI-built FFmpeg when available.
+// All codec dependencies (x264, x265, vpx, opus, etc.) are resolved automatically
+// via the .pc files in the FFmpeg build.
 //
-// Path resolution order:
-// 1. CI-built FFmpeg in ffmpeg-install/ directory (from jellyfin-ffmpeg build)
-// 2. Fall back to pkg-config (handled by binding.gyp fallback)
+// CRITICAL: The --define-variable=prefix= flag relocates hardcoded paths in .pc files
+// (e.g., /opt/ffbuild/prefix → actual extraction path). Without this, pkg-config
+// returns paths that don't exist on the build machine.
 
 'use strict';
 
 const { existsSync } = require('node:fs');
+const { execSync } = require('node:child_process');
 const { join, resolve } = require('node:path');
 
-// Check for CI-built FFmpeg (from jellyfin-ffmpeg workflow)
-function getCIBuildPath(type) {
+const FFMPEG_LIBS = 'libavcodec libavformat libavutil libswscale libswresample libavfilter';
+
+// Detect FFmpeg root from environment or filesystem
+function getFFmpegRoot() {
+  // 1. Check FFMPEG_ROOT env var (set by CI workflow)
+  if (process.env.FFMPEG_ROOT) {
+    const root = process.env.FFMPEG_ROOT;
+    const pkgconfig = join(root, 'lib', 'pkgconfig');
+    if (existsSync(pkgconfig)) {
+      return { root, pkgconfig };
+    }
+  }
+
+  // 2. Check ffmpeg-install directory (local fallback)
   const projectRoot = resolve(__dirname, '..');
   const ffmpegInstall = join(projectRoot, 'ffmpeg-install');
+  const pkgconfig = join(ffmpegInstall, 'lib', 'pkgconfig');
+  if (existsSync(pkgconfig)) {
+    return { root: ffmpegInstall, pkgconfig };
+  }
 
-  const targetPath = join(ffmpegInstall, type === 'lib' ? 'lib' : 'include');
-  return existsSync(targetPath) ? targetPath : null;
+  return null;
 }
 
-// Output for node-gyp variable expansion
+// Run pkg-config with relocated prefix
+function runPkgConfig(args, ffmpegRoot, pkgConfigPath) {
+  const env = { ...process.env, PKG_CONFIG_PATH: pkgConfigPath };
+
+  // --define-variable=prefix= relocates hardcoded paths in .pc files
+  // This is CRITICAL: .pc files contain /opt/ffbuild/prefix but we extracted to $FFMPEG_ROOT
+  const cmd = `pkg-config --define-variable=prefix="${ffmpegRoot}" ${args}`;
+
+  try {
+    const result = execSync(cmd, {
+      encoding: 'utf8',
+      env,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    return result.trim();
+  } catch (e) {
+    // Log error for debugging in CI
+    if (process.env.DEBUG) {
+      console.error(`pkg-config failed: ${e.message}`);
+      if (e.stderr) console.error(e.stderr);
+    }
+    return null;
+  }
+}
+
 const mode = process.argv[2] || 'lib';
+const ffmpeg = getFFmpegRoot();
 
 if (mode === 'lib') {
-  const ciPath = getCIBuildPath('lib');
-  if (ciPath) {
-    console.log(`-L${ciPath}`);
-    process.exit(0);
+  // Output library flags for linking
+  if (ffmpeg) {
+    const result = runPkgConfig(`--libs --static ${FFMPEG_LIBS}`, ffmpeg.root, ffmpeg.pkgconfig);
+    if (result) {
+      console.log(result);
+      process.exit(0);
+    }
   }
-  // No CI path - let binding.gyp fallback to pkg-config
+  // Fallback: let binding.gyp handle it with system pkg-config
   process.exit(1);
+
 } else if (mode === 'include') {
-  const ciPath = getCIBuildPath('include');
-  if (ciPath) {
-    console.log(ciPath);
-    process.exit(0);
+  // Output include paths for compilation
+  if (ffmpeg) {
+    const result = runPkgConfig(`--cflags-only-I ${FFMPEG_LIBS}`, ffmpeg.root, ffmpeg.pkgconfig);
+    if (result) {
+      // Remove -I prefix for node-gyp include_dirs format
+      console.log(result.replace(/-I/g, '').trim());
+      process.exit(0);
+    }
   }
-  // No CI path - let binding.gyp fallback to pkg-config
+  // Fallback
   process.exit(1);
+
 } else if (mode === 'rpath') {
-  // rpath is not needed for static linking - all symbols are linked into the binary
-  // This mode is kept for backwards compatibility but outputs nothing
+  // rpath is not needed for static linking - all symbols are in the binary
   process.exit(0);
 }
