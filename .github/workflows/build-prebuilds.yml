@@ -6,16 +6,25 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# FFmpeg version and cache version are centralized via repository variables.
-# Set in GitHub Settings > Secrets and variables > Actions > Variables
-# Fallback values match build-ffmpeg.yml defaults.
-env:
-  FFMPEG_VERSION: ${{ vars.FFMPEG_VERSION || '8.0.1' }}
-  CACHE_VERSION: ${{ vars.FFMPEG_CACHE_VERSION || 'v2' }}
-
 on:
   workflow_dispatch:
+    inputs:
+      ffmpeg_version:
+        description: "FFmpeg version to build"
+        default: "8.0.1"
+      cache_version:
+        description: "Cache version (bump to force rebuild)"
+        default: "v3"
   workflow_call:
+    inputs:
+      ffmpeg_version:
+        description: "FFmpeg version to build"
+        type: string
+        default: "8.0.1"
+      cache_version:
+        description: "Cache version (bump to force rebuild)"
+        type: string
+        default: "v3"
   push:
     paths:
       - "src/**"
@@ -28,14 +37,19 @@ jobs:
   build-ffmpeg:
     permissions:
       contents: read
+      id-token: write
+      attestations: write
     uses: ./.github/workflows/build-ffmpeg.yml
     with:
-      ffmpeg_version: ""
+      ffmpeg_version: ${{ inputs.ffmpeg_version }}
+      cache_version: ${{ inputs.cache_version }}
 
   build-prebuilds:
     needs: build-ffmpeg
     permissions:
       contents: read
+      id-token: write
+      attestations: write
     name: "prebuild-${{ matrix.platform }}"
     runs-on: ${{ matrix.os }}
     strategy:
@@ -54,7 +68,7 @@ jobs:
           - os: ubuntu-22.04
             platform: linuxmusl-x64
             arch: x64
-            container: alpine:3.19
+            container: alpine:${{ vars.ALPINE_VERSION || '3.19' }}
 
     container: ${{ matrix.container || '' }}
 
@@ -88,9 +102,9 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ffmpeg-install
-          key: ffmpeg-${{ matrix.platform }}-${{ env.FFMPEG_VERSION }}-${{ env.CACHE_VERSION }}
+          key: ffmpeg-${{ matrix.platform }}-${{ inputs.ffmpeg_version }}-${{ inputs.cache_version }}
           restore-keys: |
-            ffmpeg-${{ matrix.platform }}-${{ env.FFMPEG_VERSION }}-
+            ffmpeg-${{ matrix.platform }}-${{ inputs.ffmpeg_version }}-
 
       - name: Setup cached FFmpeg
         if: ${{ !matrix.container && steps.cache-ffmpeg.outputs.cache-hit == 'true' }}
@@ -173,7 +187,7 @@ jobs:
       - name: Run Tests
         env:
           WEBCODECS_FROM_SOURCE: "1"
-        run: npm run test-fast
+        run: npm run test:fast
 
       - name: Prepare prebuild artifact
         run: |
@@ -188,3 +202,8 @@ jobs:
           name: prebuild-${{ matrix.platform }}
           path: prebuild-${{ matrix.platform }}/
           retention-days: 7
+
+      - name: Attest prebuild artifact
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: prebuild-${{ matrix.platform }}/node-webcodecs.node

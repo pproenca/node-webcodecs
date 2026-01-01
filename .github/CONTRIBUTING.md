@@ -57,7 +57,7 @@ npm test
 npx vitest run test/golden/video-encoder.test.ts
 
 # Stress tests
-npm run test-stress
+npm run test:stress
 ```
 
 ## Building
