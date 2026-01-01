@@ -28,15 +28,15 @@ jobs:
             package-manager: yarn
 
           - name: darwin-x64-node-npm
-            os: macos-13
+            os: macos-15-intel
             runtime: node
             package-manager: npm
           - name: darwin-x64-node-pnpm
-            os: macos-13
+            os: macos-15-intel
             runtime: node
             package-manager: pnpm
           - name: darwin-x64-node-yarn
-            os: macos-13
+            os: macos-15-intel
             runtime: node
             package-manager: yarn
 
