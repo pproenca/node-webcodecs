@@ -141,21 +141,21 @@ jobs:
           cd externals/jellyfin-ffmpeg/builder
           echo "=== Building jellyfin-ffmpeg for Linux ${{ matrix.target }} ==="
 
-          # Define the Docker image we need
-          IMAGE="ghcr.io/seydx/jellyfin-ffmpeg/${{ matrix.target }}-gpl:latest"
+          # Define the Docker image we need (use pproenca fork with SIZE_SPECIFIER fix)
+          IMAGE="ghcr.io/pproenca/jellyfin-ffmpeg/${{ matrix.target }}-gpl:latest"
 
-          # Pre-pull the Docker image with fallback to local build (following node-av pattern)
+          # Pre-pull the Docker image with fallback to local build
           if docker pull "${IMAGE}" 2>/dev/null; then
             echo "✓ Using pre-built Docker image: ${IMAGE}"
           else
             echo "⚠ Docker image not found, building locally..."
-            export GITHUB_REPOSITORY="seydx/jellyfin-ffmpeg"
+            export GITHUB_REPOSITORY="pproenca/jellyfin-ffmpeg"
             ./makeimage.sh ${{ matrix.target }} gpl
           fi
 
-          # Override GITHUB_REPOSITORY to use seydx's images
+          # Override GITHUB_REPOSITORY to use pproenca's images
           # Must export inside script - GitHub Actions injects its own value that takes precedence over env: block
-          export GITHUB_REPOSITORY="seydx/jellyfin-ffmpeg"
+          export GITHUB_REPOSITORY="pproenca/jellyfin-ffmpeg"
 
           # Build FFmpeg using Docker (includes make install)
           ./build.sh ${{ matrix.target }} gpl
