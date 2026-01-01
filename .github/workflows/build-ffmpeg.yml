@@ -85,29 +85,20 @@ jobs:
           HOMEBREW_PREFIX=$(brew --prefix)
 
           # Homebrew's lame doesn't include a pkg-config file, so we create one
+          # FFmpeg checks for 'libmp3lame' not 'mp3lame'
           LAME_PREFIX="${HOMEBREW_PREFIX}/opt/lame"
           mkdir -p "${LAME_PREFIX}/lib/pkgconfig"
-          cat > "${LAME_PREFIX}/lib/pkgconfig/mp3lame.pc" <<EOF
-          prefix=${LAME_PREFIX}
-          exec_prefix=\${prefix}
-          libdir=\${prefix}/lib
-          includedir=\${prefix}/include
-
-          Name: mp3lame
-          Description: LAME MP3 encoder library
-          Version: 3.100
-          Libs: -L\${libdir} -lmp3lame
-          Cflags: -I\${includedir}
-          EOF
-          # Strip leading whitespace from each line (heredoc in YAML includes indentation)
-          sed -i '' 's/^          //' "${LAME_PREFIX}/lib/pkgconfig/mp3lame.pc"
+          printf 'prefix=%s\nexec_prefix=${prefix}\nlibdir=${prefix}/lib\nincludedir=${prefix}/include\n\nName: libmp3lame\nDescription: LAME MP3 encoder library\nVersion: 3.100\nLibs: -L${libdir} -lmp3lame\nCflags: -I${includedir}\n' "${LAME_PREFIX}" > "${LAME_PREFIX}/lib/pkgconfig/libmp3lame.pc"
 
           # Set PKG_CONFIG_PATH for Homebrew (ARM64: /opt/homebrew, Intel: /usr/local)
           echo "PKG_CONFIG_PATH=${HOMEBREW_PREFIX}/lib/pkgconfig:${LAME_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
 
           # Verify lame is now findable
           export PKG_CONFIG_PATH="${HOMEBREW_PREFIX}/lib/pkgconfig:${LAME_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}"
-          pkg-config --modversion mp3lame
+          echo "Created libmp3lame.pc at ${LAME_PREFIX}/lib/pkgconfig/"
+          cat "${LAME_PREFIX}/lib/pkgconfig/libmp3lame.pc"
+          pkg-config --modversion libmp3lame
+          pkg-config --libs libmp3lame
 
       - name: Install dependencies (Linux glibc)
         if: runner.os == 'Linux' && !matrix.container
