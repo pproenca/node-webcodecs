@@ -131,12 +131,14 @@ jobs:
       # =========================================================================
       - name: Build FFmpeg (Linux)
         if: runner.os == 'Linux' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
-        env:
-          # Use seydx/jellyfin-ffmpeg Docker images (pre-built on ghcr.io)
-          GITHUB_REPOSITORY: seydx/jellyfin-ffmpeg
         run: |
+          # Override GITHUB_REPOSITORY to use seydx's pre-built Docker images
+          # Must export inside script - GitHub Actions injects its own value that takes precedence over env: block
+          export GITHUB_REPOSITORY="seydx/jellyfin-ffmpeg"
+
           cd externals/jellyfin-ffmpeg/builder
           echo "=== Building jellyfin-ffmpeg for Linux ${{ matrix.target }} ==="
+          echo "Using Docker images from: ghcr.io/${GITHUB_REPOSITORY}"
 
           # Build using Docker (includes make install)
           ./build.sh ${{ matrix.target }} gpl
