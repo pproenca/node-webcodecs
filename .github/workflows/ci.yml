@@ -9,12 +9,9 @@ concurrency:
 on:
   workflow_dispatch:
     inputs:
-      ffmpeg_version:
-        description: "FFmpeg version"
-        default: "8.0.1"
       cache_version:
         description: "Cache version"
-        default: "v5"
+        default: "v1"
   push:
     branches: [master]
   pull_request:
@@ -30,8 +27,7 @@ jobs:
       attestations: write
     uses: ./.github/workflows/build-ffmpeg.yml
     with:
-      ffmpeg_version: ${{ inputs.ffmpeg_version }}
-      cache_version: ${{ inputs.cache_version }}
+      cache_version: ${{ inputs.cache_version || 'v1' }}
 
   lint:
     permissions:
@@ -52,6 +48,8 @@ jobs:
     needs: [lint, build-ffmpeg]
     name: "build-${{ matrix.platform }}-nodejs-${{ matrix.nodejs_version }}"
     runs-on: ${{ matrix.os }}
+    env:
+      CACHE_VERSION: ${{ inputs.cache_version || 'v1' }}
     strategy:
       fail-fast: false
       matrix:
@@ -86,11 +84,19 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.nodejs_version }}
+
+      - name: Get jellyfin-ffmpeg commit hash
+        id: ffmpeg-hash
+        run: |
+          cd externals/jellyfin-ffmpeg
+          echo "hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       # Try to restore pre-built FFmpeg from cache (shared with build-ffmpeg.yml)
       - name: Restore FFmpeg cache
@@ -98,19 +104,14 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ffmpeg-install
-          key: ffmpeg-${{ matrix.platform }}-${{ inputs.ffmpeg_version }}-${{ inputs.cache_version }}
-          restore-keys: |
-            ffmpeg-${{ matrix.platform }}-${{ inputs.ffmpeg_version }}-
+          key: ffmpeg-${{ matrix.platform }}-${{ steps.ffmpeg-hash.outputs.hash }}-${{ env.CACHE_VERSION }}
 
       - name: Setup cached FFmpeg
         if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
         run: |
-          echo "Using cached FFmpeg from build-ffmpeg workflow"
+          echo "Using cached FFmpeg from jellyfin-ffmpeg build"
           ls -la ffmpeg-install/
           echo "PKG_CONFIG_PATH=${{ github.workspace }}/ffmpeg-install/lib/pkgconfig" >> $GITHUB_ENV
-          echo "LD_LIBRARY_PATH=${{ github.workspace }}/ffmpeg-install/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
-          echo "DYLD_LIBRARY_PATH=${{ github.workspace }}/ffmpeg-install/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
-          echo "${{ github.workspace }}/ffmpeg-install/bin" >> $GITHUB_PATH
 
       # Fallback: Install via package manager if cache miss
       - name: Install FFmpeg (Ubuntu) - cache miss

@@ -1,44 +1,32 @@
 name: build-ffmpeg
 
 # Note: No concurrency block here - this workflow is called by ci.yml and
-# build-prebuilds.yml which have their own concurrency controls. Adding
-# concurrency here causes deadlocks with the caller's concurrency group.
+# build-prebuilds.yml which have their own concurrency controls.
 
 on:
   workflow_dispatch:
     inputs:
-      ffmpeg_version:
-        description: "FFmpeg version to build"
-        default: "8.0.1"
       cache_version:
         description: "Cache version (bump to force rebuild)"
-        default: "v5"
+        default: "v1"
       force_rebuild:
         description: "Force rebuild (ignore cache)"
         type: boolean
         default: false
-      upload_caches:
-        description: "Upload caches as artifacts for debugging"
-        type: boolean
-        default: false
   workflow_call:
     inputs:
-      ffmpeg_version:
-        description: "FFmpeg version to build"
-        type: string
-        default: "8.0.1"
       cache_version:
         description: "Cache version (bump to force rebuild)"
         type: string
-        default: "v4"
+        default: "v1"
   push:
     paths:
       - ".github/workflows/build-ffmpeg.yml"
-      - "ffmpeg/**"
+      - "externals/jellyfin-ffmpeg/**"
   pull_request:
     paths:
       - ".github/workflows/build-ffmpeg.yml"
-      - "ffmpeg/**"
+      - "externals/jellyfin-ffmpeg/**"
 
 permissions: {}
 
@@ -51,25 +39,32 @@ jobs:
     name: "ffmpeg-${{ matrix.platform }}"
     runs-on: ${{ matrix.os }}
     env:
-      FFMPEG_VERSION: ${{ inputs.ffmpeg_version || '8.0.1' }}
-      CACHE_VERSION: ${{ inputs.cache_version || 'v5' }}
-      CODEC_CACHE_VERSION: v2
+      CACHE_VERSION: ${{ inputs.cache_version || 'v1' }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: macos-latest
             platform: darwin-arm64
-            configure_flags: --enable-cross-compile --arch=arm64 --enable-videotoolbox --enable-audiotoolbox
+            arch: arm64
           - os: macos-15-intel
             platform: darwin-x64
-            configure_flags: --enable-videotoolbox --enable-audiotoolbox
+            arch: x86_64
           - os: ubuntu-24.04
             platform: linux-x64
-            configure_flags: ""
+            target: linux64
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Get jellyfin-ffmpeg commit hash
+        id: ffmpeg-hash
+        run: |
+          cd externals/jellyfin-ffmpeg
+          echo "hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "FFmpeg commit: $(git rev-parse --short HEAD)"
 
       - name: Restore FFmpeg cache
         if: ${{ github.event.inputs.force_rebuild != 'true' }}
@@ -77,9 +72,7 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ffmpeg-install
-          key: ffmpeg-${{ matrix.platform }}-${{ env.FFMPEG_VERSION }}-${{ env.CACHE_VERSION }}
-          restore-keys: |
-            ffmpeg-${{ matrix.platform }}-${{ env.FFMPEG_VERSION }}-
+          key: ffmpeg-${{ matrix.platform }}-${{ steps.ffmpeg-hash.outputs.hash }}-${{ env.CACHE_VERSION }}
 
       - name: Fix macOS 15 PerfPowerServices CPU bug
         if: runner.os == 'macOS'
@@ -89,168 +82,126 @@ jobs:
           sudo defaults -currentHost write /Library/Preferences/com.apple.powerlogd SMCMonitorCadence 0
           sudo killall PerfPowerServices || true
 
-      # Static codec builds - cached separately from FFmpeg
-      - name: Restore codec cache
-        if: ${{ github.event.inputs.force_rebuild != 'true' }}
-        id: cache-codecs
-        uses: actions/cache/restore@v5
-        with:
-          path: codec-install
-          key: codecs-${{ matrix.platform }}-${{ env.CODEC_CACHE_VERSION }}
-
+      # =========================================================================
+      # macOS Build using jellyfin-ffmpeg builder
+      # =========================================================================
       - name: Install build tools (macOS)
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
-          brew install nasm pkg-config autoconf automake libtool cmake meson ninja
+          # Install dependencies as listed in jellyfin-ffmpeg/builder/Buildmac.md
+          brew install nasm pkg-config autoconf automake libtool cmake meson ninja quilt
 
-      - name: Install build tools (Linux)
-        if: runner.os == 'Linux'
+      - name: Prepare FFmpeg prefix (macOS)
+        if: runner.os == 'macOS' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y nasm yasm pkg-config autoconf automake libtool \
-            cmake meson ninja-build git curl
+          # Create the prefix directory where dependencies will be installed
+          sudo mkdir -p /opt/ffbuild/prefix
+          sudo chown -R $(whoami) /opt/ffbuild
 
-      - name: Build static codec libraries
-        if: steps.cache-codecs.outputs.cache-hit != 'true'
+      - name: Build FFmpeg (macOS)
+        if: runner.os == 'macOS' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
-          CODEC_PREFIX="${{ github.workspace }}/codec-install"
-          ./.github/scripts/build-static-codecs.sh "$CODEC_PREFIX"
+          cd externals/jellyfin-ffmpeg/builder
+          echo "=== Building jellyfin-ffmpeg for macOS ${{ matrix.arch }} ==="
+          ./buildmac.sh ${{ matrix.arch }}
 
-      - name: Save codec cache
-        if: ${{ steps.cache-codecs.outputs.cache-hit != 'true' && success() }}
-        uses: actions/cache/save@v5
-        with:
-          path: codec-install
-          key: codecs-${{ matrix.platform }}-${{ env.CODEC_CACHE_VERSION }}
-
-      - name: Setup codec environment
-        run: |
-          CODEC_PREFIX="${{ github.workspace }}/codec-install"
-          echo "PKG_CONFIG_PATH=${CODEC_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
-          echo "CFLAGS=-I${CODEC_PREFIX}/include -fPIC" >> $GITHUB_ENV
-          echo "LDFLAGS=-L${CODEC_PREFIX}/lib" >> $GITHUB_ENV
-          echo "CODEC_PREFIX=${CODEC_PREFIX}" >> $GITHUB_ENV
-          # Verify codecs are available
-          export PKG_CONFIG_PATH="${CODEC_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}"
-          echo "=== Available codecs ==="
-          pkg-config --list-all | grep -E "(x264|x265|vpx|opus|aom|dav1d|SvtAv1|mp3lame|vorbis)" || true
-
-      - name: Download FFmpeg source
-        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
-        run: |
-          curl -L https://ffmpeg.org/releases/ffmpeg-${{ env.FFMPEG_VERSION }}.tar.xz | tar xJ
-          mv ffmpeg-${{ env.FFMPEG_VERSION }} ffmpeg-src
-
-      - name: Configure FFmpeg (static)
-        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
-        working-directory: ffmpeg-src
-        run: |
-          # Debug: verify pkg-config can find libraries
-          echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}"
-          echo "CFLAGS=${CFLAGS}"
-          echo "LDFLAGS=${LDFLAGS}"
-          echo "CODEC_PREFIX=${CODEC_PREFIX}"
-
-          echo "=== Checking codec availability ==="
-          for lib in x264 x265 vpx opus aom dav1d SvtAv1Enc mp3lame vorbis ogg; do
-            if pkg-config --exists "$lib" 2>/dev/null; then
-              echo "$lib: $(pkg-config --modversion $lib)"
-            else
-              echo "$lib: NOT FOUND"
-            fi
-          done
-
-          INSTALL_PREFIX="$(cd .. && pwd)/ffmpeg-install"
-          echo "Install prefix: ${INSTALL_PREFIX}"
-
-          # Static build: link all codec libraries statically into FFmpeg
-          ./configure \
-            --prefix="${INSTALL_PREFIX}" \
-            --enable-static \
-            --disable-shared \
-            --enable-pic \
-            --disable-programs \
-            --disable-doc \
-            --enable-gpl \
-            --enable-libx264 \
-            --enable-libx265 \
-            --enable-libvpx \
-            --enable-libopus \
-            --enable-libaom \
-            --enable-libmp3lame \
-            --enable-libdav1d \
-            --enable-libsvtav1 \
-            --enable-libvorbis \
-            --pkg-config-flags="--static" \
-            --extra-cflags="${CFLAGS:-}" \
-            --extra-ldflags="${LDFLAGS:-}" \
-            ${{ matrix.configure_flags }}
-
-      - name: Build FFmpeg
-        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
-        working-directory: ffmpeg-src
-        run: make -j$(nproc || sysctl -n hw.ncpu)
-
-      - name: Install FFmpeg
-        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
-        working-directory: ffmpeg-src
-        run: |
-          INSTALL_PREFIX="$(cd .. && pwd)/ffmpeg-install"
-          echo "Installing FFmpeg to ${INSTALL_PREFIX}..."
-          make install V=1
-          # Verify installation succeeded
-          if [ ! -d "${INSTALL_PREFIX}/include" ]; then
-            echo "::error::FFmpeg installation failed - include directory not found"
-            ls -la "$(cd .. && pwd)/" || true
+          # Verify config files were generated (following node-av pattern)
+          cd ..
+          if [ ! -f config.h ]; then
+            echo "::error::config.h not found after FFmpeg build"
             exit 1
           fi
-          echo "Installation verified:"
-          ls -la "${INSTALL_PREFIX}/"
+          if [ ! -f config_components.h ]; then
+            echo "::error::config_components.h not found after FFmpeg build"
+            exit 1
+          fi
+          echo "Config files verified"
 
+          # Install FFmpeg libraries to prefix (buildmac.sh only builds, doesn't install)
+          make install prefix=/opt/ffbuild/prefix
+
+          # Copy to workspace for caching
+          cp -r /opt/ffbuild/prefix ${{ github.workspace }}/ffmpeg-install
+
+          # Also copy config files to install dir for reference
+          cp config.h config_components.h ${{ github.workspace }}/ffmpeg-install/
+
+      # =========================================================================
+      # Linux Build using jellyfin-ffmpeg Docker builder
+      # =========================================================================
+      - name: Build FFmpeg (Linux)
+        if: runner.os == 'Linux' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        env:
+          # Use seydx/jellyfin-ffmpeg Docker images (pre-built on ghcr.io)
+          GITHUB_REPOSITORY: seydx/jellyfin-ffmpeg
+        run: |
+          cd externals/jellyfin-ffmpeg/builder
+          echo "=== Building jellyfin-ffmpeg for Linux ${{ matrix.target }} ==="
+
+          # Build using Docker (includes make install)
+          ./build.sh ${{ matrix.target }} gpl
+
+          # Verify build output exists
+          if [ ! -d ffbuild/prefix/lib ]; then
+            echo "::error::FFmpeg build failed - no lib directory in ffbuild/prefix"
+            exit 1
+          fi
+
+          # Copy build output to workspace
+          mkdir -p ${{ github.workspace }}/ffmpeg-install
+          cp -r ffbuild/prefix/* ${{ github.workspace }}/ffmpeg-install/
+
+          # Copy config files from Docker build if available
+          if [ -f ffbuild/ffmpeg/config.h ]; then
+            cp ffbuild/ffmpeg/config.h ffbuild/ffmpeg/config_components.h ${{ github.workspace }}/ffmpeg-install/ 2>/dev/null || true
+          fi
+
+      # =========================================================================
+      # Cache and Package
+      # =========================================================================
       - name: Save FFmpeg cache
         if: ${{ steps.cache-ffmpeg.outputs.cache-hit != 'true' && success() }}
         uses: actions/cache/save@v5
         with:
           path: ffmpeg-install
-          key: ffmpeg-${{ matrix.platform }}-${{ env.FFMPEG_VERSION }}-${{ env.CACHE_VERSION }}
+          key: ffmpeg-${{ matrix.platform }}-${{ steps.ffmpeg-hash.outputs.hash }}-${{ env.CACHE_VERSION }}
 
-      - name: Upload cache as artifact (debug)
-        if: ${{ github.event.inputs.upload_caches == 'true' }}
-        uses: actions/upload-artifact@v6
-        with:
-          name: cache-ffmpeg-${{ matrix.platform }}
-          path: ffmpeg-install
-          retention-days: 3
+      - name: Verify build output
+        if: success()
+        run: |
+          echo "=== FFmpeg installation contents ==="
+          ls -la ffmpeg-install/
+          echo "=== Libraries ==="
+          ls -la ffmpeg-install/lib/ || echo "No lib directory"
+          echo "=== Static libraries ==="
+          ls -la ffmpeg-install/lib/*.a 2>/dev/null || echo "No static libraries found"
+          echo "=== Headers ==="
+          ls ffmpeg-install/include/ || echo "No include directory"
 
       - name: Package libraries and headers
         if: success()
         run: |
-          # Verify ffmpeg-install exists before packaging
-          if [ ! -d ffmpeg-install/include ]; then
-            echo "::error::ffmpeg-install/include not found. FFmpeg build may have failed."
-            ls -la ffmpeg-install/ 2>/dev/null || echo "ffmpeg-install/ does not exist"
-            exit 1
-          fi
           mkdir -p ffmpeg-${{ matrix.platform }}/lib
           mkdir -p ffmpeg-${{ matrix.platform }}/include
 
-          # Copy static libraries (.a files)
-          echo "=== Copying static libraries ==="
-          cp ffmpeg-install/lib/*.a ffmpeg-${{ matrix.platform }}/lib/
-          ls -la ffmpeg-${{ matrix.platform }}/lib/
+          # Copy static libraries
+          if ls ffmpeg-install/lib/*.a 1> /dev/null 2>&1; then
+            cp ffmpeg-install/lib/*.a ffmpeg-${{ matrix.platform }}/lib/
+          fi
 
-          # Copy pkgconfig files (needed for static linking info)
-          cp -r ffmpeg-install/lib/pkgconfig ffmpeg-${{ matrix.platform }}/lib/ 2>/dev/null || true
+          # Copy pkgconfig files
+          if [ -d ffmpeg-install/lib/pkgconfig ]; then
+            cp -r ffmpeg-install/lib/pkgconfig ffmpeg-${{ matrix.platform }}/lib/
+          fi
 
           # Copy headers
-          cp -r ffmpeg-install/include/* ffmpeg-${{ matrix.platform }}/include/
+          if [ -d ffmpeg-install/include ]; then
+            cp -r ffmpeg-install/include/* ffmpeg-${{ matrix.platform }}/include/
+          fi
 
-          # Include codec static libraries for linking
-          echo "=== Copying codec static libraries ==="
-          cp "${CODEC_PREFIX}/lib/"*.a ffmpeg-${{ matrix.platform }}/lib/ 2>/dev/null || true
-          cp -r "${CODEC_PREFIX}/lib/pkgconfig/"* ffmpeg-${{ matrix.platform }}/lib/pkgconfig/ 2>/dev/null || true
+          # Create version metadata
+          echo '{"source": "jellyfin-ffmpeg", "commit": "${{ steps.ffmpeg-hash.outputs.hash }}"}' > ffmpeg-${{ matrix.platform }}/versions.json
 
-          echo '{"ffmpeg": "${{ env.FFMPEG_VERSION }}", "static": true}' > ffmpeg-${{ matrix.platform }}/versions.json
           echo "=== Final package contents ==="
           ls -la ffmpeg-${{ matrix.platform }}/lib/
 
