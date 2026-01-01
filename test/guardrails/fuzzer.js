@@ -84,3 +84,4 @@ if (failed) {
 // Note: If we got here without segfault, that's also a pass
 console.log('SUCCESS: All malformed inputs rejected safely (no segfaults).');
 encoder.close();
+process.exit(0);
