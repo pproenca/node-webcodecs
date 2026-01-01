@@ -131,6 +131,8 @@ jobs:
       # =========================================================================
       - name: Build FFmpeg (Linux)
         if: runner.os == 'Linux' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Clear /opt/ffbuild to avoid conflicts with stale data (following node-av pattern)
           sudo rm -rf /opt/ffbuild
