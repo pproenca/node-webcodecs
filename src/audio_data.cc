@@ -207,11 +207,18 @@ AudioData::AudioData(const Napi::CallbackInfo& info)
 
 AudioData::~AudioData() {
   webcodecs::counterAudioData--;
-  // Release external memory tracking if close() was never called.
-  if (!data_.empty()) {
-    Napi::MemoryManagement::AdjustExternalMemory(
-        Env(), -static_cast<int64_t>(data_.size()));
-  }
+  // Note: We intentionally DO NOT call AdjustExternalMemory here.
+  //
+  // Calling NAPI functions (including AdjustExternalMemory) from destructors
+  // during V8 shutdown is unsafe and causes crashes on Node.js 24+ due to
+  // race conditions with V8's ArrayBufferSweeper during Heap::TearDown().
+  // See: https://github.com/nodejs/node-addon-api/issues/1153
+  //
+  // The WebCodecs spec mandates that close() must be called for proper
+  // resource management. External memory tracking is handled exclusively
+  // in Close() to avoid shutdown crashes.
+  data_.clear();
+  data_.shrink_to_fit();
 }
 
 size_t AudioData::GetBytesPerSample() const {
