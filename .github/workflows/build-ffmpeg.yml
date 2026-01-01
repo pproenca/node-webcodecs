@@ -1,8 +1,8 @@
 name: build-ffmpeg
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
+# Note: No concurrency block here - this workflow is called by ci.yml and
+# build-prebuilds.yml which have their own concurrency controls. Adding
+# concurrency here causes deadlocks with the caller's concurrency group.
 
 on:
   workflow_dispatch:
