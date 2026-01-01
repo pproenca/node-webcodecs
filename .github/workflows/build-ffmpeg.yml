@@ -61,7 +61,7 @@ jobs:
           - os: macos-latest
             platform: darwin-arm64
             configure_flags: --enable-cross-compile --arch=arm64 --enable-videotoolbox --enable-audiotoolbox
-          - os: macos-13
+          - os: macos-15-intel
             platform: darwin-x64
             configure_flags: --enable-videotoolbox --enable-audiotoolbox
           - os: ubuntu-24.04
