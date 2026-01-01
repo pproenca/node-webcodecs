@@ -30,6 +30,11 @@ on:
       - "src/**"
       - "binding.gyp"
       - ".github/workflows/build-prebuilds.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "binding.gyp"
+      - ".github/workflows/build-prebuilds.yml"
 
 permissions: {}
 
