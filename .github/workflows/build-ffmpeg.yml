@@ -104,12 +104,22 @@ jobs:
           restore-keys: |
             brew-ffmpeg-${{ runner.arch }}-
 
+      - name: Restore ccache (macOS)
+        if: runner.os == 'macOS' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        uses: actions/cache@v5
+        with:
+          path: ~/.ccache
+          key: ccache-macos-${{ matrix.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}-${{ env.CACHE_VERSION }}
+          restore-keys: |
+            ccache-macos-${{ matrix.arch }}-${{ steps.ffmpeg-hash.outputs.hash }}-
+            ccache-macos-${{ matrix.arch }}-
+
       - name: Install build tools (macOS)
         if: runner.os == 'macOS' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
           # Install dependencies as listed in jellyfin-ffmpeg/builder/Buildmac.md
           # Only install packages not already present (from cache)
-          PACKAGES="nasm pkg-config autoconf automake libtool cmake meson ninja quilt"
+          PACKAGES="nasm pkg-config autoconf automake libtool cmake meson ninja quilt ccache"
           MISSING=""
           for pkg in $PACKAGES; do
             if ! brew list "$pkg" &>/dev/null; then
@@ -122,6 +132,16 @@ jobs:
           else
             echo "All packages already installed (from cache)"
           fi
+
+      - name: Configure ccache (macOS)
+        if: runner.os == 'macOS' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        run: |
+          # Add ccache to PATH so it wraps compiler calls
+          echo "$(brew --prefix ccache)/libexec" >> $GITHUB_PATH
+          # Configure ccache
+          ccache --set-config=max_size=2G
+          ccache --set-config=compression=true
+          ccache -z  # Zero stats for this run
 
       - name: Prepare FFmpeg prefix (macOS)
         if: runner.os == 'macOS' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
@@ -161,6 +181,16 @@ jobs:
       # =========================================================================
       # Linux Build using jellyfin-ffmpeg Docker builder
       # =========================================================================
+      - name: Restore ccache (Linux)
+        if: runner.os == 'Linux' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        uses: actions/cache@v5
+        with:
+          path: ~/.ccache
+          key: ccache-linux-${{ steps.ffmpeg-hash.outputs.hash }}-${{ env.CACHE_VERSION }}
+          restore-keys: |
+            ccache-linux-${{ steps.ffmpeg-hash.outputs.hash }}-
+            ccache-linux-
+
       - name: Build FFmpeg (Linux)
         if: runner.os == 'Linux' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
         env:
