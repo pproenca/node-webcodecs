@@ -17,6 +17,16 @@ export default defineConfig({
     // caused by shared global state in test/setup.ts
     isolate: true,
     fileParallelism: true,
+    // Use single fork to prevent "Worker exited unexpectedly" crashes during cleanup.
+    // Multiple forks with native addons can race during process shutdown.
+    // Single fork ensures clean sequential teardown of FFmpeg resources.
+    // See: https://github.com/vitest-dev/vitest/discussions/6285
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
     coverage: {
       enabled: process.env.CI === 'true',
       provider: 'v8',
