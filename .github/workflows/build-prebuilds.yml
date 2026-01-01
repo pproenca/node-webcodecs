@@ -98,7 +98,7 @@ jobs:
           echo "DYLD_LIBRARY_PATH=${{ github.workspace }}/ffmpeg-install/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
 
       - name: Fix macOS 15 PerfPowerServices CPU bug
-        if: runner.os == 'macOS' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        if: runner.os == 'macOS'
         run: |
           # Workaround for known macOS 15 bug where PerfPowerServices consumes 100% CPU
           # See: https://github.com/actions/runner-images/issues/13358
