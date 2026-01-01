@@ -6,22 +6,15 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Source of truth for FFmpeg version and cache version.
-# To change these values globally, set repository variables in GitHub Settings:
-#   Settings > Secrets and variables > Actions > Variables
-#   - FFMPEG_VERSION (e.g., "8.0.1")
-#   - FFMPEG_CACHE_VERSION (e.g., "v2")
-env:
-  CACHE_VERSION: ${{ vars.FFMPEG_CACHE_VERSION || 'v2' }}
-  DEFAULT_FFMPEG_VERSION: ${{ vars.FFMPEG_VERSION || '8.0.1' }}
-
 on:
   workflow_dispatch:
     inputs:
       ffmpeg_version:
-        description: "FFmpeg version to build (leave empty for default)"
-        required: false
-        default: ""
+        description: "FFmpeg version to build"
+        default: "8.0.1"
+      cache_version:
+        description: "Cache version (bump to force rebuild)"
+        default: "v3"
       force_rebuild:
         description: "Force rebuild (ignore cache)"
         type: boolean
@@ -33,10 +26,13 @@ on:
   workflow_call:
     inputs:
       ffmpeg_version:
-        description: "FFmpeg version to build (leave empty for default)"
-        required: false
+        description: "FFmpeg version to build"
         type: string
-        default: ""
+        default: "8.0.1"
+      cache_version:
+        description: "Cache version (bump to force rebuild)"
+        type: string
+        default: "v3"
   push:
     paths:
       - ".github/workflows/build-ffmpeg.yml"
@@ -51,16 +47,19 @@ jobs:
     name: "ffmpeg-${{ matrix.platform }}"
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
+    env:
+      FFMPEG_VERSION: ${{ inputs.ffmpeg_version || '8.0.1' }}
+      CACHE_VERSION: ${{ inputs.cache_version || 'v3' }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: macos-14
             platform: darwin-arm64
-            configure_flags: --enable-cross-compile --arch=arm64
+            configure_flags: --enable-cross-compile --arch=arm64 --enable-videotoolbox --enable-audiotoolbox
           - os: macos-13
             platform: darwin-x64
-            configure_flags: ""
+            configure_flags: --enable-videotoolbox --enable-audiotoolbox
           - os: ubuntu-22.04
             platform: linux-x64
             configure_flags: ""
@@ -79,35 +78,35 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ffmpeg-install
-          key: ffmpeg-${{ matrix.platform }}-${{ github.event.inputs.ffmpeg_version || env.DEFAULT_FFMPEG_VERSION }}-${{ env.CACHE_VERSION }}
+          key: ffmpeg-${{ matrix.platform }}-${{ env.FFMPEG_VERSION }}-${{ env.CACHE_VERSION }}
           restore-keys: |
-            ffmpeg-${{ matrix.platform }}-${{ github.event.inputs.ffmpeg_version || env.DEFAULT_FFMPEG_VERSION }}-
+            ffmpeg-${{ matrix.platform }}-${{ env.FFMPEG_VERSION }}-
 
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install nasm pkg-config x264 x265 libvpx opus aom lame
+          brew install nasm pkg-config x264 x265 libvpx opus aom lame dav1d svt-av1 libvorbis
 
       - name: Install dependencies (Linux glibc)
         if: runner.os == 'Linux' && !matrix.container
         run: |
           sudo apt-get update
           sudo apt-get install -y nasm yasm pkg-config \
-            libx264-dev libx265-dev libvpx-dev libopus-dev libaom-dev libmp3lame-dev
+            libx264-dev libx265-dev libvpx-dev libopus-dev libaom-dev libmp3lame-dev \
+            libdav1d-dev libsvtav1-dev libvorbis-dev
 
       - name: Install dependencies (Linux musl)
         if: matrix.container == 'alpine:3.19'
         run: |
           apk add --no-cache build-base nasm yasm pkgconf curl \
-            x264-dev x265-dev libvpx-dev opus-dev aom-dev lame-dev
+            x264-dev x265-dev libvpx-dev opus-dev aom-dev lame-dev \
+            dav1d-dev svt-av1-dev libvorbis-dev
 
       - name: Download FFmpeg source
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
-        env:
-          FFMPEG_VERSION: ${{ github.event.inputs.ffmpeg_version || env.DEFAULT_FFMPEG_VERSION }}
         run: |
-          curl -L https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz | tar xJ
-          mv ffmpeg-${FFMPEG_VERSION} ffmpeg-src
+          curl -L https://ffmpeg.org/releases/ffmpeg-${{ env.FFMPEG_VERSION }}.tar.xz | tar xJ
+          mv ffmpeg-${{ env.FFMPEG_VERSION }} ffmpeg-src
 
       - name: Configure FFmpeg
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
@@ -126,6 +125,9 @@ jobs:
             --enable-libopus \
             --enable-libaom \
             --enable-libmp3lame \
+            --enable-libdav1d \
+            --enable-libsvtav1 \
+            --enable-libvorbis \
             ${{ matrix.configure_flags }}
 
       - name: Build FFmpeg
@@ -143,7 +145,7 @@ jobs:
         uses: actions/cache/save@v5
         with:
           path: ffmpeg-install
-          key: ffmpeg-${{ matrix.platform }}-${{ github.event.inputs.ffmpeg_version || env.DEFAULT_FFMPEG_VERSION }}-${{ env.CACHE_VERSION }}
+          key: ffmpeg-${{ matrix.platform }}-${{ env.FFMPEG_VERSION }}-${{ env.CACHE_VERSION }}
 
       - name: Upload cache as artifact (debug)
         if: ${{ github.event.inputs.upload_caches == 'true' }}
@@ -154,8 +156,6 @@ jobs:
           retention-days: 3
 
       - name: Package libraries and headers
-        env:
-          FFMPEG_VERSION: ${{ github.event.inputs.ffmpeg_version || env.DEFAULT_FFMPEG_VERSION }}
         run: |
           mkdir -p ffmpeg-${{ matrix.platform }}/lib
           mkdir -p ffmpeg-${{ matrix.platform }}/include
@@ -166,7 +166,7 @@ jobs:
           cp -r ffmpeg-install/lib/pkgconfig ffmpeg-${{ matrix.platform }}/lib/ 2>/dev/null || true
           # Copy headers (use cp -r on directory itself to avoid glob issues on Alpine)
           cp -r ffmpeg-install/include/. ffmpeg-${{ matrix.platform }}/include/
-          echo "{\"ffmpeg\": \"${FFMPEG_VERSION}\"}" > ffmpeg-${{ matrix.platform }}/versions.json
+          echo '{"ffmpeg": "${{ env.FFMPEG_VERSION }}"}' > ffmpeg-${{ matrix.platform }}/versions.json
 
       - uses: actions/upload-artifact@v6
         with:
