@@ -16,6 +16,8 @@ jobs:
   # Build prebuilt binaries for all platforms (also builds FFmpeg via nested workflow call)
   build-prebuilds:
     uses: ./.github/workflows/build-prebuilds.yml
+    with:
+      deps_version: v1  # Update when deps change
 
   # Publish main package with bundled prebuilds
   publish:
@@ -79,3 +81,51 @@ jobs:
       # Configure trusted publisher at npmjs.com package settings
       - name: Publish main package
         run: npm publish --provenance --access public
+
+  smoke-test:
+    name: "Smoke Test ${{ matrix.platform }}"
+    needs: [publish]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            platform: linux-x64
+          - os: macos-15-intel
+            platform: darwin-x64
+          - os: macos-latest
+            platform: darwin-arm64
+    steps:
+      - name: Wait for NPM Registry Propagation
+        run: sleep 30
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Get Release Version
+        id: version
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Testing version: $VERSION"
+
+      - name: Install and Verify
+        run: |
+          mkdir smoke-test && cd smoke-test
+          npm init -y
+          npm install @pproenca/node-webcodecs@${{ steps.version.outputs.version }}
+          node -e "
+            const wc = require('@pproenca/node-webcodecs');
+            console.log('Loaded exports:', Object.keys(wc));
+            if (typeof wc.VideoDecoder !== 'function') {
+              console.error('VideoDecoder not a function');
+              process.exit(1);
+            }
+            if (typeof wc.VideoEncoder !== 'function') {
+              console.error('VideoEncoder not a function');
+              process.exit(1);
+            }
+            console.log('Smoke Test Passed!');
+          "
