@@ -1,32 +1,20 @@
 name: build-ffmpeg
 
-# Note: No concurrency block here - this workflow is called by ci.yml and
-# build-prebuilds.yml which have their own concurrency controls.
+# This workflow builds FFmpeg and creates a GitHub Release with pre-built binaries.
+# Run manually via workflow_dispatch when FFmpeg needs to be updated.
+# Other workflows download FFmpeg from the deps-vN release.
 
 on:
   workflow_dispatch:
     inputs:
-      cache_version:
-        description: "Cache version (bump to force rebuild)"
+      deps_version:
+        description: "Dependencies version tag (e.g., v1, v2)"
+        required: true
         default: "v1"
       force_rebuild:
         description: "Force rebuild (ignore cache)"
         type: boolean
         default: false
-  workflow_call:
-    inputs:
-      cache_version:
-        description: "Cache version (bump to force rebuild)"
-        type: string
-        default: "v1"
-  push:
-    paths:
-      - ".github/workflows/build-ffmpeg.yml"
-      - "externals/jellyfin-ffmpeg/**"
-  pull_request:
-    paths:
-      - ".github/workflows/build-ffmpeg.yml"
-      - "externals/jellyfin-ffmpeg/**"
 
 permissions: {}
 
@@ -39,7 +27,7 @@ jobs:
     name: "ffmpeg-${{ matrix.platform }}"
     runs-on: ${{ matrix.os }}
     env:
-      CACHE_VERSION: ${{ inputs.cache_version || 'v1' }}
+      CACHE_VERSION: ${{ inputs.deps_version || 'v1' }}
     strategy:
       fail-fast: false
       matrix:
@@ -236,3 +224,43 @@ jobs:
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: ffmpeg-${{ matrix.platform }}/**/*
+
+  create-release:
+    name: "Create Dependencies Release"
+    needs: [build-ffmpeg]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all FFmpeg artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ffmpeg-*
+          path: deps
+
+      - name: Package for release
+        run: |
+          mkdir -p release
+          for platform in darwin-arm64 darwin-x64 linux-x64; do
+            if [ -d "deps/ffmpeg-$platform" ]; then
+              tar -czvf "release/ffmpeg-$platform.tar.gz" -C "deps/ffmpeg-$platform" .
+              echo "Created ffmpeg-$platform.tar.gz"
+            fi
+          done
+          ls -la release/
+
+      - name: Create or Update Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: deps-${{ inputs.deps_version }}
+          name: "FFmpeg Dependencies ${{ inputs.deps_version }}"
+          body: |
+            Pre-built static FFmpeg libraries for node-webcodecs.
+
+            **Source:** jellyfin-ffmpeg (commit from submodule)
+            **Platforms:** darwin-arm64, darwin-x64, linux-x64
+
+            Download the appropriate `.tar.gz` for your platform and extract to `ffmpeg-install/`.
+          files: release/*.tar.gz
+          fail_on_unmatched_files: true
+          make_latest: true
