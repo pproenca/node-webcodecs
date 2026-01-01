@@ -6,14 +6,15 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# FFmpeg version and cache version are centralized via repository variables.
-# Set in GitHub Settings > Secrets and variables > Actions > Variables
-# Fallback values match build-ffmpeg.yml defaults.
-env:
-  FFMPEG_VERSION: ${{ vars.FFMPEG_VERSION || '8.0.1' }}
-  CACHE_VERSION: ${{ vars.FFMPEG_CACHE_VERSION || 'v2' }}
-
 on:
+  workflow_dispatch:
+    inputs:
+      ffmpeg_version:
+        description: "FFmpeg version"
+        default: "8.0.1"
+      cache_version:
+        description: "Cache version"
+        default: "v3"
   push:
     branches: [master]
   pull_request:
@@ -25,9 +26,12 @@ jobs:
   build-ffmpeg:
     permissions:
       contents: read
+      id-token: write
+      attestations: write
     uses: ./.github/workflows/build-ffmpeg.yml
     with:
-      ffmpeg_version: ""
+      ffmpeg_version: ${{ inputs.ffmpeg_version }}
+      cache_version: ${{ inputs.cache_version }}
 
   lint:
     permissions:
@@ -103,9 +107,9 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ffmpeg-install
-          key: ffmpeg-${{ matrix.platform }}-${{ env.FFMPEG_VERSION }}-${{ env.CACHE_VERSION }}
+          key: ffmpeg-${{ matrix.platform }}-${{ inputs.ffmpeg_version }}-${{ inputs.cache_version }}
           restore-keys: |
-            ffmpeg-${{ matrix.platform }}-${{ env.FFMPEG_VERSION }}-
+            ffmpeg-${{ matrix.platform }}-${{ inputs.ffmpeg_version }}-
 
       - name: Setup cached FFmpeg
         if: steps.cache-ffmpeg.outputs.cache-hit == 'true'

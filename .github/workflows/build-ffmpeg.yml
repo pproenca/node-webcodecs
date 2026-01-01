@@ -44,6 +44,8 @@ jobs:
   build-ffmpeg:
     permissions:
       contents: read
+      id-token: write
+      attestations: write
     name: "ffmpeg-${{ matrix.platform }}"
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
@@ -65,7 +67,7 @@ jobs:
             configure_flags: ""
           - os: ubuntu-22.04
             platform: linuxmusl-x64
-            container: alpine:3.19
+            container: alpine:${{ vars.ALPINE_VERSION || '3.19' }}
             configure_flags: ""
 
     steps:
@@ -96,7 +98,7 @@ jobs:
             libdav1d-dev libsvtav1-dev libvorbis-dev
 
       - name: Install dependencies (Linux musl)
-        if: matrix.container == 'alpine:3.19'
+        if: matrix.container
         run: |
           apk add --no-cache build-base nasm yasm pkgconf curl \
             x264-dev x265-dev libvpx-dev opus-dev aom-dev lame-dev \
@@ -173,3 +175,8 @@ jobs:
           name: ffmpeg-${{ matrix.platform }}
           path: ffmpeg-${{ matrix.platform }}
           retention-days: 7
+
+      - name: Attest FFmpeg artifact
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ffmpeg-${{ matrix.platform }}/**/*

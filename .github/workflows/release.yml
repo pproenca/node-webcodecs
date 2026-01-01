@@ -6,13 +6,16 @@ concurrency:
   cancel-in-progress: false
 
 on:
+  workflow_dispatch:
+    inputs:
+      ffmpeg_version:
+        description: "FFmpeg version"
+        default: "8.0.1"
+      platforms:
+        description: "Platforms to publish (space-separated)"
+        default: "darwin-arm64 darwin-x64 linux-x64 linuxmusl-x64"
   release:
     types: [published]
-
-# FFmpeg version is centralized via repository variables.
-# Set in GitHub Settings > Secrets and variables > Actions > Variables
-env:
-  FFMPEG_VERSION: ${{ vars.FFMPEG_VERSION || '8.0.1' }}
 
 permissions: {}
 
@@ -30,6 +33,11 @@ jobs:
       id-token: write
       contents: read
     steps:
+      - name: Set release variables
+        run: |
+          echo "FFMPEG_VERSION=${{ inputs.ffmpeg_version || '8.0.1' }}" >> $GITHUB_ENV
+          echo "PLATFORMS=${{ inputs.platforms || 'darwin-arm64 darwin-x64 linux-x64 linuxmusl-x64' }}" >> $GITHUB_ENV
+
       - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v6
@@ -71,7 +79,7 @@ jobs:
 
           # Verify we have all expected platforms
           echo -e "\nVerifying platform coverage:"
-          for platform in darwin-arm64 darwin-x64 linux-x64 linuxmusl-x64; do
+          for platform in $PLATFORMS; do
             if [ -d "prebuilds/$platform" ]; then
               echo "✓ $platform"
             else
@@ -85,7 +93,7 @@ jobs:
           node scripts/create-platform-packages.js
 
           # Compress and copy prebuilds to platform packages
-          for platform in darwin-arm64 darwin-x64 linux-x64 linuxmusl-x64; do
+          for platform in $PLATFORMS; do
             if [ -d "prebuilds/$platform" ]; then
               # Create ZIP containing the .node file
               cd "prebuilds/$platform"
@@ -104,7 +112,7 @@ jobs:
 
       - name: Populate FFmpeg packages
         run: |
-          for platform in darwin-arm64 darwin-x64 linux-x64 linuxmusl-x64; do
+          for platform in $PLATFORMS; do
             FFMPEG_ARTIFACT_DIR=ffmpeg-artifacts/ffmpeg-$platform node ffmpeg/from-ci-build.js $platform
           done
 
@@ -134,7 +142,7 @@ jobs:
 
       - name: Publish FFmpeg packages
         run: |
-          for platform in darwin-arm64 darwin-x64 linux-x64 linuxmusl-x64; do
+          for platform in $PLATFORMS; do
             cd "ffmpeg/$platform"
             npm publish --provenance --access public || echo "Package may already exist"
             cd ../..
@@ -144,7 +152,7 @@ jobs:
 
       - name: Publish addon packages
         run: |
-          for platform in darwin-arm64 darwin-x64 linux-x64 linuxmusl-x64; do
+          for platform in $PLATFORMS; do
             cd "packages/$platform"
             npm publish --provenance --access public || echo "Package may already exist"
             cd ../..
