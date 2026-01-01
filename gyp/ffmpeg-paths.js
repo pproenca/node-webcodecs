@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: MIT
 //
 // Resolve FFmpeg paths for node-gyp binding.
+// FFmpeg is statically linked, so we only need lib path (-L) and include path.
+// No rpath is needed since all symbols are statically linked into the .node binary.
 
 'use strict';
 
@@ -60,10 +62,7 @@ if (mode === 'lib') {
     process.exit(1);
   }
 } else if (mode === 'rpath') {
-  const libPath = getPrebuiltLibPath();
-  if (libPath) {
-    console.log(`-Wl,-rpath,${libPath}`);
-  } else {
-    process.exit(1);
-  }
+  // rpath is not needed for static linking - all symbols are linked into the binary
+  // This mode is kept for backwards compatibility but outputs nothing
+  process.exit(0);
 }

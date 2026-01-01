@@ -46,8 +46,17 @@
           ],
           "libraries": [
             "<!@(node gyp/ffmpeg-paths.js lib 2>/dev/null || echo '')",
-            "<!@(pkg-config --libs libavcodec libavutil libswscale libswresample libavfilter 2>/dev/null || echo '-L/opt/homebrew/lib -L/usr/local/lib -lavcodec -lavutil -lswscale -lswresample -lavfilter')",
-            "<!@(node gyp/ffmpeg-paths.js rpath 2>/dev/null || echo '')"
+            "<!@(pkg-config --libs --static libavcodec libavutil libswscale libswresample libavfilter 2>/dev/null || echo '-L/opt/homebrew/lib -L/usr/local/lib -lavcodec -lavutil -lswscale -lswresample -lavfilter')",
+            "-framework VideoToolbox",
+            "-framework AudioToolbox",
+            "-framework CoreMedia",
+            "-framework CoreVideo",
+            "-framework CoreFoundation",
+            "-framework CoreServices",
+            "-framework Security",
+            "-liconv",
+            "-lbz2",
+            "-lz"
           ],
           "xcode_settings": {
             "CLANG_CXX_LANGUAGE_STANDARD": "c++20",
@@ -68,8 +77,11 @@
           ],
           "libraries": [
             "<!@(node gyp/ffmpeg-paths.js lib 2>/dev/null || echo '')",
-            "<!@(pkg-config --libs libavcodec libavutil libswscale libswresample libavfilter)",
-            "<!@(node gyp/ffmpeg-paths.js rpath 2>/dev/null || echo '')"
+            "<!@(pkg-config --libs --static libavcodec libavutil libswscale libswresample libavfilter)",
+            "-lpthread",
+            "-lm",
+            "-ldl",
+            "-lz"
           ],
           "cflags_cc": [
             "-std=c++20",

@@ -53,6 +53,7 @@ jobs:
     env:
       FFMPEG_VERSION: ${{ inputs.ffmpeg_version || '8.0.1' }}
       CACHE_VERSION: ${{ inputs.cache_version || 'v5' }}
+      CODEC_CACHE_VERSION: v2
     strategy:
       fail-fast: false
       matrix:
@@ -88,40 +89,51 @@ jobs:
           sudo defaults -currentHost write /Library/Preferences/com.apple.powerlogd SMCMonitorCadence 0
           sudo killall PerfPowerServices || true
 
-      - name: Install dependencies (macOS)
+      # Static codec builds - cached separately from FFmpeg
+      - name: Restore codec cache
+        if: ${{ github.event.inputs.force_rebuild != 'true' }}
+        id: cache-codecs
+        uses: actions/cache/restore@v5
+        with:
+          path: codec-install
+          key: codecs-${{ matrix.platform }}-${{ env.CODEC_CACHE_VERSION }}
+
+      - name: Install build tools (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install nasm pkg-config x264 x265 libvpx opus aom lame dav1d svt-av1 libvorbis
-          HOMEBREW_PREFIX=$(brew --prefix)
+          brew install nasm pkg-config autoconf automake libtool cmake meson ninja
 
-          # Homebrew's lame doesn't include a pkg-config file, so we create one
-          # FFmpeg checks for 'libmp3lame' not 'mp3lame'
-          LAME_PREFIX="${HOMEBREW_PREFIX}/opt/lame"
-          mkdir -p "${LAME_PREFIX}/lib/pkgconfig"
-          printf 'prefix=%s\nexec_prefix=${prefix}\nlibdir=${prefix}/lib\nincludedir=${prefix}/include\n\nName: libmp3lame\nDescription: LAME MP3 encoder library\nVersion: 3.100\nLibs: -L${libdir} -lmp3lame\nCflags: -I${includedir}\n' "${LAME_PREFIX}" > "${LAME_PREFIX}/lib/pkgconfig/libmp3lame.pc"
-
-          # Set environment for FFmpeg configure
-          echo "PKG_CONFIG_PATH=${HOMEBREW_PREFIX}/lib/pkgconfig:${LAME_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
-          # Also set CFLAGS/LDFLAGS for libraries that need explicit paths
-          echo "CFLAGS=-I${HOMEBREW_PREFIX}/include -I${LAME_PREFIX}/include" >> $GITHUB_ENV
-          echo "LDFLAGS=-L${HOMEBREW_PREFIX}/lib -L${LAME_PREFIX}/lib" >> $GITHUB_ENV
-
-          # Verify lame is now findable
-          export PKG_CONFIG_PATH="${HOMEBREW_PREFIX}/lib/pkgconfig:${LAME_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}"
-          echo "Created libmp3lame.pc at ${LAME_PREFIX}/lib/pkgconfig/"
-          pkg-config --modversion libmp3lame
-          pkg-config --cflags --libs libmp3lame
-
-      - name: Install dependencies (Linux)
+      - name: Install build tools (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          # Note: libsvtav1enc-dev (not libsvtav1-dev) contains the pkg-config file
-          sudo apt-get install -y nasm yasm pkg-config \
-            libx264-dev libx265-dev libvpx-dev libopus-dev libaom-dev libmp3lame-dev \
-            libdav1d-dev libsvtav1enc-dev libvorbis-dev
-          # Verify SVT-AV1 is available
-          pkg-config --modversion SvtAv1Enc
+          sudo apt-get install -y nasm yasm pkg-config autoconf automake libtool \
+            cmake meson ninja-build git curl
+
+      - name: Build static codec libraries
+        if: steps.cache-codecs.outputs.cache-hit != 'true'
+        run: |
+          CODEC_PREFIX="${{ github.workspace }}/codec-install"
+          ./.github/scripts/build-static-codecs.sh "$CODEC_PREFIX"
+
+      - name: Save codec cache
+        if: ${{ steps.cache-codecs.outputs.cache-hit != 'true' && success() }}
+        uses: actions/cache/save@v5
+        with:
+          path: codec-install
+          key: codecs-${{ matrix.platform }}-${{ env.CODEC_CACHE_VERSION }}
+
+      - name: Setup codec environment
+        run: |
+          CODEC_PREFIX="${{ github.workspace }}/codec-install"
+          echo "PKG_CONFIG_PATH=${CODEC_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}" >> $GITHUB_ENV
+          echo "CFLAGS=-I${CODEC_PREFIX}/include -fPIC" >> $GITHUB_ENV
+          echo "LDFLAGS=-L${CODEC_PREFIX}/lib" >> $GITHUB_ENV
+          echo "CODEC_PREFIX=${CODEC_PREFIX}" >> $GITHUB_ENV
+          # Verify codecs are available
+          export PKG_CONFIG_PATH="${CODEC_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}"
+          echo "=== Available codecs ==="
+          pkg-config --list-all | grep -E "(x264|x265|vpx|opus|aom|dav1d|SvtAv1|mp3lame|vorbis)" || true
 
       - name: Download FFmpeg source
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
@@ -129,30 +141,7 @@ jobs:
           curl -L https://ffmpeg.org/releases/ffmpeg-${{ env.FFMPEG_VERSION }}.tar.xz | tar xJ
           mv ffmpeg-${{ env.FFMPEG_VERSION }} ffmpeg-src
 
-      - name: Check codec availability
-        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
-        id: codec-check
-        run: |
-          # Check if SVT-AV1 is available and working
-          if pkg-config --exists "SvtAv1Enc >= 0.9.0" 2>/dev/null; then
-            echo "svtav1=--enable-libsvtav1" >> $GITHUB_OUTPUT
-            echo "SVT-AV1 available: $(pkg-config --modversion SvtAv1Enc)"
-          else
-            echo "svtav1=" >> $GITHUB_OUTPUT
-            echo "SVT-AV1 not available or version too old, disabling"
-            pkg-config --modversion SvtAv1Enc 2>/dev/null || echo "  (pkg-config check failed)"
-          fi
-
-          # Check if libmp3lame is available
-          if pkg-config --exists "libmp3lame >= 3.98.3" 2>/dev/null; then
-            echo "mp3lame=--enable-libmp3lame" >> $GITHUB_OUTPUT
-            echo "libmp3lame available: $(pkg-config --modversion libmp3lame)"
-          else
-            echo "mp3lame=" >> $GITHUB_OUTPUT
-            echo "libmp3lame not available via pkg-config, disabling"
-          fi
-
-      - name: Configure FFmpeg
+      - name: Configure FFmpeg (static)
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         working-directory: ffmpeg-src
         run: |
@@ -160,18 +149,26 @@ jobs:
           echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH}"
           echo "CFLAGS=${CFLAGS}"
           echo "LDFLAGS=${LDFLAGS}"
-          echo "Checking libmp3lame..."
-          pkg-config --exists libmp3lame && echo "libmp3lame found" || echo "libmp3lame NOT found"
-          pkg-config --modversion libmp3lame || true
-          pkg-config --cflags --libs libmp3lame || true
+          echo "CODEC_PREFIX=${CODEC_PREFIX}"
+
+          echo "=== Checking codec availability ==="
+          for lib in x264 x265 vpx opus aom dav1d SvtAv1Enc mp3lame vorbis ogg; do
+            if pkg-config --exists "$lib" 2>/dev/null; then
+              echo "$lib: $(pkg-config --modversion $lib)"
+            else
+              echo "$lib: NOT FOUND"
+            fi
+          done
 
           INSTALL_PREFIX="$(cd .. && pwd)/ffmpeg-install"
           echo "Install prefix: ${INSTALL_PREFIX}"
 
+          # Static build: link all codec libraries statically into FFmpeg
           ./configure \
             --prefix="${INSTALL_PREFIX}" \
-            --enable-shared \
-            --disable-static \
+            --enable-static \
+            --disable-shared \
+            --enable-pic \
             --disable-programs \
             --disable-doc \
             --enable-gpl \
@@ -180,10 +177,11 @@ jobs:
             --enable-libvpx \
             --enable-libopus \
             --enable-libaom \
-            ${{ steps.codec-check.outputs.mp3lame }} \
+            --enable-libmp3lame \
             --enable-libdav1d \
-            ${{ steps.codec-check.outputs.svtav1 }} \
+            --enable-libsvtav1 \
             --enable-libvorbis \
+            --pkg-config-flags="--static" \
             --extra-cflags="${CFLAGS:-}" \
             --extra-ldflags="${LDFLAGS:-}" \
             ${{ matrix.configure_flags }}
@@ -235,14 +233,26 @@ jobs:
           fi
           mkdir -p ffmpeg-${{ matrix.platform }}/lib
           mkdir -p ffmpeg-${{ matrix.platform }}/include
-          # Copy libraries (macOS uses .dylib, Linux uses .so)
-          cp -P ffmpeg-install/lib/*.dylib ffmpeg-${{ matrix.platform }}/lib/ 2>/dev/null || true
-          cp -P ffmpeg-install/lib/*.so* ffmpeg-${{ matrix.platform }}/lib/ 2>/dev/null || true
-          # Copy pkgconfig files
+
+          # Copy static libraries (.a files)
+          echo "=== Copying static libraries ==="
+          cp ffmpeg-install/lib/*.a ffmpeg-${{ matrix.platform }}/lib/
+          ls -la ffmpeg-${{ matrix.platform }}/lib/
+
+          # Copy pkgconfig files (needed for static linking info)
           cp -r ffmpeg-install/lib/pkgconfig ffmpeg-${{ matrix.platform }}/lib/ 2>/dev/null || true
+
           # Copy headers
           cp -r ffmpeg-install/include/* ffmpeg-${{ matrix.platform }}/include/
-          echo '{"ffmpeg": "${{ env.FFMPEG_VERSION }}"}' > ffmpeg-${{ matrix.platform }}/versions.json
+
+          # Include codec static libraries for linking
+          echo "=== Copying codec static libraries ==="
+          cp "${CODEC_PREFIX}/lib/"*.a ffmpeg-${{ matrix.platform }}/lib/ 2>/dev/null || true
+          cp -r "${CODEC_PREFIX}/lib/pkgconfig/"* ffmpeg-${{ matrix.platform }}/lib/pkgconfig/ 2>/dev/null || true
+
+          echo '{"ffmpeg": "${{ env.FFMPEG_VERSION }}", "static": true}' > ffmpeg-${{ matrix.platform }}/versions.json
+          echo "=== Final package contents ==="
+          ls -la ffmpeg-${{ matrix.platform }}/lib/
 
       - uses: actions/upload-artifact@v6
         with:

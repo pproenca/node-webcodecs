@@ -88,14 +88,14 @@ jobs:
           restore-keys: |
             ffmpeg-${{ matrix.platform }}-${{ inputs.ffmpeg_version || '8.0.1' }}-
 
-      - name: Setup cached FFmpeg
+      - name: Setup cached FFmpeg (static)
         if: steps.cache-ffmpeg.outputs.cache-hit == 'true'
         run: |
-          echo "Using cached FFmpeg from build-ffmpeg workflow"
+          echo "Using cached static FFmpeg from build-ffmpeg workflow"
           ls -la ffmpeg-install/
+          ls -la ffmpeg-install/lib/
+          # Only need PKG_CONFIG_PATH for static linking - no runtime library paths needed
           echo "PKG_CONFIG_PATH=${{ github.workspace }}/ffmpeg-install/lib/pkgconfig" >> $GITHUB_ENV
-          echo "LD_LIBRARY_PATH=${{ github.workspace }}/ffmpeg-install/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
-          echo "DYLD_LIBRARY_PATH=${{ github.workspace }}/ffmpeg-install/lib:$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
 
       - name: Fix macOS 15 PerfPowerServices CPU bug
         if: runner.os == 'macOS'
@@ -105,38 +105,29 @@ jobs:
           sudo defaults -currentHost write /Library/Preferences/com.apple.powerlogd SMCMonitorCadence 0
           sudo killall PerfPowerServices || true
 
-      # Codec runtime libraries are required even with FFmpeg cache hit
-      # because FFmpeg's shared libraries dynamically link against them.
-      # We install -dev packages which pull in runtime libs as dependencies.
-      - name: Install codec dependencies (macOS)
+      # Static FFmpeg: No runtime codec dependencies needed - all codecs are statically linked
+      - name: Install build tools (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install x264 x265 libvpx aom lame pkg-config
+          brew install pkg-config
 
-      - name: Install codec dependencies (Ubuntu)
+      - name: Install build tools (Ubuntu)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libx264-dev \
-            libx265-dev \
-            libvpx-dev \
-            libaom-dev \
-            libmp3lame-dev \
-            libdav1d-dev \
-            libsvtav1enc-dev \
-            libvorbis-dev \
-            libopus-dev \
-            pkg-config
+          sudo apt-get install -y pkg-config
 
+      # Fallback: Install system FFmpeg if cache miss (for local development)
       - name: Install FFmpeg (macOS) - cache miss
         if: runner.os == 'macOS' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
+          echo "::warning::FFmpeg cache miss - installing system FFmpeg (shared, not static)"
           brew install ffmpeg
 
       - name: Install FFmpeg (Ubuntu) - cache miss
         if: runner.os == 'Linux' && steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
+          echo "::warning::FFmpeg cache miss - installing system FFmpeg (shared, not static)"
           sudo apt-get install -y \
             ffmpeg \
             libavcodec-dev \

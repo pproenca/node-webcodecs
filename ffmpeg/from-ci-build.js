@@ -64,9 +64,12 @@ const license = `FFmpeg Libraries - Prebuilt for ${platform}
 
 FFmpeg is licensed under the GNU Lesser General Public License (LGPL) version 2.1 or later.
 
-This package contains prebuilt FFmpeg shared libraries compiled with the following configuration:
-- --enable-shared --disable-static
-- --enable-gpl --enable-libx264 --enable-libx265 --enable-libvpx --enable-libopus --enable-libaom --enable-libmp3lame
+This package contains prebuilt FFmpeg static libraries compiled with the following configuration:
+- --enable-static --disable-shared --enable-pic
+- --enable-gpl --enable-libx264 --enable-libx265 --enable-libvpx --enable-libopus
+- --enable-libaom --enable-libmp3lame --enable-libdav1d --enable-libsvtav1 --enable-libvorbis
+
+All codec dependencies are statically linked for maximum portability.
 
 For FFmpeg source code and full license terms, see:
 https://ffmpeg.org/
