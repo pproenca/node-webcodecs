@@ -14,7 +14,7 @@ on:
         default: "8.0.1"
       cache_version:
         description: "Cache version (bump to force rebuild)"
-        default: "v4"
+        default: "v5"
   workflow_call:
     inputs:
       ffmpeg_version:
@@ -84,7 +84,7 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ffmpeg-install
-          key: ffmpeg-${{ matrix.platform }}-${{ inputs.ffmpeg_version || '8.0.1' }}-${{ inputs.cache_version || 'v4' }}
+          key: ffmpeg-${{ matrix.platform }}-${{ inputs.ffmpeg_version || '8.0.1' }}-${{ inputs.cache_version || 'v5' }}
           restore-keys: |
             ffmpeg-${{ matrix.platform }}-${{ inputs.ffmpeg_version || '8.0.1' }}-
 
