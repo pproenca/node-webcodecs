@@ -4,14 +4,14 @@
 //
 // Generates platform-specific packages from template during CI.
 
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, '..');
 const packagesDir = join(rootDir, 'packages');
-const installScriptPath = join(__dirname, 'install.js');
+const installScriptPath = join(__dirname, 'install.mjs');
 
 // Platform configurations
 const platforms = [
@@ -58,7 +58,7 @@ platforms.forEach((platform) => {
     [`@pproenca/ffmpeg-${platform.name}`]: ffmpegVersion,
   };
 
-  writeFileSync(join(packageDir, 'package.json'), JSON.stringify(packageJson, null, 2) + '\n');
+  writeFileSync(join(packageDir, 'package.json'), `${JSON.stringify(packageJson, null, 2)}\n`);
 
   // Create README
   const readme = `# @pproenca/node-webcodecs-${platform.name}
@@ -79,8 +79,8 @@ MIT
 
   writeFileSync(join(packageDir, 'README.md'), readme);
 
-  // Copy install.js
-  copyFileSync(installScriptPath, join(packageDir, 'install.js'));
+  // Copy install.mjs
+  copyFileSync(installScriptPath, join(packageDir, 'install.mjs'));
 
   console.log(`Created package for ${platform.name}`);
 });

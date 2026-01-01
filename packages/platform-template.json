@@ -4,10 +4,10 @@
   "description": "node-webcodecs (PLATFORM binary)",
   "author": "Pedro Proenca",
   "type": "module",
-  "files": ["node-webcodecs.node.zip", "node-webcodecs.node", "install.js"],
+  "files": ["node-webcodecs.node.zip", "node-webcodecs.node", "install.mjs"],
   "main": "node-webcodecs.node",
   "scripts": {
-    "postinstall": "node install.js"
+    "postinstall": "node install.mjs"
   },
   "dependencies": {
     "unzipper": "^0.12.3"
