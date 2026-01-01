@@ -34,8 +34,8 @@ jobs:
       contents: read
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: "22.x"
       - run: npm install --ignore-scripts
@@ -90,17 +90,17 @@ jobs:
             platform: darwin-arm64
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.nodejs_version }}
 
       # Try to restore pre-built FFmpeg from cache (shared with build-ffmpeg.yml)
       - name: Restore FFmpeg cache
         id: cache-ffmpeg
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ffmpeg-install
           key: ffmpeg-${{ matrix.platform }}-${{ env.FFMPEG_VERSION }}-${{ env.CACHE_VERSION }}

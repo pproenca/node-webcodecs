@@ -70,13 +70,13 @@ jobs:
             configure_flags: ""
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       # Cache FFmpeg build (skip for Alpine container - cache action doesn't work well there)
       - name: Restore FFmpeg cache
         if: ${{ !matrix.container && github.event.inputs.force_rebuild != 'true' }}
         id: cache-ffmpeg
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ffmpeg-install
           key: ffmpeg-${{ matrix.platform }}-${{ github.event.inputs.ffmpeg_version || env.DEFAULT_FFMPEG_VERSION }}-${{ env.CACHE_VERSION }}
@@ -140,14 +140,14 @@ jobs:
 
       - name: Save FFmpeg cache
         if: ${{ !matrix.container && steps.cache-ffmpeg.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ffmpeg-install
           key: ffmpeg-${{ matrix.platform }}-${{ github.event.inputs.ffmpeg_version || env.DEFAULT_FFMPEG_VERSION }}-${{ env.CACHE_VERSION }}
 
       - name: Upload cache as artifact (debug)
         if: ${{ github.event.inputs.upload_caches == 'true' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cache-ffmpeg-${{ matrix.platform }}
           path: ffmpeg-install
@@ -168,7 +168,7 @@ jobs:
           cp -r ffmpeg-install/include/. ffmpeg-${{ matrix.platform }}/include/
           echo "{\"ffmpeg\": \"${FFMPEG_VERSION}\"}" > ffmpeg-${{ matrix.platform }}/versions.json
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: ffmpeg-${{ matrix.platform }}
           path: ffmpeg-${{ matrix.platform }}
