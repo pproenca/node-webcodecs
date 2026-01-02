@@ -104,7 +104,7 @@ jobs:
           tar -cvf linux-x64.tar linux-x64/
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ffmpeg-linux-x64
           path: artifacts/linux-x64.tar
@@ -366,7 +366,7 @@ jobs:
           tar -cvf darwin-${{ matrix.arch }}.tar darwin-${{ matrix.arch }}/
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ffmpeg-darwin-${{ matrix.arch }}
           path: artifacts/darwin-${{ matrix.arch }}.tar
@@ -394,7 +394,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: ffmpeg-*
           path: artifacts
@@ -595,7 +595,7 @@ jobs:
           EOF
 
       - name: Upload packaged artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: npm-packages
           path: packages/
@@ -625,7 +625,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Download npm packages
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: npm-packages
           path: packages
@@ -665,7 +665,7 @@ jobs:
 
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           pattern: ffmpeg-*
           path: artifacts
