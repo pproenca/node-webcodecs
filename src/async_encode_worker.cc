@@ -63,6 +63,10 @@ void AsyncEncodeWorker::SetCodecContext(AVCodecContext* ctx, SwsContext* sws,
     }
   }
   packet_ = ffmpeg::make_packet();
+
+  // DARWIN-X64 FIX: Mark codec as valid only after successful initialization.
+  // ProcessFrame checks this flag to avoid accessing codec during shutdown.
+  codec_valid_.store(true, std::memory_order_release);
 }
 
 void AsyncEncodeWorker::SetMetadataConfig(const EncoderMetadataConfig& config) {
@@ -83,7 +87,16 @@ void AsyncEncodeWorker::Start() {
 }
 
 void AsyncEncodeWorker::Stop() {
+  // DARWIN-X64 FIX: Use stop_mutex_ to prevent double-stop race.
+  // Cleanup() and destructor may both call Stop().
+  std::lock_guard<std::mutex> stop_lock(stop_mutex_);
+
   if (!running_.load()) return;
+
+  // DARWIN-X64 FIX: Invalidate codec FIRST, before signaling shutdown.
+  // This prevents ProcessFrame from accessing codec_context_ during the
+  // race window between setting running_=false and the worker thread exiting.
+  codec_valid_.store(false, std::memory_order_release);
 
   {
     // CRITICAL: Hold mutex while modifying condition predicate to prevent
@@ -175,6 +188,14 @@ void AsyncEncodeWorker::WorkerThread() {
 }
 
 void AsyncEncodeWorker::ProcessFrame(const EncodeTask& task) {
+  // DARWIN-X64 FIX: Check codec_valid_ BEFORE acquiring mutex.
+  // During shutdown, Stop() sets codec_valid_=false before running_=false.
+  // This creates a window where the worker thread could still be running
+  // but the codec is being destroyed. Early exit prevents the race.
+  if (!codec_valid_.load(std::memory_order_acquire)) {
+    return;
+  }
+
   std::lock_guard<std::mutex> lock(codec_mutex_);
   if (!codec_context_ || !sws_context_ || !frame_ || !packet_) {
     return;
@@ -291,9 +312,11 @@ void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
                                            ChunkCallbackData* info) {
     // CRITICAL: If env is null, the TSFN is being destroyed (environment teardown).
     // Must still clean up data and counters, then return to avoid crashing.
+    // NOTE: Do NOT access static variables (like counterQueue) here - they may
+    // already be destroyed due to static destruction order during process exit.
     if (env == nullptr) {
       info->pending->fetch_sub(1);
-      webcodecs::counterQueue--;  // Must decrement even on abort
+      // Skip counterQueue-- : static may be destroyed during process exit
       delete info;
       return;
     }

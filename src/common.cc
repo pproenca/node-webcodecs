@@ -381,8 +381,19 @@ void InitFFmpeg() {
 // FFmpeg Logging
 //==============================================================================
 
-static std::queue<std::string> ffmpegWarnings;
-static std::mutex ffmpegWarningsMutex;
+// STATIC DESTRUCTION ORDER FIX: Use heap-allocated "immortal" objects to prevent
+// crashes during process exit. When vitest worker processes exit, static
+// destructors may run in unpredictable order, causing FFmpeg's log callback
+// to access destroyed mutex/queue. By never destroying these, we trade a tiny
+// memory leak at exit for crash-free shutdown.
+static std::queue<std::string>& GetWarningsQueue() {
+  static auto* queue = new std::queue<std::string>();
+  return *queue;
+}
+static std::mutex& GetWarningsMutex() {
+  static auto* mutex = new std::mutex();
+  return *mutex;
+}
 static std::atomic<bool> ffmpegLoggingActive{false};
 
 void InitFFmpegLogging() {
@@ -406,8 +417,8 @@ void InitFFmpegLogging() {
         // Skip empty messages
         if (strlen(buf) == 0) return;
 
-        std::lock_guard<std::mutex> lock(ffmpegWarningsMutex);
-        ffmpegWarnings.push(buf);
+        std::lock_guard<std::mutex> lock(GetWarningsMutex());
+        GetWarningsQueue().push(buf);
       }
     });
     av_log_set_level(AV_LOG_WARNING);
@@ -428,19 +439,21 @@ void ShutdownFFmpegLogging() {
 }
 
 std::vector<std::string> GetFFmpegWarnings() {
-  std::lock_guard<std::mutex> lock(ffmpegWarningsMutex);
+  std::lock_guard<std::mutex> lock(GetWarningsMutex());
   std::vector<std::string> result;
-  while (!ffmpegWarnings.empty()) {
-    result.push_back(ffmpegWarnings.front());
-    ffmpegWarnings.pop();
+  auto& queue = GetWarningsQueue();
+  while (!queue.empty()) {
+    result.push_back(queue.front());
+    queue.pop();
   }
   return result;
 }
 
 void ClearFFmpegWarnings() {
-  std::lock_guard<std::mutex> lock(ffmpegWarningsMutex);
-  while (!ffmpegWarnings.empty()) {
-    ffmpegWarnings.pop();
+  std::lock_guard<std::mutex> lock(GetWarningsMutex());
+  auto& queue = GetWarningsQueue();
+  while (!queue.empty()) {
+    queue.pop();
   }
 }
 
