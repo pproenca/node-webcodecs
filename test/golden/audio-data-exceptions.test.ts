@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 describe('AudioData exception types per W3C spec', () => {
   describe('clone()', () => {
@@ -14,11 +15,13 @@ describe('AudioData exception types per W3C spec', () => {
 
       audioData.close();
 
-      expect(() => audioData.clone()).toThrow(DOMException);
+      assert.throws(() => {
+        audioData.clone();
+      }, DOMException);
       try {
         audioData.clone();
       } catch (e) {
-        expect((e as DOMException).name).toBe('InvalidStateError');
+        assert.strictEqual((e as DOMException).name, 'InvalidStateError');
       }
     });
   });
@@ -36,11 +39,13 @@ describe('AudioData exception types per W3C spec', () => {
 
       audioData.close();
 
-      expect(() => audioData.allocationSize({ planeIndex: 0 })).toThrow(DOMException);
+      assert.throws(() => {
+        audioData.allocationSize({ planeIndex: 0 });
+      }, DOMException);
       try {
         audioData.allocationSize({ planeIndex: 0 });
       } catch (e) {
-        expect((e as DOMException).name).toBe('InvalidStateError');
+        assert.strictEqual((e as DOMException).name, 'InvalidStateError');
       }
     });
 
@@ -55,7 +60,9 @@ describe('AudioData exception types per W3C spec', () => {
       });
 
       // planeIndex 5 is out of range for 2-channel audio
-      expect(() => audioData.allocationSize({ planeIndex: 5 })).toThrow(RangeError);
+      assert.throws(() => {
+        audioData.allocationSize({ planeIndex: 5 });
+      }, RangeError);
 
       audioData.close();
     });
@@ -75,11 +82,13 @@ describe('AudioData exception types per W3C spec', () => {
       audioData.close();
 
       const dest = new ArrayBuffer(1024 * 2 * 4);
-      expect(() => audioData.copyTo(dest, { planeIndex: 0 })).toThrow(DOMException);
+      assert.throws(() => {
+        audioData.copyTo(dest, { planeIndex: 0 });
+      }, DOMException);
       try {
         audioData.copyTo(dest, { planeIndex: 0 });
       } catch (e) {
-        expect((e as DOMException).name).toBe('InvalidStateError');
+        assert.strictEqual((e as DOMException).name, 'InvalidStateError');
       }
     });
 
@@ -95,7 +104,9 @@ describe('AudioData exception types per W3C spec', () => {
 
       const dest = new ArrayBuffer(10); // Too small
 
-      expect(() => audioData.copyTo(dest, { planeIndex: 0 })).toThrow(RangeError);
+      assert.throws(() => {
+        audioData.copyTo(dest, { planeIndex: 0 });
+      }, RangeError);
 
       audioData.close();
     });

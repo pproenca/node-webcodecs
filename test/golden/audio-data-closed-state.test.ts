@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 describe('AudioData closed state per W3C spec', () => {
   it('should return null for format when closed', () => {
@@ -14,7 +15,7 @@ describe('AudioData closed state per W3C spec', () => {
     audioData.close();
 
     // W3C spec: format returns null when [[Detached]] is true
-    expect(audioData.format).toBeNull();
+    assert.strictEqual(audioData.format, null);
   });
 
   it('should return 0 for sampleRate when closed', () => {
@@ -28,7 +29,7 @@ describe('AudioData closed state per W3C spec', () => {
     });
 
     audioData.close();
-    expect(audioData.sampleRate).toBe(0);
+    assert.strictEqual(audioData.sampleRate, 0);
   });
 
   it('should return 0 for numberOfFrames when closed', () => {
@@ -42,7 +43,7 @@ describe('AudioData closed state per W3C spec', () => {
     });
 
     audioData.close();
-    expect(audioData.numberOfFrames).toBe(0);
+    assert.strictEqual(audioData.numberOfFrames, 0);
   });
 
   it('should return 0 for numberOfChannels when closed', () => {
@@ -56,7 +57,7 @@ describe('AudioData closed state per W3C spec', () => {
     });
 
     audioData.close();
-    expect(audioData.numberOfChannels).toBe(0);
+    assert.strictEqual(audioData.numberOfChannels, 0);
   });
 
   it('should return 0 for duration when closed', () => {
@@ -70,7 +71,7 @@ describe('AudioData closed state per W3C spec', () => {
     });
 
     audioData.close();
-    expect(audioData.duration).toBe(0);
+    assert.strictEqual(audioData.duration, 0);
   });
 
   it('should return 0 for timestamp when closed', () => {
@@ -84,6 +85,6 @@ describe('AudioData closed state per W3C spec', () => {
     });
 
     audioData.close();
-    expect(audioData.timestamp).toBe(0);
+    assert.strictEqual(audioData.timestamp, 0);
   });
 });

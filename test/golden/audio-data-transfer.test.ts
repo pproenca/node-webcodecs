@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 describe('AudioData ArrayBuffer transfer semantics', () => {
   it('should detach transferred ArrayBuffer after construction', () => {
@@ -17,10 +18,10 @@ describe('AudioData ArrayBuffer transfer semantics', () => {
     });
 
     // ArrayBuffer should be detached (byteLength becomes 0)
-    expect(arrayBuffer.byteLength).toBe(0);
+    assert.strictEqual(arrayBuffer.byteLength, 0);
 
     // AudioData should still be usable
-    expect(audioData.numberOfFrames).toBe(1024);
+    assert.strictEqual(audioData.numberOfFrames, 1024);
 
     audioData.close();
   });
@@ -40,7 +41,7 @@ describe('AudioData ArrayBuffer transfer semantics', () => {
     });
 
     // ArrayBuffer should NOT be detached
-    expect(arrayBuffer.byteLength).toBe(1024 * 2 * 4);
+    assert.strictEqual(arrayBuffer.byteLength, 1024 * 2 * 4);
 
     audioData.close();
   });

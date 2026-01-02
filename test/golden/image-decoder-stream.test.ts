@@ -2,8 +2,9 @@
  * Tests for ImageDecoder ReadableStream support (W3C compliance)
  */
 
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 import * as zlib from 'node:zlib';
-import { describe, expect, it } from 'vitest';
 
 // CRC32 calculation for PNG chunks
 function crc32(data: Buffer): number {
@@ -86,11 +87,11 @@ describe('ImageDecoder ReadableStream Support', () => {
 
     // Wait for stream to be fully consumed
     await decoder.completed;
-    expect(decoder.complete).toBe(true);
+    assert.strictEqual(decoder.complete, true);
 
     const result = await decoder.decode();
-    expect(result.image.codedWidth).toBe(1);
-    expect(result.image.codedHeight).toBe(1);
+    assert.strictEqual(result.image.codedWidth, 1);
+    assert.strictEqual(result.image.codedHeight, 1);
 
     result.image.close();
     decoder.close();
@@ -104,7 +105,7 @@ describe('ImageDecoder ReadableStream Support', () => {
     });
 
     await decoder.tracks.ready;
-    expect(decoder.tracks.length).toBe(1);
+    assert.strictEqual(decoder.tracks.length, 1);
 
     decoder.close();
   });
@@ -126,7 +127,7 @@ describe('ImageDecoder ReadableStream Support', () => {
 
     // Wait for stream completion, then decode should fail
     await decoder.completed;
-    await expect(decoder.decode()).rejects.toThrow();
+    await assert.rejects(decoder.decode());
     decoder.close();
   });
 
@@ -153,7 +154,7 @@ describe('ImageDecoder ReadableStream Support', () => {
     });
 
     // Stream is not complete yet
-    expect(decoder.complete).toBe(false);
+    assert.strictEqual(decoder.complete, false);
 
     // Complete the stream
     enqueueRest?.();
@@ -161,7 +162,7 @@ describe('ImageDecoder ReadableStream Support', () => {
     // Now decode should work
     await decoder.completed;
     const result = await decoder.decode();
-    expect(result.image.codedWidth).toBe(1);
+    assert.strictEqual(result.image.codedWidth, 1);
 
     result.image.close();
     decoder.close();
@@ -175,7 +176,7 @@ describe('ImageDecoder ReadableStream Support', () => {
     });
 
     // Type should be available immediately, even before stream completes
-    expect(decoder.type).toBe('image/png');
+    assert.strictEqual(decoder.type, 'image/png');
 
     decoder.close();
   });

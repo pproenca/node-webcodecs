@@ -2,7 +2,8 @@
  * Tests for AudioDecoder
  */
 
-import { afterEach, describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { after, describe, it } from 'node:test';
 import { expectDOMException } from '../fixtures/test-helpers';
 
 describe('AudioDecoder', () => {
@@ -13,12 +14,12 @@ describe('AudioDecoder', () => {
         error: () => {},
       });
 
-      expect(() => {
+      assert.throws(() => {
         decoder.configure({
           sampleRate: 48000,
           numberOfChannels: 2,
         } as AudioDecoderConfig);
-      }).toThrow(TypeError);
+      }, TypeError);
 
       decoder.close();
     });
@@ -29,12 +30,12 @@ describe('AudioDecoder', () => {
         error: () => {},
       });
 
-      expect(() => {
+      assert.throws(() => {
         decoder.configure({
           codec: 'opus',
           numberOfChannels: 2,
         } as AudioDecoderConfig);
-      }).toThrow(TypeError);
+      }, TypeError);
 
       decoder.close();
     });
@@ -45,12 +46,12 @@ describe('AudioDecoder', () => {
         error: () => {},
       });
 
-      expect(() => {
+      assert.throws(() => {
         decoder.configure({
           codec: 'opus',
           sampleRate: 48000,
         } as AudioDecoderConfig);
-      }).toThrow(TypeError);
+      }, TypeError);
 
       decoder.close();
     });
@@ -119,7 +120,7 @@ describe('AudioDecoder', () => {
       decoder.close();
 
       // W3C spec: reset() should be a no-op when closed, not throw
-      expect(() => decoder.reset()).not.toThrow();
+      assert.doesNotThrow(() => decoder.reset());
     });
 
     it('should transition to unconfigured state', () => {
@@ -134,11 +135,11 @@ describe('AudioDecoder', () => {
         numberOfChannels: 2,
       });
 
-      expect(decoder.state).toBe('configured');
+      assert.strictEqual(decoder.state, 'configured');
 
       decoder.reset();
 
-      expect(decoder.state).toBe('unconfigured');
+      assert.strictEqual(decoder.state, 'unconfigured');
 
       decoder.close();
     });
@@ -152,8 +153,8 @@ describe('AudioDecoder', () => {
         numberOfChannels: 2,
       });
 
-      expect(result.supported).toBe(true);
-      expect(result.config.codec).toBe('mp3');
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual(result.config.codec, 'mp3');
     });
 
     it('should configure with mp3 codec', () => {
@@ -162,15 +163,15 @@ describe('AudioDecoder', () => {
         error: () => {},
       });
 
-      expect(() => {
+      assert.doesNotThrow(() => {
         decoder.configure({
           codec: 'mp3',
           sampleRate: 44100,
           numberOfChannels: 2,
         });
-      }).not.toThrow();
+      });
 
-      expect(decoder.state).toBe('configured');
+      assert.strictEqual(decoder.state, 'configured');
 
       decoder.close();
     });
@@ -180,7 +181,7 @@ describe('AudioDecoder', () => {
     let decoder: AudioDecoder | null = null;
     const outputData: AudioData[] = [];
 
-    afterEach(() => {
+    after(() => {
       try {
         decoder?.close();
       } catch {
@@ -213,10 +214,10 @@ describe('AudioDecoder', () => {
         numberOfChannels: 2,
       });
 
-      expect(decoder.decodeQueueSize).toBe(0);
+      assert.strictEqual(decoder.decodeQueueSize, 0);
 
       await decoder.flush();
-      expect(decoder.decodeQueueSize).toBe(0);
+      assert.strictEqual(decoder.decodeQueueSize, 0);
     });
   });
 
@@ -228,8 +229,8 @@ describe('AudioDecoder', () => {
         numberOfChannels: 2,
       });
 
-      expect(result.supported).toBe(true);
-      expect(result.config.codec).toBe('flac');
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual(result.config.codec, 'flac');
     });
 
     it('should configure with flac codec', () => {
@@ -238,15 +239,15 @@ describe('AudioDecoder', () => {
         error: () => {},
       });
 
-      expect(() => {
+      assert.doesNotThrow(() => {
         decoder.configure({
           codec: 'flac',
           sampleRate: 48000,
           numberOfChannels: 2,
         });
-      }).not.toThrow();
+      });
 
-      expect(decoder.state).toBe('configured');
+      assert.strictEqual(decoder.state, 'configured');
 
       decoder.close();
     });
@@ -260,8 +261,8 @@ describe('AudioDecoder', () => {
         numberOfChannels: 2,
       });
 
-      expect(result.supported).toBe(true);
-      expect(result.config.codec).toBe('vorbis');
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual(result.config.codec, 'vorbis');
     });
 
     it('should recognize vorbis codec and require description', () => {
@@ -283,9 +284,9 @@ describe('AudioDecoder', () => {
         // If we get here without error, vorbis is configured (unlikely without description)
       } catch (e) {
         // Should NOT be NotSupportedError (codec is recognized)
-        expect((e as Error).message).not.toContain('NotSupportedError');
+        assert.ok(!(e as Error).message.includes('NotSupportedError'));
         // Error should be about opening decoder (missing extradata), not unknown codec
-        expect((e as Error).message).toContain('Could not open decoder');
+        assert.ok((e as Error).message.includes('Could not open decoder'));
       }
 
       decoder.close();
@@ -300,7 +301,7 @@ describe('AudioDecoder', () => {
       });
 
       // W3C spec does not include codecSaturated
-      expect('codecSaturated' in decoder).toBe(false);
+      assert.strictEqual('codecSaturated' in decoder, false);
 
       decoder.close();
     });

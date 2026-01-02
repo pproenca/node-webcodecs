@@ -6,7 +6,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 import { expectDOMException, expectDOMExceptionAsync } from '../fixtures/test-helpers';
 
 describe('codec support', () => {
@@ -17,7 +18,7 @@ describe('codec support', () => {
       numberOfChannels: 2,
     });
 
-    expect(support.supported).toBe(true);
+    assert.strictEqual(support.supported, true);
   });
 
   it('should support MP3 encoding', async () => {
@@ -28,7 +29,7 @@ describe('codec support', () => {
       bitrate: 128000,
     });
 
-    expect(support.supported).toBe(true);
+    assert.strictEqual(support.supported, true);
   });
 
   it('should support Vorbis encoding', async () => {
@@ -38,7 +39,7 @@ describe('codec support', () => {
       numberOfChannels: 2,
     });
 
-    expect(support.supported).toBe(true);
+    assert.strictEqual(support.supported, true);
   });
 });
 
@@ -61,7 +62,7 @@ describe('encodeQueueSize tracking', () => {
       bitrate: 128000,
     });
 
-    expect(encoder.encodeQueueSize).toBe(0);
+    assert.strictEqual(encoder.encodeQueueSize, 0);
 
     const sampleRate = 48000;
     const numberOfChannels = 2;
@@ -89,10 +90,10 @@ describe('encodeQueueSize tracking', () => {
     // After encode, queue size should have been incremented (though it may already be 0 if processed synchronously)
     // The important thing is it should be 0 after flush
     await encoder.flush();
-    expect(encoder.encodeQueueSize).toBe(0);
+    assert.strictEqual(encoder.encodeQueueSize, 0);
 
     // Verify that encodeQueueSize returns a number
-    expect(typeof encoder.encodeQueueSize).toBe('number');
+    assert.strictEqual(typeof encoder.encodeQueueSize, 'number');
 
     encoder.close();
   });
@@ -101,41 +102,41 @@ describe('encodeQueueSize tracking', () => {
 describe('AudioEncoder W3C Compliance', () => {
   describe('constructor()', () => {
     it('should throw TypeError when output callback is missing', () => {
-      expect(() => {
+      assert.throws(() => {
         // @ts-expect-error Testing invalid input without output
         new AudioEncoder({
           error: () => {},
         });
-      }).toThrow(TypeError);
+      }, TypeError);
     });
 
     it('should throw TypeError when error callback is missing', () => {
-      expect(() => {
+      assert.throws(() => {
         // @ts-expect-error Testing invalid input without error
         new AudioEncoder({
           output: () => {},
         });
-      }).toThrow(TypeError);
+      }, TypeError);
     });
 
     it('should throw TypeError when output is not a function', () => {
-      expect(() => {
+      assert.throws(() => {
         // @ts-expect-error Testing invalid input with wrong type
         new AudioEncoder({
           output: 'not a function',
           error: () => {},
         });
-      }).toThrow(TypeError);
+      }, TypeError);
     });
 
     it('should throw TypeError when error is not a function', () => {
-      expect(() => {
+      assert.throws(() => {
         // @ts-expect-error Testing invalid input with wrong type
         new AudioEncoder({
           output: () => {},
           error: 'not a function',
         });
-      }).toThrow(TypeError);
+      }, TypeError);
     });
 
     it('should create encoder with valid callbacks', () => {
@@ -143,8 +144,8 @@ describe('AudioEncoder W3C Compliance', () => {
         output: () => {},
         error: () => {},
       });
-      expect(encoder.state).toBe('unconfigured');
-      expect(encoder.encodeQueueSize).toBe(0);
+      assert.strictEqual(encoder.state, 'unconfigured');
+      assert.strictEqual(encoder.encodeQueueSize, 0);
       encoder.close();
     });
   });
@@ -166,30 +167,30 @@ describe('AudioEncoder W3C Compliance', () => {
     });
 
     it('should throw TypeError when codec is missing', () => {
-      expect(() => {
+      assert.throws(() => {
         encoder.configure({
           sampleRate: 48000,
           numberOfChannels: 2,
         } as AudioEncoderConfig);
-      }).toThrow(TypeError);
+      }, TypeError);
     });
 
     it('should throw TypeError when sampleRate is missing', () => {
-      expect(() => {
+      assert.throws(() => {
         encoder.configure({
           codec: 'opus',
           numberOfChannels: 2,
         } as AudioEncoderConfig);
-      }).toThrow(TypeError);
+      }, TypeError);
     });
 
     it('should throw TypeError when numberOfChannels is missing', () => {
-      expect(() => {
+      assert.throws(() => {
         encoder.configure({
           codec: 'opus',
           sampleRate: 48000,
         } as AudioEncoderConfig);
-      }).toThrow(TypeError);
+      }, TypeError);
     });
 
     it('should throw InvalidStateError when encoder is closed', () => {
@@ -210,7 +211,7 @@ describe('AudioEncoder W3C Compliance', () => {
         sampleRate: 48000,
         numberOfChannels: 2,
       });
-      expect(encoder.state).toBe('configured');
+      assert.strictEqual(encoder.state, 'configured');
     });
   });
 
@@ -293,7 +294,7 @@ describe('AudioEncoder W3C Compliance', () => {
       encoder.close();
 
       // W3C spec: reset() should be a no-op when closed, not throw
-      expect(() => encoder.reset()).not.toThrow();
+      assert.doesNotThrow(() => encoder.reset());
     });
 
     it('should transition to unconfigured state', () => {
@@ -308,11 +309,11 @@ describe('AudioEncoder W3C Compliance', () => {
         numberOfChannels: 2,
       });
 
-      expect(encoder.state).toBe('configured');
+      assert.strictEqual(encoder.state, 'configured');
 
       encoder.reset();
 
-      expect(encoder.state).toBe('unconfigured');
+      assert.strictEqual(encoder.state, 'unconfigured');
 
       encoder.close();
     });
@@ -344,7 +345,7 @@ describe('AudioEncoder W3C Compliance', () => {
 
       encoder.reset();
 
-      expect(encoder.encodeQueueSize).toBe(0);
+      assert.strictEqual(encoder.encodeQueueSize, 0);
 
       encoder.close();
     });
@@ -360,8 +361,8 @@ describe('AudioEncoder W3C Compliance', () => {
         bitrateMode: 'constant',
       });
 
-      expect(result.supported).toBe(true);
-      expect(result.config.bitrateMode).toBe('constant');
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual(result.config.bitrateMode, 'constant');
     });
 
     it('should support variable bitrateMode', async () => {
@@ -373,8 +374,8 @@ describe('AudioEncoder W3C Compliance', () => {
         bitrateMode: 'variable',
       });
 
-      expect(result.supported).toBe(true);
-      expect(result.config.bitrateMode).toBe('variable');
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual(result.config.bitrateMode, 'variable');
     });
 
     it('should accept bitrateMode in configure()', () => {
@@ -383,7 +384,7 @@ describe('AudioEncoder W3C Compliance', () => {
         error: () => {},
       });
 
-      expect(() => {
+      assert.doesNotThrow(() => {
         encoder.configure({
           codec: 'opus',
           sampleRate: 48000,
@@ -391,9 +392,9 @@ describe('AudioEncoder W3C Compliance', () => {
           bitrate: 128000,
           bitrateMode: 'constant',
         });
-      }).not.toThrow();
+      });
 
-      expect(encoder.state).toBe('configured');
+      assert.strictEqual(encoder.state, 'configured');
       encoder.close();
     });
   });
@@ -408,14 +409,14 @@ describe('W3C Interface Compliance', () => {
       });
 
       // Required properties per W3C WebCodecs spec
-      expect(encoder).toHaveProperty('state');
-      expect(encoder).toHaveProperty('encodeQueueSize');
+      assert.ok('state' in encoder);
+      assert.ok('encodeQueueSize' in encoder);
 
       // State should be a string
-      expect(typeof encoder.state).toBe('string');
+      assert.strictEqual(typeof encoder.state, 'string');
 
       // encodeQueueSize should be a number
-      expect(typeof encoder.encodeQueueSize).toBe('number');
+      assert.strictEqual(typeof encoder.encodeQueueSize, 'number');
 
       encoder.close();
     });
@@ -427,17 +428,17 @@ describe('W3C Interface Compliance', () => {
       });
 
       // Required methods per W3C WebCodecs spec
-      expect(typeof encoder.configure).toBe('function');
-      expect(typeof encoder.encode).toBe('function');
-      expect(typeof encoder.flush).toBe('function');
-      expect(typeof encoder.reset).toBe('function');
-      expect(typeof encoder.close).toBe('function');
+      assert.strictEqual(typeof encoder.configure, 'function');
+      assert.strictEqual(typeof encoder.encode, 'function');
+      assert.strictEqual(typeof encoder.flush, 'function');
+      assert.strictEqual(typeof encoder.reset, 'function');
+      assert.strictEqual(typeof encoder.close, 'function');
 
       encoder.close();
     });
 
     it('should have static isConfigSupported method', () => {
-      expect(typeof AudioEncoder.isConfigSupported).toBe('function');
+      assert.strictEqual(typeof AudioEncoder.isConfigSupported, 'function');
     });
 
     it('should have ondequeue callback property', () => {
@@ -447,12 +448,12 @@ describe('W3C Interface Compliance', () => {
       });
 
       // ondequeue should exist and be settable
-      expect('ondequeue' in encoder).toBe(true);
-      expect(encoder.ondequeue).toBe(null);
+      assert.strictEqual('ondequeue' in encoder, true);
+      assert.strictEqual(encoder.ondequeue, null);
 
       const handler = () => {};
       encoder.ondequeue = handler;
-      expect(encoder.ondequeue).toBe(handler);
+      assert.strictEqual(encoder.ondequeue, handler);
 
       encoder.close();
     });
@@ -464,9 +465,9 @@ describe('W3C Interface Compliance', () => {
       });
 
       // Per W3C spec, AudioEncoder extends EventTarget
-      expect(typeof encoder.addEventListener).toBe('function');
-      expect(typeof encoder.removeEventListener).toBe('function');
-      expect(typeof encoder.dispatchEvent).toBe('function');
+      assert.strictEqual(typeof encoder.addEventListener, 'function');
+      assert.strictEqual(typeof encoder.removeEventListener, 'function');
+      assert.strictEqual(typeof encoder.dispatchEvent, 'function');
 
       encoder.close();
     });
@@ -479,7 +480,7 @@ describe('W3C Interface Compliance', () => {
         error: () => {},
       });
 
-      expect(encoder.state).toBe('unconfigured');
+      assert.strictEqual(encoder.state, 'unconfigured');
       encoder.close();
     });
 
@@ -494,7 +495,7 @@ describe('W3C Interface Compliance', () => {
         sampleRate: 48000,
         numberOfChannels: 2,
       });
-      expect(encoder.state).toBe('configured');
+      assert.strictEqual(encoder.state, 'configured');
 
       encoder.close();
     });
@@ -510,10 +511,10 @@ describe('W3C Interface Compliance', () => {
         sampleRate: 48000,
         numberOfChannels: 2,
       });
-      expect(encoder.state).toBe('configured');
+      assert.strictEqual(encoder.state, 'configured');
 
       encoder.reset();
-      expect(encoder.state).toBe('unconfigured');
+      assert.strictEqual(encoder.state, 'unconfigured');
 
       encoder.close();
     });
@@ -525,7 +526,7 @@ describe('W3C Interface Compliance', () => {
       });
 
       encoder.close();
-      expect(encoder.state).toBe('closed');
+      assert.strictEqual(encoder.state, 'closed');
     });
 
     it('should allow reconfigure after reset', () => {
@@ -545,7 +546,7 @@ describe('W3C Interface Compliance', () => {
         sampleRate: 44100,
         numberOfChannels: 2,
       });
-      expect(encoder.state).toBe('configured');
+      assert.strictEqual(encoder.state, 'configured');
 
       encoder.close();
     });
@@ -561,11 +562,11 @@ describe('W3C Interface Compliance', () => {
       };
 
       const result = await AudioEncoder.isConfigSupported(config);
-      expect(result.supported).toBe(true);
-      expect(result.config.codec).toBe(config.codec);
-      expect(result.config.sampleRate).toBe(config.sampleRate);
-      expect(result.config.numberOfChannels).toBe(config.numberOfChannels);
-      expect(result.config.bitrate).toBe(config.bitrate);
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual(result.config.codec, config.codec);
+      assert.strictEqual(result.config.sampleRate, config.sampleRate);
+      assert.strictEqual(result.config.numberOfChannels, config.numberOfChannels);
+      assert.strictEqual(result.config.bitrate, config.bitrate);
     });
 
     it('should return supported=false for unsupported codecs', async () => {
@@ -574,7 +575,7 @@ describe('W3C Interface Compliance', () => {
         sampleRate: 48000,
         numberOfChannels: 2,
       });
-      expect(result.supported).toBe(false);
+      assert.strictEqual(result.supported, false);
     });
   });
 
@@ -585,8 +586,8 @@ describe('W3C Interface Compliance', () => {
         sampleRate: 48000,
         numberOfChannels: 2,
       });
-      expect(result.supported).toBe(true);
-      expect(result.config.codec).toBe('opus');
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual(result.config.codec, 'opus');
     });
   });
 
@@ -597,8 +598,8 @@ describe('W3C Interface Compliance', () => {
         sampleRate: 48000,
         numberOfChannels: 2,
       });
-      expect(result.supported).toBe(true);
-      expect(result.config.codec).toBe('mp4a.40.2');
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual(result.config.codec, 'mp4a.40.2');
     });
   });
 
@@ -688,9 +689,9 @@ describe('W3C Interface Compliance', () => {
         numberOfChannels: 2,
         aac: { format: 'aac' },
       });
-      expect(result.supported).toBe(true);
-      expect(result.config.aac).toBeDefined();
-      expect(result.config.aac?.format).toBe('aac');
+      assert.strictEqual(result.supported, true);
+      assert.notStrictEqual(result.config.aac, undefined);
+      assert.strictEqual(result.config.aac?.format, 'aac');
     });
 
     it('should support aac.format = adts in isConfigSupported', async () => {
@@ -700,8 +701,8 @@ describe('W3C Interface Compliance', () => {
         numberOfChannels: 2,
         aac: { format: 'adts' },
       });
-      expect(result.supported).toBe(true);
-      expect(result.config.aac?.format).toBe('adts');
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual(result.config.aac?.format, 'adts');
     });
   });
 
@@ -718,13 +719,13 @@ describe('W3C Interface Compliance', () => {
 
       const result = await AudioEncoder.isConfigSupported(inputConfig);
 
-      expect(result.supported).toBe(true);
-      expect(result.config.codec).toBe(inputConfig.codec);
-      expect(result.config.sampleRate).toBe(inputConfig.sampleRate);
-      expect(result.config.numberOfChannels).toBe(inputConfig.numberOfChannels);
-      expect(result.config.bitrate).toBe(inputConfig.bitrate);
-      expect(result.config.bitrateMode).toBe(inputConfig.bitrateMode);
-      expect(result.config.aac?.format).toBe(inputConfig.aac.format);
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual(result.config.codec, inputConfig.codec);
+      assert.strictEqual(result.config.sampleRate, inputConfig.sampleRate);
+      assert.strictEqual(result.config.numberOfChannels, inputConfig.numberOfChannels);
+      assert.strictEqual(result.config.bitrate, inputConfig.bitrate);
+      assert.strictEqual(result.config.bitrateMode, inputConfig.bitrateMode);
+      assert.strictEqual(result.config.aac?.format, inputConfig.aac.format);
     });
 
     it('should echo all recognized AudioEncoderConfig properties for Opus', async () => {
@@ -747,19 +748,19 @@ describe('W3C Interface Compliance', () => {
 
       const result = await AudioEncoder.isConfigSupported(inputConfig);
 
-      expect(result.supported).toBe(true);
-      expect(result.config.codec).toBe(inputConfig.codec);
-      expect(result.config.sampleRate).toBe(inputConfig.sampleRate);
-      expect(result.config.numberOfChannels).toBe(inputConfig.numberOfChannels);
-      expect(result.config.bitrate).toBe(inputConfig.bitrate);
-      expect(result.config.bitrateMode).toBe(inputConfig.bitrateMode);
-      expect(result.config.opus?.application).toBe(inputConfig.opus.application);
-      expect(result.config.opus?.complexity).toBe(inputConfig.opus.complexity);
-      expect(result.config.opus?.format).toBe(inputConfig.opus.format);
-      expect(result.config.opus?.frameDuration).toBe(inputConfig.opus.frameDuration);
-      expect(result.config.opus?.signal).toBe(inputConfig.opus.signal);
-      expect(result.config.opus?.usedtx).toBe(inputConfig.opus.usedtx);
-      expect(result.config.opus?.useinbandfec).toBe(inputConfig.opus.useinbandfec);
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual(result.config.codec, inputConfig.codec);
+      assert.strictEqual(result.config.sampleRate, inputConfig.sampleRate);
+      assert.strictEqual(result.config.numberOfChannels, inputConfig.numberOfChannels);
+      assert.strictEqual(result.config.bitrate, inputConfig.bitrate);
+      assert.strictEqual(result.config.bitrateMode, inputConfig.bitrateMode);
+      assert.strictEqual(result.config.opus?.application, inputConfig.opus.application);
+      assert.strictEqual(result.config.opus?.complexity, inputConfig.opus.complexity);
+      assert.strictEqual(result.config.opus?.format, inputConfig.opus.format);
+      assert.strictEqual(result.config.opus?.frameDuration, inputConfig.opus.frameDuration);
+      assert.strictEqual(result.config.opus?.signal, inputConfig.opus.signal);
+      assert.strictEqual(result.config.opus?.usedtx, inputConfig.opus.usedtx);
+      assert.strictEqual(result.config.opus?.useinbandfec, inputConfig.opus.useinbandfec);
     });
 
     it('should not echo unrecognized properties', async () => {
@@ -770,8 +771,8 @@ describe('W3C Interface Compliance', () => {
         unknownProperty: 'should-not-appear',
       } as any);
 
-      expect(result.supported).toBe(true);
-      expect((result.config as any).unknownProperty).toBeUndefined();
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual((result.config as any).unknownProperty, undefined);
     });
   });
 });

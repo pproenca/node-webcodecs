@@ -6,7 +6,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { expect, test } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { test } from 'node:test';
 import { toDataView } from './misc.js';
 
 test('AudioEncoder lifecycle', { timeout: 10_000 }, async () => {
@@ -14,16 +15,16 @@ test('AudioEncoder lifecycle', { timeout: 10_000 }, async () => {
 
   const encoder = new AudioEncoder({
     output: (chunk, meta) => {
-      expect(chunk.byteLength).toBeGreaterThan(0);
+      assert.ok(chunk.byteLength > 0);
       const data = new Uint8Array(chunk.byteLength);
       chunk.copyTo(data); // Just 'cause
 
       if (first) {
-        expect(meta?.decoderConfig).not.toBeUndefined();
-        expect(meta?.decoderConfig?.codec).toBe('mp4a.40.2');
-        expect(meta?.decoderConfig?.sampleRate).toBe(48000);
-        expect(meta?.decoderConfig?.numberOfChannels).toBe(2);
-        expect(meta?.decoderConfig?.description).not.toBeUndefined();
+        assert.notStrictEqual(meta?.decoderConfig, undefined);
+        assert.strictEqual(meta?.decoderConfig?.codec, 'mp4a.40.2');
+        assert.strictEqual(meta?.decoderConfig?.sampleRate, 48000);
+        assert.strictEqual(meta?.decoderConfig?.numberOfChannels, 2);
+        assert.notStrictEqual(meta?.decoderConfig?.description, undefined);
 
         first = false;
       }
@@ -32,7 +33,7 @@ test('AudioEncoder lifecycle', { timeout: 10_000 }, async () => {
       throw e;
     },
   });
-  expect(encoder.state).toBe('unconfigured');
+  assert.strictEqual(encoder.state, 'unconfigured');
 
   encoder.configure({
     codec: 'mp4a.40.2',
@@ -40,7 +41,7 @@ test('AudioEncoder lifecycle', { timeout: 10_000 }, async () => {
     numberOfChannels: 2,
     // Bitrate is auto-chosen
   });
-  expect(encoder.state).toBe('configured');
+  assert.strictEqual(encoder.state, 'configured');
 
   const sampleRate = 48000;
   const numberOfChannels = 2;
@@ -69,10 +70,10 @@ test('AudioEncoder lifecycle', { timeout: 10_000 }, async () => {
       timestamp: Math.floor((1e6 * i * framesPerChunk) / sampleRate),
       data,
     });
-    expect(audioData.format).toBe('f32');
-    expect(audioData.sampleRate).toBe(sampleRate);
-    expect(audioData.numberOfChannels).toBe(numberOfChannels);
-    expect(audioData.numberOfFrames).toBe(framesPerChunk);
+    assert.strictEqual(audioData.format, 'f32');
+    assert.strictEqual(audioData.sampleRate, sampleRate);
+    assert.strictEqual(audioData.numberOfChannels, numberOfChannels);
+    assert.strictEqual(audioData.numberOfFrames, framesPerChunk);
 
     encoder.encode(audioData);
     audioData.close();
@@ -82,10 +83,10 @@ test('AudioEncoder lifecycle', { timeout: 10_000 }, async () => {
 
   // Verify that dequeue events were fired and output was received
   // Note: FFmpeg audio encoders may buffer frames, so output count may differ from input count
-  expect(dequeueEvents).toBeGreaterThan(0);
+  assert.ok(dequeueEvents > 0);
 
   encoder.close();
-  expect(encoder.state).toBe('closed');
+  assert.strictEqual(encoder.state, 'closed');
 });
 
 test('AAC in ADTS format', async () => {
@@ -93,14 +94,14 @@ test('AAC in ADTS format', async () => {
 
   const encoder = new AudioEncoder({
     output: (chunk, meta) => {
-      expect(chunk.byteLength).toBeGreaterThan(0);
+      assert.ok(chunk.byteLength > 0);
       const data = new Uint8Array(chunk.byteLength);
       chunk.copyTo(data);
-      expect(data[0]).toBe(255);
+      assert.strictEqual(data[0], 255);
 
       if (first) {
-        expect(meta?.decoderConfig).not.toBeUndefined();
-        expect(meta?.decoderConfig?.description).toBeUndefined();
+        assert.notStrictEqual(meta?.decoderConfig, undefined);
+        assert.strictEqual(meta?.decoderConfig?.description, undefined);
 
         first = false;
       }
@@ -157,12 +158,12 @@ test('FLAC description', async () => {
 
   const encoder = new AudioEncoder({
     output: (_chunk, meta) => {
-      expect(meta?.decoderConfig).not.toBeUndefined();
-      expect(meta?.decoderConfig?.description).not.toBeUndefined();
+      assert.notStrictEqual(meta?.decoderConfig, undefined);
+      assert.notStrictEqual(meta?.decoderConfig?.description, undefined);
 
-      // biome-ignore lint/style/noNonNullAssertion: expect assertions above guarantee these values exist
+      // biome-ignore lint/style/noNonNullAssertion: assert assertions above guarantee these values exist
       const dataView = toDataView(meta!.decoderConfig!.description!);
-      expect(dataView.getUint32(0, false)).toBe(0x664c6143); // 'fLaC'
+      assert.strictEqual(dataView.getUint32(0, false), 0x664c6143); // 'fLaC'
 
       chunkCount++;
     },
@@ -208,5 +209,5 @@ test('FLAC description', async () => {
 
   encoder.close();
 
-  expect(chunkCount).toBeGreaterThan(0); // Tests that the data was successfully padded to a multiple of 4608
+  assert.ok(chunkCount > 0); // Tests that the data was successfully padded to a multiple of 4608
 });

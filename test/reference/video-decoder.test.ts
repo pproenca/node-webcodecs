@@ -6,8 +6,9 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+import * as assert from 'node:assert/strict';
+import { test } from 'node:test';
 import { ALL_FORMATS, EncodedPacketSink, FilePathSource, Input } from 'mediabunny';
-import { expect, test } from 'vitest';
 
 const filePath = './test/fixtures/small_buck_bunny.mp4';
 
@@ -60,10 +61,10 @@ test('VideoDecoder lifecycle', { timeout: 120_000 }, async () => {
       error = e;
     },
   });
-  expect(decoder.state === 'unconfigured');
+  assert.strictEqual(decoder.state, 'unconfigured');
 
   decoder.configure(decoderConfig);
-  expect(decoder.state === 'configured');
+  assert.strictEqual(decoder.state, 'configured');
 
   let dequeueEvents = 0;
   decoder.addEventListener('dequeue', () => dequeueEvents++);
@@ -80,26 +81,26 @@ test('VideoDecoder lifecycle', { timeout: 120_000 }, async () => {
   if (error) throw error;
 
   // Verify that dequeue events were fired
-  expect(dequeueEvents).toBeGreaterThan(0);
+  assert.ok(dequeueEvents > 0);
 
   // Verify frames were received with correct dimensions
-  expect(frames.length).toBeGreaterThan(0);
-  expect(frames[0].displayWidth).toBe(videoTrack.displayWidth);
-  expect(frames[0].displayHeight).toBe(videoTrack.displayHeight);
+  assert.ok(frames.length > 0);
+  assert.strictEqual(frames[0].displayWidth, videoTrack.displayWidth);
+  assert.strictEqual(frames[0].displayHeight, videoTrack.displayHeight);
   // Note: Output format may be I420 or RGBA depending on implementation
-  expect(frames[0].format).not.toBeNull();
+  assert.notStrictEqual(frames[0].format, null);
 
   // Verify timestamps are monotonically increasing
   let lastTimestamp = -Infinity;
   for (const frame of frames) {
-    expect(frame.timestamp).toBeGreaterThanOrEqual(lastTimestamp);
+    assert.ok(frame.timestamp >= lastTimestamp);
     lastTimestamp = frame.timestamp;
   }
 
   // Verify we saw diverse pixel values (actual video content)
   const valuesSeen = new Set(frames.map((f) => f.firstByte));
-  expect(valuesSeen.size).toBeGreaterThan(3);
+  assert.ok(valuesSeen.size > 3);
 
   decoder.close();
-  expect(decoder.state).toBe('closed');
+  assert.strictEqual(decoder.state, 'closed');
 });

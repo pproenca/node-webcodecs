@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
-const { createEncoderConfigDescriptor } = await import('../../dist/index.js');
+import { createEncoderConfigDescriptor } from '../../dist/index.js';
 
 describe('VideoEncoderConfigDescriptor', () => {
   it('extracts config with defaults', () => {
@@ -12,13 +13,13 @@ describe('VideoEncoderConfigDescriptor', () => {
 
     const desc = createEncoderConfigDescriptor(config);
 
-    expect(desc.codec).toBe('avc1.42E01E');
-    expect(desc.width).toBe(1920);
-    expect(desc.height).toBe(1080);
-    expect(desc.displayWidth).toBe(1920); // Defaults to width
-    expect(desc.displayHeight).toBe(1080); // Defaults to height
-    expect(desc.latencyMode).toBe('quality'); // Default
-    expect(desc.bitrateMode).toBe('variable'); // Default
+    assert.strictEqual(desc.codec, 'avc1.42E01E');
+    assert.strictEqual(desc.width, 1920);
+    assert.strictEqual(desc.height, 1080);
+    assert.strictEqual(desc.displayWidth, 1920); // Defaults to width
+    assert.strictEqual(desc.displayHeight, 1080); // Defaults to height
+    assert.strictEqual(desc.latencyMode, 'quality'); // Default
+    assert.strictEqual(desc.bitrateMode, 'variable'); // Default
   });
 
   it('uses provided display dimensions', () => {
@@ -31,7 +32,7 @@ describe('VideoEncoderConfigDescriptor', () => {
     };
 
     const desc = createEncoderConfigDescriptor(config);
-    expect(desc.displayWidth).toBe(1280);
-    expect(desc.displayHeight).toBe(720);
+    assert.strictEqual(desc.displayWidth, 1280);
+    assert.strictEqual(desc.displayHeight, 720);
   });
 });

@@ -3,7 +3,8 @@
 //
 // Tests for ImageDecoder configuration options per W3C spec.
 
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 import { ImageDecoder } from '../../lib';
 
 describe('ImageDecoder Configuration Options', () => {
@@ -26,7 +27,7 @@ describe('ImageDecoder Configuration Options', () => {
         data,
         colorSpaceConversion: 'default',
       });
-      expect(decoder.type).toBe('image/png');
+      assert.strictEqual(decoder.type, 'image/png');
       decoder.close();
     });
 
@@ -37,7 +38,7 @@ describe('ImageDecoder Configuration Options', () => {
         data,
         colorSpaceConversion: 'none',
       });
-      expect(decoder.type).toBe('image/png');
+      assert.strictEqual(decoder.type, 'image/png');
       decoder.close();
     });
   });
@@ -52,7 +53,7 @@ describe('ImageDecoder Configuration Options', () => {
         desiredHeight: 50,
       });
 
-      expect(decoder.type).toBe('image/png');
+      assert.strictEqual(decoder.type, 'image/png');
       decoder.close();
     });
 
@@ -64,7 +65,7 @@ describe('ImageDecoder Configuration Options', () => {
         desiredWidth: 100,
       });
 
-      expect(decoder.type).toBe('image/png');
+      assert.strictEqual(decoder.type, 'image/png');
       decoder.close();
     });
 
@@ -76,7 +77,7 @@ describe('ImageDecoder Configuration Options', () => {
         desiredHeight: 100,
       });
 
-      expect(decoder.type).toBe('image/png');
+      assert.strictEqual(decoder.type, 'image/png');
       decoder.close();
     });
   });
@@ -89,7 +90,7 @@ describe('ImageDecoder Configuration Options', () => {
         data,
         preferAnimation: true,
       });
-      expect(decoder.type).toBe('image/png');
+      assert.strictEqual(decoder.type, 'image/png');
       decoder.close();
     });
 
@@ -100,7 +101,7 @@ describe('ImageDecoder Configuration Options', () => {
         data,
         preferAnimation: false,
       });
-      expect(decoder.type).toBe('image/png');
+      assert.strictEqual(decoder.type, 'image/png');
       decoder.close();
     });
   });
@@ -113,7 +114,7 @@ describe('ImageDecoder Configuration Options', () => {
         data,
         transfer: [],
       });
-      expect(decoder.type).toBe('image/png');
+      assert.strictEqual(decoder.type, 'image/png');
       decoder.close();
     });
 
@@ -132,8 +133,8 @@ describe('ImageDecoder Configuration Options', () => {
       });
 
       // The ArrayBuffer should be detached (byteLength becomes 0)
-      expect(arrayBuffer.byteLength).toBe(0);
-      expect(decoder.type).toBe('image/png');
+      assert.strictEqual(arrayBuffer.byteLength, 0);
+      assert.strictEqual(decoder.type, 'image/png');
       decoder.close();
     });
   });
@@ -150,7 +151,7 @@ describe('ImageDecoder Configuration Options', () => {
         preferAnimation: false,
         transfer: [],
       });
-      expect(decoder.type).toBe('image/png');
+      assert.strictEqual(decoder.type, 'image/png');
       // Note: complete may be false if the minimal PNG fails FFmpeg validation
       // The important thing is that all options are accepted without throwing
       decoder.close();
@@ -167,7 +168,7 @@ describe('ImageDecoder Configuration Options', () => {
         premultiplyAlpha: 'premultiply',
       });
 
-      expect(decoder.type).toBe('image/png');
+      assert.strictEqual(decoder.type, 'image/png');
       // Note: complete may be false if the minimal PNG fails FFmpeg validation
       // The important thing is that the option is accepted without throwing
       decoder.close();
@@ -182,7 +183,7 @@ describe('ImageDecoder Configuration Options', () => {
         premultiplyAlpha: 'none',
       });
 
-      expect(decoder.type).toBe('image/png');
+      assert.strictEqual(decoder.type, 'image/png');
       decoder.close();
     });
 
@@ -195,21 +196,22 @@ describe('ImageDecoder Configuration Options', () => {
         premultiplyAlpha: 'default',
       });
 
-      expect(decoder.type).toBe('image/png');
+      assert.strictEqual(decoder.type, 'image/png');
       decoder.close();
     });
 
     it('throws TypeError for invalid value', () => {
       const data = createMinimalPNG();
 
-      expect(
+      assert.throws(
         () =>
           new ImageDecoder({
             type: 'image/png',
             data,
             premultiplyAlpha: 'invalid' as 'none' | 'premultiply' | 'default',
           }),
-      ).toThrow(TypeError);
+        TypeError,
+      );
     });
   });
 });

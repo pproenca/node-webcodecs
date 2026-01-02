@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
-const { getFFmpegWarnings, clearFFmpegWarnings } = await import('../../dist/index.js');
+import { clearFFmpegWarnings, getFFmpegWarnings } from '../../dist/index.js';
 
 describe('FFmpeg Logging', () => {
   it('captures FFmpeg warnings', () => {
@@ -8,7 +9,7 @@ describe('FFmpeg Logging', () => {
     clearFFmpegWarnings();
 
     const warnings = getFFmpegWarnings();
-    expect(Array.isArray(warnings)).toBe(true);
+    assert.strictEqual(Array.isArray(warnings), true);
   });
 
   it('clears warnings after retrieval', () => {
@@ -17,6 +18,6 @@ describe('FFmpeg Logging', () => {
     const warnings2 = getFFmpegWarnings();
 
     // Second call should return empty (warnings drained)
-    expect(warnings2.length).toBeLessThanOrEqual(warnings1.length);
+    assert.ok(warnings2.length <= warnings1.length);
   });
 });

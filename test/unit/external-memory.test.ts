@@ -4,16 +4,17 @@
  *
  * IMPORTANT: These tests require:
  * 1. --expose-gc flag to enable manual GC control
- * 2. --pool=vmThreads in vitest to properly handle N-API external memory
+ * 2. Direct Node.js execution (not worker threads) to properly handle N-API external memory
  *
- * Run with: NODE_OPTIONS='--expose-gc' npx vitest run test/unit/external-memory.test.ts --pool=vmThreads
+ * Run with: NODE_OPTIONS='--expose-gc' node --test test/unit/external-memory.test.ts
  *
- * The tests are skipped in environments where external memory tracking doesn't work
- * (e.g., vitest's default worker_threads pool).
+ * The tests are skipped in environments where external memory tracking doesn't work.
  */
 
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
 import { AudioData, VideoFrame } from '@pproenca/node-webcodecs';
-import { describe, expect, it } from 'vitest';
 
 // Helper to force garbage collection
 function forceGC(): void {
@@ -23,7 +24,6 @@ function forceGC(): void {
 }
 
 // Check if we're in an environment that supports external memory tracking tests.
-// The default vitest worker_threads pool doesn't properly report N-API external memory.
 // We detect this by checking if AdjustExternalMemory actually affects process.memoryUsage().external.
 function supportsExternalMemoryTracking(): boolean {
   // Quick probe: create a frame and check if close() decreases external memory
@@ -56,7 +56,7 @@ const runTests = supportsExternalMemoryTracking();
 
 describe('V8 External Memory Tracking', () => {
   describe('VideoFrame', () => {
-    it.skipIf(!runTests)('should release external memory when close() is called', () => {
+    it('should release external memory when close() is called', { skip: !runTests }, () => {
       // Create a large frame (1MB) - this should be visible to V8's GC
       const size = 1024 * 1024; // 1MB RGBA frame (512x512)
       const frameData = new Uint8Array(size);
@@ -81,10 +81,10 @@ describe('V8 External Memory Tracking', () => {
       // External memory should have decreased by roughly the frame size
       // The decrease should be close to 1MB (the frame size)
       const decrease = beforeClose - afterClose;
-      expect(decrease).toBeGreaterThan(size * 0.9);
+      assert.ok(decrease > size * 0.9, `Expected decrease > ${size * 0.9}, got ${decrease}`);
     });
 
-    it.skipIf(!runTests)('should release external memory when frame is garbage collected', async () => {
+    it('should release external memory when frame is garbage collected', { skip: !runTests }, async () => {
       const size = 1024 * 1024;
 
       // Create frame and capture its external memory footprint
@@ -103,7 +103,7 @@ describe('V8 External Memory Tracking', () => {
       const withFrame = process.memoryUsage().external;
 
       // Verify the frame increased external memory
-      expect(withFrame - baseline).toBeGreaterThan(size * 0.9);
+      assert.ok(withFrame - baseline > size * 0.9, `Expected increase > ${size * 0.9}`);
 
       // Don't close - let GC handle it by removing reference
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -111,18 +111,18 @@ describe('V8 External Memory Tracking', () => {
 
       // Force multiple GC cycles (frame goes out of scope after this block)
       forceGC();
-      await new Promise(r => setTimeout(r, 50));
+      await new Promise((r) => { setTimeout(r, 50); });
       forceGC();
 
       const afterGC = process.memoryUsage().external;
 
       // Memory should be released via destructor - should be close to baseline
-      expect(afterGC - baseline).toBeLessThan(size * 0.5);
+      assert.ok(afterGC - baseline < size * 0.5, `Expected remaining < ${size * 0.5}`);
     });
   });
 
   describe('AudioData', () => {
-    it.skipIf(!runTests)('should release external memory when close() is called', () => {
+    it('should release external memory when close() is called', { skip: !runTests }, () => {
       // Create 1 second of stereo 48kHz f32 audio (~384KB)
       const sampleRate = 48000;
       const channels = 2;
@@ -148,7 +148,7 @@ describe('V8 External Memory Tracking', () => {
 
       // External memory should have decreased by roughly the audio data size
       const decrease = beforeClose - afterClose;
-      expect(decrease).toBeGreaterThan(size * 0.9);
+      assert.ok(decrease > size * 0.9, `Expected decrease > ${size * 0.9}, got ${decrease}`);
     });
   });
 });

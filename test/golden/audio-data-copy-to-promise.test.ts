@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 describe('AudioData.copyTo() returns void per W3C spec', () => {
   it('should return undefined (void)', () => {
@@ -15,7 +16,7 @@ describe('AudioData.copyTo() returns void per W3C spec', () => {
     const result = audioData.copyTo(destination, { planeIndex: 0 });
 
     // W3C spec: copyTo returns undefined (void)
-    expect(result).toBeUndefined();
+    assert.strictEqual(result, undefined);
 
     audioData.close();
   });
@@ -33,11 +34,13 @@ describe('AudioData.copyTo() returns void per W3C spec', () => {
 
     const destination = new ArrayBuffer(1024 * 2 * 4);
 
-    expect(() => audioData.copyTo(destination, { planeIndex: 0 })).toThrow(DOMException);
+    assert.throws(() => {
+      audioData.copyTo(destination, { planeIndex: 0 });
+    }, DOMException);
     try {
       audioData.copyTo(destination, { planeIndex: 0 });
     } catch (e) {
-      expect((e as DOMException).name).toBe('InvalidStateError');
+      assert.strictEqual((e as DOMException).name, 'InvalidStateError');
     }
   });
 });

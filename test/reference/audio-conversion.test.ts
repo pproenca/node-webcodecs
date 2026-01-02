@@ -6,6 +6,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+import * as assert from 'node:assert/strict';
+import { test } from 'node:test';
 import {
   ALL_FORMATS,
   AudioSampleSink,
@@ -17,7 +19,6 @@ import {
   Mp4OutputFormat,
   Output,
 } from 'mediabunny';
-import { expect, test } from 'vitest';
 
 const filePath = './test/fixtures/small_buck_bunny.mp4';
 
@@ -53,7 +54,7 @@ async function runAudioConversionTest(codec: string) {
   await conversion.execute();
 
   const buffer = output.target.buffer;
-  expect(buffer).toBeDefined();
+  assert.notStrictEqual(buffer, undefined);
   if (!buffer) {
     throw new Error('Buffer should be defined after conversion');
   }
@@ -64,7 +65,7 @@ async function runAudioConversionTest(codec: string) {
   });
 
   const audioTrack = await newInput.getPrimaryAudioTrack();
-  expect(audioTrack).toBeDefined();
+  assert.notStrictEqual(audioTrack, undefined);
   if (!audioTrack) {
     throw new Error('Audio track should be defined for valid audio input');
   }
@@ -72,7 +73,7 @@ async function runAudioConversionTest(codec: string) {
   const sink = new AudioSampleSink(audioTrack);
 
   for await (using sample of sink.samples(0, 1)) {
-    expect(sample.sampleRate).toBe(48000);
+    assert.strictEqual(sample.sampleRate, 48000);
   }
 }
 

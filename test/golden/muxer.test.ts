@@ -1,10 +1,11 @@
 // Copyright 2024 The node-webcodecs Authors
 // SPDX-License-Identifier: MIT
 
+import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { after, before, describe, it } from 'node:test';
 
 const testFilePath = path.join(__dirname, '../fixtures/small_buck_bunny.mp4');
 
@@ -30,8 +31,8 @@ describe('Demuxer', () => {
         await new Promise(r => setImmediate(r)); // Yield to event loop
       }
 
-      expect(totalPackets).toBeGreaterThan(0);
-      expect(chunks.length).toBe(totalPackets);
+      assert.ok(totalPackets > 0);
+      assert.strictEqual(chunks.length, totalPackets);
       demuxer.close();
     });
 
@@ -49,8 +50,8 @@ describe('Demuxer', () => {
 
       const packetsRead = demuxer.demuxPackets(0); // 0 = unlimited
 
-      expect(packetsRead).toBeGreaterThan(0);
-      expect(chunks.length).toBe(packetsRead);
+      assert.ok(packetsRead > 0);
+      assert.strictEqual(chunks.length, packetsRead);
       demuxer.close();
     });
 
@@ -68,13 +69,13 @@ describe('Demuxer', () => {
 
       const packetsRead = demuxer.demuxPackets(5); // Read only 5
 
-      expect(packetsRead).toBe(5);
-      expect(chunks.length).toBe(5);
+      assert.strictEqual(packetsRead, 5);
+      assert.strictEqual(chunks.length, 5);
 
       // Read more to verify continuity
       const morePackets = demuxer.demuxPackets(3);
-      expect(morePackets).toBe(3);
-      expect(chunks.length).toBe(8);
+      assert.strictEqual(morePackets, 3);
+      assert.strictEqual(chunks.length, 8);
 
       demuxer.close();
     });
@@ -84,32 +85,32 @@ describe('Demuxer', () => {
 describe('Muxer', () => {
   it('should be exported from the library', async () => {
     const { Muxer } = await import('../../dist/index.js');
-    expect(Muxer).toBeDefined();
+    assert.notStrictEqual(Muxer, undefined);
   });
 
   describe('constructor', () => {
     let tempDir: string;
     let outputPath: string;
 
-    beforeEach(() => {
+    before(() => {
       tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'muxer-test-'));
       outputPath = path.join(tempDir, 'test-output.mp4');
     });
 
-    afterEach(() => {
+    after(() => {
       fs.rmSync(tempDir, { recursive: true, force: true });
     });
 
     it('should create a muxer instance with filename', async () => {
       const { Muxer } = await import('../../dist/index.js');
       const muxer = new Muxer({ filename: outputPath });
-      expect(muxer).toBeDefined();
+      assert.notStrictEqual(muxer, undefined);
       muxer.close();
     });
 
     it('should throw if filename is missing', async () => {
       const { Muxer } = await import('../../dist/index.js');
-      expect(() => new Muxer({} as any)).toThrow();
+      assert.throws(() => new Muxer({} as any));
     });
   });
 });

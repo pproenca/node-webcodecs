@@ -1,7 +1,9 @@
 // test/unit/counters.test.ts
 
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
 import { getCounters, VideoEncoder, VideoFrame } from '@pproenca/node-webcodecs';
-import { describe, expect, it } from 'vitest';
 
 describe('Instance Counters', () => {
   it('should track VideoFrame instances', () => {
@@ -15,7 +17,7 @@ describe('Instance Counters', () => {
     });
 
     const during = getCounters();
-    expect(during.videoFrames).toBe(before.videoFrames + 1);
+    assert.strictEqual(during.videoFrames, before.videoFrames + 1);
 
     frame.close();
 
@@ -35,7 +37,7 @@ describe('Instance Counters', () => {
     });
 
     const during = getCounters();
-    expect(during.videoEncoders).toBe(before.videoEncoders + 1);
+    assert.strictEqual(during.videoEncoders, before.videoEncoders + 1);
 
     encoder.close();
   });
@@ -43,15 +45,15 @@ describe('Instance Counters', () => {
   it('should return all counter types', () => {
     const counters = getCounters();
 
-    expect(counters).toHaveProperty('videoFrames');
-    expect(counters).toHaveProperty('audioData');
-    expect(counters).toHaveProperty('videoEncoders');
-    expect(counters).toHaveProperty('videoDecoders');
-    expect(counters).toHaveProperty('audioEncoders');
-    expect(counters).toHaveProperty('audioDecoders');
+    assert.ok('videoFrames' in counters);
+    assert.ok('audioData' in counters);
+    assert.ok('videoEncoders' in counters);
+    assert.ok('videoDecoders' in counters);
+    assert.ok('audioEncoders' in counters);
+    assert.ok('audioDecoders' in counters);
     // Legacy
-    expect(counters).toHaveProperty('queue');
-    expect(counters).toHaveProperty('process');
-    expect(counters).toHaveProperty('frames');
+    assert.ok('queue' in counters);
+    assert.ok('process' in counters);
+    assert.ok('frames' in counters);
   });
 });

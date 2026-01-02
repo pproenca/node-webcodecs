@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 describe('VideoFrame alpha option', () => {
   it('should keep alpha by default', () => {
@@ -9,7 +10,7 @@ describe('VideoFrame alpha option', () => {
       codedHeight: 64,
       timestamp: 0,
     });
-    expect(frame.format).toBe('RGBA');
+    assert.strictEqual(frame.format, 'RGBA');
     frame.close();
   });
 
@@ -23,7 +24,7 @@ describe('VideoFrame alpha option', () => {
       alpha: 'discard',
     });
     // Format should be non-alpha
-    expect(['RGBX', 'I420', 'RGB']).toContain(frame.format);
+    assert.ok(['RGBX', 'I420', 'RGB'].includes(frame.format!));
     frame.close();
   });
 
@@ -37,17 +38,19 @@ describe('VideoFrame alpha option', () => {
       timestamp: 0,
       alpha: 'discard',
     });
-    expect(frame.format).toBe('I420');
+    assert.strictEqual(frame.format, 'I420');
     frame.close();
   });
 
   it('should throw TypeError for invalid alpha value', () => {
-    expect(() => new VideoFrame(new Uint8Array(64 * 64 * 4), {
-      format: 'RGBA',
-      codedWidth: 64,
-      codedHeight: 64,
-      timestamp: 0,
-      alpha: 'invalid' as any,
-    })).toThrow(TypeError);
+    assert.throws(() => {
+      new VideoFrame(new Uint8Array(64 * 64 * 4), {
+        format: 'RGBA',
+        codedWidth: 64,
+        codedHeight: 64,
+        timestamp: 0,
+        alpha: 'invalid' as any,
+      });
+    }, TypeError);
   });
 });

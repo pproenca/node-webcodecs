@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 describe('VideoFrame rotation and flip', () => {
   it('should store rotation value', () => {
@@ -10,7 +11,7 @@ describe('VideoFrame rotation and flip', () => {
       rotation: 90,
     });
 
-    expect(frame.rotation).toBe(90);
+    assert.strictEqual(frame.rotation, 90);
     frame.close();
   });
 
@@ -24,8 +25,8 @@ describe('VideoFrame rotation and flip', () => {
     });
 
     // After 90 degree rotation, dimensions are swapped for display
-    expect(frame.displayWidth).toBe(50);
-    expect(frame.displayHeight).toBe(100);
+    assert.strictEqual(frame.displayWidth, 50);
+    assert.strictEqual(frame.displayHeight, 100);
     frame.close();
   });
 
@@ -39,8 +40,8 @@ describe('VideoFrame rotation and flip', () => {
     });
 
     // After 270 degree rotation, dimensions are swapped for display
-    expect(frame.displayWidth).toBe(50);
-    expect(frame.displayHeight).toBe(100);
+    assert.strictEqual(frame.displayWidth, 50);
+    assert.strictEqual(frame.displayHeight, 100);
     frame.close();
   });
 
@@ -54,8 +55,8 @@ describe('VideoFrame rotation and flip', () => {
     });
 
     // No rotation, dimensions unchanged
-    expect(frame.displayWidth).toBe(100);
-    expect(frame.displayHeight).toBe(50);
+    assert.strictEqual(frame.displayWidth, 100);
+    assert.strictEqual(frame.displayHeight, 50);
     frame.close();
   });
 
@@ -69,8 +70,8 @@ describe('VideoFrame rotation and flip', () => {
     });
 
     // 180 degree rotation doesn't swap dimensions
-    expect(frame.displayWidth).toBe(100);
-    expect(frame.displayHeight).toBe(50);
+    assert.strictEqual(frame.displayWidth, 100);
+    assert.strictEqual(frame.displayHeight, 50);
     frame.close();
   });
 
@@ -83,7 +84,7 @@ describe('VideoFrame rotation and flip', () => {
       flip: true,
     });
 
-    expect(frame.flip).toBe(true);
+    assert.strictEqual(frame.flip, true);
     frame.close();
   });
 
@@ -95,7 +96,7 @@ describe('VideoFrame rotation and flip', () => {
       format: 'RGBA',
     });
 
-    expect(frame.flip).toBe(false);
+    assert.strictEqual(frame.flip, false);
     frame.close();
   });
 
@@ -107,7 +108,7 @@ describe('VideoFrame rotation and flip', () => {
       format: 'RGBA',
     });
 
-    expect(frame.rotation).toBe(0);
+    assert.strictEqual(frame.rotation, 0);
     frame.close();
   });
 
@@ -123,8 +124,8 @@ describe('VideoFrame rotation and flip', () => {
     });
 
     // With 90 degree rotation, explicit display dimensions are swapped
-    expect(frame.displayWidth).toBe(100);
-    expect(frame.displayHeight).toBe(200);
+    assert.strictEqual(frame.displayWidth, 100);
+    assert.strictEqual(frame.displayHeight, 200);
     frame.close();
   });
 });

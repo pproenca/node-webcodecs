@@ -8,6 +8,9 @@
  * For detailed memory analysis: node --expose-gc test/stress/memory-leak.test.ts
  */
 
+import * as assert from 'node:assert/strict';
+import { after, before, describe, it } from 'node:test';
+
 import {
   AudioData,
   AudioDecoder,
@@ -16,7 +19,6 @@ import {
   VideoEncoder,
   VideoFrame,
 } from '@pproenca/node-webcodecs';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   assertNoLeaks,
   type CounterSnapshot,
@@ -46,7 +48,7 @@ const ITERATIONS = 100;
 describe('Memory Leak Detection', () => {
   let initialCounters: CounterSnapshot;
 
-  beforeAll(() => {
+  before(() => {
     // Warm up - create and destroy one instance to initialize any static resources
     const encoder = new VideoEncoder({
       output: () => {},
@@ -59,7 +61,7 @@ describe('Memory Leak Detection', () => {
     initialCounters = getCounters();
   });
 
-  afterAll(async () => {
+  after(async () => {
     // Wait for GC to clean up any lingering instances
     await waitForGC();
 
@@ -93,7 +95,7 @@ describe('Memory Leak Detection', () => {
       const after = getMemoryUsed();
       const growthMB = (after - before) / (1024 * 1024);
 
-      expect(growthMB).toBeLessThan(ALLOWED_GROWTH_MB);
+      assert.ok(growthMB < ALLOWED_GROWTH_MB);
     });
 
     it('does not leak memory when encoding frames', async () => {
@@ -140,7 +142,7 @@ describe('Memory Leak Detection', () => {
       const after = getMemoryUsed();
       const growthMB = (after - before) / (1024 * 1024);
 
-      expect(growthMB).toBeLessThan(ALLOWED_GROWTH_MB);
+      assert.ok(growthMB < ALLOWED_GROWTH_MB);
     });
   });
 
@@ -166,7 +168,7 @@ describe('Memory Leak Detection', () => {
       const after = getMemoryUsed();
       const growthMB = (after - before) / (1024 * 1024);
 
-      expect(growthMB).toBeLessThan(ALLOWED_GROWTH_MB);
+      assert.ok(growthMB < ALLOWED_GROWTH_MB);
     });
   });
 
@@ -192,7 +194,7 @@ describe('Memory Leak Detection', () => {
       const after = getMemoryUsed();
       const growthMB = (after - before) / (1024 * 1024);
 
-      expect(growthMB).toBeLessThan(ALLOWED_GROWTH_MB);
+      assert.ok(growthMB < ALLOWED_GROWTH_MB);
     });
 
     it('does not leak memory on clone/close', async () => {
@@ -219,7 +221,7 @@ describe('Memory Leak Detection', () => {
       const after = getMemoryUsed();
       const growthMB = (after - before) / (1024 * 1024);
 
-      expect(growthMB).toBeLessThan(ALLOWED_GROWTH_MB);
+      assert.ok(growthMB < ALLOWED_GROWTH_MB);
     });
   });
 
@@ -248,7 +250,7 @@ describe('Memory Leak Detection', () => {
       const after = getMemoryUsed();
       const growthMB = (after - before) / (1024 * 1024);
 
-      expect(growthMB).toBeLessThan(ALLOWED_GROWTH_MB);
+      assert.ok(growthMB < ALLOWED_GROWTH_MB);
     });
   });
 
@@ -276,7 +278,7 @@ describe('Memory Leak Detection', () => {
       const after = getMemoryUsed();
       const growthMB = (after - before) / (1024 * 1024);
 
-      expect(growthMB).toBeLessThan(ALLOWED_GROWTH_MB);
+      assert.ok(growthMB < ALLOWED_GROWTH_MB);
     });
   });
 
@@ -303,7 +305,7 @@ describe('Memory Leak Detection', () => {
       const after = getMemoryUsed();
       const growthMB = (after - before) / (1024 * 1024);
 
-      expect(growthMB).toBeLessThan(ALLOWED_GROWTH_MB);
+      assert.ok(growthMB < ALLOWED_GROWTH_MB);
     });
   });
 });
@@ -311,11 +313,11 @@ describe('Memory Leak Detection', () => {
 describe('Stress Tests', () => {
   let initialCounters: CounterSnapshot;
 
-  beforeAll(() => {
+  before(() => {
     initialCounters = getCounters();
   });
 
-  afterAll(async () => {
+  after(async () => {
     await waitForGC();
     const finalCounters = getCounters();
     assertNoLeaks(initialCounters, finalCounters, 'Stress Tests');
@@ -346,7 +348,7 @@ describe('Stress Tests', () => {
     }
 
     encoder.close();
-    expect(encoder.state).toBe('closed');
+    assert.strictEqual(encoder.state, 'closed');
   });
 
   it('handles concurrent encoder/decoder pairs', async () => {
@@ -384,7 +386,7 @@ describe('Stress Tests', () => {
       decoder.close();
     }
 
-    expect(encoders.every((e) => e.state === 'closed')).toBe(true);
-    expect(decoders.every((d) => d.state === 'closed')).toBe(true);
+    assert.strictEqual(encoders.every((e) => e.state === 'closed'), true);
+    assert.strictEqual(decoders.every((d) => d.state === 'closed'), true);
   });
 });

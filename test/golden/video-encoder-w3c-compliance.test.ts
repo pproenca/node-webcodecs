@@ -3,56 +3,57 @@
  * Tests for full compliance with https://www.w3.org/TR/webcodecs/#videoencoder-interface
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { after, before, describe, it } from 'node:test';
 
 describe('W3C VideoEncoder Interface Compliance', () => {
   describe('VideoEncoderInit', () => {
     it('should require output callback per W3C spec', () => {
-      expect(() => new VideoEncoder({} as any)).toThrow(TypeError);
+      assert.throws(() => { new VideoEncoder({} as any); }, TypeError);
     });
 
     it('should require error callback per W3C spec', () => {
-      expect(() => new VideoEncoder({ output: () => {} } as any)).toThrow(TypeError);
+      assert.throws(() => { new VideoEncoder({ output: () => {} } as any); }, TypeError);
     });
   });
 
   describe('VideoEncoder properties', () => {
     let encoder: VideoEncoder;
 
-    beforeEach(() => {
+    before(() => {
       encoder = new VideoEncoder({
         output: () => {},
         error: () => {},
       });
     });
 
-    afterEach(() => {
+    after(() => {
       if (encoder.state !== 'closed') {
         encoder.close();
       }
     });
 
     it('should have state property (CodecState)', () => {
-      expect(['unconfigured', 'configured', 'closed']).toContain(encoder.state);
+      assert.ok(['unconfigured', 'configured', 'closed'].includes(encoder.state));
     });
 
     it('should have encodeQueueSize property (unsigned long)', () => {
-      expect(typeof encoder.encodeQueueSize).toBe('number');
-      expect(encoder.encodeQueueSize).toBeGreaterThanOrEqual(0);
+      assert.strictEqual(typeof encoder.encodeQueueSize, 'number');
+      assert.ok(encoder.encodeQueueSize >= 0);
     });
 
     it('should support ondequeue event handler', () => {
-      expect(encoder.ondequeue).toBeNull();
+      assert.strictEqual(encoder.ondequeue, null);
       const handler = () => {};
       encoder.ondequeue = handler;
-      expect(encoder.ondequeue).toBe(handler);
+      assert.strictEqual(encoder.ondequeue, handler);
     });
 
     it('should extend EventTarget', () => {
-      expect(encoder).toBeInstanceOf(EventTarget);
-      expect(typeof encoder.addEventListener).toBe('function');
-      expect(typeof encoder.removeEventListener).toBe('function');
-      expect(typeof encoder.dispatchEvent).toBe('function');
+      assert.ok(encoder instanceof EventTarget);
+      assert.strictEqual(typeof encoder.addEventListener, 'function');
+      assert.strictEqual(typeof encoder.removeEventListener, 'function');
+      assert.strictEqual(typeof encoder.dispatchEvent, 'function');
     });
   });
 
@@ -82,24 +83,24 @@ describe('W3C VideoEncoder Interface Compliance', () => {
     it('should echo all VideoEncoderConfig properties in isConfigSupported', async () => {
       const result = await VideoEncoder.isConfigSupported(fullConfig);
 
-      expect(result.supported).toBe(true);
-      expect(result.config.codec).toBe(fullConfig.codec);
-      expect(result.config.width).toBe(fullConfig.width);
-      expect(result.config.height).toBe(fullConfig.height);
-      expect(result.config.displayWidth).toBe(fullConfig.displayWidth);
-      expect(result.config.displayHeight).toBe(fullConfig.displayHeight);
-      expect(result.config.bitrate).toBe(fullConfig.bitrate);
-      expect(result.config.framerate).toBe(fullConfig.framerate);
-      expect(result.config.hardwareAcceleration).toBe(fullConfig.hardwareAcceleration);
-      expect(result.config.alpha).toBe(fullConfig.alpha);
-      expect(result.config.scalabilityMode).toBe(fullConfig.scalabilityMode);
-      expect(result.config.bitrateMode).toBe(fullConfig.bitrateMode);
-      expect(result.config.latencyMode).toBe(fullConfig.latencyMode);
-      expect(result.config.contentHint).toBe(fullConfig.contentHint);
-      expect(result.config.colorSpace?.primaries).toBe(fullConfig.colorSpace?.primaries);
-      expect(result.config.colorSpace?.transfer).toBe(fullConfig.colorSpace?.transfer);
-      expect(result.config.colorSpace?.matrix).toBe(fullConfig.colorSpace?.matrix);
-      expect(result.config.colorSpace?.fullRange).toBe(fullConfig.colorSpace?.fullRange);
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual(result.config.codec, fullConfig.codec);
+      assert.strictEqual(result.config.width, fullConfig.width);
+      assert.strictEqual(result.config.height, fullConfig.height);
+      assert.strictEqual(result.config.displayWidth, fullConfig.displayWidth);
+      assert.strictEqual(result.config.displayHeight, fullConfig.displayHeight);
+      assert.strictEqual(result.config.bitrate, fullConfig.bitrate);
+      assert.strictEqual(result.config.framerate, fullConfig.framerate);
+      assert.strictEqual(result.config.hardwareAcceleration, fullConfig.hardwareAcceleration);
+      assert.strictEqual(result.config.alpha, fullConfig.alpha);
+      assert.strictEqual(result.config.scalabilityMode, fullConfig.scalabilityMode);
+      assert.strictEqual(result.config.bitrateMode, fullConfig.bitrateMode);
+      assert.strictEqual(result.config.latencyMode, fullConfig.latencyMode);
+      assert.strictEqual(result.config.contentHint, fullConfig.contentHint);
+      assert.strictEqual(result.config.colorSpace?.primaries, fullConfig.colorSpace?.primaries);
+      assert.strictEqual(result.config.colorSpace?.transfer, fullConfig.colorSpace?.transfer);
+      assert.strictEqual(result.config.colorSpace?.matrix, fullConfig.colorSpace?.matrix);
+      assert.strictEqual(result.config.colorSpace?.fullRange, fullConfig.colorSpace?.fullRange);
     });
   });
 
@@ -144,16 +145,16 @@ describe('W3C VideoEncoder Interface Compliance', () => {
       encoder.close();
 
       const keyframe = chunks.find((c) => c.chunk.type === 'key');
-      expect(keyframe).toBeDefined();
+      assert.notStrictEqual(keyframe, undefined);
 
       const dc = keyframe?.metadata?.decoderConfig;
-      expect(dc).toBeDefined();
-      expect(dc?.codec).toContain('avc1');
-      expect(dc?.codedWidth).toBe(640);
-      expect(dc?.codedHeight).toBe(480);
-      expect(dc?.displayAspectWidth).toBe(800);
-      expect(dc?.displayAspectHeight).toBe(600);
-      expect(dc?.colorSpace?.primaries).toBe('bt709');
+      assert.notStrictEqual(dc, undefined);
+      assert.ok(dc?.codec.includes('avc1'));
+      assert.strictEqual(dc?.codedWidth, 640);
+      assert.strictEqual(dc?.codedHeight, 480);
+      assert.strictEqual(dc?.displayAspectWidth, 800);
+      assert.strictEqual(dc?.displayAspectHeight, 600);
+      assert.strictEqual(dc?.colorSpace?.primaries, 'bt709');
     });
 
     it('should include svc metadata with temporalLayerId', async () => {
@@ -188,8 +189,8 @@ describe('W3C VideoEncoder Interface Compliance', () => {
       encoder.close();
 
       const keyframe = chunks.find((c) => c.chunk.type === 'key');
-      expect(keyframe?.metadata?.svc).toBeDefined();
-      expect(keyframe?.metadata?.svc?.temporalLayerId).toBe(0);
+      assert.notStrictEqual(keyframe?.metadata?.svc, undefined);
+      assert.strictEqual(keyframe?.metadata?.svc?.temporalLayerId, 0);
     });
   });
 
@@ -200,17 +201,17 @@ describe('W3C VideoEncoder Interface Compliance', () => {
         error: () => {},
       });
 
-      expect(encoder.state).toBe('unconfigured');
+      assert.strictEqual(encoder.state, 'unconfigured');
 
       encoder.configure({
         codec: 'avc1.42E01E',
         width: 640,
         height: 480,
       });
-      expect(encoder.state).toBe('configured');
+      assert.strictEqual(encoder.state, 'configured');
 
       encoder.close();
-      expect(encoder.state).toBe('closed');
+      assert.strictEqual(encoder.state, 'closed');
     });
 
     it('should transition: configured -> unconfigured via reset()', () => {
@@ -224,10 +225,10 @@ describe('W3C VideoEncoder Interface Compliance', () => {
         width: 640,
         height: 480,
       });
-      expect(encoder.state).toBe('configured');
+      assert.strictEqual(encoder.state, 'configured');
 
       encoder.reset();
-      expect(encoder.state).toBe('unconfigured');
+      assert.strictEqual(encoder.state, 'unconfigured');
 
       encoder.close();
     });
@@ -240,13 +241,13 @@ describe('W3C VideoEncoder Interface Compliance', () => {
 
       encoder.close();
 
-      expect(() => {
+      assert.throws(() => {
         encoder.configure({
           codec: 'avc1.42E01E',
           width: 640,
           height: 480,
         });
-      }).toThrow(/closed|InvalidStateError/i);
+      }, /closed|InvalidStateError/i);
     });
 
     it('should throw InvalidStateError when flush() called on unconfigured encoder', async () => {
@@ -255,7 +256,7 @@ describe('W3C VideoEncoder Interface Compliance', () => {
         error: () => {},
       });
 
-      await expect(encoder.flush()).rejects.toThrow(/configured|InvalidStateError/i);
+      await assert.rejects(encoder.flush(), /configured|InvalidStateError/i);
       encoder.close();
     });
 
@@ -266,7 +267,7 @@ describe('W3C VideoEncoder Interface Compliance', () => {
       });
       encoder.close();
 
-      expect(() => encoder.reset()).toThrow(/closed|InvalidStateError/i);
+      assert.throws(() => { encoder.reset(); }, /closed|InvalidStateError/i);
     });
 
     it('should throw InvalidStateError when encode() called on unconfigured encoder', () => {
@@ -283,7 +284,7 @@ describe('W3C VideoEncoder Interface Compliance', () => {
       });
 
       try {
-        expect(() => encoder.encode(frame)).toThrow(/unconfigured|InvalidStateError/i);
+        assert.throws(() => { encoder.encode(frame); }, /unconfigured|InvalidStateError/i);
       } finally {
         frame.close();
         encoder.close();
@@ -305,7 +306,7 @@ describe('W3C VideoEncoder Interface Compliance', () => {
       });
 
       try {
-        expect(() => encoder.encode(frame)).toThrow(/closed|InvalidStateError/i);
+        assert.throws(() => { encoder.encode(frame); }, /closed|InvalidStateError/i);
       } finally {
         frame.close();
       }
@@ -319,14 +320,14 @@ describe('W3C VideoEncoder Interface Compliance', () => {
         error: () => {},
       });
 
-      expect(() => {
+      assert.throws(() => {
         encoder.configure({
           codec: 'avc1.42E01E',
           width: 640,
           height: 480,
           displayWidth: 640,
         } as any);
-      }).toThrow(TypeError);
+      }, TypeError);
 
       encoder.close();
     });

@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 describe('EncodedVideoChunk transfer semantics', () => {
   it('should detach transferred ArrayBuffer after construction', () => {
@@ -14,9 +15,9 @@ describe('EncodedVideoChunk transfer semantics', () => {
     });
 
     // ArrayBuffer should be detached (byteLength becomes 0)
-    expect(buffer.byteLength).toBe(0);
+    assert.strictEqual(buffer.byteLength, 0);
     // Chunk should still have the data
-    expect(chunk.byteLength).toBe(100);
+    assert.strictEqual(chunk.byteLength, 100);
   });
 
   it('should work without transfer option', () => {
@@ -29,7 +30,7 @@ describe('EncodedVideoChunk transfer semantics', () => {
     });
 
     // Buffer should NOT be detached
-    expect(buffer.byteLength).toBe(100);
-    expect(chunk.byteLength).toBe(100);
+    assert.strictEqual(buffer.byteLength, 100);
+    assert.strictEqual(chunk.byteLength, 100);
   });
 });

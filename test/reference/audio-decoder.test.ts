@@ -6,8 +6,9 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+import * as assert from 'node:assert/strict';
+import { test } from 'node:test';
 import { ALL_FORMATS, EncodedPacketSink, FilePathSource, Input } from 'mediabunny';
-import { expect, test } from 'vitest';
 
 const filePath = './test/fixtures/small_buck_bunny.mp4';
 
@@ -18,13 +19,13 @@ test('AudioDecoder lifecycle', { timeout: 10_000 }, async () => {
   });
 
   const audioTrack = await input.getPrimaryAudioTrack();
-  expect(audioTrack).toBeDefined();
+  assert.notStrictEqual(audioTrack, undefined);
   if (!audioTrack) {
     throw new Error('Audio track should be defined');
   }
 
   const decoderConfig = await audioTrack.getDecoderConfig();
-  expect(decoderConfig).toBeDefined();
+  assert.notStrictEqual(decoderConfig, undefined);
   if (!decoderConfig) {
     throw new Error('Decoder config should be defined');
   }
@@ -63,10 +64,10 @@ test('AudioDecoder lifecycle', { timeout: 10_000 }, async () => {
       error = e;
     },
   });
-  expect(decoder.state === 'unconfigured');
+  assert.strictEqual(decoder.state, 'unconfigured');
 
   decoder.configure(decoderConfig);
-  expect(decoder.state === 'configured');
+  assert.strictEqual(decoder.state, 'configured');
 
   let dequeueEvents = 0;
   decoder.addEventListener('dequeue', () => dequeueEvents++);
@@ -83,25 +84,25 @@ test('AudioDecoder lifecycle', { timeout: 10_000 }, async () => {
   if (error) throw error;
 
   // Verify that dequeue events were fired
-  expect(dequeueEvents).toBeGreaterThan(0);
+  assert.ok(dequeueEvents > 0);
 
   // Verify samples were received with correct properties
-  expect(samples.length).toBeGreaterThan(0);
-  expect(samples[0].format).not.toBeNull();
-  expect(samples[0].sampleRate).toBe(audioTrack.sampleRate);
-  expect(samples[0].numberOfChannels).toBe(audioTrack.numberOfChannels);
+  assert.ok(samples.length > 0);
+  assert.notStrictEqual(samples[0].format, null);
+  assert.strictEqual(samples[0].sampleRate, audioTrack.sampleRate);
+  assert.strictEqual(samples[0].numberOfChannels, audioTrack.numberOfChannels);
 
   // Verify timestamps are monotonically increasing (allow equal for same-packet samples)
   let lastTimestamp = -Infinity;
   for (const sample of samples) {
-    expect(sample.timestamp).toBeGreaterThanOrEqual(lastTimestamp);
+    assert.ok(sample.timestamp >= lastTimestamp);
     lastTimestamp = sample.timestamp;
   }
 
   // Verify we saw diverse sample values (actual audio content)
   const valuesSeen = new Set(samples.map((s) => s.firstByte));
-  expect(valuesSeen.size).toBeGreaterThan(3);
+  assert.ok(valuesSeen.size > 3);
 
   decoder.close();
-  expect(decoder.state).toBe('closed');
+  assert.strictEqual(decoder.state, 'closed');
 });

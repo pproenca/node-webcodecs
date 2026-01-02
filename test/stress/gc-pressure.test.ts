@@ -9,8 +9,10 @@
  * If working correctly, V8 will aggressively GC based on native allocations.
  */
 
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
 import { VideoFrame } from '@pproenca/node-webcodecs';
-import { describe, expect, it } from 'vitest';
 
 describe('GC Pressure', () => {
   it('should survive 1000 large frames without OOM when external memory is tracked', async () => {
@@ -57,7 +59,7 @@ describe('GC Pressure', () => {
       }
     }
 
-    expect(created).toBe(1000);
+    assert.strictEqual(created, 1000);
 
     // GC should have been triggered multiple times due to memory pressure
     // If external memory tracking is broken, GC count will be low and we'll OOM
@@ -98,6 +100,6 @@ describe('GC Pressure', () => {
     }
 
     console.log(`Processed ${frameCount} frames in ${DURATION_MS}ms`);
-    expect(frameCount).toBeGreaterThan(0);
+    assert.ok(frameCount > 0);
   });
 });

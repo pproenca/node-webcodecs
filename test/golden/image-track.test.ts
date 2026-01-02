@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 import { ImageTrack } from '../../lib/image-track';
 
 describe('ImageTrack class', () => {
@@ -10,11 +11,10 @@ describe('ImageTrack class', () => {
       selected: false,
     });
 
-    expect(track.animated).toBe(true);
-    // Should not be writable
-    expect(() => {
-      (track as any).animated = false;
-    }).toThrow();
+    assert.strictEqual(track.animated, true);
+    // Should not be writable - attempt to modify and verify it didn't change
+    (track as unknown as { animated: boolean }).animated = false;
+    assert.strictEqual(track.animated, true);
   });
 
   it('has readonly frameCount property', () => {
@@ -25,7 +25,7 @@ describe('ImageTrack class', () => {
       selected: true,
     });
 
-    expect(track.frameCount).toBe(1);
+    assert.strictEqual(track.frameCount, 1);
   });
 
   it('has readonly repetitionCount property', () => {
@@ -36,7 +36,7 @@ describe('ImageTrack class', () => {
       selected: true,
     });
 
-    expect(track.repetitionCount).toBe(Infinity);
+    assert.strictEqual(track.repetitionCount, Infinity);
   });
 
   it('has writable selected property', () => {
@@ -47,8 +47,8 @@ describe('ImageTrack class', () => {
       selected: false,
     });
 
-    expect(track.selected).toBe(false);
+    assert.strictEqual(track.selected, false);
     track.selected = true;
-    expect(track.selected).toBe(true);
+    assert.strictEqual(track.selected, true);
   });
 });

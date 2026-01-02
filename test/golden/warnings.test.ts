@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 // WarningAccumulator is exposed via binding for testing
-const { WarningAccumulator } = await import('../../dist/index.js');
+import { WarningAccumulator } from '../../dist/index.js';
 
 describe('WarningAccumulator', () => {
   it('accumulates warnings and drains them', () => {
@@ -9,18 +10,18 @@ describe('WarningAccumulator', () => {
     accumulator.add('Warning 1');
     accumulator.add('Warning 2');
 
-    expect(accumulator.count()).toBe(2);
-    expect(accumulator.hasWarnings()).toBe(true);
+    assert.strictEqual(accumulator.count(), 2);
+    assert.strictEqual(accumulator.hasWarnings(), true);
 
     const warnings = accumulator.drain();
-    expect(warnings).toEqual(['Warning 1', 'Warning 2']);
+    assert.deepStrictEqual(warnings, ['Warning 1', 'Warning 2']);
 
-    expect(accumulator.count()).toBe(0);
-    expect(accumulator.hasWarnings()).toBe(false);
+    assert.strictEqual(accumulator.count(), 0);
+    assert.strictEqual(accumulator.hasWarnings(), false);
   });
 
   it('returns empty array when no warnings', () => {
     const accumulator = new WarningAccumulator();
-    expect(accumulator.drain()).toEqual([]);
+    assert.deepStrictEqual(accumulator.drain(), []);
   });
 });

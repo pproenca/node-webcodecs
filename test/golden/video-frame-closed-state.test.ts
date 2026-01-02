@@ -1,12 +1,13 @@
 // test/golden/video-frame-closed-state.test.ts
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { after, before, describe, it } from 'node:test';
 import { TEST_CONSTANTS } from '../fixtures/test-helpers';
 
 describe('VideoFrame closed state per W3C spec', () => {
   let frame: VideoFrame;
   const { width, height } = TEST_CONSTANTS.SMALL_FRAME;
 
-  beforeEach(() => {
+  before(() => {
     const data = new Uint8Array(width * height * TEST_CONSTANTS.RGBA_BPP);
     frame = new VideoFrame(data, {
       format: 'RGBA',
@@ -18,8 +19,8 @@ describe('VideoFrame closed state per W3C spec', () => {
     frame.close();
   });
 
-  afterEach(() => {
-    // Frame already closed in beforeEach, but guard against test modifications
+  after(() => {
+    // Frame already closed in before, but guard against test modifications
     if (frame.format !== null) {
       frame.close();
     }
@@ -27,38 +28,38 @@ describe('VideoFrame closed state per W3C spec', () => {
 
   // W3C spec: format returns null when [[Detached]] is true
   it('should return null for format when closed', () => {
-    expect(frame.format).toBeNull();
+    assert.strictEqual(frame.format, null);
   });
 
   it('should return 0 for codedWidth when closed', () => {
-    expect(frame.codedWidth).toBe(0);
+    assert.strictEqual(frame.codedWidth, 0);
   });
 
   it('should return 0 for codedHeight when closed', () => {
-    expect(frame.codedHeight).toBe(0);
+    assert.strictEqual(frame.codedHeight, 0);
   });
 
   it('should return null for codedRect when closed', () => {
-    expect(frame.codedRect).toBeNull();
+    assert.strictEqual(frame.codedRect, null);
   });
 
   it('should return null for visibleRect when closed', () => {
-    expect(frame.visibleRect).toBeNull();
+    assert.strictEqual(frame.visibleRect, null);
   });
 
   it('should return 0 for displayWidth when closed', () => {
-    expect(frame.displayWidth).toBe(0);
+    assert.strictEqual(frame.displayWidth, 0);
   });
 
   it('should return 0 for displayHeight when closed', () => {
-    expect(frame.displayHeight).toBe(0);
+    assert.strictEqual(frame.displayHeight, 0);
   });
 
   it('should return 0 for timestamp when closed', () => {
-    expect(frame.timestamp).toBe(0);
+    assert.strictEqual(frame.timestamp, 0);
   });
 
   it('should return null for duration when closed', () => {
-    expect(frame.duration).toBeNull();
+    assert.strictEqual(frame.duration, null);
   });
 });

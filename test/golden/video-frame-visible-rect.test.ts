@@ -1,5 +1,6 @@
 // test/golden/video-frame-visible-rect.test.ts
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 describe('VideoFrame visibleRect', () => {
   it('should return default visibleRect equal to codedRect when not specified', () => {
@@ -13,11 +14,11 @@ describe('VideoFrame visibleRect', () => {
       timestamp: 0,
     });
 
-    expect(frame.visibleRect).toBeDefined();
-    expect(frame.visibleRect.x).toBe(0);
-    expect(frame.visibleRect.y).toBe(0);
-    expect(frame.visibleRect.width).toBe(width);
-    expect(frame.visibleRect.height).toBe(height);
+    assert.notStrictEqual(frame.visibleRect, undefined);
+    assert.strictEqual(frame.visibleRect.x, 0);
+    assert.strictEqual(frame.visibleRect.y, 0);
+    assert.strictEqual(frame.visibleRect.width, width);
+    assert.strictEqual(frame.visibleRect.height, height);
 
     frame.close();
   });
@@ -34,10 +35,10 @@ describe('VideoFrame visibleRect', () => {
       visibleRect: { x: 10, y: 20, width: 100, height: 80 },
     });
 
-    expect(frame.visibleRect.x).toBe(10);
-    expect(frame.visibleRect.y).toBe(20);
-    expect(frame.visibleRect.width).toBe(100);
-    expect(frame.visibleRect.height).toBe(80);
+    assert.strictEqual(frame.visibleRect.x, 10);
+    assert.strictEqual(frame.visibleRect.y, 20);
+    assert.strictEqual(frame.visibleRect.width, 100);
+    assert.strictEqual(frame.visibleRect.height, 80);
 
     frame.close();
   });
@@ -55,15 +56,15 @@ describe('VideoFrame visibleRect', () => {
     });
 
     const rect = frame.visibleRect;
-    expect(rect.x).toBe(10);
-    expect(rect.y).toBe(20);
-    expect(rect.width).toBe(100);
-    expect(rect.height).toBe(80);
+    assert.strictEqual(rect.x, 10);
+    assert.strictEqual(rect.y, 20);
+    assert.strictEqual(rect.width, 100);
+    assert.strictEqual(rect.height, 80);
     // DOMRectReadOnly also has right and bottom
-    expect(rect.right).toBe(110); // x + width
-    expect(rect.bottom).toBe(100); // y + height
-    expect(rect.top).toBe(20);
-    expect(rect.left).toBe(10);
+    assert.strictEqual(rect.right, 110); // x + width
+    assert.strictEqual(rect.bottom, 100); // y + height
+    assert.strictEqual(rect.top, 20);
+    assert.strictEqual(rect.left, 10);
 
     frame.close();
   });
@@ -73,7 +74,7 @@ describe('VideoFrame visibleRect', () => {
     const height = 100;
     const data = new Uint8Array(width * height * 4);
 
-    expect(() => {
+    assert.throws(() => {
       new VideoFrame(data, {
         format: 'RGBA',
         codedWidth: width,
@@ -81,7 +82,7 @@ describe('VideoFrame visibleRect', () => {
         timestamp: 0,
         visibleRect: { x: 50, y: 50, width: 100, height: 100 }, // Exceeds bounds
       });
-    }).toThrow();
+    });
   });
 
   it('should handle visibleRect at frame boundary', () => {
@@ -97,8 +98,8 @@ describe('VideoFrame visibleRect', () => {
       visibleRect: { x: 0, y: 0, width: 100, height: 100 }, // Exact match
     });
 
-    expect(frame.visibleRect.width).toBe(100);
-    expect(frame.visibleRect.height).toBe(100);
+    assert.strictEqual(frame.visibleRect.width, 100);
+    assert.strictEqual(frame.visibleRect.height, 100);
     frame.close();
   });
 
@@ -116,7 +117,7 @@ describe('VideoFrame visibleRect', () => {
     });
 
     // RGBA: 50 * 50 * 4 = 10000 bytes
-    expect(frame.allocationSize()).toBe(10000);
+    assert.strictEqual(frame.allocationSize(), 10000);
 
     frame.close();
   });
@@ -136,10 +137,10 @@ describe('VideoFrame visibleRect', () => {
 
     const cloned = frame.clone();
 
-    expect(cloned.visibleRect.x).toBe(10);
-    expect(cloned.visibleRect.y).toBe(20);
-    expect(cloned.visibleRect.width).toBe(30);
-    expect(cloned.visibleRect.height).toBe(40);
+    assert.strictEqual(cloned.visibleRect.x, 10);
+    assert.strictEqual(cloned.visibleRect.y, 20);
+    assert.strictEqual(cloned.visibleRect.width, 30);
+    assert.strictEqual(cloned.visibleRect.height, 40);
 
     frame.close();
     cloned.close();
@@ -197,10 +198,10 @@ describe('VideoFrame copyTo with visibleRect', () => {
 
     // All pixels should be red (the top-left quadrant)
     for (let i = 0; i < destSize; i += 4) {
-      expect(dest[i]).toBe(255); // R
-      expect(dest[i + 1]).toBe(0); // G
-      expect(dest[i + 2]).toBe(0); // B
-      expect(dest[i + 3]).toBe(255); // A
+      assert.strictEqual(dest[i], 255); // R
+      assert.strictEqual(dest[i + 1], 0); // G
+      assert.strictEqual(dest[i + 2], 0); // B
+      assert.strictEqual(dest[i + 3], 255); // A
     }
 
     frame.close();
@@ -224,11 +225,11 @@ describe('VideoFrame ArrayBuffer transfer', () => {
     });
 
     // ArrayBuffer should be detached (byteLength becomes 0)
-    expect(arrayBuffer.byteLength).toBe(0);
+    assert.strictEqual(arrayBuffer.byteLength, 0);
 
     // Frame should still be usable
-    expect(frame.codedWidth).toBe(width);
-    expect(frame.codedHeight).toBe(height);
+    assert.strictEqual(frame.codedWidth, width);
+    assert.strictEqual(frame.codedHeight, height);
 
     frame.close();
   });
@@ -249,7 +250,7 @@ describe('VideoFrame ArrayBuffer transfer', () => {
     });
 
     // ArrayBuffer should NOT be detached
-    expect(arrayBuffer.byteLength).toBe(width * height * 4);
+    assert.strictEqual(arrayBuffer.byteLength, width * height * 4);
 
     frame.close();
   });
@@ -267,7 +268,7 @@ describe('VideoFrame ArrayBuffer transfer', () => {
       transfer: [], // Empty array
     });
 
-    expect(frame.codedWidth).toBe(width);
+    assert.strictEqual(frame.codedWidth, width);
     frame.close();
   });
 
@@ -278,7 +279,7 @@ describe('VideoFrame ArrayBuffer transfer', () => {
 
     // Pre-detach the buffer
     structuredClone(arrayBuffer, { transfer: [arrayBuffer] });
-    expect(arrayBuffer.byteLength).toBe(0);
+    assert.strictEqual(arrayBuffer.byteLength, 0);
 
     // Create new data for the frame
     const newBuffer = new ArrayBuffer(width * height * 4);
@@ -293,7 +294,7 @@ describe('VideoFrame ArrayBuffer transfer', () => {
       transfer: [arrayBuffer], // Already detached
     });
 
-    expect(frame.codedWidth).toBe(width);
+    assert.strictEqual(frame.codedWidth, width);
     frame.close();
   });
 });

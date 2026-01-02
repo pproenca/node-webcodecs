@@ -1,13 +1,14 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 
 describe('VideoEncoder Circuit Breaker', () => {
   let encoder: InstanceType<typeof VideoEncoder>;
-  const chunks: unknown[] = [];
+  let chunks: unknown[] = [];
 
   beforeEach(() => {
-    chunks.length = 0;
+    chunks = [];
     encoder = new VideoEncoder({
-      output: (chunk: unknown) => chunks.push(chunk),
+      output: (chunk: unknown) => { chunks.push(chunk); },
       error: (e: Error) => { throw e; },
     });
     encoder.configure({
@@ -46,9 +47,9 @@ describe('VideoEncoder Circuit Breaker', () => {
       }
     }
 
-    expect(thrownError).not.toBeNull();
-    expect(thrownError?.message).toContain('QuotaExceededError');
-    expect(thrownError?.message).toContain('backpressure');
+    assert.notStrictEqual(thrownError, null);
+    assert.ok(thrownError?.message.includes('QuotaExceededError'));
+    assert.ok(thrownError?.message.includes('backpressure'));
   });
 
   it('should allow encoding after queue drains', async () => {
@@ -75,7 +76,7 @@ describe('VideoEncoder Circuit Breaker', () => {
       timestamp: 60 * 33000,
     });
 
-    expect(() => encoder.encode(frame)).not.toThrow();
+    assert.doesNotThrow(() => encoder.encode(frame));
     frame.close();
 
     await encoder.flush();

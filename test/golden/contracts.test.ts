@@ -1,18 +1,20 @@
 /**
- * Vitest wrapper for standalone contract tests.
+ * node:test wrapper for standalone contract tests.
  *
  * This allows contract tests to be run as part of the main test suite
  * while preserving their standalone nature. Contract tests verify
  * W3C WebCodecs API invariants and can also be run directly with node.
  *
  * Run standalone: node test/contracts/video_encoder/state_machine.js
- * Run via vitest: npx vitest run test/golden/contracts.test.ts
+ * Run via node:test: npx tsx --test test/golden/contracts.test.ts
  */
 
-import { describe, it } from 'vitest';
 import { execSync } from 'node:child_process';
 import * as path from 'node:path';
+import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const contractsDir = path.join(__dirname, '..', 'contracts');
 const rootDir = path.join(__dirname, '..', '..');
 

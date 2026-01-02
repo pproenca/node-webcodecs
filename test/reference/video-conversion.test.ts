@@ -6,6 +6,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+import * as assert from 'node:assert/strict';
+import { test } from 'node:test';
 import {
   ALL_FORMATS,
   BufferSource,
@@ -17,7 +19,6 @@ import {
   Output,
   VideoSampleSink,
 } from 'mediabunny';
-import { expect, test } from 'vitest';
 
 const filePath = './test/fixtures/small_buck_bunny.mp4';
 
@@ -53,7 +54,7 @@ async function runConversionTest(codec: string) {
   await conversion.execute();
 
   const buffer = output.target.buffer;
-  expect(buffer).toBeDefined();
+  assert.notStrictEqual(buffer, undefined);
   if (!buffer) {
     throw new Error('Buffer should be defined after conversion');
   }
@@ -64,7 +65,7 @@ async function runConversionTest(codec: string) {
   });
 
   const videoTrack = await newInput.getPrimaryVideoTrack();
-  expect(videoTrack).toBeDefined();
+  assert.notStrictEqual(videoTrack, undefined);
   if (!videoTrack) {
     throw new Error('Video track should be defined for valid video input');
   }
@@ -72,8 +73,8 @@ async function runConversionTest(codec: string) {
   const sink = new VideoSampleSink(videoTrack);
 
   for await (using sample of sink.samples(0, 1)) {
-    expect(sample.displayWidth).toBe(1920);
-    expect(sample.displayHeight).toBe(1080);
+    assert.strictEqual(sample.displayWidth, 1920);
+    assert.strictEqual(sample.displayHeight, 1080);
   }
 }
 

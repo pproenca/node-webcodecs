@@ -1,5 +1,6 @@
 // test/golden/types-color-space.test.ts
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 import type {
   VideoColorPrimaries,
   VideoMatrixCoefficients,
@@ -22,7 +23,7 @@ describe('VideoColorPrimaries', () => {
       'xyz',
       'smpte431',
     ];
-    expect(validPrimaries).toHaveLength(11);
+    assert.strictEqual(validPrimaries.length, 11);
   });
 });
 
@@ -39,7 +40,7 @@ describe('VideoMatrixCoefficients', () => {
       'bt2020-cl',
       'smpte2085',
     ];
-    expect(validMatrix).toHaveLength(8);
+    assert.strictEqual(validMatrix.length, 8);
   });
 });
 
@@ -66,6 +67,6 @@ describe('VideoTransferCharacteristics', () => {
       'smpte428',
       'arib-std-b67',
     ];
-    expect(validTransfer).toHaveLength(18);
+    assert.strictEqual(validTransfer.length, 18);
   });
 });

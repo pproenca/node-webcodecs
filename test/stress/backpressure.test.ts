@@ -3,13 +3,15 @@
 //
 // Stress test for backpressure gate limiting in-flight frames.
 
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
 import {
   EncodedVideoChunk,
   VideoDecoder,
   VideoEncoder,
   VideoFrame,
 } from '@pproenca/node-webcodecs';
-import { describe, expect, it } from 'vitest';
 
 describe('Encoder Backpressure', () => {
   it('ready property resolves immediately when under capacity', async () => {
@@ -32,7 +34,7 @@ describe('Encoder Backpressure', () => {
     await encoder.ready;
     const elapsed = Date.now() - start;
 
-    expect(elapsed).toBeLessThan(10); // Should be near-instant
+    assert.ok(elapsed < 10); // Should be near-instant
 
     // Clean up properly - flush before close ensures async worker is fully idle
     await encoder.flush();
@@ -88,8 +90,8 @@ describe('Encoder Backpressure', () => {
     encoder.close();
 
     // With backpressure, queue should never exceed maxQueueDepth
-    expect(maxQueueSize).toBeLessThanOrEqual(8);
-    expect(chunks.length).toBe(50);
+    assert.ok(maxQueueSize <= 8);
+    assert.strictEqual(chunks.length, 50);
   });
 
   it('maxQueueDepth can be adjusted', async () => {
@@ -108,16 +110,16 @@ describe('Encoder Backpressure', () => {
     });
 
     // Default is 16
-    expect(encoder.maxQueueDepth).toBe(16);
+    assert.strictEqual(encoder.maxQueueDepth, 16);
 
     // Can be changed
     encoder.maxQueueDepth = 4;
-    expect(encoder.maxQueueDepth).toBe(4);
+    assert.strictEqual(encoder.maxQueueDepth, 4);
 
     // Must be at least 1
-    expect(() => {
+    assert.throws(() => {
       encoder.maxQueueDepth = 0;
-    }).toThrow(RangeError);
+    }, RangeError);
 
     encoder.close();
   });
@@ -139,7 +141,7 @@ describe('Decoder Backpressure', () => {
     await decoder.ready;
     const elapsed = Date.now() - start;
 
-    expect(elapsed).toBeLessThan(10); // Should be near-instant
+    assert.ok(elapsed < 10); // Should be near-instant
 
     decoder.close();
   });
@@ -220,8 +222,8 @@ describe('Decoder Backpressure', () => {
     }
 
     // With backpressure, queue should never exceed maxQueueDepth
-    expect(maxQueueSize).toBeLessThanOrEqual(8);
-    expect(decodedFrames.length).toBeGreaterThan(0);
+    assert.ok(maxQueueSize <= 8);
+    assert.ok(decodedFrames.length > 0);
   });
 
   it('maxQueueDepth can be adjusted', async () => {
@@ -235,16 +237,16 @@ describe('Decoder Backpressure', () => {
     decoder.configure({ codec: 'avc1.42001f' });
 
     // Default is 16
-    expect(decoder.maxQueueDepth).toBe(16);
+    assert.strictEqual(decoder.maxQueueDepth, 16);
 
     // Can be changed
     decoder.maxQueueDepth = 4;
-    expect(decoder.maxQueueDepth).toBe(4);
+    assert.strictEqual(decoder.maxQueueDepth, 4);
 
     // Must be at least 1
-    expect(() => {
+    assert.throws(() => {
       decoder.maxQueueDepth = 0;
-    }).toThrow(RangeError);
+    }, RangeError);
 
     decoder.close();
   });
@@ -308,7 +310,7 @@ describe('Memory Bounding', () => {
     // Max in-flight = 8 * 8MB = ~64MB (plus overhead)
     // Without backpressure: could grow to 100 * 8MB = 800MB
     // Allow generous margin for codec buffers, but should be well under 300MB
-    expect(rssGrowthMB).toBeLessThan(300);
-    expect(outputCount).toBe(100);
+    assert.ok(rssGrowthMB < 300);
+    assert.strictEqual(outputCount, 100);
   });
 });
