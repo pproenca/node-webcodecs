@@ -291,8 +291,10 @@ Napi::Error FFmpegError(Napi::Env env, const std::string& operation,
 }
 
 std::string FFmpegErrorString(int errnum) {
-  char errbuf[AV_ERROR_MAX_STRING_SIZE];
-  av_strerror(errnum, errbuf, sizeof(errbuf));
+  char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
+  if (av_strerror(errnum, errbuf, sizeof(errbuf)) < 0) {
+    snprintf(errbuf, sizeof(errbuf), "Error code %d", errnum);
+  }
   return std::string(errbuf);
 }
 
@@ -409,11 +411,16 @@ void InitFFmpegLogging() {
 }
 
 void ShutdownFFmpegLogging() {
-  // Disable logging callback before static destructors run.
-  // This prevents the callback from accessing destroyed statics
-  // during process exit (static destruction order fiasco).
-  ffmpegLoggingActive.store(false, std::memory_order_release);
-  av_log_set_callback(nullptr);
+  // Ensure shutdown runs exactly once - multiple concurrent calls from
+  // encoder/decoder destructors and cleanup hook could race on av_log_set_callback.
+  static std::once_flag shutdown_once;
+  std::call_once(shutdown_once, []() {
+    // Disable logging callback before static destructors run.
+    // This prevents the callback from accessing destroyed statics
+    // during process exit (static destruction order fiasco).
+    ffmpegLoggingActive.store(false, std::memory_order_release);
+    av_log_set_callback(nullptr);
+  });
 }
 
 std::vector<std::string> GetFFmpegWarnings() {
