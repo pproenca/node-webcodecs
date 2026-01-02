@@ -115,17 +115,19 @@ std::string PixelFormatToString(AVPixelFormat format);
 
 // Per-class instance counters for deterministic leak detection.
 // Increment in constructor, decrement in destructor.
-extern std::atomic<int64_t> counterVideoFrames;
-extern std::atomic<int64_t> counterAudioData;
-extern std::atomic<int64_t> counterVideoEncoders;
-extern std::atomic<int64_t> counterVideoDecoders;
-extern std::atomic<int64_t> counterAudioEncoders;
-extern std::atomic<int64_t> counterAudioDecoders;
+// NOTE: These are references to heap-allocated "immortal" atomics to prevent
+// static destruction order issues during process exit (darwin-x64 fix).
+extern std::atomic<int64_t>& counterVideoFrames;
+extern std::atomic<int64_t>& counterAudioData;
+extern std::atomic<int64_t>& counterVideoEncoders;
+extern std::atomic<int64_t>& counterVideoDecoders;
+extern std::atomic<int64_t>& counterAudioEncoders;
+extern std::atomic<int64_t>& counterAudioDecoders;
 
 // Legacy counters (maintained for backwards compatibility)
-extern std::atomic<int> counterQueue;
-extern std::atomic<int> counterProcess;
-extern std::atomic<int> counterFrames;  // Legacy frame counter (use counterVideoFrames)
+extern std::atomic<int>& counterQueue;
+extern std::atomic<int>& counterProcess;
+extern std::atomic<int>& counterFrames;  // Legacy frame counter (use counterVideoFrames)
 
 //==============================================================================
 // Memory Management (following sharp pattern for Windows compatibility)

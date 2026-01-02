@@ -13,18 +13,63 @@
 
 namespace webcodecs {
 
+// STATIC DESTRUCTION ORDER FIX: Use heap-allocated "immortal" counters.
+// During process exit, static destructors may run in unpredictable order.
+// Codec destructors access these counters, so we must ensure they're never
+// destroyed. We trade a tiny memory leak at exit for crash-free shutdown.
+// This matches the pattern used for FFmpeg logging queue/mutex.
+
 // Per-class instance counters for deterministic leak detection
-std::atomic<int64_t> counterVideoFrames{0};
-std::atomic<int64_t> counterAudioData{0};
-std::atomic<int64_t> counterVideoEncoders{0};
-std::atomic<int64_t> counterVideoDecoders{0};
-std::atomic<int64_t> counterAudioEncoders{0};
-std::atomic<int64_t> counterAudioDecoders{0};
+static std::atomic<int64_t>& GetCounterVideoFrames() {
+  static auto* counter = new std::atomic<int64_t>(0);
+  return *counter;
+}
+static std::atomic<int64_t>& GetCounterAudioData() {
+  static auto* counter = new std::atomic<int64_t>(0);
+  return *counter;
+}
+static std::atomic<int64_t>& GetCounterVideoEncoders() {
+  static auto* counter = new std::atomic<int64_t>(0);
+  return *counter;
+}
+static std::atomic<int64_t>& GetCounterVideoDecoders() {
+  static auto* counter = new std::atomic<int64_t>(0);
+  return *counter;
+}
+static std::atomic<int64_t>& GetCounterAudioEncoders() {
+  static auto* counter = new std::atomic<int64_t>(0);
+  return *counter;
+}
+static std::atomic<int64_t>& GetCounterAudioDecoders() {
+  static auto* counter = new std::atomic<int64_t>(0);
+  return *counter;
+}
 
 // Legacy counters (maintained for backwards compatibility)
-std::atomic<int> counterQueue{0};
-std::atomic<int> counterProcess{0};
-std::atomic<int> counterFrames{0};
+static std::atomic<int>& GetCounterQueue() {
+  static auto* counter = new std::atomic<int>(0);
+  return *counter;
+}
+static std::atomic<int>& GetCounterProcess() {
+  static auto* counter = new std::atomic<int>(0);
+  return *counter;
+}
+static std::atomic<int>& GetCounterFrames() {
+  static auto* counter = new std::atomic<int>(0);
+  return *counter;
+}
+
+// References to immortal counters for extern linkage
+std::atomic<int64_t>& counterVideoFrames = GetCounterVideoFrames();
+std::atomic<int64_t>& counterAudioData = GetCounterAudioData();
+std::atomic<int64_t>& counterVideoEncoders = GetCounterVideoEncoders();
+std::atomic<int64_t>& counterVideoDecoders = GetCounterVideoDecoders();
+std::atomic<int64_t>& counterAudioEncoders = GetCounterAudioEncoders();
+std::atomic<int64_t>& counterAudioDecoders = GetCounterAudioDecoders();
+
+std::atomic<int>& counterQueue = GetCounterQueue();
+std::atomic<int>& counterProcess = GetCounterProcess();
+std::atomic<int>& counterFrames = GetCounterFrames();
 
 // FreeCallback for consistent buffer deallocation (following sharp pattern).
 // Default implementation uses delete[]. Can be overridden for platform-specific

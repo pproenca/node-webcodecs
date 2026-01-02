@@ -89,19 +89,20 @@ AudioDecoder::~AudioDecoder() {
 }
 
 void AudioDecoder::Cleanup() {
-  frame_.reset();
-  packet_.reset();
-  swr_context_.reset();
-
-  // DARWIN-X64 FIX: Flush codec internal buffers before destruction.
+  // DARWIN-X64 FIX: Flush codec internal buffers BEFORE destroying resources.
   // Audio decoders may have internal queued frames. Flushing ensures they're
   // drained before context destruction, preventing use-after-free.
   // CRITICAL: Only flush if codec was successfully opened. avcodec_flush_buffers
   // crashes on an unopened codec context (the internal codec pointer is NULL).
+  // NOTE: Order matters - flush must happen before resetting frame_/packet_/swr_
+  // to match VideoDecoder pattern and ensure codec internal state is consistent.
   if (codec_context_ && avcodec_is_open(codec_context_.get())) {
     avcodec_flush_buffers(codec_context_.get());
   }
 
+  frame_.reset();
+  packet_.reset();
+  swr_context_.reset();
   codec_context_.reset();
   codec_ = nullptr;
 }
