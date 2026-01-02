@@ -3,13 +3,22 @@
 // SPDX-License-Identifier: MIT
 //
 // Resolve FFmpeg paths for node-gyp binding.
-// Uses pkg-config with PKG_CONFIG_PATH pointing to CI-built FFmpeg when available.
+//
+// Resolution order:
+// 1. FFMPEG_ROOT env var (set by CI from deps-v* release artifacts)
+// 2. ./ffmpeg-install directory (local development)
+// 3. System pkg-config (fallback)
+//
+// The FFmpeg static libraries are built from:
+// - Linux: docker/Dockerfile.linux-x64 (Alpine musl, fully static)
+// - macOS: .github/workflows/build-ffmpeg.yml (native build)
+//
 // All codec dependencies (x264, x265, vpx, opus, etc.) are resolved automatically
 // via the .pc files in the FFmpeg build.
 //
 // CRITICAL: The --define-variable=prefix= flag relocates hardcoded paths in .pc files
-// (e.g., /opt/ffbuild/prefix → actual extraction path). Without this, pkg-config
-// returns paths that don't exist on the build machine.
+// (e.g., /build → actual extraction path). Without this, pkg-config returns paths
+// that don't exist on the build machine.
 
 'use strict';
 

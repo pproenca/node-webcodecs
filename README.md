@@ -25,7 +25,7 @@ Prebuilt binaries with FFmpeg statically linked are included for:
 
 - macOS ARM64 (Apple Silicon)
 - macOS x64 (Intel)
-- Linux x64 (glibc)
+- Linux x64 (musl, fully static)
 
 <details>
 <summary><strong>Building from Source</strong></summary>

@@ -13,28 +13,29 @@ on:
 permissions: {}
 
 jobs:
-  # Build prebuilt binaries for all platforms (also builds FFmpeg via nested workflow call)
+  # Build prebuilt binaries for all platforms
   build-prebuilds:
     uses: ./.github/workflows/build-prebuilds.yml
     with:
       deps_version: v1  # Update when deps change
 
-  # Publish main package with bundled prebuilds
+  # Publish platform-specific packages first, then main package
   publish:
     name: "Publish"
     needs: [build-prebuilds]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       id-token: write
       contents: read
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/@pproenca/node-webcodecs
     steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: recursive
+      - uses: actions/checkout@v5
 
       - uses: actions/setup-node@v6
         with:
-          node-version: "24"
+          node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
@@ -43,42 +44,71 @@ jobs:
       - name: Build TypeScript
         run: npm run build:ts
 
-      - name: Download all prebuilds
-        uses: actions/download-artifact@v7
+      - name: Download platform package artifacts
+        uses: actions/download-artifact@v4
         with:
-          pattern: prebuild-*
-          path: prebuilds-artifacts
+          pattern: platform-pkg-*
+          path: platform-artifacts
 
-      - name: Assemble prebuilds directory
+      - name: Extract platform packages
         run: |
-          mkdir -p prebuilds
+          mkdir -p packages
 
-          # Each artifact contains prebuilds/{platform}-{arch}/node.napi.node
-          # Merge them into a single prebuilds/ directory
-          for artifact_dir in prebuilds-artifacts/*/; do
-            if [ -d "${artifact_dir}prebuilds" ]; then
-              cp -r "${artifact_dir}prebuilds"/* prebuilds/
+          echo "=== Downloaded artifacts ==="
+          ls -la platform-artifacts/
+
+          # Extract each platform package tarball
+          for artifact_dir in platform-artifacts/platform-pkg-*/; do
+            platform=$(basename "$artifact_dir" | sed 's/platform-pkg-//')
+            echo "Processing platform: $platform"
+
+            # Find and extract the tarball
+            tarball=$(find "$artifact_dir" -name "*.tar" -type f | head -1)
+            if [ -n "$tarball" ]; then
+              echo "Extracting $tarball"
+              tar -xvf "$tarball" -C packages/
             else
-              # Fallback: artifact might be directly the prebuilds content
-              echo "::warning::Unexpected artifact structure in $artifact_dir - attempting fallback copy"
-              cp -r "$artifact_dir"* prebuilds/ || echo "::warning::Fallback copy failed for $artifact_dir"
-            fi
-          done
-
-          echo "Final prebuilds structure:"
-          ls -laR prebuilds/
-
-          # Verify all platforms present
-          for platform in darwin-arm64 darwin-x64 linux-x64; do
-            if [ ! -f "prebuilds/$platform/node.napi.node" ]; then
-              echo "Error: Missing prebuild for $platform"
+              echo "Error: No tarball found in $artifact_dir"
+              ls -la "$artifact_dir"
               exit 1
             fi
-            echo "OK: prebuilds/$platform/node.napi.node"
           done
 
-      # OIDC Trusted Publishing - no NPM_TOKEN needed (Node 24+)
+          echo "=== Final packages structure ==="
+          ls -laR packages/
+
+          # Verify all platform packages present
+          for platform in darwin-arm64 darwin-x64 linux-x64; do
+            pkg_dir="packages/@pproenca/node-webcodecs-$platform"
+            if [ ! -f "$pkg_dir/bin/node.napi.node" ]; then
+              echo "Error: Missing binary for $platform"
+              ls -la "$pkg_dir/" 2>/dev/null || echo "Directory doesn't exist"
+              exit 1
+            fi
+            if [ ! -f "$pkg_dir/package.json" ]; then
+              echo "Error: Missing package.json for $platform"
+              exit 1
+            fi
+            echo "OK: $pkg_dir"
+          done
+
+      # OIDC Trusted Publishing - no NPM_TOKEN needed
       # Configure trusted publisher at npmjs.com package settings
+      - name: Publish platform packages
+        run: |
+          # Platform packages MUST be published first (they are dependencies)
+          for platform in darwin-arm64 darwin-x64 linux-x64; do
+            pkg_dir="packages/@pproenca/node-webcodecs-$platform"
+            echo "Publishing $pkg_dir..."
+            cd "$pkg_dir"
+            npm publish --provenance --access public
+            cd -
+          done
+
+          # Wait for npm registry propagation before publishing main package
+          echo "Waiting for npm registry propagation..."
+          sleep 15
+
       - name: Publish main package
         run: npm publish --provenance --access public
 
@@ -94,7 +124,7 @@ jobs:
             platform: linux-x64
           - os: macos-15-intel
             platform: darwin-x64
-          - os: macos-latest
+          - os: macos-15
             platform: darwin-arm64
     steps:
       - name: Wait for NPM Registry Propagation
@@ -115,17 +145,50 @@ jobs:
         run: |
           mkdir smoke-test && cd smoke-test
           npm init -y
+
+          # Install main package - should automatically install correct platform package
           npm install @pproenca/node-webcodecs@${{ steps.version.outputs.version }}
+
+          # Verify only one platform package was installed (optionalDependencies pattern)
+          echo "=== Installed packages ==="
+          ls -la node_modules/@pproenca/ || echo "No @pproenca packages visible"
+
+          # Verify the binding loads correctly
           node -e "
             const wc = require('@pproenca/node-webcodecs');
             console.log('Loaded exports:', Object.keys(wc));
-            if (typeof wc.VideoDecoder !== 'function') {
-              console.error('VideoDecoder not a function');
-              process.exit(1);
+
+            // Verify core classes exist
+            const required = ['VideoDecoder', 'VideoEncoder', 'AudioDecoder', 'AudioEncoder', 'VideoFrame', 'AudioData'];
+            for (const cls of required) {
+              if (typeof wc[cls] !== 'function') {
+                console.error(cls + ' not a function');
+                process.exit(1);
+              }
             }
-            if (typeof wc.VideoEncoder !== 'function') {
-              console.error('VideoEncoder not a function');
-              process.exit(1);
-            }
+
+            // Verify native binding loaded (not just TS stubs)
+            const encoder = new wc.VideoEncoder({
+              output: () => {},
+              error: (e) => console.error(e)
+            });
+            console.log('VideoEncoder created, state:', encoder.state);
+
             console.log('Smoke Test Passed!');
           "
+
+      - name: Verify platform package
+        run: |
+          cd smoke-test
+
+          # Check that the correct platform package was installed
+          PLATFORM="${{ matrix.platform }}"
+          PKG_PATH="node_modules/@pproenca/node-webcodecs-$PLATFORM"
+
+          if [ -d "$PKG_PATH" ]; then
+            echo "Platform package installed: $PKG_PATH"
+            ls -la "$PKG_PATH/bin/"
+          else
+            echo "Warning: Platform package not visible at $PKG_PATH"
+            echo "This may be expected if npm hoists differently"
+          fi

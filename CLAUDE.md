@@ -123,9 +123,30 @@ Audio codecs: `mp4a.40.2` (AAC), `opus`, `mp3`, `flac`
 
 ## Platform Builds
 
-Prebuilt binaries follow the "sharp pattern" with optional packages:
+Prebuilt binaries follow the esbuild/sharp pattern with `optionalDependencies`:
 
-- `@pproenca/node-webcodecs-{darwin-arm64|darwin-x64|linux-x64}`
+- `@pproenca/node-webcodecs-darwin-arm64`
+- `@pproenca/node-webcodecs-darwin-x64`
+- `@pproenca/node-webcodecs-linux-x64`
+
+npm automatically installs only the platform package matching `os` and `cpu` fields.
+
+### FFmpeg Static Libraries
+
+FFmpeg and codec libraries are built from source with full H.264/H.265 support (GPL license):
+
+| Platform | Build Method | Codecs |
+|----------|-------------|--------|
+| Linux x64 | `docker/Dockerfile.linux-x64` (Alpine musl) | x264, x265, libvpx, libaom, opus, mp3lame, vorbis |
+| macOS | `.github/workflows/build-ffmpeg.yml` (native) | Same codecs |
+
+CI downloads FFmpeg static libs from `deps-v*` GitHub releases, sets `FFMPEG_ROOT`, and links statically.
+
+### Native Addon Loading
+
+`lib/binding.ts` uses esbuild-style resolution:
+1. Try platform-specific npm package (production)
+2. Fallback to `node-gyp-build` (local development)
 
 For source builds, FFmpeg 5.0+ (libavcodec 59+) required. See README.md for platform-specific instructions.
 
@@ -145,14 +166,14 @@ For source builds, FFmpeg 5.0+ (libavcodec 59+) required. See README.md for plat
 # List available workflows and jobs
 act -l
 
-# Test the build-ffmpeg workflow (all platforms)
-act push -j build-ffmpeg --container-architecture linux/amd64 -W .github/workflows/build-ffmpeg.yml
+# Test the build-ffmpeg workflow (Linux job uses Docker buildx)
+act push -j build-linux-x64 --container-architecture linux/amd64 -W .github/workflows/build-ffmpeg.yml
+
+# Test the build-prebuilds workflow (native addon build)
+act push -j build-prebuilds --container-architecture linux/amd64 -W .github/workflows/build-prebuilds.yml
 
 # Dry-run to see what would execute without actually running
-act -n -j build-ffmpeg --container-architecture linux/amd64 -W .github/workflows/build-ffmpeg.yml
-
-# Filter to specific matrix platform
-act push -j build-ffmpeg --container-architecture linux/amd64 -W .github/workflows/build-ffmpeg.yml --matrix platform:linux-x64
+act -n -j build-linux-x64 --container-architecture linux/amd64 -W .github/workflows/build-ffmpeg.yml
 ```
 
 Key points:
@@ -160,3 +181,4 @@ Key points:
 - Use `--container-architecture linux/amd64` on Apple Silicon to run Linux containers
 - The `act` tool simulates GitHub Actions locally using Docker
 - When a step's `if:` condition references a skipped step's outputs, the output is empty string not undefined
+- Linux FFmpeg builds use Docker buildx with GHA cache (see `docker/Dockerfile.linux-x64`)
