@@ -161,11 +161,14 @@ void AsyncDecodeWorker::WorkerThread() {
     }
 
     ProcessPacket(task);
-    processing_--;  // Done processing
 
-    // Notify when queue is empty AND no tasks are being processed
-    if (task_queue_.empty() && processing_.load() == 0) {
-      queue_cv_.notify_all();
+    // Decrement counter and notify under lock (fixes race condition).
+    {
+      std::lock_guard<std::mutex> lock(queue_mutex_);
+      processing_--;
+      if (task_queue_.empty() && processing_.load() == 0) {
+        queue_cv_.notify_all();
+      }
     }
   }
 }
@@ -184,6 +187,9 @@ void AsyncDecodeWorker::ProcessPacket(const DecodeTask& task) {
       EmitFrame(frame_.get());
       av_frame_unref(frame_.get());
     }
+    // Reset decoder to accept new packets after drain.
+    // Without this, decoder stays in drain mode and rejects further input.
+    avcodec_flush_buffers(codec_context_);
     return;
   }
 
@@ -317,6 +323,7 @@ void AsyncDecodeWorker::EmitFrame(AVFrame* frame) {
         if (env == nullptr) {
           delete data;
           (*pending_counter)--;
+          webcodecs::counterQueue--;  // Must decrement even on abort
           return;
         }
 

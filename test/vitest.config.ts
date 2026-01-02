@@ -2,16 +2,22 @@ import { defineConfig } from 'vitest/config';
 
 // Reference tests are slow (codec conversion) and should only run on-demand.
 // Use INCLUDE_REFERENCE=true to include them, or use npm run test-reference.
+// Stress tests are for memory/threading validation and run on-demand.
+// Use INCLUDE_STRESS=true to include them.
 const includeReference = process.env.INCLUDE_REFERENCE === 'true';
+const includeStress = process.env.INCLUDE_STRESS === 'true';
 
 export default defineConfig({
   test: {
     // Disable watch mode - always run once and exit
     watch: false,
     root: './test',
-    include: includeReference
-      ? ['golden/**/*.test.{ts,js,mjs}', 'reference/**/*.test.{ts,js,mjs}', 'unit/**/*.test.{ts,js,mjs}']
-      : ['golden/**/*.test.{ts,js,mjs}', 'unit/**/*.test.{ts,js,mjs}'],
+    include: [
+      'golden/**/*.test.{ts,js,mjs}',
+      'unit/**/*.test.{ts,js,mjs}',
+      ...(includeReference ? ['reference/**/*.test.{ts,js,mjs}'] : []),
+      ...(includeStress ? ['stress/**/*.test.{ts,js,mjs}'] : []),
+    ],
     setupFiles: ['./setup.ts'],
     testTimeout: 30000,
     hookTimeout: 10000,

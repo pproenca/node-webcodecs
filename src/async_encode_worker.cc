@@ -154,11 +154,14 @@ void AsyncEncodeWorker::WorkerThread() {
     }
 
     ProcessFrame(task);
-    processing_--;  // Done processing
 
-    // Notify when queue is empty AND no tasks are being processed
-    if (task_queue_.empty() && processing_.load() == 0) {
-      queue_cv_.notify_all();
+    // Decrement counter and notify under lock (fixes race condition).
+    {
+      std::lock_guard<std::mutex> lock(queue_mutex_);
+      processing_--;
+      if (task_queue_.empty() && processing_.load() == 0) {
+        queue_cv_.notify_all();
+      }
     }
   }
 }
@@ -169,7 +172,10 @@ void AsyncEncodeWorker::ProcessFrame(const EncodeTask& task) {
     return;
   }
 
-  // Handle flush task - send NULL frame to drain encoder
+  // Handle flush task - send NULL frame to drain encoder.
+  // Note: After this, the codec enters EOF mode and won't accept new frames.
+  // The VideoEncoder::Flush() method handles codec reinitialization after
+  // the worker drains to allow continued encoding per W3C WebCodecs spec.
   if (task.is_flush) {
     avcodec_send_frame(codec_context_, nullptr);
     // Drain all remaining packets
@@ -279,13 +285,14 @@ void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
     // Must still clean up data and counters, then return to avoid crashing.
     if (env == nullptr) {
       info->pending->fetch_sub(1);
+      webcodecs::counterQueue--;  // Must decrement even on abort
       delete info;
       return;
     }
 
     // Decrement pending count before any operations
     info->pending->fetch_sub(1);
-    webcodecs::counterQueue--;  // Decrement global queue counter
+    webcodecs::counterQueue--;
 
     // Create native EncodedVideoChunk directly to avoid double-copy.
     // The data is copied once into the chunk's internal buffer.

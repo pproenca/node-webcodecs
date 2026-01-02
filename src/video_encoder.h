@@ -51,6 +51,7 @@ class VideoEncoder : public Napi::ObjectWrap<VideoEncoder> {
   // Internal helpers.
   void Cleanup();
   void EmitChunks(Napi::Env env);
+  void ReinitializeCodec();  // Recreates codec context after flush
 
   // FFmpeg state.
   const AVCodec*
@@ -81,6 +82,14 @@ class VideoEncoder : public Napi::ObjectWrap<VideoEncoder> {
   // "annexb": Description embedded in bitstream (default for backwards compat)
   std::string bitstream_format_;
   int64_t frame_count_;
+
+  // Stored configuration for codec reinitialization after flush.
+  // FFmpeg encoders enter EOF mode after flush (sending NULL frame),
+  // requiring full reinitialization to accept new frames per W3C spec.
+  int bitrate_;
+  int framerate_;
+  int max_b_frames_;
+  bool use_qscale_;
   int encode_queue_size_;
   std::atomic<bool> codec_saturated_{false};
   static constexpr size_t kMaxQueueSize = 16;  // Saturation threshold

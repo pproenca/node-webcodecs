@@ -218,6 +218,14 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
   std::string latency_mode =
       webcodecs::AttrAsStr(config, "latencyMode", "quality");
 
+  // Store config for codec reinitialization after flush.
+  // FFmpeg encoders enter EOF mode after sending NULL frame, requiring
+  // full reinitialization to continue encoding per W3C WebCodecs spec.
+  bitrate_ = bitrate;
+  framerate_ = framerate;
+  max_b_frames_ = (latency_mode == "realtime") ? 0 : kDefaultMaxBFrames;
+  use_qscale_ = (bitrate_mode == "quantizer");
+
   // Parse codec-specific bitstream format per W3C codec registration.
   // Default to "annexb" for backwards compatibility (FFmpeg's native format).
   // Per W3C spec, the default should be "avc"/"hevc" when explicit config
@@ -729,6 +737,89 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
   return env.Undefined();
 }
 
+void VideoEncoder::ReinitializeCodec() {
+  // Reinitialize codec context after flush.
+  // FFmpeg encoders enter EOF mode after sending NULL frame and cannot
+  // accept new input without full reinitialization.
+  // This is required for W3C WebCodecs compliance where flush() should
+  // allow continued encoding.
+
+  if (!codec_) {
+    return;  // No codec configured
+  }
+
+  // Close old codec context (RAII handles cleanup via reset)
+  codec_context_.reset();
+  sws_context_.reset();
+
+  // Recreate codec context with same settings
+  codec_context_ = ffmpeg::make_codec_context(codec_);
+  if (!codec_context_) {
+    return;  // Failed to allocate - will be detected on next encode
+  }
+
+  // Reconfigure encoder with stored settings
+  codec_context_->width = width_;
+  codec_context_->height = height_;
+  codec_context_->time_base = {1, framerate_};
+  codec_context_->framerate = {framerate_, 1};
+  codec_context_->pix_fmt = AV_PIX_FMT_YUV420P;
+  codec_context_->gop_size = kDefaultGopSize;
+  codec_context_->max_b_frames = max_b_frames_;
+
+  if (use_qscale_) {
+    codec_context_->flags |= AV_CODEC_FLAG_QSCALE;
+    codec_context_->global_quality = FF_QP2LAMBDA * 23;
+  } else {
+    codec_context_->bit_rate = bitrate_;
+  }
+
+  if (bitstream_format_ != "annexb") {
+    codec_context_->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+  }
+
+  // Hardware encoder-specific options
+  if (codec_ && strstr(codec_->name, "videotoolbox") != nullptr) {
+    av_opt_set(codec_context_->priv_data, "allow_sw", "1", 0);
+  }
+
+  // Software encoder-specific options
+  bool is_libx264 = codec_ && strcmp(codec_->name, "libx264") == 0;
+  if (is_libx264) {
+    av_opt_set(codec_context_->priv_data, "preset", "fast", 0);
+    av_opt_set(codec_context_->priv_data, "tune", "zerolatency", 0);
+    if (use_qscale_) {
+      av_opt_set_int(codec_context_->priv_data, "qp", 23, 0);
+    }
+  }
+
+  // Open codec
+  int ret = avcodec_open2(codec_context_.get(), codec_, nullptr);
+  if (ret < 0) {
+    codec_context_.reset();
+    return;  // Failed to open - will be detected on next encode
+  }
+
+  // Recreate sws context for RGBA to YUV conversion
+  sws_context_.reset(sws_getContext(width_, height_, AV_PIX_FMT_RGBA, width_,
+                                    height_, AV_PIX_FMT_YUV420P, SWS_BILINEAR,
+                                    nullptr, nullptr, nullptr));
+
+  // Recreate frame and packet for sync mode
+  if (!async_mode_) {
+    frame_ = ffmpeg::make_frame();
+    if (frame_) {
+      frame_->format = AV_PIX_FMT_YUV420P;
+      frame_->width = width_;
+      frame_->height = height_;
+      av_frame_get_buffer(frame_.get(), kFrameBufferAlignment);
+    }
+    packet_ = ffmpeg::make_packet();
+  }
+
+  // Note: frame_count_ is NOT reset - continue numbering from before flush
+}
+
 Napi::Value VideoEncoder::Flush(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
@@ -739,6 +830,13 @@ Napi::Value VideoEncoder::Flush(const Napi::CallbackInfo& info) {
   if (async_mode_ && async_worker_) {
     // Wait for async worker to drain its queue
     async_worker_->Flush();
+    // Reinitialize codec after drain (FFmpeg enters EOF mode after NULL frame)
+    ReinitializeCodec();
+    if (async_worker_) {
+      // Update worker with new codec context and sws context
+      async_worker_->SetCodecContext(codec_context_.get(), sws_context_.get(),
+                                     width_, height_);
+    }
     // Reset queue after async flush completes
     encode_queue_size_ = 0;
     codec_saturated_.store(false);
@@ -750,6 +848,9 @@ Napi::Value VideoEncoder::Flush(const Napi::CallbackInfo& info) {
 
   // Get remaining packets.
   EmitChunks(env);
+
+  // Reinitialize codec after drain (FFmpeg enters EOF mode after NULL frame)
+  ReinitializeCodec();
 
   // Reset queue after flush
   encode_queue_size_ = 0;
