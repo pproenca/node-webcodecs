@@ -49,6 +49,8 @@ env:
   FFMPEG_VERSION: 'n8.0'
   # npm scope for platform packages
   NPM_SCOPE: '@pproenca/ffmpeg'
+  # Bump this to invalidate all caches
+  CACHE_VERSION: '4'
 
 jobs:
   # ============================================================================
@@ -151,7 +153,7 @@ jobs:
           path: |
             ${{ github.workspace }}/ffmpeg_build
             ${{ github.workspace }}/ffmpeg_sources
-          key: macos-${{ matrix.arch }}-libs-${{ env.X264_VERSION }}-${{ env.LIBVPX_VERSION }}-${{ env.LIBAOM_VERSION }}-v4
+          key: macos-${{ matrix.arch }}-libs-${{ env.X264_VERSION }}-${{ env.LIBVPX_VERSION }}-${{ env.LIBAOM_VERSION }}-v${{ env.CACHE_VERSION }}
           restore-keys: |
             macos-${{ matrix.arch }}-libs-
 
