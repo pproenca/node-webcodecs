@@ -112,13 +112,15 @@ VideoEncoder::VideoEncoder(const Napi::CallbackInfo& info)
 }
 
 VideoEncoder::~VideoEncoder() {
-  // CRITICAL: Disable FFmpeg logging BEFORE cleanup to prevent crashes during
-  // process exit. On darwin-x64, FFmpeg may log warnings during
-  // avcodec_free_context() which can race with static destruction.
-  // This must happen before Cleanup() which frees the codec context.
+  // CRITICAL: Call Cleanup() first to stop the async worker thread and wait
+  // for pending TSFN callbacks. The worker may still be processing frames,
+  // and we must ensure it exits cleanly before any further cleanup.
+  Cleanup();
+
+  // Now safe to disable FFmpeg logging. The worker thread has exited and all
+  // pending callbacks have been processed or aborted.
   webcodecs::ShutdownFFmpegLogging();
 
-  Cleanup();
   // Track active encoder instance (following sharp pattern)
   webcodecs::counterProcess--;
   webcodecs::counterVideoEncoders--;
@@ -128,6 +130,18 @@ void VideoEncoder::Cleanup() {
   if (async_worker_) {
     // Stop() joins the worker thread - after this, no new TSFN calls will be made
     async_worker_->Stop();
+
+    // DARWIN-X64 FIX: Wait for pending TSFN callbacks to complete.
+    // After Stop() joins the thread, there may still be queued TSFN callbacks
+    // that haven't been processed yet. These callbacks reference memory that
+    // will be freed below. On darwin-x64 (Intel Mac), VideoToolbox's software
+    // encoder may have additional internal callbacks that need time to complete.
+    auto deadline =
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
+    while (async_worker_->GetPendingChunks() > 0 &&
+           std::chrono::steady_clock::now() < deadline) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
   }
 
   // Abort ThreadSafeFunctions to cancel any pending callbacks.
@@ -143,6 +157,16 @@ void VideoEncoder::Cleanup() {
   // Safe to destroy async_worker_ - worker thread has exited and TSFN aborted
   if (async_worker_) {
     async_worker_.reset();
+  }
+
+  // DARWIN-X64 FIX: Flush codec internal buffers before destruction.
+  // VideoToolbox's software encoder (used on Intel Macs with allow_sw=1)
+  // may have internal queued frames. Flushing ensures they're drained
+  // before context destruction, preventing use-after-free in internal threads.
+  // CRITICAL: Only flush if codec was successfully opened. avcodec_flush_buffers
+  // crashes on an unopened codec context (the internal codec pointer is NULL).
+  if (codec_context_ && avcodec_is_open(codec_context_.get())) {
+    avcodec_flush_buffers(codec_context_.get());
   }
 
   frame_.reset();

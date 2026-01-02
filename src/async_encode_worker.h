@@ -106,6 +106,12 @@ class AsyncEncodeWorker {
   std::atomic<bool> running_{false};
   std::atomic<bool> flushing_{false};
   std::atomic<int> processing_{0};  // Track tasks currently being processed
+  // DARWIN-X64 FIX: Guard against codec access during shutdown race window.
+  // Set to true after SetCodecContext, false at START of Stop().
+  // ProcessFrame checks this before accessing codec_context_.
+  std::atomic<bool> codec_valid_{false};
+  // Mutex to synchronize Stop() calls from Cleanup() and destructor
+  std::mutex stop_mutex_;
   // Use shared_ptr for pending counter so TSFN callbacks can safely access it
   // even after the worker object is destroyed. The shared_ptr is captured by
   // the callback lambda, ensuring the atomic counter remains valid.
