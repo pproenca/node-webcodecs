@@ -830,6 +830,27 @@ jobs:
                 exit 1
               fi
 
+              # Make .pc files relocatable by replacing hardcoded paths with ${prefix}
+              # FFmpeg generates absolute paths, but we need ${prefix} variables for
+              # --define-variable=prefix= to work when consuming these in build-prebuilds
+              echo "Making .pc files relocatable for $platform..."
+              for pc_file in "artifacts/${platform}/lib/pkgconfig/"*.pc; do
+                if [ -f "$pc_file" ]; then
+                  # Get the original prefix from the file
+                  original_prefix=$(grep "^prefix=" "$pc_file" | cut -d= -f2)
+                  if [ -n "$original_prefix" ]; then
+                    # Replace hardcoded libdir and includedir with ${prefix} variables
+                    sed -i.bak \
+                      -e "s|^libdir=${original_prefix}/lib|libdir=\${prefix}/lib|" \
+                      -e "s|^includedir=${original_prefix}/include|includedir=\${prefix}/include|" \
+                      -e "s|^libdir=${original_prefix}|libdir=\${prefix}|" \
+                      -e "s|^includedir=${original_prefix}|includedir=\${prefix}|" \
+                      "$pc_file"
+                    rm -f "${pc_file}.bak"
+                  fi
+                fi
+              done
+
               # Create release tarball with files at ROOT level (not inside platform subdir)
               # This is what build-prebuilds.yml expects when it does:
               #   tar -xzvf ffmpeg-darwin-arm64.tar.gz -C ffmpeg-install
