@@ -29,6 +29,26 @@ jobs:
           - target: linux64
             variant: gpl
     steps:
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          # Remove Android SDK, .NET, Haskell, large packages to free ~30GB
+          # crosstool-ng builds (GCC 15, binutils, glibc) require substantial disk space
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+          # Keep tool-cache as we need build tools
+          tool-cache: false
+
+      - name: Show available disk space
+        run: |
+          echo "=== Available disk space after cleanup ==="
+          df -h /
+          echo "=== Expected: ~50GB free for crosstool-ng build ==="
+
       - uses: actions/checkout@v6
         with:
           submodules: recursive
