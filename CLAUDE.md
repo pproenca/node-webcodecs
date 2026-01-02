@@ -135,16 +135,17 @@ npm automatically installs only the platform package matching `os` and `cpu` fie
 
 FFmpeg and codec libraries are built from source with full H.264/H.265 support (GPL license):
 
-| Platform | Build Method | Codecs |
-|----------|-------------|--------|
-| Linux x64 | `docker/Dockerfile.linux-x64` (Alpine musl) | x264, x265, libvpx, libaom, opus, mp3lame, vorbis |
-| macOS | `.github/workflows/build-ffmpeg.yml` (native) | Same codecs |
+| Platform  | Build Method                                  | Codecs                                            |
+| --------- | --------------------------------------------- | ------------------------------------------------- |
+| Linux x64 | `docker/Dockerfile.linux-x64` (Alpine musl)   | x264, x265, libvpx, libaom, opus, mp3lame, vorbis |
+| macOS     | `.github/workflows/build-ffmpeg.yml` (native) | Same codecs                                       |
 
 CI downloads FFmpeg static libs from `deps-v*` GitHub releases, sets `FFMPEG_ROOT`, and links statically.
 
 ### Native Addon Loading
 
 `lib/binding.ts` uses esbuild-style resolution:
+
 1. Try platform-specific npm package (production)
 2. Fallback to `node-gyp-build` (local development)
 
