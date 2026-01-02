@@ -70,6 +70,9 @@
               "-Wall",
               "-Wextra",
               "-Wno-unused-parameter"
+            ],
+            "OTHER_LDFLAGS": [
+              "-mmacosx-version-min=11.0"
             ]
           }
         }],
