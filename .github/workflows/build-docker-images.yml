@@ -69,8 +69,8 @@ jobs:
             GH_REPO=ghcr.io/${{ github.repository_owner }}/jellyfin-ffmpeg
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/jellyfin-ffmpeg/${{ matrix.target }}-${{ matrix.variant }}:latest
-            ghcr.io/${{ github.repository_owner }}/jellyfin-ffmpeg/${{ matrix.target }}-${{ matrix.variant }}:${{ steps.ffmpeg-hash.outputs.hash }}
+            ghcr.io/${{ github.repository_owner }}/jellyfin-ffmpeg/base-${{ matrix.target }}:latest
+            ghcr.io/${{ github.repository_owner }}/jellyfin-ffmpeg/base-${{ matrix.target }}:${{ steps.ffmpeg-hash.outputs.hash }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
