@@ -1,0 +1,13 @@
+{
+  "name": "@pproenca/node-webcodecs-darwin-arm64",
+  "version": "0.1.1-alpha.3",
+  "description": "node-webcodecs native addon for darwin-arm64",
+  "os": ["darwin"],
+  "cpu": ["arm64"],
+  "files": ["bin/"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pproenca/node-webcodecs"
+  }
+}

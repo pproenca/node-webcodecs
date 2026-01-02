@@ -1,7 +1,9 @@
 name: build-prebuilds
 
-# Concurrency: When called via workflow_call, inherits caller's concurrency.
-# For direct triggers (workflow_dispatch, push), each run is independent.
+# Builds the node-webcodecs native addon for each platform.
+# Downloads FFmpeg static libraries from GitHub Release and links them statically.
+# Packages the result as platform-specific npm packages.
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -23,13 +25,11 @@ on:
       - "src/**"
       - "binding.gyp"
       - ".github/workflows/build-prebuilds.yml"
-      - "externals/jellyfin-ffmpeg"
   pull_request:
     paths:
       - "src/**"
       - "binding.gyp"
       - ".github/workflows/build-prebuilds.yml"
-      - "externals/jellyfin-ffmpeg"
 
 permissions: {}
 
@@ -47,7 +47,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest
+          - os: macos-15
             platform: darwin-arm64
             arch: arm64
           - os: macos-15-intel
@@ -58,9 +58,7 @@ jobs:
             arch: x64
 
     steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: recursive
+      - uses: actions/checkout@v5
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -131,14 +129,53 @@ jobs:
       - name: Run Tests
         run: npm run test:fast
 
-      - name: Upload prebuild
-        uses: actions/upload-artifact@v6
-        with:
-          name: prebuild-${{ matrix.platform }}
-          path: prebuilds/
-          retention-days: 7
+      - name: Package as platform npm package
+        run: |
+          # Read version from package.json
+          VERSION=$(node -p "require('./package.json').version")
 
-      - name: Attest prebuild artifact
+          # Create platform package directory
+          PKG_DIR="packages/@pproenca/node-webcodecs-${{ matrix.platform }}"
+          mkdir -p "$PKG_DIR/bin"
+
+          # Copy the native addon
+          PLATFORM="${{ runner.os == 'macOS' && 'darwin' || 'linux' }}"
+          cp "prebuilds/${PLATFORM}-${{ matrix.arch }}/node.napi.node" "$PKG_DIR/bin/"
+
+          # Create package.json for the platform package
+          cat > "$PKG_DIR/package.json" << EOF
+          {
+            "name": "@pproenca/node-webcodecs-${{ matrix.platform }}",
+            "version": "${VERSION}",
+            "description": "node-webcodecs native addon for ${{ matrix.platform }}",
+            "os": ["${{ runner.os == 'macOS' && 'darwin' || 'linux' }}"],
+            "cpu": ["${{ matrix.arch }}"],
+            "files": ["bin/"],
+            "license": "MIT",
+            "repository": {
+              "type": "git",
+              "url": "https://github.com/${{ github.repository }}"
+            }
+          }
+          EOF
+
+          echo "Created platform package:"
+          cat "$PKG_DIR/package.json"
+          ls -la "$PKG_DIR/bin/"
+
+          # Create tarball to preserve permissions
+          cd packages
+          tar -cvf "@pproenca-node-webcodecs-${{ matrix.platform }}.tar" "@pproenca/node-webcodecs-${{ matrix.platform }}/"
+
+      - name: Upload platform package
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-pkg-${{ matrix.platform }}
+          path: packages/@pproenca-node-webcodecs-${{ matrix.platform }}.tar
+          retention-days: 7
+          compression-level: 0
+
+      - name: Attest platform package
         uses: actions/attest-build-provenance@v3
         with:
-          subject-path: prebuilds/*/node.napi.node
+          subject-path: packages/@pproenca/node-webcodecs-${{ matrix.platform }}/bin/node.napi.node

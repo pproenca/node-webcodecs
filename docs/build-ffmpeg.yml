@@ -1,6 +1,6 @@
 # FFmpeg Static Binary Build Workflow
 # Based on GitHub Actions best practices for multi-platform native binary builds
-#
+# 
 # Key patterns applied:
 # - Matrix strategy for parallel platform builds
 # - Native runners (not QEMU emulation) for macOS arm64/x64
@@ -59,14 +59,14 @@ jobs:
     runs-on: ubuntu-24.04  # Explicit version for reproducibility
     permissions:
       contents: read
-
+    
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-
+      
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
+      
       - name: Build FFmpeg in Alpine container
         uses: docker/build-push-action@v6
         with:
@@ -77,7 +77,7 @@ jobs:
           tags: ffmpeg-builder:linux-x64
           cache-from: type=gha,scope=linux-x64
           cache-to: type=gha,mode=max,scope=linux-x64
-
+      
       - name: Extract binaries from container
         run: |
           mkdir -p artifacts/linux-x64
@@ -85,22 +85,22 @@ jobs:
           docker cp extract:/build/bin/ffmpeg artifacts/linux-x64/ffmpeg
           docker cp extract:/build/bin/ffprobe artifacts/linux-x64/ffprobe
           docker rm extract
-
+          
           # Verify static linking
           echo "Verifying static binary..."
           file artifacts/linux-x64/ffmpeg
           ! ldd artifacts/linux-x64/ffmpeg 2>/dev/null || echo "Warning: binary may have dynamic deps"
-
+          
           # Get version info
           chmod +x artifacts/linux-x64/ffmpeg
           ./artifacts/linux-x64/ffmpeg -version > artifacts/linux-x64/version.txt 2>&1 || true
-
+      
       # Tar to preserve permissions (chmod +x is lost in artifact upload)
       - name: Package artifacts
         run: |
           cd artifacts
           tar -cvf linux-x64.tar linux-x64/
-
+      
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -117,7 +117,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
-
+    
     strategy:
       fail-fast: false
       matrix:
@@ -131,19 +131,19 @@ jobs:
           - runner: macos-15
             arch: arm64
             target: arm64
-
+    
     env:
       TARGET: ${{ github.workspace }}/ffmpeg_build
       ARCH: ${{ matrix.target }}
-
+    
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-
+      
       - name: Install build dependencies
         run: |
           brew install automake libtool nasm cmake pkg-config
-
+      
       - name: Cache compiled libraries
         uses: actions/cache@v5
         id: cache-libs
@@ -154,7 +154,7 @@ jobs:
           key: macos-${{ matrix.arch }}-libs-${{ env.X264_VERSION }}-${{ env.LIBVPX_VERSION }}-${{ env.LIBAOM_VERSION }}-v3
           restore-keys: |
             macos-${{ matrix.arch }}-libs-
-
+      
       - name: Build codec libraries
         if: steps.cache-libs.outputs.cache-hit != 'true'
         run: |
@@ -163,7 +163,7 @@ jobs:
           export PKG_CONFIG_PATH="$TARGET/lib/pkgconfig"
           mkdir -p "$TARGET"/{include,lib,bin}
           mkdir -p ~/ffmpeg_sources && cd ~/ffmpeg_sources
-
+          
           echo "=== Building nasm ==="
           curl -sL https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/nasm-2.16.03.tar.bz2 | tar xj
           cd nasm-2.16.03
@@ -171,7 +171,7 @@ jobs:
           make -j$(sysctl -n hw.ncpu)
           make install
           cd ..
-
+          
           echo "=== Building x264 (GPL) ==="
           git clone --depth 1 --branch ${{ env.X264_VERSION }} https://code.videolan.org/videolan/x264.git
           cd x264
@@ -186,7 +186,7 @@ jobs:
           make -j$(sysctl -n hw.ncpu)
           make install
           cd ..
-
+          
           echo "=== Building x265 (GPL) ==="
           git clone --depth 1 https://bitbucket.org/multicoreware/x265_git.git
           mkdir -p x265_git/build/xcode && cd x265_git/build/xcode
@@ -199,7 +199,7 @@ jobs:
           make -j$(sysctl -n hw.ncpu)
           make install
           cd ../../..
-
+          
           echo "=== Building libvpx (BSD) ==="
           git clone --depth 1 --branch ${{ env.LIBVPX_VERSION }} https://chromium.googlesource.com/webm/libvpx.git
           cd libvpx
@@ -219,7 +219,7 @@ jobs:
           make -j$(sysctl -n hw.ncpu)
           make install
           cd ..
-
+          
           echo "=== Building libaom (AV1, BSD) ==="
           git clone --depth 1 --branch ${{ env.LIBAOM_VERSION }} https://aomedia.googlesource.com/aom
           mkdir aom_build && cd aom_build
@@ -234,7 +234,7 @@ jobs:
           make -j$(sysctl -n hw.ncpu)
           make install
           cd ..
-
+          
           echo "=== Building libopus (BSD) ==="
           curl -sL https://archive.mozilla.org/pub/opus/opus-${{ env.OPUS_VERSION }}.tar.gz | tar xz
           cd opus-${{ env.OPUS_VERSION }}
@@ -247,7 +247,7 @@ jobs:
           make -j$(sysctl -n hw.ncpu)
           make install
           cd ..
-
+          
           echo "=== Building libmp3lame (LGPL) ==="
           curl -sL "https://downloads.sourceforge.net/project/lame/lame/${{ env.LAME_VERSION }}/lame-${{ env.LAME_VERSION }}.tar.gz" | tar xz
           cd lame-${{ env.LAME_VERSION }}
@@ -261,25 +261,25 @@ jobs:
           make -j$(sysctl -n hw.ncpu)
           make install
           cd ..
-
+      
       - name: Build FFmpeg
         run: |
           set -e
           export PATH="$TARGET/bin:$PATH"
           export PKG_CONFIG_PATH="$TARGET/lib/pkgconfig"
-
+          
           cd ~/ffmpeg_sources
-
+          
           # Clone if not cached
           if [ ! -d ffmpeg ]; then
             git clone --depth 1 https://git.ffmpeg.org/ffmpeg.git
           fi
-
+          
           cd ffmpeg
-
+          
           # Clean previous builds
           make distclean 2>/dev/null || true
-
+          
           ./configure \
             --cc="clang -arch $ARCH" \
             --prefix="$TARGET" \
@@ -301,42 +301,42 @@ jobs:
             --enable-libaom \
             --enable-libopus \
             --enable-libmp3lame
-
+          
           make -j$(sysctl -n hw.ncpu)
           make install
-
+      
       - name: Verify and strip binaries
         run: |
           echo "=== Checking dynamic library dependencies ==="
           otool -L "$TARGET/bin/ffmpeg"
-
+          
           # Should only show /usr/lib/libSystem.B.dylib
           DEPS=$(otool -L "$TARGET/bin/ffmpeg" | grep -v libSystem | grep -v ":" | wc -l)
           if [ "$DEPS" -gt 0 ]; then
             echo "Warning: Found unexpected dynamic dependencies"
             otool -L "$TARGET/bin/ffmpeg" | grep -v libSystem | grep -v ":"
           fi
-
+          
           echo "=== Stripping debug symbols ==="
           strip "$TARGET/bin/ffmpeg"
           strip "$TARGET/bin/ffprobe"
-
+          
           echo "=== Binary sizes ==="
           ls -lh "$TARGET/bin/ffmpeg" "$TARGET/bin/ffprobe"
-
+          
           echo "=== Version info ==="
           "$TARGET/bin/ffmpeg" -version
-
+      
       - name: Package artifacts
         run: |
           mkdir -p artifacts/darwin-${{ matrix.arch }}
           cp "$TARGET/bin/ffmpeg" artifacts/darwin-${{ matrix.arch }}/
           cp "$TARGET/bin/ffprobe" artifacts/darwin-${{ matrix.arch }}/
           "$TARGET/bin/ffmpeg" -version > artifacts/darwin-${{ matrix.arch }}/version.txt 2>&1 || true
-
+          
           cd artifacts
           tar -cvf darwin-${{ matrix.arch }}.tar darwin-${{ matrix.arch }}/
-
+      
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -354,26 +354,26 @@ jobs:
     needs: [build-linux-x64, build-macos]
     permissions:
       contents: read
-
+    
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-
+      
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
-
+      
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-
+      
       - name: Extract and organize binaries
         run: |
           set -e
-
+          
           # Extract tarballs
           for artifact in artifacts/ffmpeg-*/; do
             tarball=$(find "$artifact" -name "*.tar" | head -1)
@@ -382,17 +382,17 @@ jobs:
               tar -xvf "$tarball" -C "$artifact"
             fi
           done
-
+          
           # Debug: show structure
           find artifacts -type f -name "ffmpeg*" -o -name "version.txt"
-
+          
           # Create platform package directories
           mkdir -p packages
-
+          
           for platform in linux-x64 darwin-x64 darwin-arm64; do
             pkg_dir="packages/${{ env.NPM_SCOPE }}-${platform}"
             mkdir -p "$pkg_dir/bin"
-
+            
             # Map artifact names to package names
             if [ "$platform" = "darwin-x64" ]; then
               src_dir="artifacts/ffmpeg-darwin-x64/darwin-x64"
@@ -401,17 +401,17 @@ jobs:
             else
               src_dir="artifacts/ffmpeg-linux-x64/linux-x64"
             fi
-
+            
             cp "$src_dir/ffmpeg" "$pkg_dir/bin/"
             cp "$src_dir/ffprobe" "$pkg_dir/bin/"
             chmod +x "$pkg_dir/bin/"*
-
+            
             # Get version from tag or use 0.0.0-dev
             VERSION="${GITHUB_REF_NAME#v}"
             if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
               VERSION="0.0.0-dev"
             fi
-
+            
             # Create platform-specific package.json
             cat > "$pkg_dir/package.json" << EOF
           {
@@ -428,27 +428,27 @@ jobs:
             }
           }
           EOF
-
+            
             # Fix os field
             if [[ "$platform" == darwin-* ]]; then
               sed -i 's/"os": \["darwin"\]/"os": ["darwin"]/' "$pkg_dir/package.json"
             else
               sed -i 's/"os": \["linux"\]/"os": ["linux"]/' "$pkg_dir/package.json"
             fi
-
+            
             echo "Created package: $pkg_dir"
             cat "$pkg_dir/package.json"
           done
-
+      
       - name: Create main package
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
             VERSION="0.0.0-dev"
           fi
-
+          
           mkdir -p packages/${{ env.NPM_SCOPE }}
-
+          
           cat > packages/${{ env.NPM_SCOPE }}/package.json << EOF
           {
             "name": "${{ env.NPM_SCOPE }}",
@@ -475,29 +475,29 @@ jobs:
             }
           }
           EOF
-
+          
           # Create index.js with binary resolution
           cat > packages/${{ env.NPM_SCOPE }}/index.js << 'EOF'
           const path = require('path');
           const { execSync, spawn } = require('child_process');
-
+          
           const PLATFORMS = {
             'darwin-arm64': '${{ env.NPM_SCOPE }}-darwin-arm64',
             'darwin-x64': '${{ env.NPM_SCOPE }}-darwin-x64',
             'linux-x64': '${{ env.NPM_SCOPE }}-linux-x64',
           };
-
+          
           function getBinaryPath(binary = 'ffmpeg') {
             const platform = `${process.platform}-${process.arch}`;
             const pkg = PLATFORMS[platform];
-
+            
             if (!pkg) {
               throw new Error(
                 `Unsupported platform: ${platform}. ` +
                 `Supported: ${Object.keys(PLATFORMS).join(', ')}`
               );
             }
-
+            
             try {
               const pkgPath = require.resolve(`${pkg}/package.json`);
               return path.join(path.dirname(pkgPath), 'bin', binary);
@@ -508,7 +508,7 @@ jobs:
               );
             }
           }
-
+          
           function ffmpeg(args, options = {}) {
             const binary = getBinaryPath('ffmpeg');
             if (typeof args === 'string') {
@@ -516,7 +516,7 @@ jobs:
             }
             return spawn(binary, args, options);
           }
-
+          
           function ffprobe(args, options = {}) {
             const binary = getBinaryPath('ffprobe');
             if (typeof args === 'string') {
@@ -524,7 +524,7 @@ jobs:
             }
             return spawn(binary, args, options);
           }
-
+          
           module.exports = {
             getBinaryPath,
             ffmpegPath: getBinaryPath('ffmpeg'),
@@ -533,27 +533,27 @@ jobs:
             ffprobe,
           };
           EOF
-
+          
           # Create TypeScript definitions
           cat > packages/${{ env.NPM_SCOPE }}/index.d.ts << 'EOF'
           import { SpawnOptions, ChildProcess, ExecSyncOptions } from 'child_process';
-
+          
           export function getBinaryPath(binary?: 'ffmpeg' | 'ffprobe'): string;
           export const ffmpegPath: string;
           export const ffprobePath: string;
-
+          
           export function ffmpeg(args: string, options?: ExecSyncOptions): string;
           export function ffmpeg(args: string[], options?: SpawnOptions): ChildProcess;
-
+          
           export function ffprobe(args: string, options?: ExecSyncOptions): string;
           export function ffprobe(args: string[], options?: SpawnOptions): ChildProcess;
           EOF
-
+          
           # Create install verification script
           cat > packages/${{ env.NPM_SCOPE }}/install.js << 'EOF'
           const { getBinaryPath } = require('./index');
           const { execSync } = require('child_process');
-
+          
           try {
             const ffmpegPath = getBinaryPath('ffmpeg');
             const version = execSync(`"${ffmpegPath}" -version`, { encoding: 'utf8' });
@@ -564,7 +564,7 @@ jobs:
             console.warn(e.message);
           }
           EOF
-
+      
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -583,30 +583,30 @@ jobs:
     permissions:
       contents: read
       id-token: write  # Required for npm provenance
-
+    
     environment:
       name: npm
       url: https://www.npmjs.com/package/${{ env.NPM_SCOPE }}
-
+    
     steps:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
-
+      
       - name: Download npm packages
         uses: actions/download-artifact@v4
         with:
           name: npm-packages
           path: packages
-
+      
       - name: Publish platform packages
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -e
-
+          
           # Publish platform-specific packages first
           for pkg in packages/${{ env.NPM_SCOPE }}-*/; do
             echo "Publishing $pkg"
@@ -614,10 +614,10 @@ jobs:
             npm publish --access public --provenance
             cd - > /dev/null
           done
-
+          
           # Wait for registry propagation
           sleep 10
-
+          
           # Publish main package
           echo "Publishing main package"
           cd "packages/${{ env.NPM_SCOPE }}"
@@ -633,33 +633,33 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
-
+    
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-
+      
       - name: Prepare release assets
         run: |
           mkdir -p release
-
+          
           # Extract and repackage with better names
           for artifact in artifacts/ffmpeg-*/; do
             tarball=$(find "$artifact" -name "*.tar" | head -1)
             if [ -n "$tarball" ]; then
               platform=$(basename "$artifact" | sed 's/ffmpeg-//')
               tar -xf "$tarball" -C artifacts/
-
+              
               # Create release tarball with version
               cd artifacts
               tar -czvf "../release/ffmpeg-${GITHUB_REF_NAME}-${platform}.tar.gz" "${platform}/"
               cd ..
             fi
           done
-
+          
           ls -la release/
-
+      
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -667,12 +667,12 @@ jobs:
           generate_release_notes: true
           body: |
             ## FFmpeg Static Binaries
-
+            
             This release includes statically linked FFmpeg binaries for:
             - Linux x64 (musl libc, fully static)
             - macOS x64 (Intel)
             - macOS arm64 (Apple Silicon)
-
+            
             ### Included Codecs
             - H.264 (libx264) - GPL
             - H.265/HEVC (libx265) - GPL
@@ -680,11 +680,11 @@ jobs:
             - AV1 (libaom) - BSD
             - Opus (libopus) - BSD
             - MP3 (libmp3lame) - LGPL
-
+            
             ### npm Installation
             ```bash
             npm install ${{ env.NPM_SCOPE }}
             ```
-
+            
             ### License
             These binaries are licensed under GPL v2+ due to the inclusion of libx264 and libx265.

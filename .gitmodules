@@ -1,4 +1,0 @@
-[submodule "externals/jellyfin-ffmpeg"]
-	path = externals/jellyfin-ffmpeg
-	url = https://github.com/pproenca/jellyfin-ffmpeg.git
-	branch = ffmpeg-master
