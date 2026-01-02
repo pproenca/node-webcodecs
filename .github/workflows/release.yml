@@ -18,6 +18,11 @@ jobs:
     uses: ./.github/workflows/build-prebuilds.yml
     with:
       deps_version: v1  # Update when deps change
+    # Reusable workflows inherit permissions from caller - must grant what callee needs
+    permissions:
+      contents: read      # For checkout
+      id-token: write     # For OIDC attestation
+      attestations: write # For build provenance
 
   # Publish platform-specific packages first, then main package
   publish:
@@ -45,7 +50,7 @@ jobs:
         run: npm run build:ts
 
       - name: Download platform package artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v6
         with:
           pattern: platform-pkg-*
           path: platform-artifacts

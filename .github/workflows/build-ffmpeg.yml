@@ -22,6 +22,7 @@ on:
   push:
     tags:
       - 'v*'
+      - 'deps-*'  # Also trigger on deps releases (e.g., deps-v1, deps-v2)
   workflow_dispatch:
     inputs:
       ffmpeg_version:
@@ -33,6 +34,11 @@ on:
         required: false
         type: boolean
         default: false
+      deps_version:
+        description: 'Create deps release with this version (e.g., v1, v2). Leave empty to skip deps release.'
+        required: false
+        type: string
+        default: ''
 
 # Default minimal permissions - override per job
 permissions:
@@ -153,7 +159,8 @@ jobs:
           path: |
             ${{ github.workspace }}/ffmpeg_build
             ${{ github.workspace }}/ffmpeg_sources
-          key: macos-${{ matrix.arch }}-libs-${{ env.X264_VERSION }}-${{ env.LIBVPX_VERSION }}-${{ env.LIBAOM_VERSION }}-v${{ env.CACHE_VERSION }}
+          # Include ALL library versions to ensure cache invalidates when any dependency changes
+          key: macos-${{ matrix.arch }}-libs-${{ env.X264_VERSION }}-${{ env.X265_VERSION }}-${{ env.LIBVPX_VERSION }}-${{ env.LIBAOM_VERSION }}-${{ env.OPUS_VERSION }}-${{ env.LAME_VERSION }}-v${{ env.CACHE_VERSION }}
           restore-keys: |
             macos-${{ matrix.arch }}-libs-
 
@@ -394,7 +401,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v6
         with:
           pattern: ffmpeg-*
           path: artifacts
@@ -418,18 +425,22 @@ jobs:
           # Create platform package directories
           mkdir -p packages
 
-          for platform in linux-x64 darwin-x64 darwin-arm64; do
+          # Dynamically discover platforms from downloaded artifacts
+          # This avoids hardcoding platform names and makes the workflow more maintainable
+          for artifact_dir in artifacts/ffmpeg-*/; do
+            # Extract platform from artifact directory name (ffmpeg-linux-x64 -> linux-x64)
+            platform=$(basename "$artifact_dir" | sed 's/ffmpeg-//')
+
+            # Source directory is artifact_dir/platform/ (e.g., artifacts/ffmpeg-linux-x64/linux-x64/)
+            src_dir="${artifact_dir}${platform}"
+
+            if [ ! -d "$src_dir" ] || [ ! -f "$src_dir/ffmpeg" ]; then
+              echo "Warning: Skipping $platform - source directory or binary not found"
+              continue
+            fi
+
             pkg_dir="packages/${{ env.NPM_SCOPE }}-${platform}"
             mkdir -p "$pkg_dir/bin"
-
-            # Map artifact names to package names
-            if [ "$platform" = "darwin-x64" ]; then
-              src_dir="artifacts/ffmpeg-darwin-x64/darwin-x64"
-            elif [ "$platform" = "darwin-arm64" ]; then
-              src_dir="artifacts/ffmpeg-darwin-arm64/darwin-arm64"
-            else
-              src_dir="artifacts/ffmpeg-linux-x64/linux-x64"
-            fi
 
             cp "$src_dir/ffmpeg" "$pkg_dir/bin/"
             cp "$src_dir/ffprobe" "$pkg_dir/bin/"
@@ -437,7 +448,7 @@ jobs:
 
             # Get version from tag or use 0.0.0-dev
             VERSION="${GITHUB_REF_NAME#v}"
-            if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
               VERSION="0.0.0-dev"
             fi
 
@@ -472,7 +483,7 @@ jobs:
       - name: Create main package
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
             VERSION="0.0.0-dev"
           fi
 
@@ -625,7 +636,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Download npm packages
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v6
         with:
           name: npm-packages
           path: packages
@@ -665,7 +676,7 @@ jobs:
 
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v6
         with:
           pattern: ffmpeg-*
           path: artifacts
@@ -691,7 +702,7 @@ jobs:
           ls -la release/
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.2.1
         with:
           files: release/*
           generate_release_notes: true
@@ -718,3 +729,106 @@ jobs:
 
             ### License
             These binaries are licensed under GPL v2+ due to the inclusion of libx264 and libx265.
+
+  # ============================================================================
+  # Create Dependencies Release (for CI/build-prebuilds consumption)
+  # ============================================================================
+  # This job creates the deps-vN release that ci.yml and build-prebuilds.yml
+  # download FFmpeg binaries from. Files are named without version prefix:
+  #   ffmpeg-linux-x64.tar.gz (not ffmpeg-v1.0.0-linux-x64.tar.gz)
+  # ============================================================================
+  release-deps:
+    name: Create Dependencies Release
+    runs-on: ubuntu-24.04
+    needs: [build-linux-x64, build-macos]
+    # Run if: manually triggered with deps_version input OR tag push matches deps-*
+    if: inputs.deps_version != '' || startsWith(github.ref, 'refs/tags/deps-')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v6
+        with:
+          pattern: ffmpeg-*
+          path: artifacts
+
+      - name: Determine deps version
+        id: version
+        run: |
+          if [ -n "${{ inputs.deps_version }}" ]; then
+            # Manual trigger with input
+            VERSION="${{ inputs.deps_version }}"
+          else
+            # Tag push (deps-v1 -> v1)
+            VERSION="${GITHUB_REF_NAME#deps-}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Using deps version: $VERSION"
+
+      - name: Prepare deps release assets
+        run: |
+          mkdir -p release
+
+          # Extract artifacts and create unversioned tarballs
+          for artifact in artifacts/ffmpeg-*/; do
+            tarball=$(find "$artifact" -name "*.tar" | head -1)
+            if [ -n "$tarball" ]; then
+              platform=$(basename "$artifact" | sed 's/ffmpeg-//')
+              echo "Processing platform: $platform"
+
+              # Extract the tar (contains platform/ directory)
+              tar -xf "$tarball" -C artifacts/
+
+              # Create release tarball WITHOUT version prefix
+              # This is what ci.yml and build-prebuilds.yml expect
+              cd artifacts
+              tar -czvf "../release/ffmpeg-${platform}.tar.gz" "${platform}/"
+              cd ..
+            fi
+          done
+
+          echo "=== Release assets ==="
+          ls -la release/
+
+          # Verify all expected platforms present
+          for platform in linux-x64 darwin-x64 darwin-arm64; do
+            if [ ! -f "release/ffmpeg-${platform}.tar.gz" ]; then
+              echo "ERROR: Missing ffmpeg-${platform}.tar.gz"
+              exit 1
+            fi
+          done
+          echo "All platform artifacts verified."
+
+      - name: Create Dependencies Release
+        uses: softprops/action-gh-release@v2.2.1
+        with:
+          tag_name: deps-${{ steps.version.outputs.version }}
+          name: FFmpeg Dependencies ${{ steps.version.outputs.version }}
+          files: release/*
+          body: |
+            ## FFmpeg Static Libraries for CI
+
+            This release contains FFmpeg static binaries used by the CI and build pipelines.
+            **Do not use directly** - these are consumed by `ci.yml` and `build-prebuilds.yml`.
+
+            ### Files
+            - `ffmpeg-linux-x64.tar.gz` - Linux x64 (musl, fully static)
+            - `ffmpeg-darwin-x64.tar.gz` - macOS Intel
+            - `ffmpeg-darwin-arm64.tar.gz` - macOS Apple Silicon
+
+            ### Codec Versions
+            - FFmpeg: ${{ env.FFMPEG_VERSION }}
+            - x264: ${{ env.X264_VERSION }}
+            - x265: ${{ env.X265_VERSION }}
+            - libvpx: ${{ env.LIBVPX_VERSION }}
+            - libaom: ${{ env.LIBAOM_VERSION }}
+            - opus: ${{ env.OPUS_VERSION }}
+            - lame: ${{ env.LAME_VERSION }}
+
+            ### Usage
+            Update `DEPS_VERSION` in `ci.yml` and `build-prebuilds.yml` to use this release:
+            ```yaml
+            env:
+              DEPS_VERSION: ${{ steps.version.outputs.version }}
+            ```
