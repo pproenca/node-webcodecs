@@ -183,3 +183,49 @@ Key points:
 - The `act` tool simulates GitHub Actions locally using Docker
 - When a step's `if:` condition references a skipped step's outputs, the output is empty string not undefined
 - Linux FFmpeg builds use Docker buildx with GHA cache (see `docker/Dockerfile.linux-x64`)
+
+## C++ Debugging Rules
+
+### Segfaults, Memory Issues, Threading Bugs
+
+**STOP. Do not edit source code until you complete triage.**
+
+#### Triage First (Mandatory)
+
+1. **Check build output for linker warnings** — version mismatches like "built for macOS-X but linking with Y" mean the problem is ABI/environment, not code
+2. **If crash is in trivial code** (empty constructor, simple allocation) → problem is NOT the code
+3. **If crash "moves around"** when you change unrelated code → memory corruption elsewhere or ABI mismatch
+
+#### Diagnostic Commands
+
+```bash
+# macOS - check linked library versions
+otool -L ./build/Release/*.node
+
+# Linux - same
+ldd ./build/Release/*.node
+
+# Check for ABI issues in symbol mangling
+nm -gU ./build/Release/*.node | head -50
+```
+
+#### If Linker Version Mismatch Detected
+
+Fix `binding.gyp` or `CMakeLists.txt` deployment target. Rebuild dependencies. Do NOT touch source code.
+
+#### If No Build Issues, Then Instrument
+
+```bash
+# Memory bugs (ASan)
+clang++ -fsanitize=address -fno-omit-frame-pointer -g -O1 ...
+
+# Threading bugs (TSan)
+clang++ -fsanitize=thread -g -O1 ...
+
+# Get backtrace
+gdb -batch -ex "run" -ex "bt full" ./program
+```
+
+#### Loop Detection
+
+If you've edited the same file 3+ times with the same crash → STOP. The bug is not in that file. Re-run triage.
