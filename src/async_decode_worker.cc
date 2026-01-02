@@ -73,7 +73,15 @@ void AsyncDecodeWorker::Start() {
 void AsyncDecodeWorker::Stop() {
   if (!running_.load()) return;
 
-  running_.store(false);
+  {
+    // CRITICAL: Hold mutex while modifying condition predicate to prevent
+    // lost wakeup race on x86_64. Without mutex, there's a window where:
+    // 1. Worker checks predicate (running_==true), starts entering wait()
+    // 2. Main thread sets running_=false, calls notify_all()
+    // 3. Worker enters wait() after notification - blocked forever
+    std::lock_guard<std::mutex> lock(queue_mutex_);
+    running_.store(false, std::memory_order_release);
+  }
   queue_cv_.notify_all();
 
   if (worker_thread_.joinable()) {
