@@ -173,6 +173,10 @@ jobs:
           mkdir -p "$TARGET"/{include,lib,bin}
           mkdir -p "${{ github.workspace }}/ffmpeg_sources" && cd "${{ github.workspace }}/ffmpeg_sources"
 
+          # Clean stale source directories from partial cache restore
+          # (cache key changed, but old sources may still exist)
+          rm -rf x264 x265_git libvpx aom aom_build opus-* lame-* nasm-*
+
           echo "=== Building nasm ==="
           curl -sL https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/nasm-2.16.03.tar.bz2 | tar xj
           cd nasm-2.16.03
