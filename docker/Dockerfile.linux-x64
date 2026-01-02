@@ -239,7 +239,7 @@ RUN strip $PREFIX/bin/ffmpeg $PREFIX/bin/ffprobe && \
     $PREFIX/bin/ffmpeg -version
 
 # ============================================================================
-# Final stage - minimal image with just the binaries
+# Final stage - includes binaries AND dev files for native addon compilation
 # ============================================================================
 FROM scratch AS export
 
@@ -249,8 +249,14 @@ COPY --from=builder /build/bin/ffprobe /build/bin/ffprobe
 # For extraction via docker cp, we need a runnable container
 FROM alpine:3.21 AS runtime
 
+# Copy binaries
 COPY --from=builder /build/bin/ffmpeg /build/bin/ffmpeg
 COPY --from=builder /build/bin/ffprobe /build/bin/ffprobe
+
+# Copy development files needed for native addon compilation
+# These are required by build-prebuilds.yml to link against FFmpeg
+COPY --from=builder /build/lib /build/lib
+COPY --from=builder /build/include /build/include
 
 # Verify binaries work in clean Alpine environment
 RUN /build/bin/ffmpeg -version
