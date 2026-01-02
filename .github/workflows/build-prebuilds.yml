@@ -112,8 +112,8 @@ jobs:
           npx prebuildify --napi --strip --arch=${{ matrix.arch }}
 
           # Verify expected structure (node-gyp-build expects node.napi.node)
-          PLATFORM="${{ runner.os == 'macOS' && 'darwin' || 'linux' }}"
-          PREBUILD_DIR="prebuilds/${PLATFORM}-${{ matrix.arch }}"
+          # Use matrix.platform directly instead of constructing from runner.os
+          PREBUILD_DIR="prebuilds/${{ matrix.platform }}"
 
           if [ ! -f "$PREBUILD_DIR/node.napi.node" ]; then
             echo "Error: Expected $PREBUILD_DIR/node.napi.node"
@@ -138,9 +138,8 @@ jobs:
           PKG_DIR="packages/@pproenca/node-webcodecs-${{ matrix.platform }}"
           mkdir -p "$PKG_DIR/bin"
 
-          # Copy the native addon
-          PLATFORM="${{ runner.os == 'macOS' && 'darwin' || 'linux' }}"
-          cp "prebuilds/${PLATFORM}-${{ matrix.arch }}/node.napi.node" "$PKG_DIR/bin/"
+          # Copy the native addon (use matrix.platform directly)
+          cp "prebuilds/${{ matrix.platform }}/node.napi.node" "$PKG_DIR/bin/"
 
           # Create package.json for the platform package
           cat > "$PKG_DIR/package.json" << EOF
