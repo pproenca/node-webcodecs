@@ -154,6 +154,7 @@ void InitFFmpeg();
 //==============================================================================
 
 void InitFFmpegLogging();
+void ShutdownFFmpegLogging();
 std::vector<std::string> GetFFmpegWarnings();
 void ClearFFmpegWarnings();
 
