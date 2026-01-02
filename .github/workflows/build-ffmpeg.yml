@@ -50,7 +50,7 @@ env:
   # npm scope for platform packages
   NPM_SCOPE: '@pproenca/ffmpeg'
   # Bump this to invalidate all caches
-  CACHE_VERSION: '4'
+  CACHE_VERSION: '5'
 
 jobs:
   # ============================================================================
@@ -194,12 +194,28 @@ jobs:
           mkdir -p x265_git/build/xcode && cd x265_git/build/xcode
           cmake \
             -DCMAKE_INSTALL_PREFIX="$TARGET" \
+            -DLIB_INSTALL_DIR="$TARGET/lib" \
             -DENABLE_SHARED=OFF \
             -DENABLE_CLI=OFF \
             -DCMAKE_OSX_ARCHITECTURES=$ARCH \
             ../../source
           make -j$(sysctl -n hw.ncpu)
           make install
+          # x265 cmake doesn't always install .pc file, create it manually
+          mkdir -p "$TARGET/lib/pkgconfig"
+          cat > "$TARGET/lib/pkgconfig/x265.pc" << PCEOF
+          prefix=$TARGET
+          exec_prefix=\${prefix}
+          libdir=\${prefix}/lib
+          includedir=\${prefix}/include
+
+          Name: x265
+          Description: H.265/HEVC video encoder
+          Version: 3.6
+          Libs: -L\${libdir} -lx265
+          Libs.private: -lc++ -lm -lpthread
+          Cflags: -I\${includedir}
+          PCEOF
           cd ../../..
 
           echo "=== Building libvpx (BSD) ==="
