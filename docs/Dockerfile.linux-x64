@@ -226,9 +226,13 @@ RUN git clone --depth 1 --branch ${FFMPEG_VERSION} https://git.ffmpeg.org/ffmpeg
 RUN strip $PREFIX/bin/ffmpeg $PREFIX/bin/ffprobe && \
     echo "=== Verifying static binary ===" && \
     file $PREFIX/bin/ffmpeg && \
-    ldd $PREFIX/bin/ffmpeg 2>&1 | grep -q "not a dynamic executable" && \
-    echo "✓ Binary is fully static" || \
-    (echo "✗ Binary has dynamic dependencies:" && ldd $PREFIX/bin/ffmpeg && exit 1) && \
+    # musl ldd says "Not a valid dynamic program" for static binaries
+    # glibc ldd says "not a dynamic executable"
+    if ldd $PREFIX/bin/ffmpeg 2>&1 | grep -qE "(not a dynamic executable|Not a valid dynamic program)"; then \
+        echo "✓ Binary is fully static"; \
+    else \
+        echo "✗ Binary has dynamic dependencies:" && ldd $PREFIX/bin/ffmpeg && exit 1; \
+    fi && \
     echo "=== Binary sizes ===" && \
     ls -lh $PREFIX/bin/ffmpeg $PREFIX/bin/ffprobe && \
     echo "=== FFmpeg version ===" && \
