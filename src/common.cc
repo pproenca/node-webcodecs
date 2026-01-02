@@ -292,7 +292,11 @@ Napi::Error FFmpegError(Napi::Env env, const std::string& operation,
 
 std::string FFmpegErrorString(int errnum) {
   char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
-  if (av_strerror(errnum, errbuf, sizeof(errbuf)) < 0) {
+  int ret = av_strerror(errnum, errbuf, sizeof(errbuf));
+  // Check for explicit failure OR empty buffer (ABI mismatch with strerror_r).
+  // FFmpeg built on musl expects XSI strerror_r (returns int, writes to buffer).
+  // When running on glibc, GNU strerror_r returns char* without writing to buffer.
+  if (ret < 0 || errbuf[0] == '\0') {
     snprintf(errbuf, sizeof(errbuf), "Error code %d", errnum);
   }
   return std::string(errbuf);
