@@ -3,6 +3,7 @@
 
 #include "src/audio_encoder.h"
 
+#include <cstdio>
 #include <string>
 #include <vector>
 
@@ -65,17 +66,27 @@ AudioEncoder::AudioEncoder(const Napi::CallbackInfo& info)
 }
 
 AudioEncoder::~AudioEncoder() {
+  fprintf(stderr, "[DEBUG] AudioEncoder::~AudioEncoder() ENTER\n");
+
   // CRITICAL: Call Cleanup() first to ensure codec context is properly
   // flushed before any further cleanup.
   Cleanup();
 
+  fprintf(stderr, "[DEBUG] AudioEncoder::~AudioEncoder() after Cleanup\n");
+
   // Now safe to disable FFmpeg logging.
   webcodecs::ShutdownFFmpegLogging();
 
+  fprintf(stderr, "[DEBUG] AudioEncoder::~AudioEncoder() after ShutdownFFmpegLogging\n");
+
   webcodecs::counterAudioEncoders--;
+
+  fprintf(stderr, "[DEBUG] AudioEncoder::~AudioEncoder() EXIT\n");
 }
 
 void AudioEncoder::Cleanup() {
+  fprintf(stderr, "[DEBUG] AudioEncoder::Cleanup() ENTER\n");
+
   // DARWIN-X64 FIX: Flush codec internal buffers BEFORE destroying resources.
   // Audio codecs (opus, aac, mp3) may have internal queued samples. Flushing
   // ensures they're drained before context destruction.
@@ -84,14 +95,18 @@ void AudioEncoder::Cleanup() {
   // NOTE: Order matters - flush must happen before resetting frame_/packet_/swr_
   // to match VideoEncoder pattern and ensure codec internal state is consistent.
   if (codec_context_ && avcodec_is_open(codec_context_.get())) {
+    fprintf(stderr, "[DEBUG] AudioEncoder::Cleanup() flushing codec\n");
     avcodec_flush_buffers(codec_context_.get());
+    fprintf(stderr, "[DEBUG] AudioEncoder::Cleanup() flush done\n");
   }
 
+  fprintf(stderr, "[DEBUG] AudioEncoder::Cleanup() resetting resources\n");
   frame_.reset();
   packet_.reset();
   swr_context_.reset();
   codec_context_.reset();
   codec_ = nullptr;
+  fprintf(stderr, "[DEBUG] AudioEncoder::Cleanup() EXIT\n");
 }
 
 Napi::Value AudioEncoder::Configure(const Napi::CallbackInfo& info) {
