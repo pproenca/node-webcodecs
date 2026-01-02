@@ -84,6 +84,9 @@
             "-ldl",
             "-lz"
           ],
+          "ldflags": [
+            "-Wl,-Bsymbolic"
+          ],
           "cflags_cc": [
             "-std=c++20",
             "-fexceptions",
