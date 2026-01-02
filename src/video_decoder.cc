@@ -114,13 +114,15 @@ void VideoDecoder::Cleanup() {
     }
   }
 
-  // Abort ThreadSafeFunctions to cancel any pending callbacks.
-  // This is non-blocking and prevents the main thread from stalling.
+  // DARWIN-X64 FIX: Release ThreadSafeFunctions to ensure proper cleanup.
+  // Release() signals no more calls will be made and decrements the reference
+  // count. Without explicit Release(), TSFN cleanup during environment teardown
+  // may race with other shutdown operations on Intel Mac (slower timing).
   // The shared_ptr<atomic<int>> pending_frames_ captured by callbacks ensures
   // thread-safety even if callbacks are cancelled mid-flight.
   if (async_mode_) {
-    output_tsfn_.Abort();
-    error_tsfn_.Abort();
+    output_tsfn_.Release();
+    error_tsfn_.Release();
     async_mode_ = false;
   }
 

@@ -114,7 +114,9 @@ VideoEncoder::VideoEncoder(const Napi::CallbackInfo& info)
 
 VideoEncoder::~VideoEncoder() {
   // DEBUG: Track destructor entry for crash diagnosis
+  // Use fflush to ensure output is visible before any potential crash
   fprintf(stderr, "[DEBUG] VideoEncoder::~VideoEncoder() ENTER\n");
+  fflush(stderr);
 
   // CRITICAL: Call Cleanup() first to stop the async worker thread and wait
   // for pending TSFN callbacks. The worker may still be processing frames,
@@ -122,28 +124,34 @@ VideoEncoder::~VideoEncoder() {
   Cleanup();
 
   fprintf(stderr, "[DEBUG] VideoEncoder::~VideoEncoder() after Cleanup\n");
+  fflush(stderr);
 
   // Now safe to disable FFmpeg logging. The worker thread has exited and all
   // pending callbacks have been processed or aborted.
   webcodecs::ShutdownFFmpegLogging();
 
   fprintf(stderr, "[DEBUG] VideoEncoder::~VideoEncoder() after ShutdownFFmpegLogging\n");
+  fflush(stderr);
 
   // Track active encoder instance (following sharp pattern)
   webcodecs::counterProcess--;
   webcodecs::counterVideoEncoders--;
 
   fprintf(stderr, "[DEBUG] VideoEncoder::~VideoEncoder() EXIT\n");
+  fflush(stderr);
 }
 
 void VideoEncoder::Cleanup() {
   fprintf(stderr, "[DEBUG] VideoEncoder::Cleanup() ENTER\n");
+  fflush(stderr);
 
   if (async_worker_) {
     fprintf(stderr, "[DEBUG] Cleanup: calling async_worker_->Stop()\n");
+    fflush(stderr);
     // Stop() joins the worker thread - after this, no new TSFN calls will be made
     async_worker_->Stop();
     fprintf(stderr, "[DEBUG] Cleanup: Stop() returned\n");
+    fflush(stderr);
 
     // DARWIN-X64 FIX: Wait for pending TSFN callbacks to complete.
     // After Stop() joins the thread, there may still be queued TSFN callbacks
@@ -152,6 +160,7 @@ void VideoEncoder::Cleanup() {
     // encoder may have additional internal callbacks that need time to complete.
     int pending = async_worker_->GetPendingChunks();
     fprintf(stderr, "[DEBUG] Cleanup: pending chunks before wait = %d\n", pending);
+    fflush(stderr);
     auto deadline =
         std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
     while (async_worker_->GetPendingChunks() > 0 &&
@@ -160,25 +169,33 @@ void VideoEncoder::Cleanup() {
     }
     pending = async_worker_->GetPendingChunks();
     fprintf(stderr, "[DEBUG] Cleanup: pending chunks after wait = %d\n", pending);
+    fflush(stderr);
   }
 
-  // Abort ThreadSafeFunctions to cancel any pending callbacks.
-  // This is non-blocking and prevents the main thread from stalling.
-  // The shared_ptr<atomic<int>> pending_chunks_ captured by callbacks ensures
-  // thread-safety even if callbacks are cancelled mid-flight.
+  // DARWIN-X64 FIX: Release ThreadSafeFunctions to ensure proper cleanup.
+  // Abort() signals no more calls will be made, but Release() is needed to
+  // properly decrement the reference count and trigger finalization.
+  // Without Release(), TSFN cleanup during environment teardown may race
+  // with other shutdown operations on Intel Mac (slower timing).
   if (async_mode_) {
-    fprintf(stderr, "[DEBUG] Cleanup: aborting TSFNs\n");
-    output_tsfn_.Abort();
-    error_tsfn_.Abort();
+    fprintf(stderr, "[DEBUG] Cleanup: releasing TSFNs\n");
+    fflush(stderr);
+    // Release() includes the abort behavior - it signals no more calls and
+    // decrements the reference count. Pending callbacks will receive null env.
+    output_tsfn_.Release();
+    error_tsfn_.Release();
     async_mode_ = false;
-    fprintf(stderr, "[DEBUG] Cleanup: TSFNs aborted\n");
+    fprintf(stderr, "[DEBUG] Cleanup: TSFNs released\n");
+    fflush(stderr);
   }
 
-  // Safe to destroy async_worker_ - worker thread has exited and TSFN aborted
+  // Safe to destroy async_worker_ - worker thread has exited and TSFN released
   if (async_worker_) {
     fprintf(stderr, "[DEBUG] Cleanup: resetting async_worker_\n");
+    fflush(stderr);
     async_worker_.reset();
     fprintf(stderr, "[DEBUG] Cleanup: async_worker_ reset\n");
+    fflush(stderr);
   }
 
   // DARWIN-X64 FIX: Flush codec internal buffers before destruction.
@@ -189,17 +206,21 @@ void VideoEncoder::Cleanup() {
   // crashes on an unopened codec context (the internal codec pointer is NULL).
   if (codec_context_ && avcodec_is_open(codec_context_.get())) {
     fprintf(stderr, "[DEBUG] Cleanup: flushing codec buffers\n");
+    fflush(stderr);
     avcodec_flush_buffers(codec_context_.get());
     fprintf(stderr, "[DEBUG] Cleanup: codec buffers flushed\n");
+    fflush(stderr);
   }
 
   fprintf(stderr, "[DEBUG] Cleanup: resetting RAII resources\n");
+  fflush(stderr);
   frame_.reset();
   packet_.reset();
   sws_context_.reset();
   codec_context_.reset();
   codec_ = nullptr;
   fprintf(stderr, "[DEBUG] VideoEncoder::Cleanup() EXIT\n");
+  fflush(stderr);
 }
 
 Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
