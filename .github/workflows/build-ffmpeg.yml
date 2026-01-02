@@ -56,7 +56,7 @@ env:
   # npm scope for platform packages
   NPM_SCOPE: '@pproenca/ffmpeg'
   # Bump this to invalidate all caches
-  CACHE_VERSION: '9'
+  CACHE_VERSION: '10'
   # macOS deployment target - must match binding.gyp MACOSX_DEPLOYMENT_TARGET
   # This ensures ABI compatibility between FFmpeg libs and the native addon.
   # Using 11.0 (Big Sur) as minimum for widest compatibility.
@@ -262,6 +262,9 @@ jobs:
           # deployment target. libvpx uses darwin${DARWIN_VERSION} which embeds
           # the host macOS version (e.g., darwin24 for macOS 15), but we need
           # to target macOS 11.0 for ABI compatibility with binding.gyp.
+          # NOTE: libvpx only supports --extra-cflags, NOT --extra-ldflags.
+          # LDFLAGS must be passed as an environment variable.
+          LDFLAGS="-mmacosx-version-min=${{ env.MACOS_DEPLOYMENT_TARGET }}" \
           ./configure \
             --prefix="$TARGET" \
             --target=$VPX_TARGET \
@@ -272,8 +275,7 @@ jobs:
             --enable-vp9-highbitdepth \
             --enable-static \
             --disable-shared \
-            --extra-cflags="-mmacosx-version-min=${{ env.MACOS_DEPLOYMENT_TARGET }}" \
-            --extra-ldflags="-mmacosx-version-min=${{ env.MACOS_DEPLOYMENT_TARGET }}"
+            --extra-cflags="-mmacosx-version-min=${{ env.MACOS_DEPLOYMENT_TARGET }}"
           make -j$(sysctl -n hw.ncpu)
           make install
           cd ..
