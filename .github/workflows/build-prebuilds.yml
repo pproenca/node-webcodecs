@@ -111,14 +111,21 @@ jobs:
         run: |
           npx prebuildify --napi --strip --arch=${{ matrix.arch }}
 
-          # Verify expected structure (node-gyp-build expects node.napi.node)
-          # Use matrix.platform directly instead of constructing from runner.os
+          # prebuildify 6.x with scoped packages creates @scope+name.node
+          # but node-gyp-build expects node.napi.node - rename if needed
           PREBUILD_DIR="prebuilds/${{ matrix.platform }}"
 
           if [ ! -f "$PREBUILD_DIR/node.napi.node" ]; then
-            echo "Error: Expected $PREBUILD_DIR/node.napi.node"
-            ls -laR prebuilds/
-            exit 1
+            # Look for scoped package naming pattern
+            SCOPED_FILE=$(find "$PREBUILD_DIR" -name "*.node" -type f | head -1)
+            if [ -n "$SCOPED_FILE" ]; then
+              echo "Renaming $SCOPED_FILE to node.napi.node"
+              mv "$SCOPED_FILE" "$PREBUILD_DIR/node.napi.node"
+            else
+              echo "Error: No .node file found in $PREBUILD_DIR"
+              ls -laR prebuilds/
+              exit 1
+            fi
           fi
           echo "Prebuild OK: $PREBUILD_DIR/node.napi.node"
           ls -la "$PREBUILD_DIR/"
