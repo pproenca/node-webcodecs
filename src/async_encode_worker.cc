@@ -6,6 +6,7 @@
 #include "src/async_encode_worker.h"
 
 #include <chrono>
+#include <cstdio>
 #include <memory>
 #include <string>
 #include <utility>
@@ -315,9 +316,11 @@ void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
     // NOTE: Do NOT access static variables (like counterQueue) here - they may
     // already be destroyed due to static destruction order during process exit.
     if (env == nullptr) {
+      fprintf(stderr, "[DEBUG] TSFN callback: env is NULL (abort case)\n");
       info->pending->fetch_sub(1);
       // Skip counterQueue-- : static may be destroyed during process exit
       delete info;
+      fprintf(stderr, "[DEBUG] TSFN callback: abort cleanup done\n");
       return;
     }
 
