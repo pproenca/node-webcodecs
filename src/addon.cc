@@ -93,10 +93,21 @@ Napi::Value TestAttrAsEnum(const Napi::CallbackInfo& info) {
   return Napi::String::New(env, webcodecs::ColorPrimariesToString(primaries));
 }
 
+// Cleanup hook called when the Node.js environment is being torn down.
+// This prevents the static destruction order fiasco where FFmpeg's log
+// callback might access destroyed static objects during process exit.
+static void CleanupCallback(void* arg) {
+  webcodecs::ShutdownFFmpegLogging();
+}
+
 Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
   // Thread-safe FFmpeg initialization
   webcodecs::InitFFmpeg();
   webcodecs::InitFFmpegLogging();
+
+  // Register cleanup hook to disable FFmpeg logging before static destructors.
+  // This fixes crashes on macOS x64 where FFmpeg logs during process exit.
+  napi_add_env_cleanup_hook(env, CleanupCallback, nullptr);
 
   InitVideoEncoder(env, exports);
   InitVideoDecoder(env, exports);

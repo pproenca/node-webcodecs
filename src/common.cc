@@ -377,11 +377,18 @@ void InitFFmpeg() {
 
 static std::queue<std::string> ffmpegWarnings;
 static std::mutex ffmpegWarningsMutex;
+static std::atomic<bool> ffmpegLoggingActive{false};
 
 void InitFFmpegLogging() {
   static std::once_flag log_init_once;
   std::call_once(log_init_once, []() {
+    ffmpegLoggingActive.store(true, std::memory_order_release);
     av_log_set_callback([](void* ptr, int level, const char* fmt, va_list vl) {
+      // Guard against callbacks during/after shutdown to prevent
+      // static destruction order fiasco on process exit.
+      if (!ffmpegLoggingActive.load(std::memory_order_acquire)) {
+        return;
+      }
       if (level <= AV_LOG_WARNING) {
         char buf[1024];
         vsnprintf(buf, sizeof(buf), fmt, vl);
@@ -399,6 +406,14 @@ void InitFFmpegLogging() {
     });
     av_log_set_level(AV_LOG_WARNING);
   });
+}
+
+void ShutdownFFmpegLogging() {
+  // Disable logging callback before static destructors run.
+  // This prevents the callback from accessing destroyed statics
+  // during process exit (static destruction order fiasco).
+  ffmpegLoggingActive.store(false, std::memory_order_release);
+  av_log_set_callback(nullptr);
 }
 
 std::vector<std::string> GetFFmpegWarnings() {
