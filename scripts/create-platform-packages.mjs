@@ -25,10 +25,10 @@ console.log(`Creating platform packages with version: ${version}`);
 const PLATFORMS = [
   { name: 'darwin-arm64', os: 'darwin', cpu: 'arm64' },
   { name: 'darwin-x64', os: 'darwin', cpu: 'x64' },
-  { name: 'linux-x64', os: 'linux', cpu: 'x64' },
+  { name: 'linux-x64', os: 'linux', cpu: 'x64', libc: 'musl' },
 ];
 
-for (const { name, os, cpu } of PLATFORMS) {
+for (const { name, os, cpu, libc } of PLATFORMS) {
   const pkgDir = join(packagesDir, `@pproenca/node-webcodecs-${name}`);
   const binDir = join(pkgDir, 'bin');
 
@@ -47,6 +47,7 @@ for (const { name, os, cpu } of PLATFORMS) {
     description: `node-webcodecs native addon for ${name}`,
     os: [os],
     cpu: [cpu],
+    ...(libc && { libc: [libc] }),
     files: ['bin/'],
     license: 'MIT',
     repository: {

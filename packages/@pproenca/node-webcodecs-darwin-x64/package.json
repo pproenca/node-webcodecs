@@ -2,9 +2,15 @@
   "name": "@pproenca/node-webcodecs-darwin-x64",
   "version": "0.1.1-alpha.3",
   "description": "node-webcodecs native addon for darwin-x64",
-  "os": ["darwin"],
-  "cpu": ["x64"],
-  "files": ["bin/"],
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "bin/"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
