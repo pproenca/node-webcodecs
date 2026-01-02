@@ -236,7 +236,7 @@ jobs:
           cd ..
 
           echo "=== Building libopus (BSD) ==="
-          curl -sL https://archive.mozilla.org/pub/opus/opus-${{ env.OPUS_VERSION }}.tar.gz | tar xz
+          curl -sL https://downloads.xiph.org/releases/opus/opus-${{ env.OPUS_VERSION }}.tar.gz | tar xz
           cd opus-${{ env.OPUS_VERSION }}
           ./configure \
             --prefix="$TARGET" \

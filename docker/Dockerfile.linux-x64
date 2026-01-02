@@ -64,12 +64,14 @@ RUN git clone --depth 1 --branch ${X264_VERSION} https://code.videolan.org/video
 
 # ============================================================================
 # Build x265 (GPL - required for H.265/HEVC encoding)
+# Note: x265 cmake doesn't always install .pc file, so we create it manually
 # ============================================================================
 RUN git clone --depth 1 https://bitbucket.org/multicoreware/x265_git.git && \
     mkdir -p x265_git/build/linux && \
     cd x265_git/build/linux && \
     cmake -G "Unix Makefiles" \
         -DCMAKE_INSTALL_PREFIX=$PREFIX \
+        -DLIB_INSTALL_DIR=$PREFIX/lib \
         -DENABLE_SHARED=OFF \
         -DENABLE_CLI=OFF \
         -DSTATIC_LINK_CRT=ON \
@@ -77,6 +79,20 @@ RUN git clone --depth 1 https://bitbucket.org/multicoreware/x265_git.git && \
         ../../source && \
     make -j$(nproc) && \
     make install && \
+    mkdir -p $PREFIX/lib/pkgconfig && \
+    printf '%s\n' \
+        "prefix=/build" \
+        "exec_prefix=\${prefix}" \
+        "libdir=\${prefix}/lib" \
+        "includedir=\${prefix}/include" \
+        "" \
+        "Name: x265" \
+        "Description: H.265/HEVC video encoder" \
+        "Version: 3.6" \
+        "Libs: -L\${libdir} -lx265" \
+        "Libs.private: -lstdc++ -lm -lpthread" \
+        "Cflags: -I\${includedir}" \
+        > $PREFIX/lib/pkgconfig/x265.pc && \
     cd /src && rm -rf x265_git
 
 # ============================================================================
@@ -120,7 +136,7 @@ RUN git clone --depth 1 --branch ${LIBAOM_VERSION} https://aomedia.googlesource.
 # ============================================================================
 # Build libopus (BSD - Opus audio codec)
 # ============================================================================
-RUN wget -q https://archive.mozilla.org/pub/opus/opus-${OPUS_VERSION}.tar.gz && \
+RUN wget -q https://downloads.xiph.org/releases/opus/opus-${OPUS_VERSION}.tar.gz && \
     tar xzf opus-${OPUS_VERSION}.tar.gz && \
     cd opus-${OPUS_VERSION} && \
     ./configure \
