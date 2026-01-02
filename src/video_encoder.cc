@@ -112,6 +112,12 @@ VideoEncoder::VideoEncoder(const Napi::CallbackInfo& info)
 }
 
 VideoEncoder::~VideoEncoder() {
+  // CRITICAL: Disable FFmpeg logging BEFORE cleanup to prevent crashes during
+  // process exit. On darwin-x64, FFmpeg may log warnings during
+  // avcodec_free_context() which can race with static destruction.
+  // This must happen before Cleanup() which frees the codec context.
+  webcodecs::ShutdownFFmpegLogging();
+
   Cleanup();
   // Track active encoder instance (following sharp pattern)
   webcodecs::counterProcess--;
