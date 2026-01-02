@@ -53,6 +53,9 @@
             "-framework CoreFoundation",
             "-framework CoreServices",
             "-framework Security",
+            "-framework Metal",
+            "-framework CoreImage",
+            "-framework AppKit",
             "-liconv",
             "-lbz2",
             "-lz"

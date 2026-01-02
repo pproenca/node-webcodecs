@@ -19,6 +19,10 @@
 // CRITICAL: The --define-variable=prefix= flag relocates hardcoded paths in .pc files
 // (e.g., /build → actual extraction path). Without this, pkg-config returns paths
 // that don't exist on the build machine.
+//
+// IMPORTANT: macOS framework flags (-framework X) must be filtered out because
+// node-gyp's <!@()> splits output by whitespace, breaking "-framework Metal" into
+// two tokens. binding.gyp already explicitly adds required frameworks.
 
 'use strict';
 
@@ -27,6 +31,24 @@ const { execSync } = require('node:child_process');
 const { join, resolve } = require('node:path');
 
 const FFMPEG_LIBS = 'libavcodec libavformat libavutil libswscale libswresample libavfilter';
+
+// Filter out "-framework X" pairs from linker flags.
+// node-gyp's <!@()> command substitution splits by whitespace, which breaks
+// "-framework Metal" into ["-framework", "Metal"]. The linker then tries to
+// open "Metal" as a file. binding.gyp already adds required frameworks explicitly.
+function filterFrameworkFlags(flags) {
+  const tokens = flags.split(/\s+/);
+  const result = [];
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i] === '-framework') {
+      // Skip -framework and its argument (the framework name)
+      i++;
+    } else {
+      result.push(tokens[i]);
+    }
+  }
+  return result.join(' ');
+}
 
 // Detect FFmpeg root from environment or filesystem
 function getFFmpegRoot() {
@@ -83,7 +105,9 @@ if (mode === 'lib') {
   if (ffmpeg) {
     const result = runPkgConfig(`--libs --static ${FFMPEG_LIBS}`, ffmpeg.root, ffmpeg.pkgconfig);
     if (result) {
-      console.log(result);
+      // Filter out -framework flags on macOS (binding.gyp adds them explicitly)
+      const filtered = process.platform === 'darwin' ? filterFrameworkFlags(result) : result;
+      console.log(filtered);
       process.exit(0);
     }
   }
