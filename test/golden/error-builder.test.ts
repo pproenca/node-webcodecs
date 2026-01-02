@@ -9,7 +9,8 @@ describe('ErrorBuilder', () => {
 
     const message = builder.build();
     expect(message).toContain('avcodec_send_frame');
-    expect(message).toContain('Invalid argument');
+    // glibc: "Invalid argument", musl: "Error number -22 occurred"
+    expect(message).toMatch(/Invalid argument|(-22|EINVAL)/);
   });
 
   it('chains context and values', () => {
