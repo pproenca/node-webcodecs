@@ -56,7 +56,11 @@ env:
   # npm scope for platform packages
   NPM_SCOPE: '@pproenca/ffmpeg'
   # Bump this to invalidate all caches
-  CACHE_VERSION: '7'
+  CACHE_VERSION: '8'
+  # macOS deployment target - must match binding.gyp MACOSX_DEPLOYMENT_TARGET
+  # This ensures ABI compatibility between FFmpeg libs and the native addon.
+  # Using 11.0 (Big Sur) as minimum for widest compatibility.
+  MACOS_DEPLOYMENT_TARGET: '11.0'
 
 jobs:
   # ============================================================================
@@ -207,8 +211,8 @@ jobs:
             --disable-shared \
             --enable-pic \
             --disable-cli \
-            --extra-cflags="-arch $ARCH" \
-            --extra-ldflags="-arch $ARCH"
+            --extra-cflags="-arch $ARCH -mmacosx-version-min=${{ env.MACOS_DEPLOYMENT_TARGET }}" \
+            --extra-ldflags="-arch $ARCH -mmacosx-version-min=${{ env.MACOS_DEPLOYMENT_TARGET }}"
           make -j$(sysctl -n hw.ncpu)
           make install
           cd ..
@@ -222,6 +226,7 @@ jobs:
             -DENABLE_SHARED=OFF \
             -DENABLE_CLI=OFF \
             -DCMAKE_OSX_ARCHITECTURES=$ARCH \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.MACOS_DEPLOYMENT_TARGET }} \
             ../../source
           make -j$(sysctl -n hw.ncpu)
           make install
@@ -277,6 +282,7 @@ jobs:
             -DENABLE_EXAMPLES=OFF \
             -DENABLE_TESTS=OFF \
             -DCMAKE_OSX_ARCHITECTURES=$ARCH \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.MACOS_DEPLOYMENT_TARGET }} \
             ../aom
           make -j$(sysctl -n hw.ncpu)
           make install
@@ -289,8 +295,8 @@ jobs:
             --prefix="$TARGET" \
             --disable-shared \
             --enable-static \
-            CFLAGS="-arch $ARCH" \
-            LDFLAGS="-arch $ARCH"
+            CFLAGS="-arch $ARCH -mmacosx-version-min=${{ env.MACOS_DEPLOYMENT_TARGET }}" \
+            LDFLAGS="-arch $ARCH -mmacosx-version-min=${{ env.MACOS_DEPLOYMENT_TARGET }}"
           make -j$(sysctl -n hw.ncpu)
           make install
           cd ..
@@ -303,8 +309,8 @@ jobs:
             --disable-shared \
             --enable-static \
             --enable-nasm \
-            CFLAGS="-arch $ARCH" \
-            LDFLAGS="-arch $ARCH"
+            CFLAGS="-arch $ARCH -mmacosx-version-min=${{ env.MACOS_DEPLOYMENT_TARGET }}" \
+            LDFLAGS="-arch $ARCH -mmacosx-version-min=${{ env.MACOS_DEPLOYMENT_TARGET }}"
           make -j$(sysctl -n hw.ncpu)
           make install
           cd ..
@@ -335,8 +341,8 @@ jobs:
           ./configure \
             --cc="clang -arch $ARCH" \
             --prefix="$TARGET" \
-            --extra-cflags="-I$TARGET/include -fno-stack-check" \
-            --extra-ldflags="-L$TARGET/lib" \
+            --extra-cflags="-I$TARGET/include -fno-stack-check -mmacosx-version-min=${{ env.MACOS_DEPLOYMENT_TARGET }}" \
+            --extra-ldflags="-L$TARGET/lib -mmacosx-version-min=${{ env.MACOS_DEPLOYMENT_TARGET }}" \
             --pkg-config-flags="--static" \
             --enable-static \
             --disable-shared \
