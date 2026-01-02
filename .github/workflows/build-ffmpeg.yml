@@ -50,7 +50,7 @@ env:
   # npm scope for platform packages
   NPM_SCOPE: '@pproenca/ffmpeg'
   # Bump this to invalidate all caches
-  CACHE_VERSION: '5'
+  CACHE_VERSION: '6'
 
 jobs:
   # ============================================================================
@@ -164,7 +164,7 @@ jobs:
           export PATH="$TARGET/bin:$PATH"
           export PKG_CONFIG_PATH="$TARGET/lib/pkgconfig"
           mkdir -p "$TARGET"/{include,lib,bin}
-          mkdir -p ~/ffmpeg_sources && cd ~/ffmpeg_sources
+          mkdir -p "${{ github.workspace }}/ffmpeg_sources" && cd "${{ github.workspace }}/ffmpeg_sources"
 
           echo "=== Building nasm ==="
           curl -sL https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/nasm-2.16.03.tar.bz2 | tar xj
@@ -291,11 +291,16 @@ jobs:
           export PATH="$TARGET/bin:$PATH"
           export PKG_CONFIG_PATH="$TARGET/lib/pkgconfig"
 
-          cd ~/ffmpeg_sources
+          mkdir -p "${{ github.workspace }}/ffmpeg_sources"
+          cd "${{ github.workspace }}/ffmpeg_sources"
 
-          # Clone if not cached
+          # Clone if not cached (use GitHub mirror - more reliable than git.ffmpeg.org)
           if [ ! -d ffmpeg ]; then
-            git clone --depth 1 https://git.ffmpeg.org/ffmpeg.git
+            for i in 1 2 3; do
+              git clone --depth 1 https://github.com/FFmpeg/FFmpeg.git ffmpeg && break
+              echo "Clone attempt $i failed, retrying in 10s..."
+              sleep 10
+            done
           fi
 
           cd ffmpeg
