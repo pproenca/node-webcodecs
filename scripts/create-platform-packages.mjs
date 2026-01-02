@@ -56,7 +56,7 @@ for (const { name, os, cpu } of PLATFORMS) {
   };
 
   const pkgPath = join(pkgDir, 'package.json');
-  writeFileSync(pkgPath, JSON.stringify(pkgJson, null, 2) + '\n');
+  writeFileSync(pkgPath, `${JSON.stringify(pkgJson, null, 2)}\n`);
   console.log(`  Created ${pkgPath}`);
 }
 
@@ -68,7 +68,7 @@ for (const { name } of PLATFORMS) {
 
 mainPkg.optionalDependencies = optionalDeps;
 const mainPkgPath = join(rootDir, 'package.json');
-writeFileSync(mainPkgPath, JSON.stringify(mainPkg, null, 2) + '\n');
+writeFileSync(mainPkgPath, `${JSON.stringify(mainPkg, null, 2)}\n`);
 console.log(`  Updated ${mainPkgPath} optionalDependencies`);
 
 console.log('\nDone! Platform packages ready for publishing.');
