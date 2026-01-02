@@ -17,7 +17,7 @@ jobs:
   build-prebuilds:
     uses: ./.github/workflows/build-prebuilds.yml
     with:
-      deps_version: v2  # Update when deps change
+      deps_version: v3  # Update when deps change
     # Reusable workflows inherit permissions from caller - must grant what callee needs
     permissions:
       contents: read      # For checkout
