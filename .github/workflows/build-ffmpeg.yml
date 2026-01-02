@@ -86,22 +86,35 @@ jobs:
           cache-from: type=gha,scope=linux-x64
           cache-to: type=gha,mode=max,scope=linux-x64
 
-      - name: Extract binaries from container
+      - name: Extract binaries and dev files from container
         run: |
-          mkdir -p artifacts/linux-x64
+          mkdir -p artifacts/linux-x64/{bin,lib,include}
           docker create --name extract ffmpeg-builder:linux-x64
-          docker cp extract:/build/bin/ffmpeg artifacts/linux-x64/ffmpeg
-          docker cp extract:/build/bin/ffprobe artifacts/linux-x64/ffprobe
+
+          # Extract binaries
+          docker cp extract:/build/bin/ffmpeg artifacts/linux-x64/bin/ffmpeg
+          docker cp extract:/build/bin/ffprobe artifacts/linux-x64/bin/ffprobe
+
+          # Extract development files (needed for native addon compilation)
+          docker cp extract:/build/lib/. artifacts/linux-x64/lib/
+          docker cp extract:/build/include/. artifacts/linux-x64/include/
+
           docker rm extract
 
           # Verify static linking
           echo "Verifying static binary..."
-          file artifacts/linux-x64/ffmpeg
-          ! ldd artifacts/linux-x64/ffmpeg 2>/dev/null || echo "Warning: binary may have dynamic deps"
+          file artifacts/linux-x64/bin/ffmpeg
+          ! ldd artifacts/linux-x64/bin/ffmpeg 2>/dev/null || echo "Warning: binary may have dynamic deps"
 
           # Get version info
-          chmod +x artifacts/linux-x64/ffmpeg
-          ./artifacts/linux-x64/ffmpeg -version > artifacts/linux-x64/version.txt 2>&1 || true
+          chmod +x artifacts/linux-x64/bin/ffmpeg
+          ./artifacts/linux-x64/bin/ffmpeg -version > artifacts/linux-x64/version.txt 2>&1 || true
+
+          # Verify dev files extracted
+          echo "=== Library files ==="
+          ls -la artifacts/linux-x64/lib/
+          echo "=== Pkgconfig files ==="
+          ls -la artifacts/linux-x64/lib/pkgconfig/ || echo "Warning: No pkgconfig directory"
 
       # Tar to preserve permissions (chmod +x is lost in artifact upload)
       - name: Package artifacts
@@ -368,10 +381,22 @@ jobs:
 
       - name: Package artifacts
         run: |
-          mkdir -p artifacts/darwin-${{ matrix.arch }}
-          cp "$TARGET/bin/ffmpeg" artifacts/darwin-${{ matrix.arch }}/
-          cp "$TARGET/bin/ffprobe" artifacts/darwin-${{ matrix.arch }}/
+          mkdir -p artifacts/darwin-${{ matrix.arch }}/{bin,lib,include}
+
+          # Copy binaries
+          cp "$TARGET/bin/ffmpeg" artifacts/darwin-${{ matrix.arch }}/bin/
+          cp "$TARGET/bin/ffprobe" artifacts/darwin-${{ matrix.arch }}/bin/
           "$TARGET/bin/ffmpeg" -version > artifacts/darwin-${{ matrix.arch }}/version.txt 2>&1 || true
+
+          # Copy development files (needed for native addon compilation)
+          cp -r "$TARGET/lib/"* artifacts/darwin-${{ matrix.arch }}/lib/
+          cp -r "$TARGET/include/"* artifacts/darwin-${{ matrix.arch }}/include/
+
+          # Verify dev files copied
+          echo "=== Library files ==="
+          ls -la artifacts/darwin-${{ matrix.arch }}/lib/
+          echo "=== Pkgconfig files ==="
+          ls -la artifacts/darwin-${{ matrix.arch }}/lib/pkgconfig/
 
           cd artifacts
           tar -cvf darwin-${{ matrix.arch }}.tar darwin-${{ matrix.arch }}/
@@ -424,7 +449,8 @@ jobs:
           done
 
           # Debug: show structure
-          find artifacts -type f -name "ffmpeg*" -o -name "version.txt"
+          echo "=== Artifact structure ==="
+          find artifacts -type f -name "ffmpeg*" -o -name "version.txt" | head -50
 
           # Create platform package directories
           mkdir -p packages
@@ -438,16 +464,18 @@ jobs:
             # Source directory is artifact_dir/platform/ (e.g., artifacts/ffmpeg-linux-x64/linux-x64/)
             src_dir="${artifact_dir}${platform}"
 
-            if [ ! -d "$src_dir" ] || [ ! -f "$src_dir/ffmpeg" ]; then
-              echo "Warning: Skipping $platform - source directory or binary not found"
+            # Binaries are now in bin/ subdirectory
+            if [ ! -d "$src_dir" ] || [ ! -f "$src_dir/bin/ffmpeg" ]; then
+              echo "Warning: Skipping $platform - source directory or binary not found at $src_dir/bin/ffmpeg"
+              ls -laR "$src_dir" 2>/dev/null || echo "Directory doesn't exist"
               continue
             fi
 
             pkg_dir="packages/${{ env.NPM_SCOPE }}-${platform}"
             mkdir -p "$pkg_dir/bin"
 
-            cp "$src_dir/ffmpeg" "$pkg_dir/bin/"
-            cp "$src_dir/ffprobe" "$pkg_dir/bin/"
+            cp "$src_dir/bin/ffmpeg" "$pkg_dir/bin/"
+            cp "$src_dir/bin/ffprobe" "$pkg_dir/bin/"
             chmod +x "$pkg_dir/bin/"*
 
             # Get version from tag or use 0.0.0-dev
@@ -775,32 +803,46 @@ jobs:
           mkdir -p release
 
           # Extract artifacts and create unversioned tarballs
+          # IMPORTANT: build-prebuilds.yml expects files at root level (lib/, include/, bin/)
+          # NOT inside a platform subdirectory
           for artifact in artifacts/ffmpeg-*/; do
             tarball=$(find "$artifact" -name "*.tar" | head -1)
             if [ -n "$tarball" ]; then
               platform=$(basename "$artifact" | sed 's/ffmpeg-//')
               echo "Processing platform: $platform"
 
-              # Extract the tar (contains platform/ directory)
+              # Extract the tar (contains platform/ directory with bin/, lib/, include/)
               tar -xf "$tarball" -C artifacts/
 
-              # Create release tarball WITHOUT version prefix
-              # This is what ci.yml and build-prebuilds.yml expect
-              cd artifacts
-              tar -czvf "../release/ffmpeg-${platform}.tar.gz" "${platform}/"
-              cd ..
+              # Verify expected structure exists
+              if [ ! -d "artifacts/${platform}/lib" ]; then
+                echo "ERROR: Missing lib/ directory for $platform"
+                ls -laR "artifacts/${platform}/"
+                exit 1
+              fi
+
+              # Create release tarball with files at ROOT level (not inside platform subdir)
+              # This is what build-prebuilds.yml expects when it does:
+              #   tar -xzvf ffmpeg-darwin-arm64.tar.gz -C ffmpeg-install
+              #   ls -la ffmpeg-install/lib/
+              cd "artifacts/${platform}"
+              tar -czvf "../../release/ffmpeg-${platform}.tar.gz" lib/ include/ bin/ version.txt
+              cd ../..
             fi
           done
 
           echo "=== Release assets ==="
           ls -la release/
 
-          # Verify all expected platforms present
+          # Verify all expected platforms present and have correct structure
           for platform in linux-x64 darwin-x64 darwin-arm64; do
             if [ ! -f "release/ffmpeg-${platform}.tar.gz" ]; then
               echo "ERROR: Missing ffmpeg-${platform}.tar.gz"
               exit 1
             fi
+            # Verify tarball contents
+            echo "=== Contents of ffmpeg-${platform}.tar.gz ==="
+            tar -tzf "release/ffmpeg-${platform}.tar.gz" | head -20
           done
           echo "All platform artifacts verified."
 
