@@ -718,11 +718,20 @@ jobs:
           mkdir -p release
 
           # Extract and repackage with better names
+          # NOTE: End users expect binaries at root level, not in bin/ subdirectory
           for artifact in artifacts/ffmpeg-*/; do
             tarball=$(find "$artifact" -name "*.tar" | head -1)
             if [ -n "$tarball" ]; then
               platform=$(basename "$artifact" | sed 's/ffmpeg-//')
               tar -xf "$tarball" -C artifacts/
+
+              # Flatten structure for end users: move bin/* to root level
+              # (Internal artifacts have bin/, lib/, include/ but users just want binaries)
+              if [ -d "artifacts/${platform}/bin" ]; then
+                mv "artifacts/${platform}/bin/ffmpeg" "artifacts/${platform}/ffmpeg"
+                mv "artifacts/${platform}/bin/ffprobe" "artifacts/${platform}/ffprobe"
+                rm -rf "artifacts/${platform}/bin" "artifacts/${platform}/lib" "artifacts/${platform}/include"
+              fi
 
               # Create release tarball with version
               cd artifacts
