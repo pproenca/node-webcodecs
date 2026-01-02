@@ -151,7 +151,7 @@ jobs:
           path: |
             ${{ github.workspace }}/ffmpeg_build
             ${{ github.workspace }}/ffmpeg_sources
-          key: macos-${{ matrix.arch }}-libs-${{ env.X264_VERSION }}-${{ env.LIBVPX_VERSION }}-${{ env.LIBAOM_VERSION }}-v3
+          key: macos-${{ matrix.arch }}-libs-${{ env.X264_VERSION }}-${{ env.LIBVPX_VERSION }}-${{ env.LIBAOM_VERSION }}-v4
           restore-keys: |
             macos-${{ matrix.arch }}-libs-
 
@@ -203,14 +203,19 @@ jobs:
           echo "=== Building libvpx (BSD) ==="
           git clone --depth 1 --branch ${{ env.LIBVPX_VERSION }} https://chromium.googlesource.com/webm/libvpx.git
           cd libvpx
+          # Get Darwin version for target string (macOS 15 = Darwin 24)
+          DARWIN_VERSION=$(uname -r | cut -d. -f1)
           if [ "$ARCH" = "arm64" ]; then
-            VPX_TARGET="arm64-darwin-gcc"
+            VPX_TARGET="arm64-darwin${DARWIN_VERSION}-gcc"
           else
-            VPX_TARGET="x86_64-darwin20-gcc"
+            VPX_TARGET="x86_64-darwin${DARWIN_VERSION}-gcc"
           fi
+          echo "Using libvpx target: $VPX_TARGET"
           ./configure \
             --prefix="$TARGET" \
             --target=$VPX_TARGET \
+            --enable-vp8 \
+            --enable-vp9 \
             --disable-examples \
             --disable-unit-tests \
             --enable-vp9-highbitdepth \
