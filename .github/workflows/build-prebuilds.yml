@@ -170,8 +170,10 @@ jobs:
           ls -la "$PKG_DIR/bin/"
 
           # Create tarball to preserve permissions
+          # NOTE: Use ./@pproenca/... to prevent BSD tar from interpreting @ as
+          # a special directive (@ prefix means "read archive" on macOS tar)
           cd packages
-          tar -cvf "@pproenca-node-webcodecs-${{ matrix.platform }}.tar" "@pproenca/node-webcodecs-${{ matrix.platform }}/"
+          tar -cvf "@pproenca-node-webcodecs-${{ matrix.platform }}.tar" "./@pproenca/node-webcodecs-${{ matrix.platform }}/"
 
       - name: Upload platform package
         uses: actions/upload-artifact@v6

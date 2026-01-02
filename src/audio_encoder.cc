@@ -65,6 +65,11 @@ AudioEncoder::AudioEncoder(const Napi::CallbackInfo& info)
 }
 
 AudioEncoder::~AudioEncoder() {
+  // CRITICAL: Disable FFmpeg logging BEFORE cleanup to prevent crashes during
+  // process exit. On darwin-x64, FFmpeg may log warnings during
+  // avcodec_free_context() which can race with static destruction.
+  webcodecs::ShutdownFFmpegLogging();
+
   Cleanup();
   webcodecs::counterAudioEncoders--;
 }
