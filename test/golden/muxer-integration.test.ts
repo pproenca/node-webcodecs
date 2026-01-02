@@ -2,19 +2,20 @@
 // Copyright 2024 The node-webcodecs Authors
 // SPDX-License-Identifier: MIT
 
+import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { after, before, describe, it } from 'node:test';
 
 describe('Muxer Integration', () => {
   let tempDir: string;
 
-  beforeEach(() => {
+  before(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'muxer-integration-'));
   });
 
-  afterEach(() => {
+  after(() => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
@@ -87,7 +88,7 @@ describe('Muxer Integration', () => {
     await encoder.flush();
     encoder.close();
 
-    expect(chunks.length).toBeGreaterThan(0);
+    assert.ok(chunks.length > 0);
 
     // Sort chunks by timestamp (decode order) to handle B-frames
     // The encoder may output frames in decode order which differs from presentation order
@@ -114,14 +115,14 @@ describe('Muxer Integration', () => {
     muxer.close();
 
     // Verify output file exists and has content
-    expect(fs.existsSync(outputPath)).toBe(true);
+    assert.strictEqual(fs.existsSync(outputPath), true);
     const stats = fs.statSync(outputPath);
-    expect(stats.size).toBeGreaterThan(0);
+    assert.ok(stats.size > 0);
 
     // Verify it's a valid MP4 by checking for ftyp box
     const header = fs.readFileSync(outputPath).slice(0, 12);
     const ftypOffset = header.indexOf('ftyp');
-    expect(ftypOffset).toBeGreaterThanOrEqual(4); // ftyp should be in first 12 bytes
+    assert.ok(ftypOffset >= 4); // ftyp should be in first 12 bytes
   });
 
   it('should be readable by Demuxer', async () => {
@@ -231,9 +232,9 @@ describe('Muxer Integration', () => {
     await demuxer.demux();
     demuxer.close();
 
-    expect(videoTrack).not.toBeNull();
-    expect(videoTrack.width).toBe(WIDTH);
-    expect(videoTrack.height).toBe(HEIGHT);
-    expect(demuxedChunks).toBe(chunks.length);
+    assert.notStrictEqual(videoTrack, null);
+    assert.strictEqual(videoTrack.width, WIDTH);
+    assert.strictEqual(videoTrack.height, HEIGHT);
+    assert.strictEqual(demuxedChunks, chunks.length);
   });
 });

@@ -1,7 +1,8 @@
 // Copyright 2024 The node-webcodecs Authors
 // SPDX-License-Identifier: MIT
 
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 import { VideoFrame } from '../..';
 import * as is from '../../lib/is';
 
@@ -13,7 +14,7 @@ describe('VideoFrame constructor from ImageData', () => {
         height: 100,
         data: new Uint8ClampedArray(100 * 100 * 4),
       };
-      expect(is.isImageData(imageData)).toBe(true);
+      assert.strictEqual(is.isImageData(imageData), true);
     });
   });
 
@@ -28,10 +29,10 @@ describe('VideoFrame constructor from ImageData', () => {
 
       const frame = new VideoFrame(imageData, { timestamp: 1000 });
 
-      expect(frame.format).toBe('RGBA');
-      expect(frame.codedWidth).toBe(4);
-      expect(frame.codedHeight).toBe(4);
-      expect(frame.timestamp).toBe(1000);
+      assert.strictEqual(frame.format, 'RGBA');
+      assert.strictEqual(frame.codedWidth, 4);
+      assert.strictEqual(frame.codedHeight, 4);
+      assert.strictEqual(frame.timestamp, 1000);
 
       frame.close();
     });
@@ -48,8 +49,8 @@ describe('VideoFrame constructor from ImageData', () => {
         duration: 5000,
       });
 
-      expect(frame.timestamp).toBe(1000);
-      expect(frame.duration).toBe(5000);
+      assert.strictEqual(frame.timestamp, 1000);
+      assert.strictEqual(frame.duration, 5000);
 
       frame.close();
     });
@@ -66,8 +67,8 @@ describe('VideoFrame constructor from ImageData', () => {
         visibleRect: { x: 50, y: 50, width: 100, height: 100 },
       });
 
-      expect(frame.visibleRect?.x).toBe(50);
-      expect(frame.visibleRect?.width).toBe(100);
+      assert.strictEqual(frame.visibleRect?.x, 50);
+      assert.strictEqual(frame.visibleRect?.width, 100);
 
       frame.close();
     });
@@ -79,7 +80,9 @@ describe('VideoFrame constructor from ImageData', () => {
         data: new Uint8ClampedArray(10), // Wrong size!
       };
 
-      expect(() => new VideoFrame(badImageData, { timestamp: 0 })).toThrow();
+      assert.throws(() => {
+        new VideoFrame(badImageData, { timestamp: 0 });
+      });
     });
   });
 });

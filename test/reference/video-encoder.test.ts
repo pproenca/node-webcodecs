@@ -6,7 +6,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { expect, test } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { test } from 'node:test';
 
 test('VideoEncoder lifecycle', { timeout: 60_000 }, async () => {
   // Collect results to verify after flush (avoids throwing from NAPI callbacks)
@@ -34,7 +35,7 @@ test('VideoEncoder lifecycle', { timeout: 60_000 }, async () => {
       error = e;
     },
   });
-  expect(encoder.state).toBe('unconfigured');
+  assert.strictEqual(encoder.state, 'unconfigured');
 
   encoder.configure({
     codec: 'avc1.42001f',
@@ -42,7 +43,7 @@ test('VideoEncoder lifecycle', { timeout: 60_000 }, async () => {
     height: 720,
     // Bitrate is auto-chosen
   });
-  expect(encoder.state).toBe('configured');
+  assert.strictEqual(encoder.state, 'configured');
 
   let dequeueEvents = 0;
   encoder.addEventListener('dequeue', () => dequeueEvents++);
@@ -66,15 +67,15 @@ test('VideoEncoder lifecycle', { timeout: 60_000 }, async () => {
       timestamp: Math.floor((1e6 * i) / 25),
       duration: Math.floor(1e6 / 25),
     });
-    expect(frame.format).toBe('RGBA');
-    expect(frame.displayWidth).toBe(1280);
-    expect(frame.displayHeight).toBe(720);
+    assert.strictEqual(frame.format, 'RGBA');
+    assert.strictEqual(frame.displayWidth, 1280);
+    assert.strictEqual(frame.displayHeight, 720);
 
     // sRGB
-    expect(frame.colorSpace.primaries).toBe('bt709');
-    expect(frame.colorSpace.transfer).toBe('iec61966-2-1');
-    expect(frame.colorSpace.matrix).toBe('rgb');
-    expect(frame.colorSpace.fullRange).toBe(true);
+    assert.strictEqual(frame.colorSpace.primaries, 'bt709');
+    assert.strictEqual(frame.colorSpace.transfer, 'iec61966-2-1');
+    assert.strictEqual(frame.colorSpace.matrix, 'rgb');
+    assert.strictEqual(frame.colorSpace.fullRange, true);
 
     encoder.encode(frame);
     frame.close();
@@ -85,22 +86,22 @@ test('VideoEncoder lifecycle', { timeout: 60_000 }, async () => {
   // Now verify collected results
   if (error) throw error;
 
-  expect(outputChunks.length).toBeGreaterThan(0);
-  expect(dequeueEvents).toBeGreaterThan(0);
+  assert.ok(outputChunks.length > 0);
+  assert.ok(dequeueEvents > 0);
 
   // Verify first chunk has valid data
-  expect(outputChunks[0].byteLength).toBeGreaterThan(0);
+  assert.ok(outputChunks[0].byteLength > 0);
   // Note: Default format may be Annex B or AVCC depending on implementation
 
   // Verify first chunk metadata (decoderConfig on first keyframe)
-  expect(firstMeta?.decoderConfig).not.toBeUndefined();
-  expect(firstMeta?.decoderConfig?.codec?.startsWith('avc1.')).toBe(true);
-  expect(firstMeta?.decoderConfig?.codedWidth).toBe(1280);
-  expect(firstMeta?.decoderConfig?.codedHeight).toBe(720);
-  expect(firstMeta?.decoderConfig?.description).not.toBeUndefined();
+  assert.notStrictEqual(firstMeta?.decoderConfig, undefined);
+  assert.strictEqual(firstMeta?.decoderConfig?.codec?.startsWith('avc1.'), true);
+  assert.strictEqual(firstMeta?.decoderConfig?.codedWidth, 1280);
+  assert.strictEqual(firstMeta?.decoderConfig?.codedHeight, 720);
+  assert.notStrictEqual(firstMeta?.decoderConfig?.description, undefined);
 
   encoder.close();
-  expect(encoder.state).toBe('closed');
+  assert.strictEqual(encoder.state, 'closed');
 });
 
 test('AVC & Annex B', async () => {
@@ -108,10 +109,10 @@ test('AVC & Annex B', async () => {
     output: (chunk, meta) => {
       const data = new DataView(new ArrayBuffer(chunk.byteLength));
       chunk.copyTo(data);
-      expect(data.getUint32(0, false)).toBe(1); // Ensure Annex B
+      assert.strictEqual(data.getUint32(0, false), 1); // Ensure Annex B
 
-      expect(meta?.decoderConfig).not.toBeUndefined();
-      expect(meta?.decoderConfig?.description).toBeUndefined();
+      assert.notStrictEqual(meta?.decoderConfig, undefined);
+      assert.strictEqual(meta?.decoderConfig?.description, undefined);
     },
     error: (e) => {
       throw e;
@@ -159,10 +160,10 @@ test('HEVC & Annex B', async () => {
     output: (chunk, meta) => {
       const data = new DataView(new ArrayBuffer(chunk.byteLength));
       chunk.copyTo(data);
-      expect(data.getUint32(0, false)).toBe(1); // Ensure Annex B
+      assert.strictEqual(data.getUint32(0, false), 1); // Ensure Annex B
 
-      expect(meta?.decoderConfig).not.toBeUndefined();
-      expect(meta?.decoderConfig?.description).toBeUndefined();
+      assert.notStrictEqual(meta?.decoderConfig, undefined);
+      assert.strictEqual(meta?.decoderConfig?.description, undefined);
     },
     error: (e) => {
       throw e;

@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 /**
  * Tests for VideoEncoder async infrastructure.
@@ -50,7 +51,7 @@ describe('VideoEncoder async mode', () => {
     await encoder.flush();
 
     // Should have received dequeue events
-    expect(dequeueCount).toBeGreaterThan(0);
+    assert.ok(dequeueCount > 0);
 
     encoder.close();
   });
@@ -87,7 +88,7 @@ describe('VideoEncoder async mode', () => {
 
     await encoder.flush();
 
-    expect(chunks.length).toBeGreaterThan(0);
+    assert.ok(chunks.length > 0);
     encoder.close();
   });
 
@@ -108,7 +109,7 @@ describe('VideoEncoder async mode', () => {
       bitrate: 500000,
     });
 
-    expect(encoder.encodeQueueSize).toBe(0);
+    assert.strictEqual(encoder.encodeQueueSize, 0);
 
     // Queue multiple frames
     for (let i = 0; i < 5; i++) {
@@ -123,10 +124,10 @@ describe('VideoEncoder async mode', () => {
     }
 
     // Queue size should be tracked (may already be processing)
-    expect(encoder.encodeQueueSize).toBeGreaterThanOrEqual(0);
+    assert.ok(encoder.encodeQueueSize >= 0);
 
     await encoder.flush();
-    expect(encoder.encodeQueueSize).toBe(0);
+    assert.strictEqual(encoder.encodeQueueSize, 0);
 
     encoder.close();
   });

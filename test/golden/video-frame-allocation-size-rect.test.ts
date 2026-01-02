@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 describe('VideoFrame.allocationSize() with rect option', () => {
   it('should calculate size for sub-region', () => {
@@ -11,11 +12,11 @@ describe('VideoFrame.allocationSize() with rect option', () => {
     });
 
     // Full frame: 100 * 100 * 4 = 40000 bytes
-    expect(frame.allocationSize()).toBe(40000);
+    assert.strictEqual(frame.allocationSize(), 40000);
 
     // Sub-region: 50 * 50 * 4 = 10000 bytes
     const rectSize = frame.allocationSize({ rect: { x: 0, y: 0, width: 50, height: 50 } });
-    expect(rectSize).toBe(10000);
+    assert.strictEqual(rectSize, 10000);
 
     frame.close();
   });
@@ -31,7 +32,7 @@ describe('VideoFrame.allocationSize() with rect option', () => {
 
     // Rect starting at (25, 25) with size 50x50
     const rectSize = frame.allocationSize({ rect: { x: 25, y: 25, width: 50, height: 50 } });
-    expect(rectSize).toBe(10000); // 50 * 50 * 4
+    assert.strictEqual(rectSize, 10000); // 50 * 50 * 4
 
     frame.close();
   });
@@ -45,7 +46,8 @@ describe('VideoFrame.allocationSize() with rect option', () => {
       timestamp: 0,
     });
 
-    expect(() => frame.allocationSize({ rect: { x: 80, y: 80, width: 50, height: 50 } })).toThrow(
+    assert.throws(
+      () => frame.allocationSize({ rect: { x: 80, y: 80, width: 50, height: 50 } }),
       RangeError,
     );
 
@@ -63,11 +65,11 @@ describe('VideoFrame.allocationSize() with rect option', () => {
     });
 
     // Full frame
-    expect(frame.allocationSize()).toBe(15000);
+    assert.strictEqual(frame.allocationSize(), 15000);
 
     // 50x50 sub-region: Y: 2500 + U: 625 + V: 625 = 3750 bytes
     const rectSize = frame.allocationSize({ rect: { x: 0, y: 0, width: 50, height: 50 } });
-    expect(rectSize).toBe(3750);
+    assert.strictEqual(rectSize, 3750);
 
     frame.close();
   });

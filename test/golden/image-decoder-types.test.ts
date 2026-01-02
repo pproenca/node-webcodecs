@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 import type {
   ImageBufferSource,
   ImageDecodeOptions,
@@ -18,11 +19,11 @@ describe('ImageDecoder Type Definitions', () => {
       preferAnimation: true,
       transfer: [],
     };
-    expect(init.type).toBe('image/png');
-    expect(init.colorSpaceConversion).toBe('default');
-    expect(init.desiredWidth).toBe(100);
-    expect(init.desiredHeight).toBe(100);
-    expect(init.preferAnimation).toBe(true);
+    assert.strictEqual(init.type, 'image/png');
+    assert.strictEqual(init.colorSpaceConversion, 'default');
+    assert.strictEqual(init.desiredWidth, 100);
+    assert.strictEqual(init.desiredHeight, 100);
+    assert.strictEqual(init.preferAnimation, true);
   });
 
   it('ImageDecodeOptions has frameIndex and completeFramesOnly', () => {
@@ -30,8 +31,8 @@ describe('ImageDecoder Type Definitions', () => {
       frameIndex: 5,
       completeFramesOnly: false,
     };
-    expect(options.frameIndex).toBe(5);
-    expect(options.completeFramesOnly).toBe(false);
+    assert.strictEqual(options.frameIndex, 5);
+    assert.strictEqual(options.completeFramesOnly, false);
   });
 
   it('ImageTrack has all W3C required fields', () => {
@@ -41,9 +42,9 @@ describe('ImageDecoder Type Definitions', () => {
       repetitionCount: Infinity,
       selected: true,
     };
-    expect(track.animated).toBe(true);
-    expect(track.frameCount).toBe(10);
-    expect(track.repetitionCount).toBe(Infinity);
+    assert.strictEqual(track.animated, true);
+    assert.strictEqual(track.frameCount, 10);
+    assert.strictEqual(track.repetitionCount, Infinity);
   });
 
   it('ImageTrackList has ready promise and index accessor', () => {
@@ -55,14 +56,14 @@ describe('ImageDecoder Type Definitions', () => {
       0: { animated: false, frameCount: 1, repetitionCount: 0, selected: true },
     } as ImageTrackList;
 
-    expect(mockTrackList.length).toBe(1);
-    expect(mockTrackList.selectedIndex).toBe(0);
-    expect(mockTrackList[0]).toBeDefined();
+    assert.strictEqual(mockTrackList.length, 1);
+    assert.strictEqual(mockTrackList.selectedIndex, 0);
+    assert.notStrictEqual(mockTrackList[0], undefined);
   });
 
   it('ImageBufferSource accepts ReadableStream', () => {
     const stream = new ReadableStream<Uint8Array>();
     const bufferSource: ImageBufferSource = stream;
-    expect(bufferSource).toBeInstanceOf(ReadableStream);
+    assert.ok(bufferSource instanceof ReadableStream);
   });
 });

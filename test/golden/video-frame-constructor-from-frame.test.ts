@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 describe('VideoFrame constructor from VideoFrame per W3C spec', () => {
   it('should create a clone with same properties when no init provided', () => {
@@ -13,11 +14,11 @@ describe('VideoFrame constructor from VideoFrame per W3C spec', () => {
 
     const cloned = new VideoFrame(original);
 
-    expect(cloned.format).toBe('RGBA');
-    expect(cloned.codedWidth).toBe(4);
-    expect(cloned.codedHeight).toBe(4);
-    expect(cloned.timestamp).toBe(1000);
-    expect(cloned.duration).toBe(5000);
+    assert.strictEqual(cloned.format, 'RGBA');
+    assert.strictEqual(cloned.codedWidth, 4);
+    assert.strictEqual(cloned.codedHeight, 4);
+    assert.strictEqual(cloned.timestamp, 1000);
+    assert.strictEqual(cloned.duration, 5000);
 
     original.close();
     cloned.close();
@@ -34,8 +35,8 @@ describe('VideoFrame constructor from VideoFrame per W3C spec', () => {
 
     const cloned = new VideoFrame(original, { timestamp: 2000 });
 
-    expect(cloned.timestamp).toBe(2000);
-    expect(cloned.format).toBe('RGBA'); // Other properties preserved
+    assert.strictEqual(cloned.timestamp, 2000);
+    assert.strictEqual(cloned.format, 'RGBA'); // Other properties preserved
 
     original.close();
     cloned.close();
@@ -53,8 +54,8 @@ describe('VideoFrame constructor from VideoFrame per W3C spec', () => {
 
     const cloned = new VideoFrame(original, { duration: 10000 });
 
-    expect(cloned.duration).toBe(10000);
-    expect(cloned.timestamp).toBe(1000); // Preserved
+    assert.strictEqual(cloned.duration, 10000);
+    assert.strictEqual(cloned.timestamp, 1000); // Preserved
 
     original.close();
     cloned.close();
@@ -73,10 +74,10 @@ describe('VideoFrame constructor from VideoFrame per W3C spec', () => {
       visibleRect: { x: 2, y: 2, width: 4, height: 4 },
     });
 
-    expect(cloned.visibleRect?.x).toBe(2);
-    expect(cloned.visibleRect?.y).toBe(2);
-    expect(cloned.visibleRect?.width).toBe(4);
-    expect(cloned.visibleRect?.height).toBe(4);
+    assert.strictEqual(cloned.visibleRect?.x, 2);
+    assert.strictEqual(cloned.visibleRect?.y, 2);
+    assert.strictEqual(cloned.visibleRect?.width, 4);
+    assert.strictEqual(cloned.visibleRect?.height, 4);
 
     original.close();
     cloned.close();
@@ -93,6 +94,8 @@ describe('VideoFrame constructor from VideoFrame per W3C spec', () => {
 
     original.close();
 
-    expect(() => new VideoFrame(original)).toThrow();
+    assert.throws(() => {
+      new VideoFrame(original);
+    });
   });
 });

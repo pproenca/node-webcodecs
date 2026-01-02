@@ -1,5 +1,6 @@
 // test/golden/video-encoder-event-loop.test.ts
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 /**
  * Event loop blocking verification tests for VideoEncoder.
@@ -57,8 +58,8 @@ describe('VideoEncoder event loop', () => {
     // for pending chunks using setImmediate. This allows interval callbacks
     // to fire. With sync encoding, we would get 0 callbacks.
     // Expect at least 1 callback to prove the event loop was not blocked.
-    expect(intervalCallbacksFired).toBeGreaterThanOrEqual(1);
-    expect(chunks.length).toBeGreaterThan(0);
+    assert.ok(intervalCallbacksFired >= 1);
+    assert.ok(chunks.length > 0);
 
     encoder.close();
   });

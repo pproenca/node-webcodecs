@@ -2,8 +2,9 @@
  * Tests for ImageDecoder W3C compliance
  */
 
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 import * as zlib from 'node:zlib';
-import { describe, expect, it } from 'vitest';
 
 // CRC32 calculation for PNG chunks
 function crc32(data: Buffer): number {
@@ -238,39 +239,39 @@ describe('ImageDecoder', () => {
         data: data,
       });
 
-      expect(decoder.type).toBe('image/png');
-      expect(decoder.complete).toBe(true);
+      assert.strictEqual(decoder.type, 'image/png');
+      assert.strictEqual(decoder.complete, true);
       decoder.close();
     });
 
     it('throws TypeError for missing type', () => {
-      expect(() => {
+      assert.throws(() => {
         new ImageDecoder({
           data: new Uint8Array([]),
         } as any);
-      }).toThrow(TypeError);
+      }, TypeError);
     });
 
     it('throws TypeError for missing data', () => {
-      expect(() => {
+      assert.throws(() => {
         new ImageDecoder({
           type: 'image/png',
         } as any);
-      }).toThrow(TypeError);
+      }, TypeError);
     });
   });
 
   describe('static isTypeSupported', () => {
     it('returns true for supported types', async () => {
-      expect(await ImageDecoder.isTypeSupported('image/png')).toBe(true);
-      expect(await ImageDecoder.isTypeSupported('image/jpeg')).toBe(true);
-      expect(await ImageDecoder.isTypeSupported('image/gif')).toBe(true);
-      expect(await ImageDecoder.isTypeSupported('image/webp')).toBe(true);
+      assert.strictEqual(await ImageDecoder.isTypeSupported('image/png'), true);
+      assert.strictEqual(await ImageDecoder.isTypeSupported('image/jpeg'), true);
+      assert.strictEqual(await ImageDecoder.isTypeSupported('image/gif'), true);
+      assert.strictEqual(await ImageDecoder.isTypeSupported('image/webp'), true);
     });
 
     it('returns false for unsupported types', async () => {
-      expect(await ImageDecoder.isTypeSupported('image/unknown')).toBe(false);
-      expect(await ImageDecoder.isTypeSupported('video/mp4')).toBe(false);
+      assert.strictEqual(await ImageDecoder.isTypeSupported('image/unknown'), false);
+      assert.strictEqual(await ImageDecoder.isTypeSupported('video/mp4'), false);
     });
   });
 
@@ -283,16 +284,16 @@ describe('ImageDecoder', () => {
       });
 
       const tracks = decoder.tracks;
-      expect(tracks.length).toBe(1);
-      expect(tracks.selectedIndex).toBe(0);
-      expect(tracks.selectedTrack).not.toBeNull();
-      expect(tracks[0]).toBeDefined();
+      assert.strictEqual(tracks.length, 1);
+      assert.strictEqual(tracks.selectedIndex, 0);
+      assert.notStrictEqual(tracks.selectedTrack, null);
+      assert.notStrictEqual(tracks[0], undefined);
 
       const track = tracks[0];
-      expect(track.animated).toBe(false);
-      expect(track.frameCount).toBe(1);
-      expect(typeof track.repetitionCount).toBe('number');
-      expect(track.selected).toBe(true);
+      assert.strictEqual(track.animated, false);
+      assert.strictEqual(track.frameCount, 1);
+      assert.strictEqual(typeof track.repetitionCount, 'number');
+      assert.strictEqual(track.selected, true);
 
       decoder.close();
     });
@@ -304,7 +305,8 @@ describe('ImageDecoder', () => {
         data: data,
       });
 
-      await expect(decoder.tracks.ready).resolves.toBeUndefined();
+      const result = await decoder.tracks.ready;
+      assert.strictEqual(result, undefined);
       decoder.close();
     });
   });
@@ -318,10 +320,10 @@ describe('ImageDecoder', () => {
       });
 
       const result = await decoder.decode();
-      expect(result.image).toBeInstanceOf(VideoFrame);
-      expect(result.complete).toBe(true);
-      expect(result.image.codedWidth).toBeGreaterThan(0);
-      expect(result.image.codedHeight).toBeGreaterThan(0);
+      assert.ok(result.image instanceof VideoFrame);
+      assert.strictEqual(result.complete, true);
+      assert.ok(result.image.codedWidth > 0);
+      assert.ok(result.image.codedHeight > 0);
 
       result.image.close();
       decoder.close();
@@ -335,7 +337,7 @@ describe('ImageDecoder', () => {
       });
 
       const result = await decoder.decode({ frameIndex: 0 });
-      expect(result.complete).toBe(true);
+      assert.strictEqual(result.complete, true);
 
       result.image.close();
       decoder.close();
@@ -350,7 +352,7 @@ describe('ImageDecoder', () => {
 
       decoder.close();
 
-      await expect(decoder.decode()).rejects.toThrow(/closed|InvalidStateError/);
+      await assert.rejects(decoder.decode(), /closed|InvalidStateError/);
     });
   });
 
@@ -362,7 +364,8 @@ describe('ImageDecoder', () => {
         data: data,
       });
 
-      await expect(decoder.completed).resolves.toBeUndefined();
+      const result = await decoder.completed;
+      assert.strictEqual(result, undefined);
       decoder.close();
     });
   });
@@ -375,11 +378,11 @@ describe('ImageDecoder', () => {
         data: data,
       });
 
-      expect(() => {
+      assert.doesNotThrow(() => {
         decoder.close();
         decoder.close();
         decoder.close();
-      }).not.toThrow();
+      });
     });
   });
 
@@ -391,7 +394,7 @@ describe('ImageDecoder', () => {
         data: data,
       });
 
-      expect(() => decoder.reset()).not.toThrow();
+      assert.doesNotThrow(() => decoder.reset());
       decoder.close();
     });
   });
@@ -408,8 +411,8 @@ describe('ImageDecoder', () => {
       await tracks.ready;
       const track = tracks[0];
 
-      expect(track.animated).toBe(true);
-      expect(track.frameCount).toBeGreaterThan(1);
+      assert.strictEqual(track.animated, true);
+      assert.ok(track.frameCount > 1);
 
       decoder.close();
     });
@@ -425,8 +428,8 @@ describe('ImageDecoder', () => {
       await tracks.ready;
       const track = tracks[0];
 
-      expect(track.animated).toBe(false);
-      expect(track.frameCount).toBe(1);
+      assert.strictEqual(track.animated, false);
+      assert.strictEqual(track.frameCount, 1);
 
       decoder.close();
     });
@@ -439,8 +442,8 @@ describe('ImageDecoder', () => {
       });
 
       const result = await decoder.decode();
-      expect(result.image).toBeInstanceOf(VideoFrame);
-      expect(result.complete).toBe(true);
+      assert.ok(result.image instanceof VideoFrame);
+      assert.strictEqual(result.complete, true);
 
       result.image.close();
       decoder.close();
@@ -455,12 +458,12 @@ describe('ImageDecoder', () => {
 
       // Decode frame 0
       const result0 = await decoder.decode({ frameIndex: 0 });
-      expect(result0.image).toBeInstanceOf(VideoFrame);
+      assert.ok(result0.image instanceof VideoFrame);
       result0.image.close();
 
       // Decode frame 1
       const result1 = await decoder.decode({ frameIndex: 1 });
-      expect(result1.image).toBeInstanceOf(VideoFrame);
+      assert.ok(result1.image instanceof VideoFrame);
       result1.image.close();
 
       decoder.close();
@@ -473,9 +476,7 @@ describe('ImageDecoder', () => {
         data: data,
       });
 
-      await expect(decoder.decode({ frameIndex: 99 })).rejects.toThrow(
-        /RangeError|out of range|invalid/i,
-      );
+      await assert.rejects(decoder.decode({ frameIndex: 99 }), /RangeError|out of range|invalid/i);
 
       decoder.close();
     });
@@ -490,7 +491,7 @@ describe('ImageDecoder', () => {
 
       const tracks1 = decoder1.tracks;
       await tracks1.ready;
-      expect(tracks1[0].repetitionCount).toBe(Infinity);
+      assert.strictEqual(tracks1[0].repetitionCount, Infinity);
       decoder1.close();
 
       // Loop count 1 means play once
@@ -502,7 +503,7 @@ describe('ImageDecoder', () => {
 
       const tracks2 = decoder2.tracks;
       await tracks2.ready;
-      expect(tracks2[0].repetitionCount).toBe(1);
+      assert.strictEqual(tracks2[0].repetitionCount, 1);
       decoder2.close();
     });
 
@@ -515,7 +516,7 @@ describe('ImageDecoder', () => {
 
       const tracks = decoder.tracks;
       await tracks.ready;
-      expect(tracks[0].frameCount).toBe(2); // Our test GIF has 2 frames
+      assert.strictEqual(tracks[0].frameCount, 2); // Our test GIF has 2 frames
 
       decoder.close();
     });

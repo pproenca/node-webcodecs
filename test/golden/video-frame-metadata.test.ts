@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 describe('VideoFrame.metadata()', () => {
   it('should return VideoFrameMetadata object', () => {
@@ -12,8 +13,8 @@ describe('VideoFrame.metadata()', () => {
 
     const metadata = frame.metadata();
 
-    expect(metadata).toBeDefined();
-    expect(typeof metadata).toBe('object');
+    assert.notStrictEqual(metadata, undefined);
+    assert.strictEqual(typeof metadata, 'object');
 
     frame.close();
   });
@@ -33,7 +34,7 @@ describe('VideoFrame.metadata()', () => {
 
     const metadata = frame.metadata();
 
-    expect(metadata.captureTime).toBe(captureTime);
+    assert.strictEqual(metadata.captureTime, captureTime);
 
     frame.close();
   });
@@ -53,7 +54,7 @@ describe('VideoFrame.metadata()', () => {
 
     const metadata = frame.metadata();
 
-    expect(metadata.receiveTime).toBe(receiveTime);
+    assert.strictEqual(metadata.receiveTime, receiveTime);
 
     frame.close();
   });
@@ -73,7 +74,7 @@ describe('VideoFrame.metadata()', () => {
 
     const metadata = frame.metadata();
 
-    expect(metadata.rtpTimestamp).toBe(rtpTimestamp);
+    assert.strictEqual(metadata.rtpTimestamp, rtpTimestamp);
 
     frame.close();
   });
@@ -95,9 +96,9 @@ describe('VideoFrame.metadata()', () => {
     const cloned = frame.clone();
     const metadata = cloned.metadata();
 
-    expect(metadata.captureTime).toBe(111.11);
-    expect(metadata.receiveTime).toBe(222.22);
-    expect(metadata.rtpTimestamp).toBe(333333);
+    assert.strictEqual(metadata.captureTime, 111.11);
+    assert.strictEqual(metadata.receiveTime, 222.22);
+    assert.strictEqual(metadata.rtpTimestamp, 333333);
 
     frame.close();
     cloned.close();
@@ -114,7 +115,7 @@ describe('VideoFrame.metadata()', () => {
 
     const metadata = frame.metadata();
 
-    expect(Object.keys(metadata)).toHaveLength(0);
+    assert.strictEqual(Object.keys(metadata).length, 0);
 
     frame.close();
   });
@@ -135,7 +136,7 @@ describe('VideoFrame.metadata()', () => {
     metadata1.captureTime = 999;
 
     const metadata2 = frame.metadata();
-    expect(metadata2.captureTime).toBe(100);
+    assert.strictEqual(metadata2.captureTime, 100);
 
     frame.close();
   });

@@ -2,7 +2,8 @@
  * Tests for VideoDecoder
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { after, before, describe, it } from 'node:test';
 import { expectDOMException, expectDOMExceptionAsync, TEST_CONSTANTS } from '../fixtures/test-helpers';
 
 describe('VideoDecoder', () => {
@@ -13,12 +14,14 @@ describe('VideoDecoder', () => {
         error: () => {},
       });
 
-      expect(() =>
-        decoder.configure({
-          codec: 'avc1.42E01E',
-          rotation: 45 as any, // Invalid - must be 0, 90, 180, or 270
-        }),
-      ).toThrow(TypeError);
+      assert.throws(
+        () =>
+          decoder.configure({
+            codec: 'avc1.42E01E',
+            rotation: 45 as any, // Invalid - must be 0, 90, 180, or 270
+          }),
+        TypeError,
+      );
 
       decoder.close();
     });
@@ -29,12 +32,14 @@ describe('VideoDecoder', () => {
         error: () => {},
       });
 
-      expect(() =>
-        decoder.configure({
-          codec: 'avc1.42E01E',
-          flip: 'yes' as any, // Invalid - must be boolean
-        }),
-      ).toThrow(TypeError);
+      assert.throws(
+        () =>
+          decoder.configure({
+            codec: 'avc1.42E01E',
+            flip: 'yes' as any, // Invalid - must be boolean
+          }),
+        TypeError,
+      );
 
       decoder.close();
     });
@@ -59,59 +64,59 @@ describe('VideoDecoder', () => {
       const result = await VideoDecoder.isConfigSupported({
         codec: 'avc1.42E01E',
       });
-      expect(result.supported).toBe(true);
-      expect(result.config.codec).toBe('avc1.42E01E');
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual(result.config.codec, 'avc1.42E01E');
     });
 
     it('should support H.264 main profile', async () => {
       const result = await VideoDecoder.isConfigSupported({
         codec: 'avc1.4D401F',
       });
-      expect(result.supported).toBe(true);
+      assert.strictEqual(result.supported, true);
     });
 
     it('should support H.264 high profile', async () => {
       const result = await VideoDecoder.isConfigSupported({
         codec: 'avc1.640028',
       });
-      expect(result.supported).toBe(true);
+      assert.strictEqual(result.supported, true);
     });
 
     it('should support VP8', async () => {
       const result = await VideoDecoder.isConfigSupported({
         codec: 'vp8',
       });
-      expect(result.supported).toBe(true);
+      assert.strictEqual(result.supported, true);
     });
 
     it('should support VP9', async () => {
       const result = await VideoDecoder.isConfigSupported({
         codec: 'vp9',
       });
-      expect(result.supported).toBe(true);
+      assert.strictEqual(result.supported, true);
     });
 
     it('should not support unknown codecs', async () => {
       const result = await VideoDecoder.isConfigSupported({
         codec: 'unknown-codec',
       });
-      expect(result.supported).toBe(false);
+      assert.strictEqual(result.supported, false);
     });
   });
 
   describe('constructor', () => {
     it('should require output callback', () => {
-      expect(() => {
+      assert.throws(() => {
         new VideoDecoder({} as any);
-      }).toThrow(TypeError);
+      }, TypeError);
     });
 
     it('should require error callback', () => {
-      expect(() => {
+      assert.throws(() => {
         new VideoDecoder({
           output: () => {},
         } as any);
-      }).toThrow(TypeError);
+      }, TypeError);
     });
 
     it('should create decoder with valid callbacks', () => {
@@ -119,8 +124,8 @@ describe('VideoDecoder', () => {
         output: () => {},
         error: () => {},
       });
-      expect(decoder.state).toBe('unconfigured');
-      expect(decoder.decodeQueueSize).toBe(0);
+      assert.strictEqual(decoder.state, 'unconfigured');
+      assert.strictEqual(decoder.decodeQueueSize, 0);
       decoder.close();
     });
   });
@@ -135,14 +140,14 @@ describe('VideoDecoder', () => {
       });
 
       // This should NOT throw - per W3C spec, dimensions are optional
-      expect(() => {
+      assert.doesNotThrow(() => {
         decoder.configure({
           codec: 'avc1.42001e',
           // No codedWidth/codedHeight - decoder should infer from bitstream
         });
-      }).not.toThrow();
+      });
 
-      expect(decoder.state).toBe('configured');
+      assert.strictEqual(decoder.state, 'configured');
       decoder.close();
     });
   });
@@ -150,21 +155,21 @@ describe('VideoDecoder', () => {
   describe('state management', () => {
     let decoder: VideoDecoder;
 
-    beforeEach(() => {
+    before(() => {
       decoder = new VideoDecoder({
         output: () => {},
         error: () => {},
       });
     });
 
-    afterEach(() => {
+    after(() => {
       if (decoder.state !== 'closed') {
         decoder.close();
       }
     });
 
     it('should start in unconfigured state', () => {
-      expect(decoder.state).toBe('unconfigured');
+      assert.strictEqual(decoder.state, 'unconfigured');
     });
 
     it('should throw if decode called when unconfigured', () => {
@@ -174,19 +179,19 @@ describe('VideoDecoder', () => {
         data: new Uint8Array([0, 0, 0, 1]),
       });
 
-      expect(() => decoder.decode(chunk)).toThrow();
+      assert.throws(() => decoder.decode(chunk));
     });
 
     it('should throw if flush called when unconfigured', async () => {
-      await expect(decoder.flush()).rejects.toThrow();
+      await assert.rejects(decoder.flush());
     });
 
     it('should throw if decode called after close', () => {
       decoder.close();
 
-      expect(() => {
+      assert.throws(() => {
         decoder.configure({ codec: 'avc1.42E01E' });
-      }).toThrow();
+      });
     });
   });
 
@@ -194,7 +199,7 @@ describe('VideoDecoder', () => {
     let decoder: VideoDecoder | null = null;
     const outputFrames: VideoFrame[] = [];
 
-    afterEach(() => {
+    after(() => {
       try {
         decoder?.close();
       } catch {
@@ -262,7 +267,7 @@ describe('VideoDecoder', () => {
       frame.close();
       encoder.close();
 
-      expect(encodedChunks.length).toBeGreaterThan(0);
+      assert.ok(encodedChunks.length > 0);
 
       // Now decode the encoded data
       decoder = new VideoDecoder({
@@ -280,14 +285,14 @@ describe('VideoDecoder', () => {
         codedHeight: height,
       });
 
-      expect(decoder.decodeQueueSize).toBe(0);
+      assert.strictEqual(decoder.decodeQueueSize, 0);
 
       // Decode the encoded chunk
       decoder.decode(encodedChunks[0]);
       await decoder.flush();
 
       // After flush, queue should be empty
-      expect(decoder.decodeQueueSize).toBe(0);
+      assert.strictEqual(decoder.decodeQueueSize, 0);
     });
   });
 
@@ -295,7 +300,7 @@ describe('VideoDecoder', () => {
     let decoder: VideoDecoder | null = null;
     const outputFrames: VideoFrame[] = [];
 
-    afterEach(() => {
+    after(() => {
       try {
         decoder?.close();
       } catch {
@@ -376,9 +381,9 @@ describe('VideoDecoder', () => {
       decoder.decode(encodedChunks[0]);
       await decoder.flush();
 
-      expect(outputFrames.length).toBeGreaterThan(0);
-      expect(outputFrames[0].displayWidth).toBe(Math.round((height * 16) / 9)); // ~427
-      expect(outputFrames[0].displayHeight).toBe(height);
+      assert.ok(outputFrames.length > 0);
+      assert.strictEqual(outputFrames[0].displayWidth, Math.round((height * 16) / 9)); // ~427
+      assert.strictEqual(outputFrames[0].displayHeight, height);
     });
   });
 
@@ -390,14 +395,14 @@ describe('VideoDecoder', () => {
       });
 
       // Should not throw when optimizeForLatency is provided
-      expect(() => {
+      assert.doesNotThrow(() => {
         decoder.configure({
           codec: 'avc1.42001e',
           optimizeForLatency: true,
         });
-      }).not.toThrow();
+      });
 
-      expect(decoder.state).toBe('configured');
+      assert.strictEqual(decoder.state, 'configured');
       decoder.close();
     });
 
@@ -406,8 +411,8 @@ describe('VideoDecoder', () => {
         codec: 'avc1.42001e',
         optimizeForLatency: true,
       });
-      expect(result.supported).toBe(true);
-      expect(result.config.optimizeForLatency).toBe(true);
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual(result.config.optimizeForLatency, true);
     });
   });
 
@@ -419,14 +424,14 @@ describe('VideoDecoder', () => {
       });
 
       // Should not throw with hardwareAcceleration
-      expect(() => {
+      assert.doesNotThrow(() => {
         decoder.configure({
           codec: 'avc1.42001e',
           hardwareAcceleration: 'prefer-software',
         });
-      }).not.toThrow();
+      });
 
-      expect(decoder.state).toBe('configured');
+      assert.strictEqual(decoder.state, 'configured');
       decoder.close();
     });
 
@@ -435,17 +440,17 @@ describe('VideoDecoder', () => {
         codec: 'avc1.42001e',
         hardwareAcceleration: 'prefer-hardware',
       });
-      expect(result.supported).toBe(true);
-      expect(result.config.hardwareAcceleration).toBe('prefer-hardware');
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual(result.config.hardwareAcceleration, 'prefer-hardware');
     });
 
     it('should default to no-preference', async () => {
       const result = await VideoDecoder.isConfigSupported({
         codec: 'avc1.42001e',
       });
-      expect(result.supported).toBe(true);
+      assert.strictEqual(result.supported, true);
       // Default value should be 'no-preference' per W3C spec
-      expect(result.config.hardwareAcceleration).toBe('no-preference');
+      assert.strictEqual(result.config.hardwareAcceleration, 'no-preference');
     });
   });
 
@@ -591,11 +596,11 @@ describe('VideoDecoder', () => {
       decoder.decode(encodedChunks[0]);
       await decoder.flush();
 
-      expect(outputFrames.length).toBeGreaterThan(0);
-      expect(outputFrames[0].colorSpace.primaries).toBe('bt709');
-      expect(outputFrames[0].colorSpace.transfer).toBe('bt709');
-      expect(outputFrames[0].colorSpace.matrix).toBe('bt709');
-      expect(outputFrames[0].colorSpace.fullRange).toBe(false);
+      assert.ok(outputFrames.length > 0);
+      assert.strictEqual(outputFrames[0].colorSpace.primaries, 'bt709');
+      assert.strictEqual(outputFrames[0].colorSpace.transfer, 'bt709');
+      assert.strictEqual(outputFrames[0].colorSpace.matrix, 'bt709');
+      assert.strictEqual(outputFrames[0].colorSpace.fullRange, false);
 
       for (const f of outputFrames) {
         f.close();
@@ -617,18 +622,18 @@ describe('VideoDecoder', () => {
         };
 
         const result = await VideoDecoder.isConfigSupported(config);
-        expect(result.supported).toBe(true);
-        expect(result.config.codec).toBe(config.codec);
-        expect(result.config.codedWidth).toBe(config.codedWidth);
-        expect(result.config.codedHeight).toBe(config.codedHeight);
-        expect(result.config.hardwareAcceleration).toBe(config.hardwareAcceleration);
-        expect(result.config.optimizeForLatency).toBe(config.optimizeForLatency);
+        assert.strictEqual(result.supported, true);
+        assert.strictEqual(result.config.codec, config.codec);
+        assert.strictEqual(result.config.codedWidth, config.codedWidth);
+        assert.strictEqual(result.config.codedHeight, config.codedHeight);
+        assert.strictEqual(result.config.hardwareAcceleration, config.hardwareAcceleration);
+        assert.strictEqual(result.config.optimizeForLatency, config.optimizeForLatency);
       });
 
       it('should echo codec string exactly', async () => {
         const codec = 'avc1.640028'; // H.264 High Profile
         const result = await VideoDecoder.isConfigSupported({ codec });
-        expect(result.config.codec).toBe(codec);
+        assert.strictEqual(result.config.codec, codec);
       });
 
       it('should echo codedWidth and codedHeight', async () => {
@@ -637,8 +642,8 @@ describe('VideoDecoder', () => {
           codedWidth: 1920,
           codedHeight: 1080,
         });
-        expect(result.config.codedWidth).toBe(1920);
-        expect(result.config.codedHeight).toBe(1080);
+        assert.strictEqual(result.config.codedWidth, 1920);
+        assert.strictEqual(result.config.codedHeight, 1080);
       });
 
       it('should echo displayAspectWidth and displayAspectHeight', async () => {
@@ -650,9 +655,9 @@ describe('VideoDecoder', () => {
           displayAspectHeight: 9,
         });
 
-        expect(result.supported).toBe(true);
-        expect(result.config.displayAspectWidth).toBe(16);
-        expect(result.config.displayAspectHeight).toBe(9);
+        assert.strictEqual(result.supported, true);
+        assert.strictEqual(result.config.displayAspectWidth, 16);
+        assert.strictEqual(result.config.displayAspectHeight, 9);
       });
 
       it('should echo colorSpace configuration', async () => {
@@ -668,12 +673,12 @@ describe('VideoDecoder', () => {
           colorSpace,
         });
 
-        expect(result.supported).toBe(true);
-        expect(result.config.colorSpace).toBeDefined();
-        expect(result.config.colorSpace?.primaries).toBe('bt709');
-        expect(result.config.colorSpace?.transfer).toBe('bt709');
-        expect(result.config.colorSpace?.matrix).toBe('bt709');
-        expect(result.config.colorSpace?.fullRange).toBe(false);
+        assert.strictEqual(result.supported, true);
+        assert.notStrictEqual(result.config.colorSpace, undefined);
+        assert.strictEqual(result.config.colorSpace?.primaries, 'bt709');
+        assert.strictEqual(result.config.colorSpace?.transfer, 'bt709');
+        assert.strictEqual(result.config.colorSpace?.matrix, 'bt709');
+        assert.strictEqual(result.config.colorSpace?.fullRange, false);
       });
 
       it('should echo optimizeForLatency boolean', async () => {
@@ -681,13 +686,13 @@ describe('VideoDecoder', () => {
           codec: 'avc1.42001e',
           optimizeForLatency: true,
         });
-        expect(resultTrue.config.optimizeForLatency).toBe(true);
+        assert.strictEqual(resultTrue.config.optimizeForLatency, true);
 
         const resultFalse = await VideoDecoder.isConfigSupported({
           codec: 'avc1.42001e',
           optimizeForLatency: false,
         });
-        expect(resultFalse.config.optimizeForLatency).toBe(false);
+        assert.strictEqual(resultFalse.config.optimizeForLatency, false);
       });
 
       it('should echo hardwareAcceleration W3C enum values', async () => {
@@ -701,7 +706,7 @@ describe('VideoDecoder', () => {
             codec: 'avc1.42001e',
             hardwareAcceleration: hw,
           });
-          expect(result.config.hardwareAcceleration).toBe(hw);
+          assert.strictEqual(result.config.hardwareAcceleration, hw);
         }
       });
 
@@ -711,12 +716,12 @@ describe('VideoDecoder', () => {
           error: () => {},
         });
 
-        expect(() => {
+        assert.throws(() => {
           decoder.configure({
             codec: 'avc1.42001e',
             hardwareAcceleration: 'invalid-value' as any,
           });
-        }).toThrow(TypeError);
+        }, TypeError);
 
         decoder.close();
       });
@@ -726,14 +731,14 @@ describe('VideoDecoder', () => {
           codec: 'avc1.42001e',
           hardwareAcceleration: 'allow' as any, // Old value, no longer valid
         });
-        expect(result.supported).toBe(false);
+        assert.strictEqual(result.supported, false);
       });
 
       it('should return supported=false for unsupported codecs', async () => {
         const result = await VideoDecoder.isConfigSupported({
           codec: 'invalid-codec-string',
         });
-        expect(result.supported).toBe(false);
+        assert.strictEqual(result.supported, false);
       });
     });
 
@@ -745,14 +750,14 @@ describe('VideoDecoder', () => {
         });
 
         // Required properties per W3C WebCodecs spec
-        expect(decoder).toHaveProperty('state');
-        expect(decoder).toHaveProperty('decodeQueueSize');
+        assert.ok('state' in decoder);
+        assert.ok('decodeQueueSize' in decoder);
 
         // State should be a string
-        expect(typeof decoder.state).toBe('string');
+        assert.strictEqual(typeof decoder.state, 'string');
 
         // decodeQueueSize should be a number
-        expect(typeof decoder.decodeQueueSize).toBe('number');
+        assert.strictEqual(typeof decoder.decodeQueueSize, 'number');
 
         decoder.close();
       });
@@ -764,17 +769,17 @@ describe('VideoDecoder', () => {
         });
 
         // Required methods per W3C WebCodecs spec
-        expect(typeof decoder.configure).toBe('function');
-        expect(typeof decoder.decode).toBe('function');
-        expect(typeof decoder.flush).toBe('function');
-        expect(typeof decoder.reset).toBe('function');
-        expect(typeof decoder.close).toBe('function');
+        assert.strictEqual(typeof decoder.configure, 'function');
+        assert.strictEqual(typeof decoder.decode, 'function');
+        assert.strictEqual(typeof decoder.flush, 'function');
+        assert.strictEqual(typeof decoder.reset, 'function');
+        assert.strictEqual(typeof decoder.close, 'function');
 
         decoder.close();
       });
 
       it('should have static isConfigSupported method', () => {
-        expect(typeof VideoDecoder.isConfigSupported).toBe('function');
+        assert.strictEqual(typeof VideoDecoder.isConfigSupported, 'function');
       });
 
       it('should have ondequeue callback property', () => {
@@ -784,12 +789,12 @@ describe('VideoDecoder', () => {
         });
 
         // ondequeue should exist and be settable
-        expect('ondequeue' in decoder).toBe(true);
-        expect(decoder.ondequeue).toBe(null);
+        assert.strictEqual('ondequeue' in decoder, true);
+        assert.strictEqual(decoder.ondequeue, null);
 
         const handler = () => {};
         decoder.ondequeue = handler;
-        expect(decoder.ondequeue).toBe(handler);
+        assert.strictEqual(decoder.ondequeue, handler);
 
         decoder.close();
       });
@@ -801,9 +806,9 @@ describe('VideoDecoder', () => {
         });
 
         // Per W3C spec, VideoDecoder extends EventTarget
-        expect(typeof decoder.addEventListener).toBe('function');
-        expect(typeof decoder.removeEventListener).toBe('function');
-        expect(typeof decoder.dispatchEvent).toBe('function');
+        assert.strictEqual(typeof decoder.addEventListener, 'function');
+        assert.strictEqual(typeof decoder.removeEventListener, 'function');
+        assert.strictEqual(typeof decoder.dispatchEvent, 'function');
 
         decoder.close();
       });
@@ -815,8 +820,8 @@ describe('VideoDecoder', () => {
         });
 
         // codecSaturated is part of the codec interface
-        expect('codecSaturated' in decoder).toBe(true);
-        expect(typeof decoder.codecSaturated).toBe('boolean');
+        assert.strictEqual('codecSaturated' in decoder, true);
+        assert.strictEqual(typeof decoder.codecSaturated, 'boolean');
 
         decoder.close();
       });
@@ -829,7 +834,7 @@ describe('VideoDecoder', () => {
           error: () => {},
         });
 
-        expect(decoder.state).toBe('unconfigured');
+        assert.strictEqual(decoder.state, 'unconfigured');
         decoder.close();
       });
 
@@ -840,7 +845,7 @@ describe('VideoDecoder', () => {
         });
 
         decoder.configure({ codec: 'avc1.42001e' });
-        expect(decoder.state).toBe('configured');
+        assert.strictEqual(decoder.state, 'configured');
 
         decoder.close();
       });
@@ -852,10 +857,10 @@ describe('VideoDecoder', () => {
         });
 
         decoder.configure({ codec: 'avc1.42001e' });
-        expect(decoder.state).toBe('configured');
+        assert.strictEqual(decoder.state, 'configured');
 
         decoder.reset();
-        expect(decoder.state).toBe('unconfigured');
+        assert.strictEqual(decoder.state, 'unconfigured');
 
         decoder.close();
       });
@@ -867,7 +872,7 @@ describe('VideoDecoder', () => {
         });
 
         decoder.close();
-        expect(decoder.state).toBe('closed');
+        assert.strictEqual(decoder.state, 'closed');
       });
 
       it('should transition from configured to closed', () => {
@@ -877,10 +882,10 @@ describe('VideoDecoder', () => {
         });
 
         decoder.configure({ codec: 'avc1.42001e' });
-        expect(decoder.state).toBe('configured');
+        assert.strictEqual(decoder.state, 'configured');
 
         decoder.close();
-        expect(decoder.state).toBe('closed');
+        assert.strictEqual(decoder.state, 'closed');
       });
 
       it('should allow reconfigure after reset', () => {
@@ -892,7 +897,7 @@ describe('VideoDecoder', () => {
         decoder.configure({ codec: 'avc1.42001e' });
         decoder.reset();
         decoder.configure({ codec: 'vp9' });
-        expect(decoder.state).toBe('configured');
+        assert.strictEqual(decoder.state, 'configured');
 
         decoder.close();
       });
@@ -904,26 +909,26 @@ describe('VideoDecoder', () => {
         });
         decoder.close();
 
-        expect(() => decoder.configure({ codec: 'avc1.42001e' })).toThrow();
-        expect(() => decoder.reset()).toThrow();
+        assert.throws(() => decoder.configure({ codec: 'avc1.42001e' }));
+        assert.throws(() => decoder.reset());
       });
     });
 
     describe('error handling per W3C spec', () => {
       it('should throw TypeError for missing output callback', () => {
-        expect(() => {
+        assert.throws(() => {
           new VideoDecoder({
             error: () => {},
           } as any);
-        }).toThrow(TypeError);
+        }, TypeError);
       });
 
       it('should throw TypeError for missing error callback', () => {
-        expect(() => {
+        assert.throws(() => {
           new VideoDecoder({
             output: () => {},
           } as any);
-        }).toThrow(TypeError);
+        }, TypeError);
       });
 
       it('should throw InvalidStateError when decode called in unconfigured state', () => {
@@ -1021,8 +1026,8 @@ describe('VideoDecoder', () => {
         // Give time for async error callback
         await new Promise((resolve) => setTimeout(resolve, 10));
 
-        expect(errors.length).toBeGreaterThan(0);
-        expect(errors[0].name).toBe('DataError');
+        assert.ok(errors.length > 0);
+        assert.strictEqual(errors[0].name, 'DataError');
 
         decoder.close();
       });
@@ -1035,7 +1040,7 @@ describe('VideoDecoder', () => {
           error: () => {},
         });
 
-        expect(decoder.decodeQueueSize).toBe(0);
+        assert.strictEqual(decoder.decodeQueueSize, 0);
         decoder.close();
       });
 
@@ -1092,7 +1097,7 @@ describe('VideoDecoder', () => {
 
         // Reset should clear the queue
         decoder.reset();
-        expect(decoder.decodeQueueSize).toBe(0);
+        assert.strictEqual(decoder.decodeQueueSize, 0);
 
         decoder.close();
       });

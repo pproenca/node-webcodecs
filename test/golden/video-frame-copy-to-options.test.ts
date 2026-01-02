@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 describe('VideoFrame.copyTo() with rect option', () => {
   it('should copy only the specified rect region', async () => {
@@ -50,10 +51,10 @@ describe('VideoFrame.copyTo() with rect option', () => {
 
     // All pixels should be green
     for (let i = 0; i < destSize; i += 4) {
-      expect(dest[i]).toBe(0); // R
-      expect(dest[i + 1]).toBe(255); // G
-      expect(dest[i + 2]).toBe(0); // B
-      expect(dest[i + 3]).toBe(255); // A
+      assert.strictEqual(dest[i], 0); // R
+      assert.strictEqual(dest[i + 1], 255); // G
+      assert.strictEqual(dest[i + 2], 0); // B
+      assert.strictEqual(dest[i + 3], 255); // A
     }
 
     frame.close();
@@ -70,9 +71,9 @@ describe('VideoFrame.copyTo() with rect option', () => {
 
     const dest = new Uint8Array(50 * 50 * 4);
 
-    await expect(
+    await assert.rejects(
       frame.copyTo(dest, { rect: { x: 80, y: 80, width: 50, height: 50 } }),
-    ).rejects.toThrow();
+    );
 
     frame.close();
   });
@@ -102,8 +103,8 @@ describe('VideoFrame.copyTo() with layout option', () => {
     });
 
     // Verify returned layout matches what we requested
-    expect(layouts.length).toBe(1);
-    expect(layouts[0].stride).toBe(stride);
+    assert.strictEqual(layouts.length, 1);
+    assert.strictEqual(layouts[0].stride, stride);
 
     frame.close();
   });

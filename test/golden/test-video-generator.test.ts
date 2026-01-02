@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 describe('TestVideoGenerator', () => {
   it('should generate test video frames', async () => {
@@ -18,9 +19,9 @@ describe('TestVideoGenerator', () => {
       frames.push(frame);
     });
 
-    expect(frames.length).toBe(30);
-    expect(frames[0].codedWidth).toBe(320);
-    expect(frames[0].codedHeight).toBe(240);
+    assert.strictEqual(frames.length, 30);
+    assert.strictEqual(frames[0].codedWidth, 320);
+    assert.strictEqual(frames[0].codedHeight, 240);
 
     // Clean up frames
     frames.forEach((f) => {

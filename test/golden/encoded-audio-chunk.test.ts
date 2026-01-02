@@ -1,13 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 describe('EncodedAudioChunk', () => {
   describe('constructor type validation', () => {
     it('should throw TypeError for invalid type value', () => {
-      expect(() => new EncodedAudioChunk({
-        type: 'invalid' as any,
-        timestamp: 0,
-        data: new Uint8Array([1, 2, 3, 4]),
-      })).toThrow(TypeError);
+      assert.throws(() => {
+        new EncodedAudioChunk({
+          type: 'invalid' as any,
+          timestamp: 0,
+          data: new Uint8Array([1, 2, 3, 4]),
+        });
+      }, TypeError);
     });
 
     it('should accept key and delta types', () => {
@@ -16,14 +19,14 @@ describe('EncodedAudioChunk', () => {
         timestamp: 0,
         data: new Uint8Array([1, 2, 3, 4]),
       });
-      expect(keyChunk.type).toBe('key');
+      assert.strictEqual(keyChunk.type, 'key');
 
       const deltaChunk = new EncodedAudioChunk({
         type: 'delta',
         timestamp: 1000,
         data: new Uint8Array([1, 2, 3, 4]),
       });
-      expect(deltaChunk.type).toBe('delta');
+      assert.strictEqual(deltaChunk.type, 'delta');
     });
   });
 
@@ -41,8 +44,8 @@ describe('EncodedAudioChunk', () => {
       });
 
       // ArrayBuffer should be detached (byteLength becomes 0)
-      expect(buffer.byteLength).toBe(0);
-      expect(chunk.byteLength).toBe(100);
+      assert.strictEqual(buffer.byteLength, 0);
+      assert.strictEqual(chunk.byteLength, 100);
     });
 
     it('should work without transfer option', () => {
@@ -54,8 +57,8 @@ describe('EncodedAudioChunk', () => {
         data: buffer,
       });
 
-      expect(buffer.byteLength).toBe(100);
-      expect(chunk.byteLength).toBe(100);
+      assert.strictEqual(buffer.byteLength, 100);
+      assert.strictEqual(chunk.byteLength, 100);
     });
   });
 });

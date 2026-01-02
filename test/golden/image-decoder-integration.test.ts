@@ -1,7 +1,8 @@
+import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { describe, it } from 'node:test';
 import * as zlib from 'node:zlib';
-import { describe, expect, it } from 'vitest';
 import { ImageDecoder, VideoFrame } from '../../lib';
 
 // CRC32 calculation for PNG chunks
@@ -77,10 +78,10 @@ describe('ImageDecoder Integration', () => {
         data,
       });
 
-      expect(decoder.complete).toBe(true);
+      assert.strictEqual(decoder.complete, true);
       const result = await decoder.decode();
-      expect(result.image).toBeInstanceOf(VideoFrame);
-      expect(result.image.codedWidth).toBeGreaterThan(0);
+      assert.ok(result.image instanceof VideoFrame);
+      assert.ok(result.image.codedWidth > 0);
 
       result.image.close();
       decoder.close();
@@ -100,7 +101,7 @@ describe('ImageDecoder Integration', () => {
       });
 
       const result = await decoder.decode();
-      expect(result.complete).toBe(true);
+      assert.strictEqual(result.complete, true);
 
       result.image.close();
       decoder.close();
@@ -109,12 +110,12 @@ describe('ImageDecoder Integration', () => {
 
   describe('Error handling', () => {
     it('throws for unsupported type', () => {
-      expect(() => {
+      assert.throws(() => {
         new ImageDecoder({
           type: 'image/xyz-unsupported',
           data: new Uint8Array([1, 2, 3]),
         });
-      }).toThrow();
+      });
     });
 
     it('fails to decode invalid PNG data', async () => {
@@ -125,7 +126,7 @@ describe('ImageDecoder Integration', () => {
         data: new Uint8Array([0, 0, 0, 0]), // Not valid PNG
       });
 
-      await expect(decoder.decode()).rejects.toThrow();
+      await assert.rejects(decoder.decode());
       decoder.close();
     });
 
@@ -136,7 +137,7 @@ describe('ImageDecoder Integration', () => {
         data: new Uint8Array([]),
       });
 
-      await expect(decoder.decode()).rejects.toThrow();
+      await assert.rejects(decoder.decode());
       decoder.close();
     });
   });
@@ -154,7 +155,7 @@ describe('ImageDecoder Integration', () => {
       }
 
       // If we get here without running out of memory, resources are being freed
-      expect(true).toBe(true);
+      assert.strictEqual(true, true);
     });
   });
 
@@ -171,10 +172,10 @@ describe('ImageDecoder Integration', () => {
       const frame = result.image;
 
       // Check core VideoFrame properties that are always present
-      expect(frame.format).toBe('RGBA');
-      expect(frame.codedWidth).toBe(1);
-      expect(frame.codedHeight).toBe(1);
-      expect(typeof frame.timestamp).toBe('number');
+      assert.strictEqual(frame.format, 'RGBA');
+      assert.strictEqual(frame.codedWidth, 1);
+      assert.strictEqual(frame.codedHeight, 1);
+      assert.strictEqual(typeof frame.timestamp, 'number');
 
       frame.close();
       decoder.close();
@@ -190,8 +191,8 @@ describe('ImageDecoder Integration', () => {
 
       const result = await decoder.decode();
       // The image should be wrapped as a VideoFrame
-      expect(result.image).toBeInstanceOf(VideoFrame);
-      expect(result.complete).toBe(true);
+      assert.ok(result.image instanceof VideoFrame);
+      assert.strictEqual(result.complete, true);
 
       result.image.close();
       decoder.close();
@@ -208,7 +209,7 @@ describe('ImageDecoder Integration', () => {
 
       decoder.close();
 
-      await expect(decoder.decode()).rejects.toThrow(/closed|InvalidStateError/);
+      await assert.rejects(decoder.decode(), /closed|InvalidStateError/);
     });
 
     it('can close multiple times without error', () => {
@@ -218,11 +219,11 @@ describe('ImageDecoder Integration', () => {
         data,
       });
 
-      expect(() => {
+      assert.doesNotThrow(() => {
         decoder.close();
         decoder.close();
         decoder.close();
-      }).not.toThrow();
+      });
     });
   });
 });

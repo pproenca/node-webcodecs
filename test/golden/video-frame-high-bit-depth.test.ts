@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 describe('VideoFrame High Bit-Depth Formats', () => {
   describe('format parsing', () => {
@@ -16,7 +17,7 @@ describe('VideoFrame High Bit-Depth Formats', () => {
         timestamp: 0,
       });
 
-      expect(frame.format).toBe('I420P10');
+      assert.strictEqual(frame.format, 'I420P10');
       frame.close();
     });
 
@@ -33,7 +34,7 @@ describe('VideoFrame High Bit-Depth Formats', () => {
         timestamp: 0,
       });
 
-      expect(frame.format).toBe('I420P12');
+      assert.strictEqual(frame.format, 'I420P12');
       frame.close();
     });
   });
@@ -54,8 +55,8 @@ describe('VideoFrame High Bit-Depth Formats', () => {
         timestamp: 0,
       });
 
-      expect(frame.format).toBe('I420P10');
-      expect(frame.allocationSize()).toBe(expectedSize);
+      assert.strictEqual(frame.format, 'I420P10');
+      assert.strictEqual(frame.allocationSize(), expectedSize);
       frame.close();
     });
 
@@ -73,8 +74,8 @@ describe('VideoFrame High Bit-Depth Formats', () => {
         timestamp: 0,
       });
 
-      expect(frame.format).toBe('I444P12');
-      expect(frame.allocationSize()).toBe(expectedSize);
+      assert.strictEqual(frame.format, 'I444P12');
+      assert.strictEqual(frame.allocationSize(), expectedSize);
       frame.close();
     });
   });
@@ -117,11 +118,11 @@ describe('VideoFrame High Bit-Depth Formats', () => {
 
       const destView = new Uint16Array(destBuffer);
       // Verify Y plane
-      expect(destView[0]).toBe(0x0100);
+      assert.strictEqual(destView[0], 0x0100);
       // Verify U plane
-      expect(destView[ySize / 2]).toBe(0x0200);
+      assert.strictEqual(destView[ySize / 2], 0x0200);
       // Verify V plane
-      expect(destView[(ySize + uvSize) / 2]).toBe(0x0300);
+      assert.strictEqual(destView[(ySize + uvSize) / 2], 0x0300);
 
       frame.close();
     });
@@ -144,21 +145,21 @@ describe('VideoFrame High Bit-Depth Formats', () => {
       const destBuffer = new ArrayBuffer(totalSize);
       const layout = await frame.copyTo(destBuffer);
 
-      expect(layout).toHaveLength(3); // Y, U, V planes
+      assert.strictEqual(layout.length, 3); // Y, U, V planes
 
       // Y plane: offset 0, stride = width * 2 bytes
-      expect(layout[0].offset).toBe(0);
-      expect(layout[0].stride).toBe(width * 2);
+      assert.strictEqual(layout[0].offset, 0);
+      assert.strictEqual(layout[0].stride, width * 2);
 
       // U plane: offset after Y, stride = (width/2) * 2 bytes
       const ySize = width * height * 2;
-      expect(layout[1].offset).toBe(ySize);
-      expect(layout[1].stride).toBe((width / 2) * 2);
+      assert.strictEqual(layout[1].offset, ySize);
+      assert.strictEqual(layout[1].stride, (width / 2) * 2);
 
       // V plane: offset after Y+U
       const uvSize = (width / 2) * (height / 2) * 2;
-      expect(layout[2].offset).toBe(ySize + uvSize);
-      expect(layout[2].stride).toBe((width / 2) * 2);
+      assert.strictEqual(layout[2].offset, ySize + uvSize);
+      assert.strictEqual(layout[2].stride, (width / 2) * 2);
 
       frame.close();
     });
@@ -202,14 +203,14 @@ describe('VideoFrame High Bit-Depth Formats', () => {
           timestamp: 0,
         });
 
-        expect(frame.format).toBe(name);
-        expect(frame.codedWidth).toBe(width);
-        expect(frame.codedHeight).toBe(height);
+        assert.strictEqual(frame.format, name);
+        assert.strictEqual(frame.codedWidth, width);
+        assert.strictEqual(frame.codedHeight, height);
 
         // Verify copyTo works
         const destBuffer = new ArrayBuffer(totalSize);
         const layout = await frame.copyTo(destBuffer);
-        expect(layout).toHaveLength(planes);
+        assert.strictEqual(layout.length, planes);
 
         frame.close();
       });

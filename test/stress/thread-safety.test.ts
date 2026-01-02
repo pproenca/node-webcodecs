@@ -4,13 +4,15 @@
 // Thread safety tests validating C++ native addon behavior.
 // TDD tests for issues identified in FFmpeg C++ sentinel analysis.
 
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
 import {
   EncodedVideoChunk,
   VideoDecoder,
   VideoEncoder,
   VideoFrame,
 } from '@pproenca/node-webcodecs';
-import { describe, expect, it } from 'vitest';
 
 /**
  * Issue #8: Missing hard queue limit in decoder
@@ -56,8 +58,8 @@ describe('Issue #8: Hard Queue Limit', () => {
     encoder.close();
 
     // Encoder should throw QuotaExceededError
-    expect(quotaError).not.toBeNull();
-    expect(quotaError?.message).toContain('QuotaExceededError');
+    assert.notStrictEqual(quotaError, null);
+    assert.ok(quotaError?.message.includes('QuotaExceededError'));
   });
 
   it('decoder throws QuotaExceededError when hard limit exceeded', async () => {
@@ -135,8 +137,8 @@ describe('Issue #8: Hard Queue Limit', () => {
     }
 
     // Decoder MUST throw QuotaExceededError like encoder
-    expect(quotaError).not.toBeNull();
-    expect(quotaError?.message).toContain('QuotaExceededError');
+    assert.notStrictEqual(quotaError, null);
+    assert.ok(quotaError?.message.includes('QuotaExceededError'));
   });
 });
 
@@ -191,8 +193,8 @@ describe('Issue #2: Queue Race Condition', () => {
     await encoder.flush();
     encoder.close();
 
-    expect(errors).toHaveLength(0);
-    expect(outputCount).toBe(10);
+    assert.strictEqual(errors.length, 0);
+    assert.strictEqual(outputCount, 10);
   });
 
   it('multiple sequential flushes work correctly', async () => {
@@ -232,7 +234,7 @@ describe('Issue #2: Queue Race Condition', () => {
     }
 
     encoder.close();
-    expect(outputCount).toBe(15);
+    assert.strictEqual(outputCount, 15);
   });
 });
 
@@ -288,7 +290,7 @@ describe('Issue #6: Resource Cleanup on Abort', () => {
     const growthMB = (endRSS - startRSS) / (1024 * 1024);
 
     // Memory growth should be minimal (< 50MB) after cleanup
-    expect(growthMB).toBeLessThan(50);
+    assert.ok(growthMB < 50);
   });
 
   it('close without flush does not crash', async () => {
@@ -323,6 +325,6 @@ describe('Issue #6: Resource Cleanup on Abort', () => {
     encoder.close();
 
     // If we reach here without crash, abort path is safe
-    expect(true).toBe(true);
+    assert.strictEqual(true, true);
   });
 });

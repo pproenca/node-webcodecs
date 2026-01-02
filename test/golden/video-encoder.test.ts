@@ -2,7 +2,8 @@
  * Tests for VideoEncoder
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { after, before, describe, it } from 'node:test';
 import { TEST_CONSTANTS } from '../fixtures/test-helpers';
 
 describe('VideoEncoder', () => {
@@ -13,7 +14,7 @@ describe('VideoEncoder', () => {
         width: 1920,
         height: 1080,
       });
-      expect(result.supported).toBe(true);
+      assert.strictEqual(result.supported, true);
     });
 
     it('should support H.264 with bitrate', async () => {
@@ -24,7 +25,7 @@ describe('VideoEncoder', () => {
         bitrate: 2_000_000,
         framerate: 30,
       });
-      expect(result.supported).toBe(true);
+      assert.strictEqual(result.supported, true);
     });
 
     it('should reject invalid dimensions', async () => {
@@ -33,7 +34,7 @@ describe('VideoEncoder', () => {
         width: 0,
         height: 1080,
       });
-      expect(result.supported).toBe(false);
+      assert.strictEqual(result.supported, false);
     });
 
     it('should reject unknown codecs', async () => {
@@ -42,7 +43,7 @@ describe('VideoEncoder', () => {
         width: 1920,
         height: 1080,
       });
-      expect(result.supported).toBe(false);
+      assert.strictEqual(result.supported, false);
     });
 
     it('should echo displayWidth and displayHeight in config', async () => {
@@ -53,9 +54,9 @@ describe('VideoEncoder', () => {
         displayWidth: 1920,
         displayHeight: 1080,
       });
-      expect(result.supported).toBe(true);
-      expect(result.config.displayWidth).toBe(1920);
-      expect(result.config.displayHeight).toBe(1080);
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual(result.config.displayWidth, 1920);
+      assert.strictEqual(result.config.displayHeight, 1080);
     });
 
     it('should echo displayWidth and displayHeight when different from coded dimensions', async () => {
@@ -66,9 +67,9 @@ describe('VideoEncoder', () => {
         displayWidth: 1280,
         displayHeight: 720,
       });
-      expect(result.supported).toBe(true);
-      expect(result.config.displayWidth).toBe(1280);
-      expect(result.config.displayHeight).toBe(720);
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual(result.config.displayWidth, 1280);
+      assert.strictEqual(result.config.displayHeight, 720);
     });
 
     it('should echo alpha option in config', async () => {
@@ -78,8 +79,8 @@ describe('VideoEncoder', () => {
         height: 480,
         alpha: 'discard',
       });
-      expect(result.supported).toBe(true);
-      expect(result.config.alpha).toBe('discard');
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual(result.config.alpha, 'discard');
     });
 
     it('should echo scalabilityMode in config', async () => {
@@ -89,8 +90,8 @@ describe('VideoEncoder', () => {
         height: 480,
         scalabilityMode: 'L1T2',
       });
-      expect(result.supported).toBe(true);
-      expect(result.config.scalabilityMode).toBe('L1T2');
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual(result.config.scalabilityMode, 'L1T2');
     });
 
     it('should echo contentHint in config', async () => {
@@ -100,8 +101,8 @@ describe('VideoEncoder', () => {
         height: 480,
         contentHint: 'motion',
       });
-      expect(result.supported).toBe(true);
-      expect(result.config.contentHint).toBe('motion');
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual(result.config.contentHint, 'motion');
     });
 
     it('should echo avc.format = annexb in config', async () => {
@@ -111,9 +112,9 @@ describe('VideoEncoder', () => {
         height: 480,
         avc: { format: 'annexb' },
       });
-      expect(result.supported).toBe(true);
-      expect(result.config.avc).toBeDefined();
-      expect(result.config.avc?.format).toBe('annexb');
+      assert.strictEqual(result.supported, true);
+      assert.notStrictEqual(result.config.avc, undefined);
+      assert.strictEqual(result.config.avc?.format, 'annexb');
     });
 
     it('should echo avc.format = avc in config', async () => {
@@ -123,8 +124,8 @@ describe('VideoEncoder', () => {
         height: 480,
         avc: { format: 'avc' },
       });
-      expect(result.supported).toBe(true);
-      expect(result.config.avc?.format).toBe('avc');
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual(result.config.avc?.format, 'avc');
     });
 
     it('should echo hevc.format in config when HEVC supported', async () => {
@@ -136,7 +137,7 @@ describe('VideoEncoder', () => {
       });
       // HEVC may not be available on all systems
       if (result.supported) {
-        expect(result.config.hevc?.format).toBe('annexb');
+        assert.strictEqual(result.config.hevc?.format, 'annexb');
       }
     });
 
@@ -166,25 +167,25 @@ describe('VideoEncoder', () => {
 
       const result = await VideoEncoder.isConfigSupported(inputConfig);
 
-      expect(result.supported).toBe(true);
-      expect(result.config.codec).toBe(inputConfig.codec);
-      expect(result.config.width).toBe(inputConfig.width);
-      expect(result.config.height).toBe(inputConfig.height);
-      expect(result.config.displayWidth).toBe(inputConfig.displayWidth);
-      expect(result.config.displayHeight).toBe(inputConfig.displayHeight);
-      expect(result.config.bitrate).toBe(inputConfig.bitrate);
-      expect(result.config.framerate).toBe(inputConfig.framerate);
-      expect(result.config.hardwareAcceleration).toBe(inputConfig.hardwareAcceleration);
-      expect(result.config.alpha).toBe(inputConfig.alpha);
-      expect(result.config.scalabilityMode).toBe(inputConfig.scalabilityMode);
-      expect(result.config.bitrateMode).toBe(inputConfig.bitrateMode);
-      expect(result.config.latencyMode).toBe(inputConfig.latencyMode);
-      expect(result.config.contentHint).toBe(inputConfig.contentHint);
-      expect(result.config.avc?.format).toBe(inputConfig.avc.format);
-      expect(result.config.colorSpace?.primaries).toBe(inputConfig.colorSpace.primaries);
-      expect(result.config.colorSpace?.transfer).toBe(inputConfig.colorSpace.transfer);
-      expect(result.config.colorSpace?.matrix).toBe(inputConfig.colorSpace.matrix);
-      expect(result.config.colorSpace?.fullRange).toBe(inputConfig.colorSpace.fullRange);
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual(result.config.codec, inputConfig.codec);
+      assert.strictEqual(result.config.width, inputConfig.width);
+      assert.strictEqual(result.config.height, inputConfig.height);
+      assert.strictEqual(result.config.displayWidth, inputConfig.displayWidth);
+      assert.strictEqual(result.config.displayHeight, inputConfig.displayHeight);
+      assert.strictEqual(result.config.bitrate, inputConfig.bitrate);
+      assert.strictEqual(result.config.framerate, inputConfig.framerate);
+      assert.strictEqual(result.config.hardwareAcceleration, inputConfig.hardwareAcceleration);
+      assert.strictEqual(result.config.alpha, inputConfig.alpha);
+      assert.strictEqual(result.config.scalabilityMode, inputConfig.scalabilityMode);
+      assert.strictEqual(result.config.bitrateMode, inputConfig.bitrateMode);
+      assert.strictEqual(result.config.latencyMode, inputConfig.latencyMode);
+      assert.strictEqual(result.config.contentHint, inputConfig.contentHint);
+      assert.strictEqual(result.config.avc?.format, inputConfig.avc.format);
+      assert.strictEqual(result.config.colorSpace?.primaries, inputConfig.colorSpace.primaries);
+      assert.strictEqual(result.config.colorSpace?.transfer, inputConfig.colorSpace.transfer);
+      assert.strictEqual(result.config.colorSpace?.matrix, inputConfig.colorSpace.matrix);
+      assert.strictEqual(result.config.colorSpace?.fullRange, inputConfig.colorSpace.fullRange);
     });
 
     it('should not echo unrecognized properties', async () => {
@@ -195,24 +196,24 @@ describe('VideoEncoder', () => {
         unknownProperty: 'should-not-appear',
       } as any);
 
-      expect(result.supported).toBe(true);
-      expect((result.config as any).unknownProperty).toBeUndefined();
+      assert.strictEqual(result.supported, true);
+      assert.strictEqual((result.config as any).unknownProperty, undefined);
     });
   });
 
   describe('constructor', () => {
     it('should require output callback', () => {
-      expect(() => {
+      assert.throws(() => {
         new VideoEncoder({} as any);
-      }).toThrow(TypeError);
+      }, TypeError);
     });
 
     it('should require error callback', () => {
-      expect(() => {
+      assert.throws(() => {
         new VideoEncoder({
           output: () => {},
         } as any);
-      }).toThrow(TypeError);
+      }, TypeError);
     });
 
     it('should create encoder with valid callbacks', () => {
@@ -220,8 +221,8 @@ describe('VideoEncoder', () => {
         output: () => {},
         error: () => {},
       });
-      expect(encoder.state).toBe('unconfigured');
-      expect(encoder.encodeQueueSize).toBe(0);
+      assert.strictEqual(encoder.state, 'unconfigured');
+      assert.strictEqual(encoder.encodeQueueSize, 0);
       encoder.close();
     });
   });
@@ -229,21 +230,21 @@ describe('VideoEncoder', () => {
   describe('state management', () => {
     let encoder: VideoEncoder;
 
-    beforeEach(() => {
+    before(() => {
       encoder = new VideoEncoder({
         output: () => {},
         error: () => {},
       });
     });
 
-    afterEach(() => {
+    after(() => {
       if (encoder.state !== 'closed') {
         encoder.close();
       }
     });
 
     it('should start in unconfigured state', () => {
-      expect(encoder.state).toBe('unconfigured');
+      assert.strictEqual(encoder.state, 'unconfigured');
     });
 
     it('should throw if encode called when unconfigured', () => {
@@ -256,24 +257,24 @@ describe('VideoEncoder', () => {
         timestamp: 0,
       });
 
-      expect(() => encoder.encode(frame)).toThrow();
+      assert.throws(() => encoder.encode(frame));
       frame.close();
     });
 
     it('should throw if flush called when unconfigured', async () => {
-      await expect(encoder.flush()).rejects.toThrow();
+      await assert.rejects(encoder.flush());
     });
 
     it('should throw if configure called after close', () => {
       encoder.close();
 
-      expect(() => {
+      assert.throws(() => {
         encoder.configure({
           codec: 'avc1.42E01E',
           width: 640,
           height: 480,
         });
-      }).toThrow();
+      });
     });
   });
 
@@ -284,7 +285,7 @@ describe('VideoEncoder', () => {
         error: () => {},
       });
 
-      expect(() => {
+      assert.throws(() => {
         encoder.configure({
           codec: 'avc1.42E01E',
           width: 640,
@@ -292,7 +293,7 @@ describe('VideoEncoder', () => {
           displayWidth: 640,
           // displayHeight intentionally omitted
         } as any);
-      }).toThrow(TypeError);
+      }, TypeError);
 
       encoder.close();
     });
@@ -303,7 +304,7 @@ describe('VideoEncoder', () => {
         error: () => {},
       });
 
-      expect(() => {
+      assert.throws(() => {
         encoder.configure({
           codec: 'avc1.42E01E',
           width: 640,
@@ -311,7 +312,7 @@ describe('VideoEncoder', () => {
           // displayWidth intentionally omitted
           displayHeight: 480,
         } as any);
-      }).toThrow(TypeError);
+      }, TypeError);
 
       encoder.close();
     });
@@ -322,7 +323,7 @@ describe('VideoEncoder', () => {
         error: () => {},
       });
 
-      expect(() => {
+      assert.doesNotThrow(() => {
         encoder.configure({
           codec: 'avc1.42E01E',
           width: 640,
@@ -330,7 +331,7 @@ describe('VideoEncoder', () => {
           displayWidth: 640,
           displayHeight: 480,
         });
-      }).not.toThrow();
+      });
 
       encoder.close();
     });
@@ -371,7 +372,7 @@ describe('VideoEncoder', () => {
       await encoder.flush();
       encoder.close();
 
-      expect(dequeueCount).toBeGreaterThan(0);
+      assert.ok(dequeueCount > 0);
     });
 
     it('should support removeEventListener', () => {
@@ -389,7 +390,7 @@ describe('VideoEncoder', () => {
       encoder.removeEventListener('dequeue', handler);
 
       encoder.close();
-      expect(encoder.removeEventListener).toBeDefined();
+      assert.notStrictEqual(encoder.removeEventListener, undefined);
     });
 
     it('should support both ondequeue callback and addEventListener', async () => {
@@ -431,8 +432,8 @@ describe('VideoEncoder', () => {
       await encoder.flush();
       encoder.close();
 
-      expect(callbackCalled).toBe(true);
-      expect(eventCalled).toBe(true);
+      assert.strictEqual(callbackCalled, true);
+      assert.strictEqual(eventCalled, true);
     });
   });
 
@@ -470,17 +471,17 @@ describe('VideoEncoder', () => {
       await encoder.flush();
       encoder.close();
 
-      expect(chunks.length).toBeGreaterThan(0);
+      assert.ok(chunks.length > 0);
 
       const keyframeChunk = chunks.find((c) => c.chunk.type === 'key');
-      expect(keyframeChunk).toBeDefined();
-      expect(keyframeChunk?.metadata?.decoderConfig).toBeDefined();
-      expect(keyframeChunk?.metadata?.decoderConfig?.codec).toContain('avc1');
-      expect(keyframeChunk?.metadata?.decoderConfig?.codedWidth).toBe(640);
-      expect(keyframeChunk?.metadata?.decoderConfig?.codedHeight).toBe(480);
+      assert.notStrictEqual(keyframeChunk, undefined);
+      assert.notStrictEqual(keyframeChunk?.metadata?.decoderConfig, undefined);
+      assert.ok(keyframeChunk?.metadata?.decoderConfig?.codec?.includes('avc1'));
+      assert.strictEqual(keyframeChunk?.metadata?.decoderConfig?.codedWidth, 640);
+      assert.strictEqual(keyframeChunk?.metadata?.decoderConfig?.codedHeight, 480);
       // These are the new properties we're adding:
-      expect(keyframeChunk?.metadata?.decoderConfig?.displayAspectWidth).toBe(800);
-      expect(keyframeChunk?.metadata?.decoderConfig?.displayAspectHeight).toBe(600);
+      assert.strictEqual(keyframeChunk?.metadata?.decoderConfig?.displayAspectWidth, 800);
+      assert.strictEqual(keyframeChunk?.metadata?.decoderConfig?.displayAspectHeight, 600);
     });
 
     it('should include svc metadata with temporalLayerId', async () => {
@@ -516,12 +517,12 @@ describe('VideoEncoder', () => {
       await encoder.flush();
       encoder.close();
 
-      expect(chunks.length).toBeGreaterThan(0);
+      assert.ok(chunks.length > 0);
 
       // Verify svc metadata is present on keyframe
       const keyframeChunk = chunks.find((c) => c.chunk.type === 'key');
-      expect(keyframeChunk?.metadata?.svc).toBeDefined();
-      expect(keyframeChunk?.metadata?.svc?.temporalLayerId).toBe(0);
+      assert.notStrictEqual(keyframeChunk?.metadata?.svc, undefined);
+      assert.strictEqual(keyframeChunk?.metadata?.svc?.temporalLayerId, 0);
     });
   });
 
@@ -560,7 +561,7 @@ describe('VideoEncoder', () => {
       await encoder.flush();
       encoder.close();
 
-      expect(chunks.length).toBeGreaterThan(0);
+      assert.ok(chunks.length > 0);
       // For annexb, keyframe should contain NAL units with start codes
       const keyChunk = chunks[0];
       const data = new Uint8Array(keyChunk.chunk.byteLength);
@@ -570,7 +571,7 @@ describe('VideoEncoder', () => {
       const hasStartCode =
         (data[0] === 0 && data[1] === 0 && data[2] === 0 && data[3] === 1) ||
         (data[0] === 0 && data[1] === 0 && data[2] === 1);
-      expect(hasStartCode).toBe(true);
+      assert.strictEqual(hasStartCode, true);
     });
 
     it('should store bitstream format and apply it in encoding', async () => {
@@ -608,11 +609,11 @@ describe('VideoEncoder', () => {
       await encoder.flush();
       encoder.close();
 
-      expect(chunks.length).toBeGreaterThan(0);
+      assert.ok(chunks.length > 0);
       // decoderConfig should have description for avc format
       const keyframe = chunks.find((c) => c.chunk.type === 'key');
-      expect(keyframe?.metadata?.decoderConfig).toBeDefined();
-      expect(keyframe?.metadata?.decoderConfig?.description).toBeDefined();
+      assert.notStrictEqual(keyframe?.metadata?.decoderConfig, undefined);
+      assert.notStrictEqual(keyframe?.metadata?.decoderConfig?.description, undefined);
     });
   });
 
@@ -629,12 +630,12 @@ describe('VideoEncoder', () => {
           fullRange: false,
         },
       });
-      expect(result.supported).toBe(true);
-      expect(result.config.colorSpace).toBeDefined();
-      expect(result.config.colorSpace?.primaries).toBe('bt709');
-      expect(result.config.colorSpace?.transfer).toBe('bt709');
-      expect(result.config.colorSpace?.matrix).toBe('bt709');
-      expect(result.config.colorSpace?.fullRange).toBe(false);
+      assert.strictEqual(result.supported, true);
+      assert.notStrictEqual(result.config.colorSpace, undefined);
+      assert.strictEqual(result.config.colorSpace?.primaries, 'bt709');
+      assert.strictEqual(result.config.colorSpace?.transfer, 'bt709');
+      assert.strictEqual(result.config.colorSpace?.matrix, 'bt709');
+      assert.strictEqual(result.config.colorSpace?.fullRange, false);
     });
 
     it('should include colorSpace in decoderConfig metadata', async () => {
@@ -676,8 +677,8 @@ describe('VideoEncoder', () => {
       encoder.close();
 
       const keyframe = chunks.find((c) => c.chunk.type === 'key');
-      expect(keyframe?.metadata?.decoderConfig?.colorSpace).toBeDefined();
-      expect(keyframe?.metadata?.decoderConfig?.colorSpace?.primaries).toBe('bt709');
+      assert.notStrictEqual(keyframe?.metadata?.decoderConfig?.colorSpace, undefined);
+      assert.strictEqual(keyframe?.metadata?.decoderConfig?.colorSpace?.primaries, 'bt709');
     });
   });
 
@@ -722,7 +723,7 @@ describe('VideoEncoder', () => {
 
       // The immediate callback should have run during the flush await,
       // proving the event loop was not blocked.
-      expect(immediateRan).toBe(true);
+      assert.strictEqual(immediateRan, true);
       encoder.close();
     });
   });
@@ -737,7 +738,7 @@ describe('VideoEncoder', () => {
       encoder.close();
 
       // W3C spec: reset() throws InvalidStateError when closed
-      expect(() => encoder.reset()).toThrow(/closed|InvalidStateError/i);
+      assert.throws(() => encoder.reset(), /closed|InvalidStateError/i);
     });
   });
 
@@ -752,7 +753,7 @@ describe('VideoEncoder', () => {
 
       const support = await VideoEncoder.isConfigSupported(config);
       // Should not throw, may or may not have HW support
-      expect(support.supported).toBeDefined();
+      assert.notStrictEqual(support.supported, undefined);
     });
 
     it('should fall back to software when hardware unavailable', async () => {
@@ -772,7 +773,7 @@ describe('VideoEncoder', () => {
       });
 
       // Should configure successfully regardless of HW availability
-      expect(encoder.state).toBe('configured');
+      assert.strictEqual(encoder.state, 'configured');
       encoder.close();
     });
 
@@ -793,7 +794,7 @@ describe('VideoEncoder', () => {
       });
 
       // Should configure successfully with software encoder
-      expect(encoder.state).toBe('configured');
+      assert.strictEqual(encoder.state, 'configured');
       encoder.close();
     });
 
@@ -814,7 +815,7 @@ describe('VideoEncoder', () => {
       });
 
       // Should configure successfully
-      expect(encoder.state).toBe('configured');
+      assert.strictEqual(encoder.state, 'configured');
       encoder.close();
     });
   });
@@ -838,7 +839,7 @@ describe('VideoEncoder', () => {
         bitrateMode: 'quantizer',
       });
 
-      expect(encoder.state).toBe('configured');
+      assert.strictEqual(encoder.state, 'configured');
 
       const frame = new VideoFrame(new Uint8Array(320 * 240 * 4), {
         format: 'RGBA',
@@ -855,8 +856,8 @@ describe('VideoEncoder', () => {
       encoder.close();
 
       // Should produce at least one chunk
-      expect(chunks.length).toBeGreaterThan(0);
-      expect(chunks[0].type).toBe('key');
+      assert.ok(chunks.length > 0);
+      assert.strictEqual(chunks[0].type, 'key');
     });
 
     it('should use quality-based encoding without bitrate target', async () => {
@@ -896,7 +897,7 @@ describe('VideoEncoder', () => {
       encoder.close();
 
       // Should produce chunks for all frames
-      expect(chunks.length).toBe(5);
+      assert.strictEqual(chunks.length, 5);
     });
   });
 
@@ -939,14 +940,14 @@ describe('VideoEncoder', () => {
       await encoder.flush();
       encoder.close();
 
-      expect(chunks.length).toBe(4);
+      assert.strictEqual(chunks.length, 4);
       // Sort by timestamp to get presentation order (B-frames may cause decode order to differ)
       chunks.sort((a, b) => a.timestamp - b.timestamp);
       // L1T2 pattern: [0, 1, 0, 1]
-      expect(chunks[0].layerId).toBe(0);
-      expect(chunks[1].layerId).toBe(1);
-      expect(chunks[2].layerId).toBe(0);
-      expect(chunks[3].layerId).toBe(1);
+      assert.strictEqual(chunks[0].layerId, 0);
+      assert.strictEqual(chunks[1].layerId, 1);
+      assert.strictEqual(chunks[2].layerId, 0);
+      assert.strictEqual(chunks[3].layerId, 1);
     });
 
     it('should report temporalLayerId based on scalabilityMode L1T3', async () => {
@@ -987,11 +988,11 @@ describe('VideoEncoder', () => {
       await encoder.flush();
       encoder.close();
 
-      expect(chunks.length).toBe(8);
+      assert.strictEqual(chunks.length, 8);
       // Sort by timestamp (B-frames may cause decode order != presentation order)
       chunks.sort((a, b) => a.timestamp - b.timestamp);
       // L1T3 pattern: [0, 2, 1, 2, 0, 2, 1, 2]
-      expect(chunks.map((c) => c.layerId)).toEqual([0, 2, 1, 2, 0, 2, 1, 2]);
+      assert.deepStrictEqual(chunks.map((c) => c.layerId), [0, 2, 1, 2, 0, 2, 1, 2]);
     });
 
     it('should report temporalLayerId 0 when scalabilityMode not set', async () => {
@@ -1031,9 +1032,9 @@ describe('VideoEncoder', () => {
       await encoder.flush();
       encoder.close();
 
-      expect(chunks.length).toBe(4);
+      assert.strictEqual(chunks.length, 4);
       // All frames should be layer 0 when no scalabilityMode
-      expect(chunks.every((c) => c.layerId === 0)).toBe(true);
+      assert.strictEqual(chunks.every((c) => c.layerId === 0), true);
     });
   });
 });

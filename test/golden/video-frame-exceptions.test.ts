@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 describe('VideoFrame exception types per W3C spec', () => {
   describe('clone()', () => {
@@ -13,11 +14,11 @@ describe('VideoFrame exception types per W3C spec', () => {
 
       frame.close();
 
-      expect(() => frame.clone()).toThrow(DOMException);
+      assert.throws(() => frame.clone(), DOMException);
       try {
         frame.clone();
       } catch (e) {
-        expect((e as DOMException).name).toBe('InvalidStateError');
+        assert.strictEqual((e as DOMException).name, 'InvalidStateError');
       }
     });
   });
@@ -35,12 +36,12 @@ describe('VideoFrame exception types per W3C spec', () => {
       frame.close();
 
       const dest = new Uint8Array(4 * 4 * 4);
-      await expect(frame.copyTo(dest)).rejects.toThrow(DOMException);
+      await assert.rejects(frame.copyTo(dest), DOMException);
 
       try {
         await frame.copyTo(dest);
       } catch (e) {
-        expect((e as DOMException).name).toBe('InvalidStateError');
+        assert.strictEqual((e as DOMException).name, 'InvalidStateError');
       }
     });
 
@@ -55,7 +56,7 @@ describe('VideoFrame exception types per W3C spec', () => {
 
       const dest = new Uint8Array(10); // Too small
 
-      await expect(frame.copyTo(dest)).rejects.toThrow(RangeError);
+      await assert.rejects(frame.copyTo(dest), RangeError);
 
       frame.close();
     });
@@ -71,9 +72,10 @@ describe('VideoFrame exception types per W3C spec', () => {
 
       const dest = new Uint8Array(100);
 
-      await expect(
+      await assert.rejects(
         frame.copyTo(dest, { rect: { x: 10, y: 10, width: 2, height: 2 } }),
-      ).rejects.toThrow(RangeError);
+        RangeError,
+      );
 
       frame.close();
     });
@@ -91,11 +93,11 @@ describe('VideoFrame exception types per W3C spec', () => {
 
       frame.close();
 
-      expect(() => frame.allocationSize()).toThrow(DOMException);
+      assert.throws(() => frame.allocationSize(), DOMException);
       try {
         frame.allocationSize();
       } catch (e) {
-        expect((e as DOMException).name).toBe('InvalidStateError');
+        assert.strictEqual((e as DOMException).name, 'InvalidStateError');
       }
     });
   });
@@ -112,11 +114,11 @@ describe('VideoFrame exception types per W3C spec', () => {
 
       frame.close();
 
-      expect(() => frame.metadata()).toThrow(DOMException);
+      assert.throws(() => frame.metadata(), DOMException);
       try {
         frame.metadata();
       } catch (e) {
-        expect((e as DOMException).name).toBe('InvalidStateError');
+        assert.strictEqual((e as DOMException).name, 'InvalidStateError');
       }
     });
   });

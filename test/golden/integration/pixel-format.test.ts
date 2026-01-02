@@ -3,7 +3,8 @@
  * Tests NV21 format and 10-bit alpha formats
  */
 
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 describe('NV21 pixel format', () => {
   it('should create VideoFrame with NV21 format', () => {
@@ -26,9 +27,9 @@ describe('NV21 pixel format', () => {
       timestamp: 0,
     });
 
-    expect(frame.format).toBe('NV21');
-    expect(frame.codedWidth).toBe(width);
-    expect(frame.codedHeight).toBe(height);
+    assert.strictEqual(frame.format, 'NV21');
+    assert.strictEqual(frame.codedWidth, width);
+    assert.strictEqual(frame.codedHeight, height);
 
     frame.close();
   });
@@ -50,10 +51,10 @@ describe('NV21 pixel format', () => {
 
     const cloned = frame.clone();
 
-    expect(cloned.format).toBe('NV21');
-    expect(cloned.codedWidth).toBe(width);
-    expect(cloned.codedHeight).toBe(height);
-    expect(cloned.timestamp).toBe(1000);
+    assert.strictEqual(cloned.format, 'NV21');
+    assert.strictEqual(cloned.codedWidth, width);
+    assert.strictEqual(cloned.codedHeight, height);
+    assert.strictEqual(cloned.timestamp, 1000);
 
     frame.close();
     cloned.close();
@@ -84,9 +85,9 @@ describe('10-bit alpha formats', () => {
       timestamp: 0,
     });
 
-    expect(frame.format).toBe('I420AP10');
-    expect(frame.codedWidth).toBe(width);
-    expect(frame.codedHeight).toBe(height);
+    assert.strictEqual(frame.format, 'I420AP10');
+    assert.strictEqual(frame.codedWidth, width);
+    assert.strictEqual(frame.codedHeight, height);
 
     frame.close();
   });
@@ -112,9 +113,9 @@ describe('10-bit alpha formats', () => {
       timestamp: 0,
     });
 
-    expect(frame.format).toBe('I422AP10');
-    expect(frame.codedWidth).toBe(width);
-    expect(frame.codedHeight).toBe(height);
+    assert.strictEqual(frame.format, 'I422AP10');
+    assert.strictEqual(frame.codedWidth, width);
+    assert.strictEqual(frame.codedHeight, height);
 
     frame.close();
   });
@@ -140,9 +141,9 @@ describe('10-bit alpha formats', () => {
       timestamp: 0,
     });
 
-    expect(frame.format).toBe('I444AP10');
-    expect(frame.codedWidth).toBe(width);
-    expect(frame.codedHeight).toBe(height);
+    assert.strictEqual(frame.format, 'I444AP10');
+    assert.strictEqual(frame.codedWidth, width);
+    assert.strictEqual(frame.codedHeight, height);
 
     frame.close();
   });
@@ -166,9 +167,9 @@ describe('VideoFrame.metadata() integration', () => {
     const cloned = frame.clone();
     const metadata = cloned.metadata();
 
-    expect(metadata.captureTime).toBe(123.456);
-    expect(metadata.receiveTime).toBe(789.012);
-    expect(metadata.rtpTimestamp).toBe(12345678);
+    assert.strictEqual(metadata.captureTime, 123.456);
+    assert.strictEqual(metadata.receiveTime, 789.012);
+    assert.strictEqual(metadata.rtpTimestamp, 12345678);
 
     frame.close();
     cloned.close();
@@ -185,8 +186,8 @@ describe('VideoFrame.metadata() integration', () => {
 
     const metadata = frame.metadata();
 
-    expect(metadata).toBeDefined();
-    expect(Object.keys(metadata)).toHaveLength(0);
+    assert.notStrictEqual(metadata, undefined);
+    assert.strictEqual(Object.keys(metadata).length, 0);
 
     frame.close();
   });

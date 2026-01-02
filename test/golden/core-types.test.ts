@@ -2,7 +2,8 @@
  * Tests for core data types: VideoFrame, AudioData, EncodedVideoChunk, EncodedAudioChunk
  */
 
-import { describe, expect, it } from 'vitest';
+import * as assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 describe('VideoFrame', () => {
   describe('constructor', () => {
@@ -19,11 +20,11 @@ describe('VideoFrame', () => {
         timestamp: 0,
       });
 
-      expect(frame.format).toBe('RGBA');
-      expect(frame.codedWidth).toBe(width);
-      expect(frame.codedHeight).toBe(height);
-      expect(frame.timestamp).toBe(0);
-      expect(frame.duration).toBeNull();
+      assert.strictEqual(frame.format, 'RGBA');
+      assert.strictEqual(frame.codedWidth, width);
+      assert.strictEqual(frame.codedHeight, height);
+      assert.strictEqual(frame.timestamp, 0);
+      assert.strictEqual(frame.duration, null);
 
       frame.close();
     });
@@ -44,11 +45,11 @@ describe('VideoFrame', () => {
         duration: 33333,
       });
 
-      expect(frame.format).toBe('I420');
-      expect(frame.codedWidth).toBe(width);
-      expect(frame.codedHeight).toBe(height);
-      expect(frame.timestamp).toBe(1000);
-      expect(frame.duration).toBe(33333);
+      assert.strictEqual(frame.format, 'I420');
+      assert.strictEqual(frame.codedWidth, width);
+      assert.strictEqual(frame.codedHeight, height);
+      assert.strictEqual(frame.timestamp, 1000);
+      assert.strictEqual(frame.duration, 33333);
 
       frame.close();
     });
@@ -56,13 +57,13 @@ describe('VideoFrame', () => {
     it('should throw if required parameters are missing', () => {
       const data = new Uint8Array(100);
 
-      expect(() => {
+      assert.throws(() => {
         new VideoFrame(data);
-      }).toThrow(TypeError);
+      }, TypeError);
 
-      expect(() => {
+      assert.throws(() => {
         new VideoFrame(data, { format: 'RGBA' });
-      }).toThrow(TypeError);
+      }, TypeError);
     });
   });
 
@@ -79,7 +80,7 @@ describe('VideoFrame', () => {
         timestamp: 0,
       });
 
-      expect(frame.allocationSize()).toBe(width * height * 4);
+      assert.strictEqual(frame.allocationSize(), width * height * 4);
       frame.close();
     });
 
@@ -97,7 +98,7 @@ describe('VideoFrame', () => {
         timestamp: 0,
       });
 
-      expect(frame.allocationSize()).toBe(Math.floor(width * height * 1.5));
+      assert.strictEqual(frame.allocationSize(), Math.floor(width * height * 1.5));
       frame.close();
     });
   });
@@ -118,14 +119,14 @@ describe('VideoFrame', () => {
 
       const clone = frame.clone();
 
-      expect(clone.format).toBe(frame.format);
-      expect(clone.codedWidth).toBe(frame.codedWidth);
-      expect(clone.codedHeight).toBe(frame.codedHeight);
-      expect(clone.timestamp).toBe(frame.timestamp);
+      assert.strictEqual(clone.format, frame.format);
+      assert.strictEqual(clone.codedWidth, frame.codedWidth);
+      assert.strictEqual(clone.codedHeight, frame.codedHeight);
+      assert.strictEqual(clone.timestamp, frame.timestamp);
 
       // Closing original shouldn't affect clone
       frame.close();
-      expect(clone.codedWidth).toBe(width);
+      assert.strictEqual(clone.codedWidth, width);
 
       clone.close();
     });
@@ -143,8 +144,8 @@ describe('VideoFrame', () => {
 
       frame.close();
 
-      expect(() => frame.allocationSize()).toThrow();
-      expect(() => frame.clone()).toThrow();
+      assert.throws(() => { frame.allocationSize(); });
+      assert.throws(() => { frame.clone(); });
     });
   });
 });
@@ -167,23 +168,23 @@ describe('AudioData', () => {
         data: data.buffer,
       });
 
-      expect(audioData.format).toBe('f32');
-      expect(audioData.sampleRate).toBe(sampleRate);
-      expect(audioData.numberOfFrames).toBe(numberOfFrames);
-      expect(audioData.numberOfChannels).toBe(numberOfChannels);
-      expect(audioData.timestamp).toBe(0);
+      assert.strictEqual(audioData.format, 'f32');
+      assert.strictEqual(audioData.sampleRate, sampleRate);
+      assert.strictEqual(audioData.numberOfFrames, numberOfFrames);
+      assert.strictEqual(audioData.numberOfChannels, numberOfChannels);
+      assert.strictEqual(audioData.timestamp, 0);
 
       // Duration should be calculated correctly
       const expectedDuration = Math.floor((numberOfFrames / sampleRate) * 1_000_000);
-      expect(audioData.duration).toBe(expectedDuration);
+      assert.strictEqual(audioData.duration, expectedDuration);
 
       audioData.close();
     });
 
     it('should throw if required parameters are missing', () => {
-      expect(() => {
+      assert.throws(() => {
         new AudioData({});
-      }).toThrow(TypeError);
+      }, TypeError);
     });
   });
 
@@ -202,7 +203,8 @@ describe('AudioData', () => {
         data: data.buffer,
       });
 
-      expect(audioData.allocationSize({ planeIndex: 0 })).toBe(
+      assert.strictEqual(
+        audioData.allocationSize({ planeIndex: 0 }),
         numberOfFrames * numberOfChannels * 4,
       );
 
@@ -223,7 +225,7 @@ describe('AudioData', () => {
         data: data.buffer,
       });
 
-      expect(audioData.allocationSize({ planeIndex: 0 })).toBe(numberOfFrames * 4);
+      assert.strictEqual(audioData.allocationSize({ planeIndex: 0 }), numberOfFrames * 4);
 
       audioData.close();
     });
@@ -243,8 +245,8 @@ describe('AudioData', () => {
       });
 
       // Each plane is just one channel
-      expect(audioData.allocationSize({ planeIndex: 0 })).toBe(numberOfFrames * 4);
-      expect(audioData.allocationSize({ planeIndex: 1 })).toBe(numberOfFrames * 4);
+      assert.strictEqual(audioData.allocationSize({ planeIndex: 0 }), numberOfFrames * 4);
+      assert.strictEqual(audioData.allocationSize({ planeIndex: 1 }), numberOfFrames * 4);
 
       audioData.close();
     });
@@ -268,7 +270,7 @@ describe('AudioData', () => {
         planeIndex: 0,
         format: 's16',
       });
-      expect(size).toBe(numberOfFrames * numberOfChannels * 2);
+      assert.strictEqual(size, numberOfFrames * numberOfChannels * 2);
 
       audioData.close();
     });
@@ -284,7 +286,7 @@ describe('AudioData', () => {
         data: data.buffer,
       });
 
-      expect(() => audioData.allocationSize({ planeIndex: 1 })).toThrow();
+      assert.throws(() => { audioData.allocationSize({ planeIndex: 1 }); });
       audioData.close();
     });
 
@@ -308,7 +310,7 @@ describe('AudioData', () => {
         frameOffset: 50,
         frameCount: 100,
       });
-      expect(size).toBe(100 * numberOfChannels * 4); // 100 frames * 2 channels * 4 bytes
+      assert.strictEqual(size, 100 * numberOfChannels * 4); // 100 frames * 2 channels * 4 bytes
 
       audioData.close();
     });
@@ -329,11 +331,11 @@ describe('AudioData', () => {
       audioData.close();
 
       const dest = new Float32Array(1024 * 2);
-      expect(() => audioData.copyTo(dest, { planeIndex: 0 })).toThrow(DOMException);
+      assert.throws(() => { audioData.copyTo(dest, { planeIndex: 0 }); }, DOMException);
       try {
         audioData.copyTo(dest, { planeIndex: 0 });
       } catch (e) {
-        expect((e as DOMException).name).toBe('InvalidStateError');
+        assert.strictEqual((e as DOMException).name, 'InvalidStateError');
       }
     });
 
@@ -349,7 +351,7 @@ describe('AudioData', () => {
       });
 
       const dest = new Float32Array(10); // Too small
-      expect(() => audioData.copyTo(dest, { planeIndex: 0 })).toThrow();
+      assert.throws(() => { audioData.copyTo(dest, { planeIndex: 0 }); });
 
       audioData.close();
     });
@@ -366,7 +368,7 @@ describe('AudioData', () => {
       });
 
       const dest = new Float32Array(1024);
-      expect(() => audioData.copyTo(dest, { planeIndex: 2 })).toThrow();
+      assert.throws(() => { audioData.copyTo(dest, { planeIndex: 2 }); });
 
       audioData.close();
     });
@@ -401,9 +403,9 @@ describe('AudioData', () => {
       audioData.copyTo(dest, { planeIndex: 0, frameOffset: 10, frameCount: 10 });
 
       // Verify first sample is from frame 10
-      expect(dest[0]).toBeCloseTo(0.1, 5);
+      assert.ok(Math.abs(dest[0] - 0.1) < 0.00001);
       // Verify last sample is from frame 19
-      expect(dest[dest.length - 1]).toBeCloseTo(0.19, 5);
+      assert.ok(Math.abs(dest[dest.length - 1] - 0.19) < 0.00001);
 
       audioData.close();
     });
@@ -437,8 +439,8 @@ describe('AudioData', () => {
       audioData.copyTo(dest, { planeIndex: 1 });
 
       // Verify values are from channel 1
-      expect(dest[0]).toBeCloseTo(1.0, 5);
-      expect(dest[99]).toBeCloseTo(1.99, 5);
+      assert.ok(Math.abs(dest[0] - 1.0) < 0.00001);
+      assert.ok(Math.abs(dest[99] - 1.99) < 0.00001);
 
       audioData.close();
     });
@@ -464,15 +466,15 @@ describe('AudioData', () => {
 
       // Convert to s16
       const allocSize = audioData.allocationSize({ planeIndex: 0, format: 's16' });
-      expect(allocSize).toBe(numberOfFrames * 2); // 2 bytes per s16 sample
+      assert.strictEqual(allocSize, numberOfFrames * 2); // 2 bytes per s16 sample
 
       const dest = new Int16Array(numberOfFrames);
       audioData.copyTo(dest, { planeIndex: 0, format: 's16' });
 
       // First sample should be near -32768 (min s16)
-      expect(dest[0]).toBeLessThan(-30000);
+      assert.ok(dest[0] < -30000);
       // Last sample should be near +32767 (max s16)
-      expect(dest[numberOfFrames - 1]).toBeGreaterThan(30000);
+      assert.ok(dest[numberOfFrames - 1] > 30000);
 
       audioData.close();
     });
@@ -496,14 +498,14 @@ describe('AudioData', () => {
       });
 
       const allocSize = audioData.allocationSize({ planeIndex: 0, format: 'f32' });
-      expect(allocSize).toBe(numberOfFrames * 4);
+      assert.strictEqual(allocSize, numberOfFrames * 4);
 
       const dest = new Float32Array(numberOfFrames);
       audioData.copyTo(dest, { planeIndex: 0, format: 'f32' });
 
       // Values should be in -1.0 to 1.0 range
-      expect(dest[0]).toBeCloseTo(-1.0, 1);
-      expect(dest[numberOfFrames - 1]).toBeCloseTo(1.0, 1);
+      assert.ok(Math.abs(dest[0] - (-1.0)) < 0.1);
+      assert.ok(Math.abs(dest[numberOfFrames - 1] - 1.0) < 0.1);
 
       audioData.close();
     });
@@ -529,14 +531,14 @@ describe('AudioData', () => {
 
       // Convert to f32-planar and get plane 0 (left channel)
       const allocSize = audioData.allocationSize({ planeIndex: 0, format: 'f32-planar' });
-      expect(allocSize).toBe(numberOfFrames * 4); // Single channel
+      assert.strictEqual(allocSize, numberOfFrames * 4); // Single channel
 
       const dest = new Float32Array(numberOfFrames);
       audioData.copyTo(dest, { planeIndex: 0, format: 'f32-planar' });
 
       // All values should be 0.5 (left channel)
-      expect(dest[0]).toBeCloseTo(0.5, 5);
-      expect(dest[numberOfFrames - 1]).toBeCloseTo(0.5, 5);
+      assert.ok(Math.abs(dest[0] - 0.5) < 0.00001);
+      assert.ok(Math.abs(dest[numberOfFrames - 1] - 0.5) < 0.00001);
 
       audioData.close();
     });
@@ -562,14 +564,14 @@ describe('AudioData', () => {
 
       // Convert to interleaved f32
       const allocSize = audioData.allocationSize({ planeIndex: 0, format: 'f32' });
-      expect(allocSize).toBe(numberOfFrames * numberOfChannels * 4);
+      assert.strictEqual(allocSize, numberOfFrames * numberOfChannels * 4);
 
       const dest = new Float32Array(numberOfFrames * numberOfChannels);
       audioData.copyTo(dest, { planeIndex: 0, format: 'f32' });
 
       // Interleaved: L0 R0 L1 R1 ...
-      expect(dest[0]).toBeCloseTo(0.25, 5); // L0
-      expect(dest[1]).toBeCloseTo(0.75, 5); // R0
+      assert.ok(Math.abs(dest[0] - 0.25) < 0.00001); // L0
+      assert.ok(Math.abs(dest[1] - 0.75) < 0.00001); // R0
 
       audioData.close();
     });
@@ -591,14 +593,14 @@ describe('AudioData', () => {
 
       const clone = audioData.clone();
 
-      expect(clone.format).toBe(audioData.format);
-      expect(clone.sampleRate).toBe(audioData.sampleRate);
-      expect(clone.numberOfFrames).toBe(audioData.numberOfFrames);
-      expect(clone.numberOfChannels).toBe(audioData.numberOfChannels);
-      expect(clone.timestamp).toBe(audioData.timestamp);
+      assert.strictEqual(clone.format, audioData.format);
+      assert.strictEqual(clone.sampleRate, audioData.sampleRate);
+      assert.strictEqual(clone.numberOfFrames, audioData.numberOfFrames);
+      assert.strictEqual(clone.numberOfChannels, audioData.numberOfChannels);
+      assert.strictEqual(clone.timestamp, audioData.timestamp);
 
       audioData.close();
-      expect(clone.sampleRate).toBe(48000);
+      assert.strictEqual(clone.sampleRate, 48000);
 
       clone.close();
     });
@@ -616,10 +618,10 @@ describe('EncodedVideoChunk', () => {
         data,
       });
 
-      expect(chunk.type).toBe('key');
-      expect(chunk.timestamp).toBe(0);
-      expect(chunk.duration).toBeNull();
-      expect(chunk.byteLength).toBe(6);
+      assert.strictEqual(chunk.type, 'key');
+      assert.strictEqual(chunk.timestamp, 0);
+      assert.strictEqual(chunk.duration, null);
+      assert.strictEqual(chunk.byteLength, 6);
     });
 
     it('should create a delta chunk with duration', () => {
@@ -632,20 +634,20 @@ describe('EncodedVideoChunk', () => {
         data,
       });
 
-      expect(chunk.type).toBe('delta');
-      expect(chunk.timestamp).toBe(33333);
-      expect(chunk.duration).toBe(33333);
-      expect(chunk.byteLength).toBe(4);
+      assert.strictEqual(chunk.type, 'delta');
+      assert.strictEqual(chunk.timestamp, 33333);
+      assert.strictEqual(chunk.duration, 33333);
+      assert.strictEqual(chunk.byteLength, 4);
     });
 
     it('should throw for invalid type', () => {
-      expect(() => {
+      assert.throws(() => {
         new EncodedVideoChunk({
           type: 'invalid' as any,
           timestamp: 0,
           data: new Uint8Array(1),
         });
-      }).toThrow(TypeError);
+      }, TypeError);
     });
   });
 
@@ -661,7 +663,7 @@ describe('EncodedVideoChunk', () => {
       const dest = new Uint8Array(10);
       chunk.copyTo(dest);
 
-      expect(dest.slice(0, 6)).toEqual(srcData);
+      assert.deepStrictEqual(dest.slice(0, 6), srcData);
     });
 
     it('should throw if destination is too small', () => {
@@ -671,9 +673,9 @@ describe('EncodedVideoChunk', () => {
         data: new Uint8Array(10),
       });
 
-      expect(() => {
+      assert.throws(() => {
         chunk.copyTo(new Uint8Array(5));
-      }).toThrow(TypeError);
+      }, TypeError);
     });
   });
 });
@@ -690,10 +692,10 @@ describe('EncodedAudioChunk', () => {
         data,
       });
 
-      expect(chunk.type).toBe('key');
-      expect(chunk.timestamp).toBe(0);
-      expect(chunk.duration).toBe(21333);
-      expect(chunk.byteLength).toBe(4);
+      assert.strictEqual(chunk.type, 'key');
+      assert.strictEqual(chunk.timestamp, 0);
+      assert.strictEqual(chunk.duration, 21333);
+      assert.strictEqual(chunk.byteLength, 4);
     });
   });
 
@@ -709,7 +711,7 @@ describe('EncodedAudioChunk', () => {
       const dest = new Uint8Array(10);
       chunk.copyTo(dest);
 
-      expect(dest.slice(0, 6)).toEqual(srcData);
+      assert.deepStrictEqual(dest.slice(0, 6), srcData);
     });
   });
 });
@@ -718,10 +720,10 @@ describe('VideoColorSpace', () => {
   it('should use default values when no init provided', () => {
     const colorSpace = new VideoColorSpace();
 
-    expect(colorSpace.primaries).toBeNull();
-    expect(colorSpace.transfer).toBeNull();
-    expect(colorSpace.matrix).toBeNull();
-    expect(colorSpace.fullRange).toBeNull();
+    assert.strictEqual(colorSpace.primaries, null);
+    assert.strictEqual(colorSpace.transfer, null);
+    assert.strictEqual(colorSpace.matrix, null);
+    assert.strictEqual(colorSpace.fullRange, null);
   });
 
   it('should accept init values', () => {
@@ -732,10 +734,10 @@ describe('VideoColorSpace', () => {
       fullRange: true,
     });
 
-    expect(colorSpace.primaries).toBe('bt709');
-    expect(colorSpace.transfer).toBe('bt709');
-    expect(colorSpace.matrix).toBe('bt709');
-    expect(colorSpace.fullRange).toBe(true);
+    assert.strictEqual(colorSpace.primaries, 'bt709');
+    assert.strictEqual(colorSpace.transfer, 'bt709');
+    assert.strictEqual(colorSpace.matrix, 'bt709');
+    assert.strictEqual(colorSpace.fullRange, true);
   });
 
   it('should serialize to JSON', () => {
@@ -748,9 +750,9 @@ describe('VideoColorSpace', () => {
 
     const json = colorSpace.toJSON();
 
-    expect(json.primaries).toBe('bt709');
-    expect(json.transfer).toBe('smpte170m');
-    expect(json.matrix).toBe('bt709');
-    expect(json.fullRange).toBe(false);
+    assert.strictEqual(json.primaries, 'bt709');
+    assert.strictEqual(json.transfer, 'smpte170m');
+    assert.strictEqual(json.matrix, 'bt709');
+    assert.strictEqual(json.fullRange, false);
   });
 });
