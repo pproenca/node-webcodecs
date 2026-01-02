@@ -347,6 +347,22 @@ Napi::Value VideoDecoder::Decode(const Napi::CallbackInfo& info) {
     throw Napi::Error::New(env, "InvalidStateError: Decoder not configured");
   }
 
+  // Reject if queue is too large (prevents OOM).
+  if (async_mode_ && async_worker_) {
+    size_t queue = async_worker_->QueueSize() + async_worker_->GetPendingFrames();
+    if (queue >= kMaxHardQueueSize) {
+      throw Napi::Error::New(
+          env,
+          "QuotaExceededError: Decode queue is full. You must handle "
+          "backpressure by waiting for decodeQueueSize to decrease.");
+    }
+  } else if (decode_queue_size_ >= static_cast<int>(kMaxHardQueueSize)) {
+    throw Napi::Error::New(
+        env,
+        "QuotaExceededError: Decode queue is full. You must handle "
+        "backpressure by waiting for decodeQueueSize to decrease.");
+  }
+
   if (info.Length() < 1 || !info[0].IsObject()) {
     throw Napi::Error::New(env, "decode requires EncodedVideoChunk");
   }

@@ -48,3 +48,9 @@ binary/
 
 # Generated API docs
 docs/api/
+
+# FFmpeg static libraries (downloaded for local development)
+ffmpeg-install/
+
+# External submodules
+externals/
