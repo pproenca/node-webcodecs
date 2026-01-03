@@ -13,24 +13,77 @@ on:
 permissions: {}
 
 jobs:
-  # Build prebuilt binaries for all platforms
-  build-prebuilds:
-    uses: ./.github/workflows/build-prebuilds.yml
-    with:
-      deps_version: v3  # Update when deps change
-    # Reusable workflows inherit permissions from caller - must grant what callee needs
-    permissions:
-      contents: read      # For checkout
-      id-token: write     # For OIDC attestation
-      attestations: write # For build provenance
-
-  # Publish platform-specific packages first, then main package
-  publish:
-    name: "Publish"
-    needs: [build-prebuilds]
+  # ============================================================================
+  # Download prebuilt artifacts from CI workflow
+  # NO building here - artifacts were already built and tested in CI
+  # ============================================================================
+  download-artifacts:
+    name: "Download CI Artifacts"
     runs-on: ubuntu-24.04
     permissions:
-      id-token: write
+      contents: read
+      actions: read # Required to download artifacts from other workflows
+    outputs:
+      artifacts-found: ${{ steps.verify.outputs.found }}
+    steps:
+      - uses: actions/checkout@v6
+
+      # Download artifacts from the CI workflow run for this commit
+      # Uses dawidd6/action-download-artifact which supports cross-workflow downloads
+      - name: Download artifacts from CI
+        uses: dawidd6/action-download-artifact@0bd50d53a6d7fb5cb921e607957e9cc12b4ce392 # v6
+        with:
+          workflow: ci.yml
+          commit: ${{ github.sha }}
+          name: platform-pkg-.*
+          name_is_regexp: true
+          path: platform-artifacts
+          if_no_artifact_found: fail
+
+      - name: Verify all platform artifacts exist
+        id: verify
+        run: |
+          echo "=== Downloaded artifacts ==="
+          ls -laR platform-artifacts/
+
+          # Verify all expected platforms are present
+          for platform in darwin-arm64 darwin-x64 linux-x64; do
+            artifact_dir="platform-artifacts/platform-pkg-$platform"
+            if [ ! -d "$artifact_dir" ]; then
+              echo "ERROR: Missing artifact directory for $platform"
+              echo "Did CI complete successfully for commit ${{ github.sha }}?"
+              exit 1
+            fi
+
+            tarball=$(find "$artifact_dir" -name "*.tar" -type f | head -1)
+            if [ -z "$tarball" ]; then
+              echo "ERROR: No tarball found for $platform"
+              exit 1
+            fi
+
+            echo "OK: Found $tarball"
+          done
+
+          echo "found=true" >> $GITHUB_OUTPUT
+          echo "All platform artifacts verified!"
+
+      # Re-upload artifacts so they're available to subsequent jobs in this workflow
+      - name: Upload artifacts for publish job
+        uses: actions/upload-artifact@v6
+        with:
+          name: all-platform-artifacts
+          path: platform-artifacts/
+          retention-days: 1
+
+  # ============================================================================
+  # Publish platform-specific packages first, then main package
+  # ============================================================================
+  publish:
+    name: "Publish"
+    needs: [download-artifacts]
+    runs-on: ubuntu-24.04
+    permissions:
+      id-token: write # For npm provenance
       contents: read
     environment:
       name: npm
@@ -52,7 +105,7 @@ jobs:
       - name: Download platform package artifacts
         uses: actions/download-artifact@v6
         with:
-          pattern: platform-pkg-*
+          name: all-platform-artifacts
           path: platform-artifacts
 
       - name: Extract platform packages
@@ -105,9 +158,7 @@ jobs:
           for platform in darwin-arm64 darwin-x64 linux-x64; do
             pkg_dir="packages/@pproenca/node-webcodecs-$platform"
             echo "Publishing $pkg_dir..."
-            cd "$pkg_dir"
-            npm publish --provenance --access public
-            cd -
+            (cd "$pkg_dir" && npm publish --provenance --access public)
           done
 
           # Wait for npm registry propagation before publishing main package
@@ -117,6 +168,9 @@ jobs:
       - name: Publish main package
         run: npm publish --provenance --access public
 
+  # ============================================================================
+  # Smoke test - verify published packages work on each platform
+  # ============================================================================
   smoke-test:
     name: "Smoke Test ${{ matrix.platform }}"
     needs: [publish]
