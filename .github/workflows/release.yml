@@ -258,8 +258,10 @@ jobs:
             echo "OK: $pkg_dir"
           done
 
-      # OIDC Trusted Publishing - no NPM_TOKEN needed
+      # NPM_TOKEN required for first-time publish; OIDC provenance for supply chain security
       - name: Publish platform packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -e
           for platform in $PLATFORMS; do
@@ -274,6 +276,8 @@ jobs:
           sleep 15
 
       - name: Publish main package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --provenance --access public
 
   # ============================================================================
