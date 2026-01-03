@@ -30,4 +30,4 @@ Additionally, User Agents _MUST NOT_ reclaim an [active](#active-codec) [backgro
 
 ---
 
-[← Back to Table of Contents](../toc.md)
+[← Back to Table of Contents](../TOC.md)

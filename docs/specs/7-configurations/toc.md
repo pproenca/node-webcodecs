@@ -5,7 +5,7 @@
 
 - [7.1. Check Configuration Support (with config)](./7.1-check-configuration-support-with-config.md)
 - [7.2. Clone Configuration (with config)](./7.2-clone-configuration-with-config.md)
-- [7.3. Signalling Configuration Support](./7.3-signalling-configuration-support/toc.md)
+- [7.3. Signalling Configuration Support](./7.3-signalling-configuration-support/TOC.md)
 - [7.4. Codec String](./7.4-codec-string.md)
 - [7.5. AudioDecoderConfig](./7.5-audiodecoderconfig.md)
 - [7.6. VideoDecoderConfig](./7.6-videodecoderconfig.md)
@@ -23,4 +23,4 @@
 
 ---
 
-[← Back to Table of Contents](../toc.md)
+[← Back to Table of Contents](../TOC.md)
