@@ -187,12 +187,96 @@ async function runTests(suiteName, tests) {
   if (failed > 0) process.exit(1);
 }
 
+/**
+ * Captures errors delivered via the error callback for async error testing.
+ * Used for testing NotSupportedError, EncodingError, DataError which are
+ * delivered via callback per W3C spec.
+ *
+ * @param {Function} codecFactory - Factory function (e.g., createVideoEncoder)
+ * @param {Function} operation - Operation to perform on the codec
+ * @param {Object} config - Optional config to apply before operation
+ * @param {number} timeout - Timeout in ms to wait for callback (default: 500)
+ * @returns {Promise<Error|null>} Error from callback, or null if no error
+ */
+async function captureCallbackError(codecFactory, operation, config = null, timeout = 500) {
+  return new Promise((resolve) => {
+    let errorReceived = null;
+    const codec = codecFactory(
+      () => {}, // output callback
+      (e) => { errorReceived = e; } // error callback
+    );
+
+    try {
+      if (config) codec.configure(config);
+      operation(codec);
+    } catch (e) {
+      // Sync errors are NOT what we're testing - ignore
+    }
+
+    // Wait for async callback to fire
+    setTimeout(() => {
+      try { codec.close(); } catch (_) {}
+      resolve(errorReceived);
+    }, timeout);
+  });
+}
+
+/**
+ * Creates an EncodedVideoChunk with corrupted H.264 data.
+ * Used to trigger EncodingError via error callback.
+ *
+ * @param {string} type - Chunk type: 'key' or 'delta' (default: 'key')
+ * @param {number} timestamp - Timestamp in microseconds (default: 0)
+ * @returns {EncodedVideoChunk} Chunk with invalid NAL unit data
+ */
+function createCorruptedH264Chunk(type = 'key', timestamp = 0) {
+  // Invalid NAL unit header (forbidden_zero_bit set + garbage)
+  const data = Buffer.from([0x80, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x01, 0xFF]);
+  return new EncodedVideoChunk({
+    type: type,
+    timestamp: timestamp,
+    data: data,
+  });
+}
+
+/**
+ * Creates an EncodedVideoChunk that's too small to be valid.
+ * Used to trigger EncodingError via error callback.
+ *
+ * @param {string} type - Chunk type: 'key' or 'delta' (default: 'key')
+ * @param {number} timestamp - Timestamp in microseconds (default: 0)
+ * @returns {EncodedVideoChunk} Chunk with insufficient data
+ */
+function createTruncatedChunk(type = 'key', timestamp = 0) {
+  // Single byte is definitely not a valid frame
+  const data = Buffer.from([0x00]);
+  return new EncodedVideoChunk({
+    type: type,
+    timestamp: timestamp,
+    data: data,
+  });
+}
+
+/**
+ * Asserts that an error has the expected name.
+ * Works for both DOMException and regular Error types.
+ *
+ * @param {Error} error - The error to check
+ * @param {string} expectedName - Expected error name (e.g., 'InvalidStateError')
+ */
+function assertErrorName(error, expectedName) {
+  assert.ok(error, `Expected error with name "${expectedName}" but got null`);
+  assert.strictEqual(error.name, expectedName,
+    `Expected error name "${expectedName}" but got "${error.name}"`);
+}
+
 module.exports = {
   // Configuration
   TEST_CONFIG,
 
   // Assertions
   assert,
+  assertErrorName,
 
   // VideoFrame/AudioData factories
   createTestFrame,
@@ -209,6 +293,11 @@ module.exports = {
   // Encoded chunk factories
   createTestEncodedVideoChunk,
   createTestEncodedAudioChunk,
+  createCorruptedH264Chunk,
+  createTruncatedChunk,
+
+  // Async error capture utilities
+  captureCallbackError,
 
   // Test runner
   runTests,
