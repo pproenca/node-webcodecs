@@ -134,14 +134,42 @@ export class ImageDecoder {
 3. isTypeSupported("invalid") → false
 
 ## Completion Checklist
-- [ ] Tests written (RED)
-- [ ] Tests fail as expected
-- [ ] Implementation complete (GREEN)
-- [ ] All tests pass
-- [ ] Refactored if needed (BLUE)
-- [ ] No TypeScript errors
-- [ ] No lint errors
-- [ ] Artifact handoff created at `.claude/artifacts/TODO-10.2.md`
+- [x] Tests written (RED)
+- [x] Tests fail as expected
+- [x] Implementation complete (GREEN)
+- [x] All tests pass
+- [x] Refactored if needed (BLUE)
+- [x] No TypeScript errors
+- [x] No lint errors
+- [x] Artifact handoff created at `.claude/artifacts/TODO-10.2.md`
+
+## Completion Notes
+
+### Tests Added
+1. Constructor with valid JPEG data - creates decoder successfully
+2. Constructor with valid GIF data - creates decoder successfully
+3. Invalid image data throws during decode() - proper EncodingError
+4. Streaming ReadableStream - complete is false initially, true after data received
+
+### Implementation Verification
+- All 24 ImageDecoder tests pass
+- Supports PNG, JPEG, GIF, WebP image formats
+- Supports animated images (GIF with multiple frames)
+- Streaming via ReadableStream works correctly
+- `complete` property tracks data reception state
+- `completed` Promise resolves when data fully received
+- `decode()` returns `ImageDecodeResult` with `VideoFrame`
+- `tracks` provides `ImageTrackList` with track metadata
+- `isTypeSupported()` correctly identifies supported formats
+- `close()` properly closes decoder and prevents further operations
+- `reset()` available for state reset
+
+### Files Modified
+- `test/golden/image-decoder.test.ts` - Added 4 new tests for:
+  - JPEG constructor validation
+  - GIF constructor validation
+  - Invalid data error handling
+  - ReadableStream/complete property behavior
 
 ## On Completion
 1. Write artifact to `.claude/artifacts/TODO-10.2.md`
