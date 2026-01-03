@@ -168,6 +168,8 @@ This library implements the [W3C WebCodecs specification](https://www.w3.org/TR/
 
 See [docs/codecs.md](docs/codecs.md) for codec strings and pixel formats.
 
+See [docs/best-practices.md](docs/best-practices.md) for resource management, error handling, and queue management guidance.
+
 ## Contributing
 
 See [CONTRIBUTING.md](.github/CONTRIBUTING.md).
