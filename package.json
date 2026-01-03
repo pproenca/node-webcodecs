@@ -1,7 +1,7 @@
 {
   "name": "@pproenca/node-webcodecs",
   "description": "WebCodecs API implementation for Node.js using FFmpeg",
-  "version": "0.1.1-alpha.3",
+  "version": "0.1.1-alpha.4",
   "author": "Pedro Proenca",
   "homepage": "https://github.com/pproenca/node-webcodecs",
   "repository": {
@@ -66,9 +66,9 @@
     "directory": "test/types"
   },
   "optionalDependencies": {
-    "@pproenca/node-webcodecs-darwin-arm64": "0.1.1-alpha.3",
-    "@pproenca/node-webcodecs-darwin-x64": "0.1.1-alpha.3",
-    "@pproenca/node-webcodecs-linux-x64": "0.1.1-alpha.3"
+    "@pproenca/node-webcodecs-darwin-arm64": "0.1.1-alpha.4",
+    "@pproenca/node-webcodecs-darwin-x64": "0.1.1-alpha.4",
+    "@pproenca/node-webcodecs-linux-x64": "0.1.1-alpha.4"
   },
   "dependencies": {
     "node-gyp-build": "^4.8.0"
