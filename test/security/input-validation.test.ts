@@ -259,8 +259,8 @@ describe('Security: Input Validation', () => {
     it('should require output callback', () => {
       assert.throws(
         () => {
-          // biome-ignore lint/suspicious/noExplicitAny: Testing invalid input
-          new VideoEncoder({ error: () => {} } as any);
+          // @ts-expect-error Testing invalid input
+          new VideoEncoder({ error: () => {} });
         },
         { name: 'TypeError' },
       );
@@ -269,8 +269,8 @@ describe('Security: Input Validation', () => {
     it('should require error callback', () => {
       assert.throws(
         () => {
-          // biome-ignore lint/suspicious/noExplicitAny: Testing invalid input
-          new VideoEncoder({ output: () => {} } as any);
+          // @ts-expect-error Testing invalid input
+          new VideoEncoder({ output: () => {} });
         },
         { name: 'TypeError' },
       );
@@ -279,8 +279,8 @@ describe('Security: Input Validation', () => {
     it('should reject non-function output', () => {
       assert.throws(
         () => {
-          // biome-ignore lint/suspicious/noExplicitAny: Testing invalid input
-          new VideoEncoder({ output: 'not a function', error: () => {} } as any);
+          // @ts-expect-error Testing invalid input
+          new VideoEncoder({ output: 'not a function', error: () => {} });
         },
         { name: 'TypeError' },
       );
