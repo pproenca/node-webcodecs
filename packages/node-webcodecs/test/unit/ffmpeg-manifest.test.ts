@@ -5,7 +5,9 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { describe, it } from 'node:test';
 
-import { buildManifest } from '../../../scripts/ffmpeg-manifest.mjs';
+async function loadManifest() {
+  return await import('../../../../scripts/ffmpeg-manifest.mjs');
+}
 
 function sha256(value: string): string {
   const hash = createHash('sha256');
@@ -14,12 +16,13 @@ function sha256(value: string): string {
 }
 
 describe('buildManifest', () => {
-  it('includes assets with checksums and variant metadata', () => {
+  it('includes assets with checksums and variant metadata', async () => {
     const baseDir = mkdtempSync(join(tmpdir(), 'ffmpeg-manifest-'));
     const artifactPath = join(baseDir, 'ffmpeg-linux-x64.tar.gz');
     writeFileSync(artifactPath, 'fixture');
 
     const versionsPath = resolve(__dirname, '../../../../ffmpeg/versions.json');
+    const { buildManifest } = await loadManifest();
     const manifest = buildManifest({
       artifactsDir: baseDir,
       versionsPath,

@@ -1,10 +1,12 @@
 import * as assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { resolveDepsFromReleases } from '../../../scripts/resolve-deps.mjs';
+async function loadResolver() {
+  return await import('../../../../scripts/resolve-deps.mjs');
+}
 
 describe('resolveDepsFromReleases', () => {
-  it('selects latest non-prerelease deps tag for gpl', () => {
+  it('selects latest non-prerelease deps tag for gpl', async () => {
     const releases = [
       {
         tag_name: 'deps-lgpl-v2',
@@ -29,6 +31,7 @@ describe('resolveDepsFromReleases', () => {
       },
     ];
 
+    const { resolveDepsFromReleases } = await loadResolver();
     const resolved = resolveDepsFromReleases(releases, 'gpl');
     assert.ok(resolved);
     assert.strictEqual(resolved.tag, 'deps-v2');
@@ -36,7 +39,7 @@ describe('resolveDepsFromReleases', () => {
     assert.strictEqual(resolved.variant, 'gpl');
   });
 
-  it('detects platform assets with legacy glibc naming', () => {
+  it('detects platform assets with legacy glibc naming', async () => {
     const releases = [
       {
         tag_name: 'deps-v3',
@@ -52,6 +55,7 @@ describe('resolveDepsFromReleases', () => {
       },
     ];
 
+    const { resolveDepsFromReleases } = await loadResolver();
     const resolved = resolveDepsFromReleases(releases, 'gpl');
     assert.ok(resolved);
     assert.deepStrictEqual(resolved.availability, {
