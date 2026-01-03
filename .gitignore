@@ -30,12 +30,8 @@ CMakeFiles/
 *.swo
 
 # Claude Code - ignore personal/session files, keep shareable configs
-.claude/*
-!.claude/artifacts/
-!.claude/skills/
-!.claude/commands/
-!.claude/agents/
-!.claude/prompts/
+.claude/*.local.md
+.claude/*.local.json
 
 # Sanitizer/profiler output
 *.profraw
