@@ -1,8 +1,8 @@
 // Copyright 2024 The node-webcodecs Authors
 // SPDX-License-Identifier: MIT
 
-#ifndef SRC_DEMUXER_H_
-#define SRC_DEMUXER_H_
+#ifndef PACKAGES_NODE_WEBCODECS_SRC_DEMUXER_H_
+#define PACKAGES_NODE_WEBCODECS_SRC_DEMUXER_H_
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -63,4 +63,4 @@ class Demuxer : public Napi::ObjectWrap<Demuxer> {
 
 Napi::Object InitDemuxer(Napi::Env env, Napi::Object exports);
 
-#endif  // SRC_DEMUXER_H_
+#endif  // PACKAGES_NODE_WEBCODECS_SRC_DEMUXER_H_

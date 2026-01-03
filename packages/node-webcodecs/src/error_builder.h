@@ -1,8 +1,8 @@
 // Copyright 2024 The node-webcodecs Authors
 // SPDX-License-Identifier: MIT
 
-#ifndef SRC_ERROR_BUILDER_H_
-#define SRC_ERROR_BUILDER_H_
+#ifndef PACKAGES_NODE_WEBCODECS_SRC_ERROR_BUILDER_H_
+#define PACKAGES_NODE_WEBCODECS_SRC_ERROR_BUILDER_H_
 
 #include <napi.h>
 
@@ -42,4 +42,4 @@ class ErrorBuilder : public Napi::ObjectWrap<ErrorBuilder> {
 
 }  // namespace webcodecs
 
-#endif  // SRC_ERROR_BUILDER_H_
+#endif  // PACKAGES_NODE_WEBCODECS_SRC_ERROR_BUILDER_H_

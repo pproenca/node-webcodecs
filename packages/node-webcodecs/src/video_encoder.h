@@ -3,8 +3,8 @@
 //
 // VideoEncoder implementation wrapping FFmpeg libx264.
 
-#ifndef SRC_VIDEO_ENCODER_H_
-#define SRC_VIDEO_ENCODER_H_
+#ifndef PACKAGES_NODE_WEBCODECS_SRC_VIDEO_ENCODER_H_
+#define PACKAGES_NODE_WEBCODECS_SRC_VIDEO_ENCODER_H_
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -110,4 +110,4 @@ class VideoEncoder : public Napi::ObjectWrap<VideoEncoder> {
   bool async_mode_ = false;
 };
 
-#endif  // SRC_VIDEO_ENCODER_H_
+#endif  // PACKAGES_NODE_WEBCODECS_SRC_VIDEO_ENCODER_H_

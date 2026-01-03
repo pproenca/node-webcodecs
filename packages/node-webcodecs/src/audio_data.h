@@ -1,8 +1,8 @@
 // Copyright 2025 node-webcodecs contributors. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-#ifndef SRC_AUDIO_DATA_H_
-#define SRC_AUDIO_DATA_H_
+#ifndef PACKAGES_NODE_WEBCODECS_SRC_AUDIO_DATA_H_
+#define PACKAGES_NODE_WEBCODECS_SRC_AUDIO_DATA_H_
 
 #include <napi.h>
 
@@ -60,4 +60,4 @@ class AudioData : public Napi::ObjectWrap<AudioData> {
   bool closed_;
 };
 
-#endif  // SRC_AUDIO_DATA_H_
+#endif  // PACKAGES_NODE_WEBCODECS_SRC_AUDIO_DATA_H_

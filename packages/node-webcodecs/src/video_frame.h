@@ -3,8 +3,8 @@
 //
 // VideoFrame represents a single frame of video data.
 
-#ifndef SRC_VIDEO_FRAME_H_
-#define SRC_VIDEO_FRAME_H_
+#ifndef PACKAGES_NODE_WEBCODECS_SRC_VIDEO_FRAME_H_
+#define PACKAGES_NODE_WEBCODECS_SRC_VIDEO_FRAME_H_
 
 #include <napi.h>
 
@@ -166,4 +166,4 @@ class VideoFrame : public Napi::ObjectWrap<VideoFrame> {
   bool has_color_space_ = false;
 };
 
-#endif  // SRC_VIDEO_FRAME_H_
+#endif  // PACKAGES_NODE_WEBCODECS_SRC_VIDEO_FRAME_H_

@@ -1,8 +1,8 @@
 // Copyright 2025 node-webcodecs contributors. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-#ifndef SRC_ENCODED_AUDIO_CHUNK_H_
-#define SRC_ENCODED_AUDIO_CHUNK_H_
+#ifndef PACKAGES_NODE_WEBCODECS_SRC_ENCODED_AUDIO_CHUNK_H_
+#define PACKAGES_NODE_WEBCODECS_SRC_ENCODED_AUDIO_CHUNK_H_
 
 #include <napi.h>
 
@@ -45,4 +45,4 @@ class EncodedAudioChunk : public Napi::ObjectWrap<EncodedAudioChunk> {
   bool closed_ = false;
 };
 
-#endif  // SRC_ENCODED_AUDIO_CHUNK_H_
+#endif  // PACKAGES_NODE_WEBCODECS_SRC_ENCODED_AUDIO_CHUNK_H_

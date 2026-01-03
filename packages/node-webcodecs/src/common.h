@@ -1,8 +1,8 @@
 // Copyright 2024 The node-webcodecs Authors
 // SPDX-License-Identifier: MIT
 
-#ifndef SRC_COMMON_H_
-#define SRC_COMMON_H_
+#ifndef PACKAGES_NODE_WEBCODECS_SRC_COMMON_H_
+#define PACKAGES_NODE_WEBCODECS_SRC_COMMON_H_
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -162,4 +162,4 @@ void ClearFFmpegWarnings();
 
 }  // namespace webcodecs
 
-#endif  // SRC_COMMON_H_
+#endif  // PACKAGES_NODE_WEBCODECS_SRC_COMMON_H_

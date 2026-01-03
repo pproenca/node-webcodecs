@@ -3,8 +3,8 @@
 //
 // AsyncDecodeWorker for non-blocking video decoding.
 
-#ifndef SRC_ASYNC_DECODE_WORKER_H_
-#define SRC_ASYNC_DECODE_WORKER_H_
+#ifndef PACKAGES_NODE_WEBCODECS_SRC_ASYNC_DECODE_WORKER_H_
+#define PACKAGES_NODE_WEBCODECS_SRC_ASYNC_DECODE_WORKER_H_
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -134,4 +134,4 @@ class AsyncDecodeWorker {
   void ReleaseBuffer(std::vector<uint8_t>* buffer);
 };
 
-#endif  // SRC_ASYNC_DECODE_WORKER_H_
+#endif  // PACKAGES_NODE_WEBCODECS_SRC_ASYNC_DECODE_WORKER_H_

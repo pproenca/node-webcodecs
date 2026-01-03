@@ -4,8 +4,8 @@
 // ImageDecoder implementation wrapping FFmpeg image decoders.
 // Supports both static images and animated formats (GIF, WebP).
 
-#ifndef SRC_IMAGE_DECODER_H_
-#define SRC_IMAGE_DECODER_H_
+#ifndef PACKAGES_NODE_WEBCODECS_SRC_IMAGE_DECODER_H_
+#define PACKAGES_NODE_WEBCODECS_SRC_IMAGE_DECODER_H_
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -98,4 +98,4 @@ class ImageDecoder : public Napi::ObjectWrap<ImageDecoder> {
   std::string premultiply_alpha_;
 };
 
-#endif  // SRC_IMAGE_DECODER_H_
+#endif  // PACKAGES_NODE_WEBCODECS_SRC_IMAGE_DECODER_H_

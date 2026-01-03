@@ -3,8 +3,8 @@
 //
 // VideoDecoder implementation wrapping FFmpeg decoders.
 
-#ifndef SRC_VIDEO_DECODER_H_
-#define SRC_VIDEO_DECODER_H_
+#ifndef PACKAGES_NODE_WEBCODECS_SRC_VIDEO_DECODER_H_
+#define PACKAGES_NODE_WEBCODECS_SRC_VIDEO_DECODER_H_
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -104,4 +104,4 @@ class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
   std::atomic<int> pending_frames_{0};  // Track frames in flight for flush
 };
 
-#endif  // SRC_VIDEO_DECODER_H_
+#endif  // PACKAGES_NODE_WEBCODECS_SRC_VIDEO_DECODER_H_

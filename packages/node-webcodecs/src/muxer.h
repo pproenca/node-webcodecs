@@ -1,8 +1,8 @@
 // Copyright 2024 The node-webcodecs Authors
 // SPDX-License-Identifier: MIT
 
-#ifndef SRC_MUXER_H_
-#define SRC_MUXER_H_
+#ifndef PACKAGES_NODE_WEBCODECS_SRC_MUXER_H_
+#define PACKAGES_NODE_WEBCODECS_SRC_MUXER_H_
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -50,4 +50,4 @@ class Muxer : public Napi::ObjectWrap<Muxer> {
 
 Napi::Object InitMuxer(Napi::Env env, Napi::Object exports);
 
-#endif  // SRC_MUXER_H_
+#endif  // PACKAGES_NODE_WEBCODECS_SRC_MUXER_H_

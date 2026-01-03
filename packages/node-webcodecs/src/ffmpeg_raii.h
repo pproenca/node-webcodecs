@@ -15,8 +15,8 @@
 //   // Reset with new value:
 //   frame.reset(av_frame_alloc());
 
-#ifndef SRC_FFMPEG_RAII_H_
-#define SRC_FFMPEG_RAII_H_
+#ifndef PACKAGES_NODE_WEBCODECS_SRC_FFMPEG_RAII_H_
+#define PACKAGES_NODE_WEBCODECS_SRC_FFMPEG_RAII_H_
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -148,4 +148,4 @@ inline AVFilterInOutPtr make_filter_inout() {
 
 }  // namespace ffmpeg
 
-#endif  // SRC_FFMPEG_RAII_H_
+#endif  // PACKAGES_NODE_WEBCODECS_SRC_FFMPEG_RAII_H_

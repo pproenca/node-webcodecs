@@ -1,8 +1,8 @@
 // Copyright 2025 node-webcodecs contributors. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-#ifndef SRC_AUDIO_ENCODER_H_
-#define SRC_AUDIO_ENCODER_H_
+#ifndef PACKAGES_NODE_WEBCODECS_SRC_AUDIO_ENCODER_H_
+#define PACKAGES_NODE_WEBCODECS_SRC_AUDIO_ENCODER_H_
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -71,4 +71,4 @@ class AudioEncoder : public Napi::ObjectWrap<AudioEncoder> {
   static constexpr size_t kMaxQueueSize = 16;
 };
 
-#endif  // SRC_AUDIO_ENCODER_H_
+#endif  // PACKAGES_NODE_WEBCODECS_SRC_AUDIO_ENCODER_H_

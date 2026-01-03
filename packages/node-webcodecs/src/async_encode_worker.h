@@ -3,8 +3,8 @@
 //
 // AsyncEncodeWorker for non-blocking video encoding.
 
-#ifndef SRC_ASYNC_ENCODE_WORKER_H_
-#define SRC_ASYNC_ENCODE_WORKER_H_
+#ifndef PACKAGES_NODE_WEBCODECS_SRC_ASYNC_ENCODE_WORKER_H_
+#define PACKAGES_NODE_WEBCODECS_SRC_ASYNC_ENCODE_WORKER_H_
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -134,4 +134,4 @@ class AsyncEncodeWorker {
   std::map<int64_t, std::pair<int64_t, int64_t>> frame_info_;  // frame_index -> (timestamp, duration)
 };
 
-#endif  // SRC_ASYNC_ENCODE_WORKER_H_
+#endif  // PACKAGES_NODE_WEBCODECS_SRC_ASYNC_ENCODE_WORKER_H_

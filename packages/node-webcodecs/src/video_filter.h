@@ -3,8 +3,8 @@
 //
 // VideoFilter implementation wrapping FFmpeg libavfilter for blur effects.
 
-#ifndef SRC_VIDEO_FILTER_H_
-#define SRC_VIDEO_FILTER_H_
+#ifndef PACKAGES_NODE_WEBCODECS_SRC_VIDEO_FILTER_H_
+#define PACKAGES_NODE_WEBCODECS_SRC_VIDEO_FILTER_H_
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -62,4 +62,4 @@ class VideoFilter : public Napi::ObjectWrap<VideoFilter> {
   std::string state_;
 };
 
-#endif  // SRC_VIDEO_FILTER_H_
+#endif  // PACKAGES_NODE_WEBCODECS_SRC_VIDEO_FILTER_H_

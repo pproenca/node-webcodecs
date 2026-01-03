@@ -1,8 +1,8 @@
 // Copyright 2024 The node-webcodecs Authors
 // SPDX-License-Identifier: MIT
 
-#ifndef SRC_TEST_VIDEO_GENERATOR_H_
-#define SRC_TEST_VIDEO_GENERATOR_H_
+#ifndef PACKAGES_NODE_WEBCODECS_SRC_TEST_VIDEO_GENERATOR_H_
+#define PACKAGES_NODE_WEBCODECS_SRC_TEST_VIDEO_GENERATOR_H_
 
 #include <napi.h>
 
@@ -48,4 +48,4 @@ class TestVideoGenerator : public Napi::ObjectWrap<TestVideoGenerator> {
 
 Napi::Object InitTestVideoGenerator(Napi::Env env, Napi::Object exports);
 
-#endif  // SRC_TEST_VIDEO_GENERATOR_H_
+#endif  // PACKAGES_NODE_WEBCODECS_SRC_TEST_VIDEO_GENERATOR_H_

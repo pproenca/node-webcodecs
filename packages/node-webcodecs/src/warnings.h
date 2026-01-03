@@ -1,8 +1,8 @@
 // Copyright 2024 The node-webcodecs Authors
 // SPDX-License-Identifier: MIT
 
-#ifndef SRC_WARNINGS_H_
-#define SRC_WARNINGS_H_
+#ifndef PACKAGES_NODE_WEBCODECS_SRC_WARNINGS_H_
+#define PACKAGES_NODE_WEBCODECS_SRC_WARNINGS_H_
 
 #include <napi.h>
 
@@ -40,4 +40,4 @@ extern WarningAccumulator* globalWarnings;
 
 }  // namespace webcodecs
 
-#endif  // SRC_WARNINGS_H_
+#endif  // PACKAGES_NODE_WEBCODECS_SRC_WARNINGS_H_
