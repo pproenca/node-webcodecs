@@ -135,6 +135,80 @@ jobs:
           compression-level: 0  # Already compressed, faster upload
 
   # ============================================================================
+  # Linux x64 Build (glibc) - For native addon linking on Ubuntu/Debian
+  # ============================================================================
+  # The musl build above produces fully static binaries but its static libraries
+  # cannot be linked into shared objects on glibc systems. This build produces
+  # static libraries compatible with glibc for use by build-prebuilds.yml.
+  # ============================================================================
+  build-linux-x64-glibc:
+    name: Build Linux x64 (glibc)
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build FFmpeg in Ubuntu container
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./docker/Dockerfile.linux-x64-glibc
+          push: false
+          load: true
+          tags: ffmpeg-builder:linux-x64-glibc
+          cache-from: type=gha,scope=linux-x64-glibc-v${{ env.CACHE_VERSION }}
+          cache-to: type=gha,mode=max,scope=linux-x64-glibc-v${{ env.CACHE_VERSION }}
+
+      - name: Extract binaries and dev files from container
+        run: |
+          mkdir -p artifacts/linux-x64-glibc/{bin,lib,include}
+          docker create --name extract-glibc ffmpeg-builder:linux-x64-glibc
+
+          # Extract binaries
+          docker cp extract-glibc:/build/bin/ffmpeg artifacts/linux-x64-glibc/bin/ffmpeg
+          docker cp extract-glibc:/build/bin/ffprobe artifacts/linux-x64-glibc/bin/ffprobe
+
+          # Extract development files (needed for native addon compilation)
+          docker cp extract-glibc:/build/lib/. artifacts/linux-x64-glibc/lib/
+          docker cp extract-glibc:/build/include/. artifacts/linux-x64-glibc/include/
+
+          docker rm extract-glibc
+
+          # Verify glibc linking (should show libc.so.6)
+          echo "Verifying glibc binary..."
+          file artifacts/linux-x64-glibc/bin/ffmpeg
+          ldd artifacts/linux-x64-glibc/bin/ffmpeg || echo "Note: ldd may fail if glibc versions differ"
+
+          # Get version info
+          chmod +x artifacts/linux-x64-glibc/bin/ffmpeg
+          ./artifacts/linux-x64-glibc/bin/ffmpeg -version > artifacts/linux-x64-glibc/version.txt 2>&1 || true
+
+          # Verify dev files extracted
+          echo "=== Library files ==="
+          ls -la artifacts/linux-x64-glibc/lib/
+          echo "=== Pkgconfig files ==="
+          ls -la artifacts/linux-x64-glibc/lib/pkgconfig/ || echo "Warning: No pkgconfig directory"
+
+      - name: Package artifacts
+        run: |
+          cd artifacts
+          tar -cvf linux-x64-glibc.tar linux-x64-glibc/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ffmpeg-linux-x64-glibc
+          path: artifacts/linux-x64-glibc.tar
+          retention-days: 7
+          compression-level: 0
+
+  # ============================================================================
   # macOS Builds - Native runners for both architectures
   # ============================================================================
   build-macos:
@@ -195,8 +269,22 @@ jobs:
           rm -rf x264 x265_git libvpx aom aom_build opus-* lame-* nasm-*
 
           echo "=== Building nasm ==="
-          curl -sL https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/nasm-2.16.03.tar.bz2 | tar xj
-          cd nasm-2.16.03
+          NASM_VERSION="2.16.03"
+          NASM_URL="https://www.nasm.us/pub/nasm/releasebuilds/${NASM_VERSION}/nasm-${NASM_VERSION}.tar.bz2"
+          NASM_GITHUB="https://github.com/netwide-assembler/nasm/archive/refs/tags/nasm-${NASM_VERSION}.tar.gz"
+
+          # Try primary source with retries, fallback to GitHub mirror
+          if curl -fSL --retry 3 --retry-delay 5 "$NASM_URL" -o nasm.tar.bz2 2>/dev/null; then
+            echo "Downloaded nasm from primary source"
+            tar xjf nasm.tar.bz2
+          else
+            echo "Primary nasm download failed, trying GitHub mirror..."
+            curl -fSL --retry 3 "$NASM_GITHUB" -o nasm.tar.gz
+            tar xzf nasm.tar.gz
+            mv nasm-nasm-${NASM_VERSION} nasm-${NASM_VERSION}
+          fi
+
+          cd nasm-${NASM_VERSION}
           ./configure --prefix="$TARGET"
           make -j$(sysctl -n hw.ncpu)
           make install
@@ -795,7 +883,7 @@ jobs:
   release-deps:
     name: Create Dependencies Release
     runs-on: ubuntu-24.04
-    needs: [build-linux-x64, build-macos]
+    needs: [build-linux-x64, build-linux-x64-glibc, build-macos]
     # Run if: manually triggered with deps_version input OR tag push matches deps-*
     if: inputs.deps_version != '' || startsWith(github.ref, 'refs/tags/deps-')
     permissions:
@@ -879,7 +967,7 @@ jobs:
           ls -la release/
 
           # Verify all expected platforms present and have correct structure
-          for platform in linux-x64 darwin-x64 darwin-arm64; do
+          for platform in linux-x64 linux-x64-glibc darwin-x64 darwin-arm64; do
             if [ ! -f "release/ffmpeg-${platform}.tar.gz" ]; then
               echo "ERROR: Missing ffmpeg-${platform}.tar.gz"
               exit 1
@@ -903,9 +991,13 @@ jobs:
             **Do not use directly** - these are consumed by `ci.yml` and `build-prebuilds.yml`.
 
             ### Files
-            - `ffmpeg-linux-x64.tar.gz` - Linux x64 (musl, fully static)
+            - `ffmpeg-linux-x64.tar.gz` - Linux x64 (musl, fully static binaries)
+            - `ffmpeg-linux-x64-glibc.tar.gz` - Linux x64 (glibc, for native addon linking)
             - `ffmpeg-darwin-x64.tar.gz` - macOS Intel
             - `ffmpeg-darwin-arm64.tar.gz` - macOS Apple Silicon
+
+            **Note:** `build-prebuilds.yml` uses `linux-x64-glibc` for native addon builds because
+            musl-compiled static libraries cannot be linked into shared objects on glibc systems.
 
             ### Codec Versions
             - FFmpeg: ${{ env.FFMPEG_VERSION }}
