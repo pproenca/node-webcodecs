@@ -11,6 +11,15 @@
 #include <unordered_map>
 #include <vector>
 
+// Include shared utilities to verify they compile
+#include "src/shared/control_message_queue.h"
+#include "src/shared/safe_tsfn.h"
+
+// Explicit template instantiation to verify ControlMessageQueue compiles
+// with the FFmpeg RAII types it will be used with.
+template class webcodecs::ControlMessageQueue<ffmpeg::AVPacketPtr,
+                                              ffmpeg::AVFramePtr>;
+
 namespace webcodecs {
 
 // STATIC DESTRUCTION ORDER FIX: Use heap-allocated "immortal" counters.
