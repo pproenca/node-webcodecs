@@ -325,6 +325,24 @@ function createTurndownService(): TurndownService {
     bulletListMarker: '-',
   });
 
+  // Handle <code> elements containing links - keep link clickable with code-formatted text
+  turndown.addRule('codeWithLink', {
+    filter: (node) => {
+      return (
+        node.nodeName === 'CODE' &&
+        node.querySelector('a') !== null
+      );
+    },
+    replacement: (_content, node) => {
+      const anchor = (node as Element).querySelector('a');
+      if (!anchor) return `\`${_content}\``;
+
+      const href = anchor.getAttribute('href') ?? '';
+      const text = anchor.textContent ?? '';
+      return `[\`${text}\`](${href})`;
+    },
+  });
+
   // Preserve code blocks with language hints
   turndown.addRule('codeBlocks', {
     filter: (node) => {
