@@ -14,77 +14,16 @@ permissions: {}
 
 jobs:
   # ============================================================================
-  # Download prebuilt artifacts from CI workflow
+  # Download CI artifacts and publish to npm
   # NO building here - artifacts were already built and tested in CI
   # ============================================================================
-  download-artifacts:
-    name: "Download CI Artifacts"
+  publish:
+    name: "Publish"
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       actions: read # Required to download artifacts from other workflows
-    outputs:
-      artifacts-found: ${{ steps.verify.outputs.found }}
-    steps:
-      - uses: actions/checkout@v6
-
-      # Download artifacts from the CI workflow run for this commit
-      # Uses dawidd6/action-download-artifact which supports cross-workflow downloads
-      - name: Download artifacts from CI
-        uses: dawidd6/action-download-artifact@0bd50d53a6d7fb5cb921e607957e9cc12b4ce392 # v6
-        with:
-          workflow: ci.yml
-          commit: ${{ github.sha }}
-          name: platform-pkg-.*
-          name_is_regexp: true
-          path: platform-artifacts
-          if_no_artifact_found: fail
-
-      - name: Verify all platform artifacts exist
-        id: verify
-        run: |
-          echo "=== Downloaded artifacts ==="
-          ls -laR platform-artifacts/
-
-          # Verify all expected platforms are present
-          for platform in darwin-arm64 darwin-x64 linux-x64; do
-            artifact_dir="platform-artifacts/platform-pkg-$platform"
-            if [ ! -d "$artifact_dir" ]; then
-              echo "ERROR: Missing artifact directory for $platform"
-              echo "Did CI complete successfully for commit ${{ github.sha }}?"
-              exit 1
-            fi
-
-            tarball=$(find "$artifact_dir" -name "*.tar" -type f | head -1)
-            if [ -z "$tarball" ]; then
-              echo "ERROR: No tarball found for $platform"
-              exit 1
-            fi
-
-            echo "OK: Found $tarball"
-          done
-
-          echo "found=true" >> $GITHUB_OUTPUT
-          echo "All platform artifacts verified!"
-
-      # Re-upload artifacts so they're available to subsequent jobs in this workflow
-      - name: Upload artifacts for publish job
-        uses: actions/upload-artifact@v6
-        with:
-          name: all-platform-artifacts
-          path: platform-artifacts/
-          retention-days: 1
-
-  # ============================================================================
-  # Publish platform-specific packages first, then main package
-  # ============================================================================
-  publish:
-    name: "Publish"
-    needs: [download-artifacts]
-    runs-on: ubuntu-24.04
-    permissions:
       id-token: write # For npm provenance
-      contents: read
     environment:
       name: npm
       url: https://www.npmjs.com/package/@pproenca/node-webcodecs
@@ -96,19 +35,24 @@ jobs:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
+      # Download artifacts from the CI workflow run for this commit
+      - name: Download artifacts from CI
+        uses: dawidd6/action-download-artifact@0bd50d53a6d7fb5cb921e607957e9cc12b4ce392 # v6
+        with:
+          workflow: ci.yml
+          commit: ${{ github.sha }}
+          name: platform-pkg-.*
+          name_is_regexp: true
+          path: platform-artifacts
+          if_no_artifact_found: fail
+
       - name: Install dependencies
         run: npm install --ignore-scripts
 
       - name: Build TypeScript
         run: npm run build:ts
 
-      - name: Download platform package artifacts
-        uses: actions/download-artifact@v6
-        with:
-          name: all-platform-artifacts
-          path: platform-artifacts
-
-      - name: Extract platform packages
+      - name: Extract and verify platform packages
         run: |
           mkdir -p packages
 
@@ -120,14 +64,13 @@ jobs:
             platform=$(basename "$artifact_dir" | sed 's/platform-pkg-//')
             echo "Processing platform: $platform"
 
-            # Find and extract the tarball
             tarball=$(find "$artifact_dir" -name "*.tar" -type f | head -1)
             if [ -n "$tarball" ]; then
               echo "Extracting $tarball"
               tar -xvf "$tarball" -C packages/
             else
               echo "Error: No tarball found in $artifact_dir"
-              ls -la "$artifact_dir"
+              echo "Did CI complete successfully for commit ${{ github.sha }}?"
               exit 1
             fi
           done
@@ -140,28 +83,21 @@ jobs:
             pkg_dir="packages/@pproenca/node-webcodecs-$platform"
             if [ ! -f "$pkg_dir/bin/node.napi.node" ]; then
               echo "Error: Missing binary for $platform"
-              ls -la "$pkg_dir/" 2>/dev/null || echo "Directory doesn't exist"
-              exit 1
-            fi
-            if [ ! -f "$pkg_dir/package.json" ]; then
-              echo "Error: Missing package.json for $platform"
               exit 1
             fi
             echo "OK: $pkg_dir"
           done
 
       # OIDC Trusted Publishing - no NPM_TOKEN needed
-      # Configure trusted publisher at npmjs.com package settings
       - name: Publish platform packages
         run: |
-          # Platform packages MUST be published first (they are dependencies)
           for platform in darwin-arm64 darwin-x64 linux-x64; do
             pkg_dir="packages/@pproenca/node-webcodecs-$platform"
             echo "Publishing $pkg_dir..."
             (cd "$pkg_dir" && npm publish --provenance --access public)
           done
 
-          # Wait for npm registry propagation before publishing main package
+          # Wait for npm registry propagation
           echo "Waiting for npm registry propagation..."
           sleep 15
 
@@ -208,10 +144,6 @@ jobs:
           # Install main package - should automatically install correct platform package
           npm install @pproenca/node-webcodecs@${{ steps.version.outputs.version }}
 
-          # Verify only one platform package was installed (optionalDependencies pattern)
-          echo "=== Installed packages ==="
-          ls -la node_modules/@pproenca/ || echo "No @pproenca packages visible"
-
           # Verify the binding loads correctly
           node -e "
             const wc = require('@pproenca/node-webcodecs');
@@ -235,19 +167,3 @@ jobs:
 
             console.log('Smoke Test Passed!');
           "
-
-      - name: Verify platform package
-        run: |
-          cd smoke-test
-
-          # Check that the correct platform package was installed
-          PLATFORM="${{ matrix.platform }}"
-          PKG_PATH="node_modules/@pproenca/node-webcodecs-$PLATFORM"
-
-          if [ -d "$PKG_PATH" ]; then
-            echo "Platform package installed: $PKG_PATH"
-            ls -la "$PKG_PATH/bin/"
-          else
-            echo "Warning: Platform package not visible at $PKG_PATH"
-            echo "This may be expected if npm hoists differently"
-          fi

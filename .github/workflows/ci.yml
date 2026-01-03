@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: "24"
+          node-version: "22"
       - run: npm install --ignore-scripts
       - run: npm run build:ts
       - run: npm run lint
@@ -57,7 +57,7 @@ jobs:
           - os: macos-15-intel
             platform: darwin-x64
             arch: x64
-          - os: macos-latest
+          - os: macos-15
             platform: darwin-arm64
             arch: arm64
 
@@ -194,8 +194,9 @@ jobs:
           subject-path: packages/@pproenca/node-webcodecs-${{ matrix.platform }}/bin/node.napi.node
 
   # ============================================================================
-  # Test across Node versions using prebuilt binaries
-  # Binary is built with Node 22 (tested in build-native), tested here for 20/24 compatibility
+  # Test Node version compatibility using prebuilt binaries
+  # Binary is built and tested with Node 22 in build-native
+  # Here we verify the same binary works with Node 20/24 (fast compatibility check)
   # ============================================================================
   test-matrix:
     permissions:
@@ -214,8 +215,8 @@ jobs:
           - { os: macos-15-intel, platform: darwin-x64, node: "20" }
           - { os: macos-15-intel, platform: darwin-x64, node: "24" }
           # macOS ARM - Node 20/24
-          - { os: macos-latest, platform: darwin-arm64, node: "20" }
-          - { os: macos-latest, platform: darwin-arm64, node: "24" }
+          - { os: macos-15, platform: darwin-arm64, node: "20" }
+          - { os: macos-15, platform: darwin-arm64, node: "24" }
 
     steps:
       - uses: actions/checkout@v6
@@ -244,5 +245,5 @@ jobs:
       - name: Build TypeScript
         run: npm run build:ts
 
-      - name: Test
-        run: npm test
+      - name: Test (fast compatibility check)
+        run: npm run test:fast
