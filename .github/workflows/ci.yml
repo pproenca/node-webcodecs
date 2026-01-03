@@ -74,7 +74,8 @@ jobs:
         run: |
           # Workaround for known macOS 15 bug where PerfPowerServices consumes 100% CPU
           # See: https://github.com/actions/runner-images/issues/13358
-          sudo defaults -currentHost write /Library/Preferences/com.apple.powerlogd SMCMonitorCadence 0
+          # Both commands are tolerant - may fail on future macOS versions
+          sudo defaults -currentHost write /Library/Preferences/com.apple.powerlogd SMCMonitorCadence 0 || echo "Warning: defaults write failed (may not be needed on this macOS version)"
           sudo killall PerfPowerServices || true
 
       - name: Install build tools (macOS)
@@ -114,6 +115,7 @@ jobs:
 
       - name: Build with prebuildify
         run: |
+          set -e
           npx prebuildify --napi --strip --arch=${{ matrix.arch }}
 
           # prebuildify 6.x with scoped packages creates @scope+name.node
@@ -143,8 +145,14 @@ jobs:
 
       - name: Package as platform npm package
         run: |
+          set -e
           # Read version from package.json
           VERSION=$(node -p "require('./package.json').version")
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9] ]]; then
+            echo "ERROR: Failed to extract valid version from package.json: '$VERSION'"
+            exit 1
+          fi
+          echo "Package version: $VERSION"
 
           # Create platform package directory
           PKG_DIR="packages/@pproenca/node-webcodecs-${{ matrix.platform }}"

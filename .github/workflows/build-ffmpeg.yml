@@ -52,7 +52,7 @@ env:
   LIBAOM_VERSION: 'v3.12.1'
   OPUS_VERSION: '1.5.2'
   LAME_VERSION: '3.100'
-  FFMPEG_VERSION: 'n7.1.3'
+  FFMPEG_VERSION: 'n8.0'
   # npm scope for platform packages
   NPM_SCOPE: '@pproenca/ffmpeg'
   # Bump this to invalidate all caches
@@ -103,7 +103,13 @@ jobs:
           docker cp extract:/build/lib/. artifacts/linux-x64/lib/
           docker cp extract:/build/include/. artifacts/linux-x64/include/
 
-          docker rm extract
+          docker rm -f extract 2>/dev/null || true
+
+          # Verify extraction succeeded
+          if [ ! -f artifacts/linux-x64/bin/ffmpeg ]; then
+            echo "ERROR: ffmpeg binary not extracted from container"
+            exit 1
+          fi
 
           # Verify static linking
           echo "Verifying static binary..."
@@ -112,7 +118,10 @@ jobs:
 
           # Get version info
           chmod +x artifacts/linux-x64/bin/ffmpeg
-          ./artifacts/linux-x64/bin/ffmpeg -version > artifacts/linux-x64/version.txt 2>&1 || true
+          ./artifacts/linux-x64/bin/ffmpeg -version > artifacts/linux-x64/version.txt 2>&1 || {
+            echo "WARNING: ffmpeg binary failed to execute - binary may be broken"
+            echo "Continuing anyway as version.txt is informational"
+          }
 
           # Verify dev files extracted
           echo "=== Library files ==="
@@ -178,7 +187,13 @@ jobs:
           docker cp extract-glibc:/build/lib/. artifacts/linux-x64-glibc/lib/
           docker cp extract-glibc:/build/include/. artifacts/linux-x64-glibc/include/
 
-          docker rm extract-glibc
+          docker rm -f extract-glibc 2>/dev/null || true
+
+          # Verify extraction succeeded
+          if [ ! -f artifacts/linux-x64-glibc/bin/ffmpeg ]; then
+            echo "ERROR: ffmpeg binary not extracted from container"
+            exit 1
+          fi
 
           # Verify glibc linking (should show libc.so.6)
           echo "Verifying glibc binary..."
@@ -187,7 +202,10 @@ jobs:
 
           # Get version info
           chmod +x artifacts/linux-x64-glibc/bin/ffmpeg
-          ./artifacts/linux-x64-glibc/bin/ffmpeg -version > artifacts/linux-x64-glibc/version.txt 2>&1 || true
+          ./artifacts/linux-x64-glibc/bin/ffmpeg -version > artifacts/linux-x64-glibc/version.txt 2>&1 || {
+            echo "WARNING: ffmpeg binary failed to execute - binary may be broken"
+            echo "Continuing anyway as version.txt is informational"
+          }
 
           # Verify dev files extracted
           echo "=== Library files ==="
@@ -275,7 +293,7 @@ jobs:
 
           # Try primary source with retries, fallback to GitHub mirror
           NASM_FROM_GITHUB=false
-          if curl -fSL --retry 3 --retry-delay 5 "$NASM_URL" -o nasm.tar.bz2 2>/dev/null; then
+          if curl -fSL --retry 3 --retry-delay 5 "$NASM_URL" -o nasm.tar.bz2; then
             echo "Downloaded nasm from primary source"
             tar xjf nasm.tar.bz2
             cd nasm-${NASM_VERSION}
@@ -439,6 +457,11 @@ jobs:
               echo "Clone attempt $i failed, retrying in 10s..."
               sleep 10
             done
+            # Verify clone succeeded
+            if [ ! -d ffmpeg ]; then
+              echo "ERROR: Failed to clone FFmpeg after 3 attempts"
+              exit 1
+            fi
           fi
 
           cd ffmpeg
