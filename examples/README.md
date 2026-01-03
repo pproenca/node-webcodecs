@@ -28,7 +28,7 @@ docker compose -f docker/docker-compose.yml up demo
 ```bash
 cd examples
 npm install
-node run-demo.js
+npm run demo
 ```
 
 Or run individual examples:
@@ -36,9 +36,8 @@ Or run individual examples:
 ```bash
 cd examples
 npm install
-node 01-encode-decode/index.js
-node generate-video.mjs
-node decode-gif.mjs
+npm run generate-video  # Generate MP4 with bouncing ball
+npm run decode-gif      # Decode animated GIF
 ```
 
 The interactive demo walks you through the video processing capabilities step by step, and optionally starts the web dashboard to view results.

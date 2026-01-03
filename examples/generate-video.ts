@@ -1,18 +1,39 @@
-#!/usr/bin/env node
+#!/usr/bin/env tsx
 /**
- * generate-video.mjs - Create an MP4 video using @pproenca/node-webcodecs
+ * generate-video.ts - Create an MP4 video using @pproenca/node-webcodecs
  *
  * This script generates a 5-second video with animated bouncing shapes,
  * entirely without calling FFmpeg CLI - just using the library APIs.
  *
  * Usage:
- *   npm install @pproenca/node-webcodecs
- *   node generate-video.mjs
+ *   npm install
+ *   npm run generate-video
  *
  * Output: output.mp4 (640x480, 30fps, H.264)
  */
 
-import { VideoEncoder, VideoFrame, Muxer } from '@pproenca/node-webcodecs';
+import {
+  type AllowSharedBufferSource,
+  type EncodedVideoChunkMetadata,
+  Muxer,
+  VideoEncoder,
+  VideoFrame,
+} from '@pproenca/node-webcodecs';
+
+/** RGB color representation. */
+interface Color {
+  r: number;
+  g: number;
+  b: number;
+}
+
+/** Stored chunk data for muxing. */
+interface StoredChunk {
+  type: 'key' | 'delta';
+  timestamp: number;
+  duration: number;
+  data: Uint8Array;
+}
 
 // Video settings
 const WIDTH = 640;
@@ -25,20 +46,21 @@ const OUTPUT_FILE = 'output.mp4';
 // Bouncing ball state
 let ballX = 100;
 let ballY = 100;
-let ballDX = 5;
-let ballDY = 3;
+let ballDx = 5;
+let ballDy = 3;
 const BALL_RADIUS = 30;
 
 // Colors
-const BG_COLOR = { r: 30, g: 30, b: 50 };
-const BALL_COLORS = [
-  { r: 255, g: 100, b: 100 },  // Red
-  { r: 100, g: 255, b: 100 },  // Green
-  { r: 100, g: 100, b: 255 },  // Blue
-  { r: 255, g: 255, b: 100 },  // Yellow
+const BG_COLOR: Color = {r: 30, g: 30, b: 50};
+const BALL_COLORS: Color[] = [
+  {r: 255, g: 100, b: 100}, // Red
+  {r: 100, g: 255, b: 100}, // Green
+  {r: 100, g: 100, b: 255}, // Blue
+  {r: 255, g: 255, b: 100}, // Yellow
 ];
 
-function drawFrame(frameIndex) {
+/** Draws a single frame with bouncing ball animation. */
+function drawFrame(frameIndex: number): Uint8Array {
   const pixels = new Uint8Array(WIDTH * HEIGHT * 4);
 
   // Fill background with gradient
@@ -48,21 +70,21 @@ function drawFrame(frameIndex) {
       const gradientFactor = y / HEIGHT;
       pixels[idx] = Math.floor(BG_COLOR.r * (1 - gradientFactor * 0.5));
       pixels[idx + 1] = Math.floor(BG_COLOR.g * (1 - gradientFactor * 0.3));
-      pixels[idx + 2] = Math.floor(BG_COLOR.b + (50 * gradientFactor));
+      pixels[idx + 2] = Math.floor(BG_COLOR.b + 50 * gradientFactor);
       pixels[idx + 3] = 255;
     }
   }
 
   // Update ball position
-  ballX += ballDX;
-  ballY += ballDY;
+  ballX += ballDx;
+  ballY += ballDy;
 
   if (ballX - BALL_RADIUS <= 0 || ballX + BALL_RADIUS >= WIDTH) {
-    ballDX = -ballDX;
+    ballDx = -ballDx;
     ballX = Math.max(BALL_RADIUS, Math.min(WIDTH - BALL_RADIUS, ballX));
   }
   if (ballY - BALL_RADIUS <= 0 || ballY + BALL_RADIUS >= HEIGHT) {
-    ballDY = -ballDY;
+    ballDy = -ballDy;
     ballY = Math.max(BALL_RADIUS, Math.min(HEIGHT - BALL_RADIUS, ballY));
   }
 
@@ -127,18 +149,19 @@ function drawFrame(frameIndex) {
   return pixels;
 }
 
-async function main() {
-  console.log('🎬 Generating video using @pproenca/node-webcodecs');
+async function main(): Promise<void> {
+  console.log('Generating video using @pproenca/node-webcodecs');
   console.log(`   Resolution: ${WIDTH}x${HEIGHT} @ ${FPS}fps`);
   console.log(`   Duration: ${DURATION_SECS} seconds (${TOTAL_FRAMES} frames)`);
   console.log(`   Output: ${OUTPUT_FILE}\n`);
 
-  const chunks = [];
-  let codecDescription = null;
+  const chunks: StoredChunk[] = [];
+  let codecDescription: AllowSharedBufferSource | undefined;
+  let encoderError: Error | null = null;
 
-  // Create encoder
+  // Create encoder with error propagation
   const encoder = new VideoEncoder({
-    output: (chunk, metadata) => {
+    output: (chunk, metadata?: EncodedVideoChunkMetadata) => {
       // Capture codec extradata for MP4 container
       if (metadata?.decoderConfig?.description && !codecDescription) {
         codecDescription = metadata.decoderConfig.description;
@@ -149,26 +172,39 @@ async function main() {
       chunks.push({
         type: chunk.type,
         timestamp: chunk.timestamp,
-        duration: chunk.duration || Math.floor(1_000_000 / FPS),
+        duration: chunk.duration ?? Math.floor(1_000_000 / FPS),
         data,
       });
     },
-    error: (e) => console.error('Encoder error:', e),
+    error: (e) => {
+      encoderError = e instanceof Error ? e : new Error(String(e));
+      console.error('Encoder error:', e);
+    },
   });
 
   encoder.configure({
-    codec: 'avc1.42001e',  // H.264 Baseline
+    codec: 'avc1.42001e', // H.264 Baseline
     width: WIDTH,
     height: HEIGHT,
     bitrate: 2_000_000,
     framerate: FPS,
-    latencyMode: 'realtime',  // Disable B-frames for correct MP4 muxing
-    avc: { format: 'avc' },  // AVCC format for MP4 container
+    latencyMode: 'realtime', // Disable B-frames for correct MP4 muxing
+    avc: {format: 'avc'}, // AVCC format for MP4 container
   });
+
+  // Helper to check and throw encoder errors
+  const checkEncoderError = (): void => {
+    if (encoderError) {
+      throw encoderError;
+    }
+  };
 
   // Generate and encode frames
   console.log('Encoding frames...');
   for (let i = 0; i < TOTAL_FRAMES; i++) {
+    // Check for encoder errors before processing more frames
+    checkEncoderError();
+
     const pixels = drawFrame(i);
 
     const frame = new VideoFrame(Buffer.from(pixels), {
@@ -178,7 +214,9 @@ async function main() {
       timestamp: Math.floor(i * (1_000_000 / FPS)),
     });
 
-    encoder.encode(frame, { keyFrame: i % 30 === 0 });
+    // Wait for encoder capacity to handle backpressure
+    await encoder.ready;
+    encoder.encode(frame, {keyFrame: i % 30 === 0});
     frame.close();
 
     if ((i + 1) % 30 === 0) {
@@ -188,32 +226,49 @@ async function main() {
 
   await encoder.flush();
   encoder.close();
-  console.log(`\r  ${TOTAL_FRAMES}/${TOTAL_FRAMES} frames encoded ✓\n`);
+  console.log(`\r  ${TOTAL_FRAMES}/${TOTAL_FRAMES} frames encoded\n`);
+
+  // Validate encoding results
+  checkEncoderError();
+  if (!codecDescription) {
+    throw new Error(
+      'Failed to capture codec description - output file will be unplayable'
+    );
+  }
+  if (chunks.length === 0) {
+    throw new Error('No encoded chunks produced');
+  }
 
   // Sort chunks by timestamp (with latencyMode: 'realtime', no B-frame reordering needed)
   chunks.sort((a, b) => a.timestamp - b.timestamp);
 
   // Mux to MP4
   console.log('Muxing to MP4...');
-  const muxer = new Muxer({ filename: OUTPUT_FILE });
+  const muxer = new Muxer({filename: OUTPUT_FILE});
 
   muxer.addVideoTrack({
     codec: 'avc1.42001e',
     width: WIDTH,
     height: HEIGHT,
-    description: codecDescription,
+    // biome-ignore lint/suspicious/noExplicitAny: Muxer types don't match AllowSharedBufferSource
+    description: codecDescription as any,
   });
 
   for (const chunk of chunks) {
-    muxer.writeVideoChunk(chunk);
+    // biome-ignore lint/suspicious/noExplicitAny: StoredChunk type compatible with Muxer
+    muxer.writeVideoChunk(chunk as any);
   }
 
   muxer.finalize();
   muxer.close();
 
-  console.log(`✅ Video saved to ${OUTPUT_FILE}`);
+  console.log(`Video saved to ${OUTPUT_FILE}`);
   console.log('\nPlay with: ffplay output.mp4');
   console.log('Or: open output.mp4  (macOS)');
 }
 
-main().catch(console.error);
+main().catch((e: unknown) => {
+  const err = e instanceof Error ? e : new Error(String(e));
+  console.error(`Error: ${err.message}`);
+  process.exit(1);
+});
