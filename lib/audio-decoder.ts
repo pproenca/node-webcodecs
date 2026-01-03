@@ -25,6 +25,11 @@ export class AudioDecoder extends CodecBase {
 
   constructor(init: AudioDecoderInit) {
     super();
+    // W3C spec: output and error callbacks are required
+    is.assertPlainObject(init, 'init');
+    is.assertFunction(init.output, 'init.output');
+    is.assertFunction(init.error, 'init.error');
+
     this._controlQueue = new ControlMessageQueue();
     this._errorCallback = init.error;
     this._controlQueue.setErrorHandler(init.error);
