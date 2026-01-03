@@ -36,4 +36,4 @@ enum EncodedVideoChunkType {
 
 ---
 
-[← Back to 8. Encoded Media Interfaces (Chunks)](../../8-encoded-media-interfaces-chunks/index.md)
+[← Back to 8. Encoded Media Interfaces (Chunks)](../../8-encoded-media-interfaces-chunks/toc.md)

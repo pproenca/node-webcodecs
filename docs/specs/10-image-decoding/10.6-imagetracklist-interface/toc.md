@@ -19,4 +19,4 @@ interface ImageTrackList {
 
 ---
 
-[← Back to 10. Image Decoding](../../10-image-decoding/index.md)
+[← Back to 10. Image Decoding](../../10-image-decoding/toc.md)
