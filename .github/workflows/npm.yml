@@ -1,0 +1,106 @@
+name: "CI: npm smoke test"
+on:
+  push:
+    tags:
+      - "v**"
+permissions: {}
+
+jobs:
+  smoke-test:
+    name: "${{ github.ref_name }} ${{ matrix.name }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux x64
+          - name: linux-x64-npm
+            os: ubuntu-24.04
+            package-manager: npm
+          - name: linux-x64-pnpm
+            os: ubuntu-24.04
+            package-manager: pnpm
+          - name: linux-x64-yarn
+            os: ubuntu-24.04
+            package-manager: yarn
+          # macOS Intel
+          - name: darwin-x64-npm
+            os: macos-15-intel
+            package-manager: npm
+          # macOS Apple Silicon
+          - name: darwin-arm64-npm
+            os: macos-15
+            package-manager: npm
+    steps:
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Install pnpm
+        if: matrix.package-manager == 'pnpm'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Get version
+        id: version
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.setOutput('semver', context.ref.replace('refs/tags/v',''))
+      - name: Create package.json
+        uses: DamianReeves/write-file-action@v1.3
+        with:
+          path: package.json
+          contents: |
+            {
+              "dependencies": {
+                "@pproenca/node-webcodecs": "${{ steps.version.outputs.semver }}"
+              },
+              "type": "module"
+            }
+      - name: Create smoke.mjs
+        uses: DamianReeves/write-file-action@v1.3
+        with:
+          path: smoke.mjs
+          contents: |
+            import { deepStrictEqual, ok } from 'node:assert';
+            import * as wc from '@pproenca/node-webcodecs';
+
+            // Verify all required exports exist
+            const required = ['VideoEncoder', 'VideoDecoder', 'AudioEncoder', 'AudioDecoder', 'VideoFrame', 'AudioData'];
+            for (const name of required) {
+              ok(typeof wc[name] === 'function', `Missing export: ${name}`);
+            }
+            console.log('All exports verified:', required.join(', '));
+
+            // Verify instantiation works
+            const encoder = new wc.VideoEncoder({
+              output: () => {},
+              error: (e) => console.error(e)
+            });
+            deepStrictEqual(encoder.state, 'unconfigured');
+            console.log('VideoEncoder instantiation OK');
+
+            console.log('Smoke test PASSED');
+
+      - name: Run with npm
+        if: matrix.package-manager == 'npm'
+        run: |
+          npm install --ignore-scripts
+          node smoke.mjs
+
+      - name: Run with pnpm
+        if: matrix.package-manager == 'pnpm'
+        run: |
+          pnpm install --ignore-scripts
+          node smoke.mjs
+
+      - name: Run with yarn
+        if: matrix.package-manager == 'yarn'
+        run: |
+          corepack enable
+          yarn set version stable
+          yarn config set enableImmutableInstalls false
+          yarn config set enableScripts false
+          yarn config set nodeLinker node-modules
+          yarn install
+          node smoke.mjs

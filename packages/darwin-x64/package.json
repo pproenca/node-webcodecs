@@ -1,21 +1,28 @@
 {
   "name": "@pproenca/node-webcodecs-darwin-x64",
   "version": "1.0.0-alpha.1",
-  "description": "macOS x64 (Intel) binary for @pproenca/node-webcodecs",
-  "os": ["darwin"],
-  "cpu": ["x64"],
-  "main": "webcodecs.node",
-  "files": ["webcodecs.node"],
-  "license": "GPL-2.0-or-later",
+  "description": "Prebuilt node-webcodecs for macOS x64 (Intel)",
+  "author": "Pedro Proenca",
+  "homepage": "https://github.com/pproenca/node-webcodecs",
   "repository": {
     "type": "git",
-    "url": "git://github.com/pproenca/node-webcodecs.git",
+    "url": "git+https://github.com/pproenca/node-webcodecs.git",
     "directory": "packages/darwin-x64"
   },
+  "license": "GPL-2.0-or-later",
+  "preferUnplugged": true,
+  "files": ["webcodecs.node"],
   "publishConfig": {
     "access": "public"
   },
+  "type": "commonjs",
+  "exports": {
+    "./webcodecs.node": "./webcodecs.node",
+    "./package": "./package.json"
+  },
   "engines": {
     "node": ">=20.0.0"
-  }
+  },
+  "os": ["darwin"],
+  "cpu": ["x64"]
 }

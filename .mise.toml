@@ -44,10 +44,14 @@ if [ -n "$STAGED_TS" ]; then
   git add $STAGED_TS
 
   echo "Running TypeScript type check..."
-  npx tsc --noEmit
+  npx tsc -p packages/node-webcodecs/tsconfig.json --noEmit
 
   echo "Running tsd type tests..."
-  npx tsd
+  if [ -f "packages/node-webcodecs/dist/index.test-d.ts" ] || [ -f "packages/node-webcodecs/index.test-d.ts" ]; then
+    (cd packages/node-webcodecs && npx tsd)
+  else
+    echo "  Skipping tsd (no type test files found)"
+  fi
 fi
 
 # Run cpplint on C++ files if any are staged

@@ -1,22 +1,29 @@
 {
   "name": "@pproenca/node-webcodecs-linux-x64",
   "version": "1.0.0-alpha.1",
-  "description": "Linux x64 (glibc) binary for @pproenca/node-webcodecs",
-  "os": ["linux"],
-  "cpu": ["x64"],
-  "libc": ["glibc"],
-  "main": "webcodecs.node",
-  "files": ["webcodecs.node"],
-  "license": "GPL-2.0-or-later",
+  "description": "Prebuilt node-webcodecs for Linux (glibc) x64",
+  "author": "Pedro Proenca",
+  "homepage": "https://github.com/pproenca/node-webcodecs",
   "repository": {
     "type": "git",
-    "url": "git://github.com/pproenca/node-webcodecs.git",
+    "url": "git+https://github.com/pproenca/node-webcodecs.git",
     "directory": "packages/linux-x64"
   },
+  "license": "GPL-2.0-or-later",
+  "preferUnplugged": true,
+  "files": ["webcodecs.node"],
   "publishConfig": {
     "access": "public"
   },
+  "type": "commonjs",
+  "exports": {
+    "./webcodecs.node": "./webcodecs.node",
+    "./package": "./package.json"
+  },
   "engines": {
     "node": ">=20.0.0"
-  }
+  },
+  "os": ["linux"],
+  "libc": ["glibc"],
+  "cpu": ["x64"]
 }

@@ -1,115 +1,114 @@
 // Copyright 2024 The node-webcodecs Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 //
-// Native binding loader using esbuild-style platform resolution.
-// Tries platform-specific package first, falls back to node-gyp-build for local dev.
+// Native binding loader following sharp's lib/sharp.js pattern.
+// Inspects the runtime environment and exports the relevant webcodecs.node binary.
 
-import { resolve, dirname, join } from 'node:path';
-import { familySync } from 'detect-libc';
+import { resolve } from 'node:path';
+import { familySync, versionSync } from 'detect-libc';
+import { prebuiltPlatforms, runtimePlatformArch } from './platform';
 
-const PLATFORMS: Record<string, string> = {
-  'darwin-arm64': '@pproenca/node-webcodecs-darwin-arm64',
-  'darwin-x64': '@pproenca/node-webcodecs-darwin-x64',
-  'linux-x64': '@pproenca/node-webcodecs-linux-x64',
-  'linux-x64-musl': '@pproenca/node-webcodecs-linux-x64-musl',
-};
+const runtimePlatform = runtimePlatformArch();
 
-/**
- * Detect the platform identifier including libc variant for Linux.
- * Returns platform string like 'linux-x64' or 'linux-x64-musl'.
- */
-function detectPlatform(): string {
-  const base = `${process.platform}-${process.arch}`;
-  if (process.platform === 'linux') {
-    const libc = familySync();
-    if (libc === 'musl') {
-      return `${base}-musl`;
-    }
-    if (libc === null) {
-      // Could not detect libc - this is unusual and likely indicates a problem
-      // Use console.error to ensure visibility even when warnings are suppressed
-      const warningMessage =
-        '[node-webcodecs] WARNING: Could not detect libc type (detect-libc returned null). ' +
-        'Falling back to glibc binary. If you are on Alpine Linux or another musl-based ' +
-        'system, loading will likely fail. Ensure the musl platform package is installed: ' +
-        'npm install @pproenca/node-webcodecs-linux-x64-musl';
-      console.error(warningMessage);
-    }
-    // libc === 'glibc' or null (fallback to glibc)
-  }
-  return base;
-}
-
-/**
- * Load the native binding.
- *
- * Resolution order:
- * 1. Platform-specific npm package (production path via optionalDependencies)
- * 2. node-gyp-build (local development fallback)
- */
-function loadBinding(): unknown {
-  const platform = detectPlatform();
-  const pkg = PLATFORMS[platform];
-
-  if (!pkg) {
-    throw new Error(
-      `Unsupported platform: ${platform}. ` +
-        `Supported platforms: ${Object.keys(PLATFORMS).join(', ')}`
-    );
-  }
-
-  // Try platform-specific package first (production path)
-  try {
-    const pkgPath = require.resolve(`${pkg}/package.json`);
-    const binPath = join(dirname(pkgPath), 'webcodecs.node');
-    return require(binPath);
-  } catch (err: unknown) {
-    // Check if package is installed but loading failed (vs. not installed at all)
-    const errorMessage = err instanceof Error ? err.message : String(err);
-    const errorCode = (err as NodeJS.ErrnoException)?.code;
-
-    if (errorCode === 'MODULE_NOT_FOUND' && errorMessage.includes(pkg)) {
-      // Package not installed - this is expected in dev, fall through to node-gyp-build
-    } else {
-      // Package is installed but failed to load - this is a real error
-      throw new Error(
-        `Platform package ${pkg} is installed but failed to load:\n` +
-          `${errorMessage}\n\n` +
-          `This usually indicates:\n` +
-          `  - Node.js version mismatch (try: npm rebuild)\n` +
-          `  - Corrupted installation (try: rm -rf node_modules && npm install)\n` +
-          `  - Missing system library (check native dependencies)`
-      );
-    }
-  }
-
-  // Fallback to node-gyp-build for local development
-  try {
+// Load paths in order of preference:
+// 1. Local node-gyp build (development)
+// 2. Platform-specific npm package (production)
+const paths = [
+  () => {
+    // Try node-gyp-build for local development
     const nodeGypBuild = require('node-gyp-build');
-    const rootDir = resolve(__dirname, '..');
-    return nodeGypBuild(rootDir);
+    return nodeGypBuild(resolve(__dirname, '..'));
+  },
+  () => require(`@pproenca/node-webcodecs-${runtimePlatform}/webcodecs.node`),
+];
+
+let binding: unknown;
+const errors: Error[] = [];
+
+for (const loadFn of paths) {
+  try {
+    binding = loadFn();
+    break;
   } catch (err) {
-    throw new Error(
-      `Could not load the node-webcodecs native binding for ${platform}.\n` +
-        `Error: ${err instanceof Error ? err.message : String(err)}\n\n` +
-        `Solutions:\n` +
-        `  1. Install the main package: npm install @pproenca/node-webcodecs\n` +
-        `  2. Build from source: npm rebuild --build-from-source\n` +
-        `  3. Ensure FFmpeg dev libs: pkg-config --exists libavcodec\n`
-    );
+    errors.push(err as Error);
   }
 }
 
-export const binding = loadBinding();
+if (binding) {
+  module.exports = binding;
+} else {
+  const isLinux = runtimePlatform.startsWith('linux');
+  const isMacOs = runtimePlatform.startsWith('darwin');
 
-// Export detectPlatform for testing
-export { detectPlatform };
+  const help = [
+    `Could not load the "node-webcodecs" module using the ${runtimePlatform} runtime`,
+  ];
+
+  errors.forEach((err) => {
+    if ((err as NodeJS.ErrnoException).code !== 'MODULE_NOT_FOUND') {
+      help.push(`${(err as NodeJS.ErrnoException).code}: ${err.message}`);
+    }
+  });
+
+  const messages = errors.map((err) => err.message).join(' ');
+  help.push('Possible solutions:');
+
+  if (prebuiltPlatforms.includes(runtimePlatform)) {
+    help.push(
+      '- Ensure optional dependencies can be installed:',
+      '    npm install --include=optional @pproenca/node-webcodecs',
+      '- Ensure your package manager supports multi-platform installation:',
+      '    See https://sharp.pixelplumbing.com/install#cross-platform',
+      '- Add platform-specific dependencies:',
+      `    npm install @pproenca/node-webcodecs-${runtimePlatform}`
+    );
+  } else {
+    help.push(
+      `- Platform ${runtimePlatform} does not have prebuilt binaries`,
+      '- Build from source with FFmpeg development libraries:',
+      '    npm rebuild --build-from-source'
+    );
+  }
+
+  if (isLinux && /(symbol not found|CXXABI_)/i.test(messages)) {
+    try {
+      const libcFound = `${familySync()} ${versionSync()}`;
+      help.push('- Update your OS:', `    Found ${libcFound}`);
+    } catch {
+      // Ignore libc detection errors
+    }
+  }
+
+  if (isLinux && /\/snap\/core[0-9]{2}/.test(messages)) {
+    help.push(
+      '- Remove the Node.js Snap, which does not support native modules',
+      '    snap remove node'
+    );
+  }
+
+  if (isMacOs && /Incompatible library version/.test(messages)) {
+    help.push('- Rebuild native modules:', '    npm rebuild');
+  }
+
+  if (errors.some((err) => (err as NodeJS.ErrnoException).code === 'ERR_DLOPEN_DISABLED')) {
+    help.push('- Run Node.js without using the --no-addons flag');
+  }
+
+  help.push(
+    '- Consult the installation documentation:',
+    '    See https://github.com/pproenca/node-webcodecs#readme'
+  );
+
+  throw new Error(help.join('\n'));
+}
+
+// Re-export for TypeScript consumers
+export { binding };
 
 export const platformInfo = {
   platform: process.platform,
   arch: process.arch,
   nodeVersion: process.version,
   napiVersion: (process.versions as Record<string, string>).napi ?? 'unknown',
-  // Include the detected platform with libc variant for verification
-  detectedPlatform: detectPlatform(),
+  detectedPlatform: runtimePlatform,
 };

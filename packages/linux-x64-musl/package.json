@@ -1,22 +1,29 @@
 {
   "name": "@pproenca/node-webcodecs-linux-x64-musl",
   "version": "1.0.0-alpha.1",
-  "description": "Linux x64 (musl/Alpine) binary for @pproenca/node-webcodecs",
-  "os": ["linux"],
-  "cpu": ["x64"],
-  "libc": ["musl"],
-  "main": "webcodecs.node",
-  "files": ["webcodecs.node"],
-  "license": "GPL-2.0-or-later",
+  "description": "Prebuilt node-webcodecs for Linux (musl/Alpine) x64",
+  "author": "Pedro Proenca",
+  "homepage": "https://github.com/pproenca/node-webcodecs",
   "repository": {
     "type": "git",
-    "url": "git://github.com/pproenca/node-webcodecs.git",
+    "url": "git+https://github.com/pproenca/node-webcodecs.git",
     "directory": "packages/linux-x64-musl"
   },
+  "license": "GPL-2.0-or-later",
+  "preferUnplugged": true,
+  "files": ["webcodecs.node"],
   "publishConfig": {
     "access": "public"
   },
+  "type": "commonjs",
+  "exports": {
+    "./webcodecs.node": "./webcodecs.node",
+    "./package": "./package.json"
+  },
   "engines": {
     "node": ">=20.0.0"
-  }
+  },
+  "os": ["linux"],
+  "libc": ["musl"],
+  "cpu": ["x64"]
 }

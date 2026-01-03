@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["lib/**", "test/**", "scripts/**", "gyp/**", "install/**", "examples/**"]
+    "includes": ["lib/**", "test/**", "scripts/**", "gyp/**", "install/**", "examples/**", "packages/*/lib/**", "packages/*/test/**"]
   },
   "linter": {
     "enabled": true,

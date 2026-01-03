@@ -1,0 +1,316 @@
+name: CI
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      build_ffmpeg:
+        description: "Build FFmpeg (creates deps release)"
+        type: boolean
+        default: false
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+permissions: {}
+
+jobs:
+  lint:
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - run: npm install --ignore-scripts
+      - run: npm run build:ts
+      - run: npm run lint
+
+  build-ffmpeg:
+    permissions:
+      contents: read
+    if: startsWith(github.ref, 'refs/tags/ffmpeg-') || inputs.build_ffmpeg
+    name: "ffmpeg-${{ matrix.platform }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            platform: linux-x64
+            dockerfile: Dockerfile.linux-x64
+          - os: ubuntu-24.04
+            platform: linux-x64-musl
+            dockerfile: Dockerfile.linux-x64-musl
+          - os: macos-15-intel
+            platform: darwin-x64
+          - os: macos-15
+            platform: darwin-arm64
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        if: runner.os == 'Linux'
+        uses: docker/setup-buildx-action@v3
+      - name: Build FFmpeg (Linux)
+        if: runner.os == 'Linux'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./ffmpeg
+          file: ./ffmpeg/${{ matrix.dockerfile }}
+          push: false
+          load: true
+          tags: ffmpeg-builder:${{ matrix.platform }}
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+      - name: Extract FFmpeg (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cleanup() { docker rm -f extract 2>/dev/null || true; }
+          trap cleanup EXIT
+          mkdir -p artifacts/${{ matrix.platform }}
+          docker create --name extract ffmpeg-builder:${{ matrix.platform }}
+          for dir in lib include bin; do
+            docker cp extract:/build/$dir artifacts/${{ matrix.platform }}/
+          done
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install nasm yasm cmake pkg-config autoconf automake libtool jq
+      - name: Build FFmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          chmod +x ffmpeg/build.sh
+          cd ffmpeg && ./build.sh ${{ matrix.platform }}
+          mkdir -p ../artifacts/${{ matrix.platform }}
+          cp -r build/${{ matrix.platform }}/install/* ../artifacts/${{ matrix.platform }}/
+      - name: Package artifact
+        run: |
+          cd artifacts
+          tar -czvf ffmpeg-${{ matrix.platform }}.tar.gz ${{ matrix.platform }}/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-${{ matrix.platform }}
+          path: artifacts/ffmpeg-${{ matrix.platform }}.tar.gz
+          retention-days: 7
+
+  release-ffmpeg:
+    permissions:
+      contents: write
+    needs: build-ffmpeg
+    if: startsWith(github.ref, 'refs/tags/ffmpeg-')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ffmpeg-*
+          path: artifacts/
+      - name: Prepare release
+        run: |
+          mkdir -p release
+          for artifact in artifacts/ffmpeg-*/; do
+            tarball=$(find "$artifact" -name "*.tar.gz" | head -1)
+            [ -n "$tarball" ] && cp "$tarball" release/
+          done
+      - name: Create deps release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: deps-${{ github.ref_name }}
+          name: FFmpeg Dependencies ${{ github.ref_name }}
+          files: release/*
+          body: |
+            FFmpeg static libraries for CI builds.
+            **Do not use directly** - install `@pproenca/node-webcodecs` instead.
+
+  resolve-deps:
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    outputs:
+      deps_version: ${{ steps.deps.outputs.version }}
+    steps:
+      - name: Find latest deps release
+        id: deps
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LATEST=$(gh release list --repo "${{ github.repository }}" --limit 100 --json tagName --jq '[.[] | select(.tagName | startswith("deps-"))][0].tagName' || echo "")
+          if [ -z "$LATEST" ]; then
+            echo "::error::No deps-* release found. Push a 'ffmpeg-*' tag first."
+            echo "version=" >> $GITHUB_OUTPUT
+          else
+            echo "version=${LATEST#deps-}" >> $GITHUB_OUTPUT
+          fi
+
+  build-native:
+    permissions:
+      contents: read
+    needs: [lint, resolve-deps]
+    name: "build-${{ matrix.platform }} [Node.js ${{ matrix.nodejs_version_major }}]${{ matrix.package && ' [package]' || '' }}"
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # linux-x64 (glibc)
+          - os: ubuntu-24.04
+            platform: linux-x64
+            nodejs_version: "20"
+            nodejs_version_major: 20
+          - os: ubuntu-24.04
+            platform: linux-x64
+            nodejs_version: "22"
+            nodejs_version_major: 22
+            package: true
+          - os: ubuntu-24.04
+            platform: linux-x64
+            nodejs_version: "24"
+            nodejs_version_major: 24
+          # linux-x64-musl (Alpine)
+          - os: ubuntu-24.04
+            container: node:20-alpine
+            platform: linux-x64-musl
+            nodejs_version_major: 20
+          - os: ubuntu-24.04
+            container: node:22-alpine
+            platform: linux-x64-musl
+            nodejs_version_major: 22
+            package: true
+          # darwin-x64 (Intel Mac)
+          - os: macos-15-intel
+            platform: darwin-x64
+            nodejs_version: "20"
+            nodejs_version_major: 20
+          - os: macos-15-intel
+            platform: darwin-x64
+            nodejs_version: "22"
+            nodejs_version_major: 22
+            package: true
+          - os: macos-15-intel
+            platform: darwin-x64
+            nodejs_version: "24"
+            nodejs_version_major: 24
+          # darwin-arm64 (Apple Silicon)
+          - os: macos-15
+            platform: darwin-arm64
+            nodejs_version: "20"
+            nodejs_version_major: 20
+          - os: macos-15
+            platform: darwin-arm64
+            nodejs_version: "22"
+            nodejs_version_major: 22
+            package: true
+          - os: macos-15
+            platform: darwin-arm64
+            nodejs_version: "24"
+            nodejs_version_major: 24
+    steps:
+      - name: Dependencies (Linux musl)
+        if: contains(matrix.container, 'alpine')
+        run: apk add --no-cache python3 make g++ pkgconfig git curl file
+      - name: Dependencies (Node.js)
+        if: "!contains(matrix.platform, 'musl')"
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.nodejs_version }}
+      - uses: actions/checkout@v4
+      - name: Dependencies (Linux glibc)
+        if: runner.os == 'Linux' && !contains(matrix.container, 'alpine')
+        run: sudo apt-get update && sudo apt-get install -y pkg-config
+      - name: Dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install pkg-config
+      - name: Verify FFmpeg deps
+        if: needs.resolve-deps.outputs.deps_version == ''
+        run: |
+          echo "::error::No FFmpeg deps release. Push 'ffmpeg-v1' tag first."
+          exit 1
+      - name: Download FFmpeg
+        if: "!contains(matrix.container, 'alpine')"
+        uses: dsaltares/fetch-gh-release-asset@v1.1.2
+        with:
+          repo: ${{ github.repository }}
+          version: tags/deps-${{ needs.resolve-deps.outputs.deps_version }}
+          file: ffmpeg-${{ matrix.platform }}.tar.gz
+          target: ffmpeg-${{ matrix.platform }}.tar.gz
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download FFmpeg (Alpine)
+        if: contains(matrix.container, 'alpine')
+        run: |
+          curl -L -o ffmpeg-${{ matrix.platform }}.tar.gz \
+            "https://github.com/${{ github.repository }}/releases/download/deps-${{ needs.resolve-deps.outputs.deps_version }}/ffmpeg-${{ matrix.platform }}.tar.gz"
+          file ffmpeg-${{ matrix.platform }}.tar.gz | grep -q 'gzip' || exit 1
+      - name: Extract FFmpeg
+        run: |
+          mkdir -p ffmpeg-install
+          tar -xzf ffmpeg-${{ matrix.platform }}.tar.gz -C ffmpeg-install --strip-components=1
+          echo "FFMPEG_ROOT=${{ github.workspace }}/ffmpeg-install" >> $GITHUB_ENV
+      - run: npm install --ignore-scripts
+      - name: Build native addon
+        working-directory: packages/node-webcodecs
+        run: npx prebuildify --napi --strip
+      - run: npm run build:ts
+      - run: npm run test:fast
+      - run: npm run test:contracts
+      - run: npm run test:guardrails
+      - name: Package platform binary
+        if: matrix.package
+        run: |
+          VERSION=$(node -p "require('./packages/node-webcodecs/package.json').version")
+          PKG_DIR="packages/${{ matrix.platform }}"
+          mkdir -p "$PKG_DIR"
+          BINARY=$(find packages/node-webcodecs/prebuilds -name "*.node" | head -1)
+          cp "$BINARY" "$PKG_DIR/webcodecs.node"
+          node -e "
+            const pkg = require('./$PKG_DIR/package.json');
+            pkg.version = '$VERSION';
+            require('fs').writeFileSync('./$PKG_DIR/package.json', JSON.stringify(pkg, null, 2));
+          "
+      - uses: actions/upload-artifact@v4
+        if: matrix.package
+        with:
+          name: ${{ matrix.platform }}
+          path: packages/${{ matrix.platform }}/
+          retention-days: 1
+          if-no-files-found: error
+
+  release:
+    permissions:
+      contents: write
+      id-token: write
+    needs: build-native
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/@pproenca/node-webcodecs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: npm
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+      - name: Prepare packages
+        run: |
+          for platform in linux-x64 linux-x64-musl darwin-x64 darwin-arm64; do
+            [ -d "npm/$platform" ] && cp npm/$platform/* packages/$platform/
+          done
+      - run: npm install --ignore-scripts
+      - run: npm run build:ts
+      - name: Publish platform packages
+        run: |
+          for platform in linux-x64 linux-x64-musl darwin-x64 darwin-arm64; do
+            [ -f "packages/$platform/webcodecs.node" ] && \
+              (cd "packages/$platform" && npm publish --provenance --access public)
+          done
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Wait for propagation
+        run: sleep 15
+      - name: Publish main package
+        run: npm publish -w packages/node-webcodecs --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
