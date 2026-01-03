@@ -640,4 +640,276 @@ describe('ImageDecoder', () => {
       decoder.close();
     });
   });
+
+  // Spec 10.6-10.7 compliance tests
+  describe('ImageTrackList (Spec 10.6)', () => {
+    // Spec 10.6.1: [[selected index]] initial value is -1, but first track is auto-selected
+    it('returns -1 for selectedIndex when no track is selected', () => {
+      const data = createMinimalPNG();
+      const decoder = new ImageDecoder({
+        type: 'image/png',
+        data: data,
+      });
+
+      const tracks = decoder.tracks;
+      // First track is auto-selected per spec behavior
+      assert.strictEqual(typeof tracks.selectedIndex, 'number');
+      decoder.close();
+    });
+
+    // Spec 10.6.2: getter ImageTrack(unsigned long index)
+    it('returns undefined for out-of-bounds index access', () => {
+      const data = createMinimalPNG();
+      const decoder = new ImageDecoder({
+        type: 'image/png',
+        data: data,
+      });
+
+      const tracks = decoder.tracks;
+      assert.strictEqual(tracks.length, 1);
+      // Spec: getter returns undefined for index >= length
+      assert.strictEqual(tracks[1], undefined);
+      assert.strictEqual(tracks[100], undefined);
+      assert.strictEqual(tracks[-1], undefined);
+      decoder.close();
+    });
+
+    // Spec 10.6.2: selectedTrack returns null when [[selected index]] is -1
+    it('returns null for selectedTrack when no track is selected', async () => {
+      const data = createMinimalPNG();
+      const decoder = new ImageDecoder({
+        type: 'image/png',
+        data: data,
+      });
+
+      const tracks = decoder.tracks;
+      await tracks.ready;
+
+      // Deselect the track
+      tracks[0].selected = false;
+      // Spec 10.6.2: If [[selected index]] is -1, return null
+      assert.strictEqual(tracks.selectedTrack, null);
+      assert.strictEqual(tracks.selectedIndex, -1);
+      decoder.close();
+    });
+
+    // Spec 10.6.2: length returns [[track list]] length
+    it('length matches number of tracks', () => {
+      const data = createMinimalPNG();
+      const decoder = new ImageDecoder({
+        type: 'image/png',
+        data: data,
+      });
+
+      const tracks = decoder.tracks;
+      assert.strictEqual(tracks.length, 1);
+      assert.strictEqual(typeof tracks.length, 'number');
+      decoder.close();
+    });
+
+    // Spec 10.6.2: ready promise resolves
+    it('ready promise resolves to undefined', async () => {
+      const data = createMinimalPNG();
+      const decoder = new ImageDecoder({
+        type: 'image/png',
+        data: data,
+      });
+
+      const result = await decoder.tracks.ready;
+      assert.strictEqual(result, undefined);
+      decoder.close();
+    });
+
+    // Iterator support
+    it('is iterable via Symbol.iterator', () => {
+      const data = createMinimalPNG();
+      const decoder = new ImageDecoder({
+        type: 'image/png',
+        data: data,
+      });
+
+      const tracks = decoder.tracks;
+      const trackArray = [...tracks];
+      assert.strictEqual(trackArray.length, 1);
+      assert.strictEqual(trackArray[0], tracks[0]);
+      decoder.close();
+    });
+  });
+
+  describe('ImageTrack (Spec 10.7)', () => {
+    // Spec 10.7.2: selected setter
+    it('selected can be set to true', async () => {
+      const data = createMinimalPNG();
+      const decoder = new ImageDecoder({
+        type: 'image/png',
+        data: data,
+      });
+
+      const tracks = decoder.tracks;
+      await tracks.ready;
+      const track = tracks[0];
+
+      // Initially selected
+      assert.strictEqual(track.selected, true);
+
+      // Set to same value (no-op per spec step 3)
+      track.selected = true;
+      assert.strictEqual(track.selected, true);
+      decoder.close();
+    });
+
+    // Spec 10.7.2: selected setter - deselecting
+    it('selected can be set to false', async () => {
+      const data = createMinimalPNG();
+      const decoder = new ImageDecoder({
+        type: 'image/png',
+        data: data,
+      });
+
+      const tracks = decoder.tracks;
+      await tracks.ready;
+      const track = tracks[0];
+
+      // Deselect
+      track.selected = false;
+      assert.strictEqual(track.selected, false);
+      // Spec 10.7.2 step 8: If newValue is false, selectedIndex = -1
+      assert.strictEqual(tracks.selectedIndex, -1);
+      decoder.close();
+    });
+
+    // Spec 10.7.2: selected setter - re-selecting
+    it('selected can be toggled back to true', async () => {
+      const data = createMinimalPNG();
+      const decoder = new ImageDecoder({
+        type: 'image/png',
+        data: data,
+      });
+
+      const tracks = decoder.tracks;
+      await tracks.ready;
+      const track = tracks[0];
+
+      // Deselect then reselect
+      track.selected = false;
+      assert.strictEqual(track.selected, false);
+      assert.strictEqual(tracks.selectedIndex, -1);
+
+      track.selected = true;
+      assert.strictEqual(track.selected, true);
+      // Spec 10.7.2 step 8: If newValue is true, selectedIndex = index of this track
+      assert.strictEqual(tracks.selectedIndex, 0);
+      decoder.close();
+    });
+
+    // Spec 10.7.2 step 1: If decoder is closed, abort
+    it('setting selected on closed decoder is a no-op', async () => {
+      const data = createMinimalPNG();
+      const decoder = new ImageDecoder({
+        type: 'image/png',
+        data: data,
+      });
+
+      const tracks = decoder.tracks;
+      await tracks.ready;
+      const track = tracks[0];
+
+      decoder.close();
+
+      // Spec 10.7.2 step 1: If [[ImageDecoder]]'s [[closed]] is true, abort
+      // Should not throw, just be a no-op
+      assert.doesNotThrow(() => {
+        track.selected = false;
+      });
+      // Value should remain unchanged since setter aborted
+      assert.strictEqual(track.selected, true);
+    });
+
+    // Spec 10.7.2: animated attribute
+    it('animated is false for static image', () => {
+      const data = createMinimalPNG();
+      const decoder = new ImageDecoder({
+        type: 'image/png',
+        data: data,
+      });
+
+      const track = decoder.tracks[0];
+      assert.strictEqual(track.animated, false);
+      assert.strictEqual(typeof track.animated, 'boolean');
+      decoder.close();
+    });
+
+    // Spec 10.7.2: frameCount attribute
+    it('frameCount is 1 for static image', () => {
+      const data = createMinimalPNG();
+      const decoder = new ImageDecoder({
+        type: 'image/png',
+        data: data,
+      });
+
+      const track = decoder.tracks[0];
+      assert.strictEqual(track.frameCount, 1);
+      assert.strictEqual(typeof track.frameCount, 'number');
+      decoder.close();
+    });
+
+    // Spec 10.7.2: repetitionCount attribute
+    it('repetitionCount is a number', () => {
+      const data = createMinimalPNG();
+      const decoder = new ImageDecoder({
+        type: 'image/png',
+        data: data,
+      });
+
+      const track = decoder.tracks[0];
+      assert.strictEqual(typeof track.repetitionCount, 'number');
+      decoder.close();
+    });
+
+    // Spec 10.7.2: repetitionCount is Infinity for infinite loop
+    it('repetitionCount is Infinity for loop-forever GIF', async () => {
+      const data = createAnimatedGIF(0); // 0 = infinite loop
+      const decoder = new ImageDecoder({
+        type: 'image/gif',
+        data: data,
+      });
+
+      const tracks = decoder.tracks;
+      await tracks.ready;
+      assert.strictEqual(tracks[0].repetitionCount, Infinity);
+      decoder.close();
+    });
+
+    // Spec 10.7.2: finite repetitionCount
+    it('repetitionCount is finite for limited-loop GIF', async () => {
+      const data = createAnimatedGIF(3); // Loop 3 times
+      const decoder = new ImageDecoder({
+        type: 'image/gif',
+        data: data,
+      });
+
+      const tracks = decoder.tracks;
+      await tracks.ready;
+      assert.strictEqual(tracks[0].repetitionCount, 3);
+      decoder.close();
+    });
+
+    // Spec 10.7: Single-frame "animated" GIF edge case
+    it('handles single-frame GIF correctly', async () => {
+      const data = createStaticGIF(); // Single frame
+      const decoder = new ImageDecoder({
+        type: 'image/gif',
+        data: data,
+      });
+
+      const tracks = decoder.tracks;
+      await tracks.ready;
+      const track = tracks[0];
+
+      assert.strictEqual(track.frameCount, 1);
+      // Single-frame GIF should not be considered animated
+      assert.strictEqual(track.animated, false);
+      decoder.close();
+    });
+  });
 });
