@@ -178,9 +178,12 @@ jobs:
         run: npm run test:fast
 
       - name: Package as platform npm package
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          PLATFORM_OS: ${{ runner.os == 'macOS' && 'darwin' || 'linux' }}
+          PLATFORM_CPU: ${{ matrix.arch }}
         run: |
           set -e
-          # Read version from package.json
           VERSION=$(node -p "require('./package.json').version")
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9] ]]; then
             echo "ERROR: Failed to extract valid version from package.json: '$VERSION'"
@@ -188,39 +191,13 @@ jobs:
           fi
           echo "Package version: $VERSION"
 
-          # Create platform package directory
-          PKG_DIR="packages/@pproenca/node-webcodecs-${{ matrix.platform }}"
-          mkdir -p "$PKG_DIR/bin"
-
-          # Copy the native addon (use matrix.platform directly)
-          cp "prebuilds/${{ matrix.platform }}/node.napi.node" "$PKG_DIR/bin/"
-
-          # Create package.json for the platform package
-          cat > "$PKG_DIR/package.json" << EOF
-          {
-            "name": "@pproenca/node-webcodecs-${{ matrix.platform }}",
-            "version": "${VERSION}",
-            "description": "node-webcodecs native addon for ${{ matrix.platform }}",
-            "os": ["${{ runner.os == 'macOS' && 'darwin' || 'linux' }}"],
-            "cpu": ["${{ matrix.arch }}"],
-            "files": ["bin/"],
-            "license": "MIT",
-            "repository": {
-              "type": "git",
-              "url": "https://github.com/${{ github.repository }}"
-            }
-          }
-          EOF
-
-          echo "Created platform package:"
-          cat "$PKG_DIR/package.json"
-          ls -la "$PKG_DIR/bin/"
-
-          # Create tarball to preserve permissions
-          # NOTE: Use ./@pproenca/... to prevent BSD tar from interpreting @ as
-          # a special directive (@ prefix means "read archive" on macOS tar)
-          cd packages
-          tar -cvf "@pproenca-node-webcodecs-${{ matrix.platform }}.tar" "./@pproenca/node-webcodecs-${{ matrix.platform }}/"
+          node scripts/ci/platform-package.mjs pack \
+            --platform "$PLATFORM" \
+            --os "$PLATFORM_OS" \
+            --cpu "$PLATFORM_CPU" \
+            --version "$VERSION" \
+            --prebuild "prebuilds/${{ matrix.platform }}/node.napi.node" \
+            --out packages
 
       - name: Upload platform package artifact
         uses: actions/upload-artifact@v6
@@ -275,10 +252,19 @@ jobs:
 
       - name: Extract prebuilt binary
         run: |
-          # Extract tarball and place binary where node-gyp-build expects it
-          tar -xf "@pproenca-node-webcodecs-${{ matrix.platform }}.tar"
-          mkdir -p prebuilds/${{ matrix.platform }}
-          cp "./@pproenca/node-webcodecs-${{ matrix.platform }}/bin/node.napi.node" prebuilds/${{ matrix.platform }}/
+          set -e
+          TAR_PATH=$(find . -name "@pproenca-node-webcodecs-${{ matrix.platform }}.tar" -type f | head -1)
+          if [ -z "$TAR_PATH" ]; then
+            echo "ERROR: Platform tarball not found for ${{ matrix.platform }}"
+            exit 1
+          fi
+
+          node scripts/ci/platform-package.mjs extract \
+            --platform "${{ matrix.platform }}" \
+            --tar "$TAR_PATH" \
+            --out packages \
+            --prebuilds prebuilds
+
           ls -la prebuilds/${{ matrix.platform }}/
 
       - name: Install dependencies
