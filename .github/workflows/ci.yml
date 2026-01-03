@@ -145,7 +145,7 @@ jobs:
     permissions:
       contents: read
     needs: [lint, resolve-deps]
-    name: "build-${{ matrix.platform }} [Node.js ${{ matrix.nodejs_version_major }}]${{ matrix.package && ' [package]' || '' }}"
+    name: "build-${{ matrix.platform }}-nodejs-${{ matrix.nodejs_version_major }}${{ matrix.package && '-package' || '' }}"
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
     strategy:
@@ -227,7 +227,7 @@ jobs:
           exit 1
       - name: Download FFmpeg
         if: "!contains(matrix.container, 'alpine')"
-        uses: dsaltares/fetch-gh-release-asset@v1.1.2
+        uses: dsaltares/fetch-gh-release-asset@1.1.2
         with:
           repo: ${{ github.repository }}
           version: tags/deps-${{ needs.resolve-deps.outputs.deps_version }}
