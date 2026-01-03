@@ -36,7 +36,7 @@ jobs:
     name: "build-${{ matrix.platform }}-nodejs-${{ matrix.nodejs_version }}"
     runs-on: ${{ matrix.os }}
     env:
-      DEPS_VERSION: v8  # Bump when running new build-ffmpeg workflow
+      DEPS_VERSION: v9  # Bump when running new build-ffmpeg workflow
     strategy:
       fail-fast: false
       matrix:
