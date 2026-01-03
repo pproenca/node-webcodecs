@@ -887,8 +887,24 @@ Napi::Value VideoEncoder::Reset(const Napi::CallbackInfo& info) {
     return env.Undefined();
   }
 
-  // Flush any pending frames (don't emit - discard).
-  if (codec_context_) {
+  // CRITICAL: Stop async worker FIRST before accessing codec_context_.
+  // The worker thread may be calling avcodec_send_frame() or avcodec_receive_packet()
+  // concurrently. AVCodecContext is NOT thread-safe - concurrent access causes SIGSEGV.
+  if (async_worker_) {
+    async_worker_->Stop();
+    async_worker_.reset();
+  }
+
+  // Release ThreadSafeFunctions after worker is stopped.
+  if (async_mode_) {
+    output_tsfn_.Release();
+    error_tsfn_.Release();
+    async_mode_ = false;
+  }
+
+  // Now safe to flush codec - worker is stopped.
+  // Drain encoder's internal buffers, discard any remaining encoded packets.
+  if (codec_context_ && packet_) {
     avcodec_send_frame(codec_context_.get(), nullptr);
     while (avcodec_receive_packet(codec_context_.get(), packet_.get()) == 0) {
       av_packet_unref(packet_.get());
@@ -896,7 +912,11 @@ Napi::Value VideoEncoder::Reset(const Napi::CallbackInfo& info) {
   }
 
   // Clean up FFmpeg resources.
-  Cleanup();
+  frame_.reset();
+  packet_.reset();
+  sws_context_.reset();
+  codec_context_.reset();
+  codec_ = nullptr;
 
   // Reset state.
   state_ = "unconfigured";
