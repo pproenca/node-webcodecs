@@ -89,7 +89,8 @@ jobs:
         with:
           repo: ${{ github.repository }}
           version: tags/deps-${{ env.DEPS_VERSION }}
-          file: ffmpeg-${{ matrix.platform }}.tar.gz
+          # Use glibc variant for Linux (musl libs can't link into glibc shared objects)
+          file: ffmpeg-${{ matrix.platform }}${{ runner.os == 'Linux' && '-glibc' || '' }}.tar.gz
           target: ffmpeg-${{ matrix.platform }}.tar.gz
           token: ${{ secrets.GITHUB_TOKEN }}
 
