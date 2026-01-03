@@ -29,7 +29,7 @@
     "lint": "npm run lint:cpp && npm run lint:ts && npm run lint:types",
     "lint:cpp": "cpplint --quiet src/*.h src/*.cc",
     "lint:ts": "biome lint lib/",
-    "lint:types": "tsd"
+    "lint:types": "tsd --files test/types/**/*.test-d.ts"
   },
   "type": "commonjs",
   "main": "dist/index.js",
