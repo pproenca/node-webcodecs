@@ -89,7 +89,7 @@
 
 15. Run: npm run check
 16. If C++ modified:
-    - cmake --build build 2>&1 | grep -i warning → Must be empty
+    - npm run build:native 2>&1 | grep -i warning → Must be empty
     - Run memory stress test if available
 
 17. Commit implementation: git add -A && git commit -m "feat(webcodecs): TASK_ID - implement [description]"
