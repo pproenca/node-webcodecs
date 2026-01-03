@@ -147,7 +147,8 @@ jobs:
           npm init -y
 
           # Install from the local tarball (simulating what npm publish would produce)
-          npm install "../${{ env.PACKED_TGZ }}"
+          # Use --ignore-scripts to skip node-gyp-build (platform package provides binary)
+          npm install --ignore-scripts "../${{ env.PACKED_TGZ }}"
 
           # Also install the platform package from extracted artifact
           npm install "../packages/@pproenca/node-webcodecs-${{ matrix.platform }}"
