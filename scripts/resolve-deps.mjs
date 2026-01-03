@@ -63,22 +63,8 @@ function hasAsset(assetNames, expected) {
   return expected.some((name) => assetNames.includes(name));
 }
 
-export function resolveDepsFromReleases(releases, variant) {
-  const normalizedVariant = normalizeVariant(variant);
-  const prefix = releasePrefixForVariant(normalizedVariant);
-  const filtered = releases.filter((release) => {
-    if (release.draft || release.prerelease) return false;
-    if (!release.tag_name?.startsWith(prefix)) return false;
-    if (normalizedVariant === 'gpl' && release.tag_name.startsWith('deps-lgpl-')) {
-      return false;
-    }
-    return true;
-  });
-  const sorted = sortByPublishedAt(filtered);
-  const selected = sorted[0];
-  if (!selected) return null;
-
-  const assets = (selected.assets ?? [])
+function buildResolution(release, variant, prefix) {
+  const assets = (release.assets ?? [])
     .map((asset) => asset.name)
     .filter(Boolean)
     .sort();
@@ -90,11 +76,45 @@ export function resolveDepsFromReleases(releases, variant) {
   };
 
   return {
-    tag: selected.tag_name,
-    version: selected.tag_name.slice(prefix.length),
-    variant: normalizedVariant,
+    tag: release.tag_name,
+    version: release.tag_name?.slice(prefix.length),
+    variant,
     assets,
     availability,
+  };
+}
+
+export function resolveDepsFromReleases(releases, variant, required = []) {
+  const normalizedVariant = normalizeVariant(variant);
+  const prefix = releasePrefixForVariant(normalizedVariant);
+  const filtered = releases.filter((release) => {
+    if (release.draft || release.prerelease) return false;
+    if (!release.tag_name?.startsWith(prefix)) return false;
+    if (normalizedVariant === 'gpl' && release.tag_name.startsWith('deps-lgpl-')) {
+      return false;
+    }
+    return true;
+  });
+  const sorted = sortByPublishedAt(filtered);
+  if (sorted.length === 0) return null;
+
+  const requiredPlatforms = Array.isArray(required) ? required : [];
+  if (requiredPlatforms.length === 0) {
+    return buildResolution(sorted[0], normalizedVariant, prefix);
+  }
+
+  for (const release of sorted) {
+    const resolved = buildResolution(release, normalizedVariant, prefix);
+    const missing = missingRequiredPlatforms(requiredPlatforms, resolved.availability);
+    if (missing.length === 0) {
+      return resolved;
+    }
+  }
+
+  const latest = buildResolution(sorted[0], normalizedVariant, prefix);
+  return {
+    ...latest,
+    missingRequired: missingRequiredPlatforms(requiredPlatforms, latest.availability),
   };
 }
 
@@ -164,15 +184,17 @@ async function main() {
   const required = parseRequiredPlatforms(args.get('require'));
 
   const releases = await fetchReleases(repo, token);
-  const resolved = resolveDepsFromReleases(releases, variant);
+  const resolved = resolveDepsFromReleases(releases, variant, required);
   if (!resolved) {
     console.error(`No deps releases found for variant "${variant}".`);
     exit(1);
   }
-
-  const missing = missingRequiredPlatforms(required, resolved.availability);
-  if (missing.length > 0) {
-    console.error(`Missing required deps assets: ${missing.join(', ')}`);
+  if (resolved.missingRequired?.length) {
+    console.error(
+      `No deps releases found for variant "${variant}" with required assets: ` +
+        `${required.join(', ')}. Latest release ${resolved.tag} missing: ` +
+        `${resolved.missingRequired.join(', ')}`
+    );
     exit(1);
   }
 
