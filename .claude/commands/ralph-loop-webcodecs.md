@@ -17,9 +17,8 @@
 ## PHASE 0: LOAD SKILLS
 
 5. Read development skills BEFORE any implementation:
-   - TypeScript work: `view /mnt/skills/user/dev-ts/SKILL.md`
-   - C++ work: `view /mnt/skills/user/dev-cpp/SKILL.md`
-   - Follow skill guidelines throughout implementation
+   - TypeScript work use dev-ts
+   - C++ work use dev-cpp
 
 ## PHASE 1: SPEC COMPREHENSION (No Code Yet)
 
