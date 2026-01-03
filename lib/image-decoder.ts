@@ -33,6 +33,21 @@ export class ImageDecoder {
     // Store type immediately for the type getter
     this._type = init.type;
 
+    // Spec 10.3 step 4: If desiredWidth exists and desiredHeight does not exist, return false.
+    // Spec 10.3 step 5: If desiredHeight exists and desiredWidth does not exist, return false.
+    const hasDesiredWidth = init.desiredWidth !== undefined;
+    const hasDesiredHeight = init.desiredHeight !== undefined;
+    if (hasDesiredWidth && !hasDesiredHeight) {
+      throw new TypeError(
+        'desiredHeight is required when desiredWidth is specified (W3C ImageDecoderInit validation step 4)',
+      );
+    }
+    if (hasDesiredHeight && !hasDesiredWidth) {
+      throw new TypeError(
+        'desiredWidth is required when desiredHeight is specified (W3C ImageDecoderInit validation step 5)',
+      );
+    }
+
     // Create completed promise
     this._completed = new Promise<void>((resolve, reject) => {
       this._completedResolve = resolve;
