@@ -183,6 +183,10 @@ export class ImageDecoder {
 
   get tracks(): ImageTrackList {
     if (this._tracks === null) {
+      // Create a closure to check if this decoder is closed
+      // Spec 10.7.1: [[ImageDecoder]] reference for closed check
+      const isDecoderClosed = (): boolean => this._closed;
+
       // For streaming, return empty list until ready
       if (this._isStreaming || !this._native) {
         this._tracks = new ImageTrackList([], this._tracksReadyPromise);
@@ -194,14 +198,17 @@ export class ImageDecoder {
 
             for (let i = 0; i < nativeTracks.length; i++) {
               const nt = nativeTracks[i];
-              tracks.push(
-                new ImageTrack({
-                  animated: nt.animated,
-                  frameCount: nt.frameCount,
-                  repetitionCount: nt.repetitionCount,
-                  selected: nt.selected,
-                }),
-              );
+              const track = new ImageTrack({
+                animated: nt.animated,
+                frameCount: nt.frameCount,
+                repetitionCount: nt.repetitionCount,
+                selected: nt.selected,
+              });
+              // Spec 10.7.1: Set [[ImageDecoder]] reference (via closure)
+              track._setDecoderClosedChecker(isDecoderClosed);
+              // Spec 10.7.1: Set [[ImageTrackList]] reference
+              track._setTrackList(this._tracks as ImageTrackList);
+              tracks.push(track);
             }
             // Update the internal tracks array
             (this._tracks as ImageTrackList)._updateTracks(tracks);
@@ -215,17 +222,24 @@ export class ImageDecoder {
 
       for (let i = 0; i < nativeTracks.length; i++) {
         const nt = nativeTracks[i];
-        tracks.push(
-          new ImageTrack({
-            animated: nt.animated,
-            frameCount: nt.frameCount,
-            repetitionCount: nt.repetitionCount,
-            selected: nt.selected,
-          }),
-        );
+        const track = new ImageTrack({
+          animated: nt.animated,
+          frameCount: nt.frameCount,
+          repetitionCount: nt.repetitionCount,
+          selected: nt.selected,
+        });
+        tracks.push(track);
       }
 
       this._tracks = new ImageTrackList(tracks, Promise.resolve());
+
+      // Wire up the decoder closed checker and track list reference for each track
+      for (const track of tracks) {
+        // Spec 10.7.1: Set [[ImageDecoder]] reference (via closure)
+        track._setDecoderClosedChecker(isDecoderClosed);
+        // Spec 10.7.1: Set [[ImageTrackList]] reference
+        track._setTrackList(this._tracks);
+      }
     }
     return this._tracks;
   }
