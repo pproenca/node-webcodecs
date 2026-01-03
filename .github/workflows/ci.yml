@@ -127,6 +127,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       deps_version: ${{ steps.deps.outputs.version }}
+      has_musl: ${{ steps.deps.outputs.has_musl }}
     steps:
       - name: Find latest deps release
         id: deps
@@ -137,14 +138,23 @@ jobs:
           if [ -z "$LATEST" ]; then
             echo "::error::No deps-* release found. Push a 'ffmpeg-*' tag first."
             echo "version=" >> $GITHUB_OUTPUT
+            echo "has_musl=false" >> $GITHUB_OUTPUT
           else
-            echo "version=${LATEST#deps-}" >> $GITHUB_OUTPUT
+            VERSION="${LATEST#deps-}"
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            HAS_MUSL=$(gh release view "$LATEST" --repo "${{ github.repository }}" --json assets --jq '[.assets[].name | select(. == "ffmpeg-linux-x64-musl.tar.gz")] | length' || echo 0)
+            if [ "$HAS_MUSL" -gt 0 ]; then
+              echo "has_musl=true" >> $GITHUB_OUTPUT
+            else
+              echo "has_musl=false" >> $GITHUB_OUTPUT
+            fi
           fi
 
   build-native:
     permissions:
       contents: read
     needs: [lint, resolve-deps]
+    if: ${{ !contains(matrix.platform, 'linux-x64-musl') || needs.resolve-deps.outputs.has_musl == 'true' }}
     name: "build-${{ matrix.platform }}-nodejs-${{ matrix.nodejs_version_major }}${{ matrix.package && '-package' || '' }}"
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
