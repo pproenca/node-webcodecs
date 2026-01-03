@@ -5,7 +5,7 @@
  */
 
 import { binding } from './binding';
-import { isImageData, type ImageDataLike } from './is';
+import { type ImageDataLike, isImageData } from './is';
 import type { NativeModule, NativeVideoFrame } from './native-types';
 import { detachArrayBuffers } from './transfer';
 import type {
@@ -172,6 +172,11 @@ export class VideoFrame {
     // Original buffer-based construction
     const data = dataOrSourceOrImageData;
     const bufferInit = init as VideoFrameBufferInit;
+
+    // Spec 9.4.2: format is a required member of VideoFrameBufferInit
+    if (!bufferInit.format) {
+      throw new TypeError('format is required for buffer constructor');
+    }
 
     // Convert to Buffer if needed
     let dataBuffer: Buffer;
