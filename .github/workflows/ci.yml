@@ -179,13 +179,16 @@ jobs:
           node scripts/resolve-deps.mjs \
             --repo "${{ github.repository }}" \
             --variant gpl \
-            --require all \
+            --require linux-x64,darwin-x64,darwin-arm64 \
             --github-output "$GITHUB_OUTPUT"
 
   build-native:
     permissions:
       contents: read
     needs: [lint, resolve-deps]
+    if: |
+      !contains(matrix.platform, 'musl') ||
+      needs.resolve-deps.outputs.has_linux_x64_musl == 'true'
     name: "build-${{ matrix.platform }}-nodejs-${{ matrix.nodejs_version_major }}${{ matrix.package && '-package' || '' }}"
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
