@@ -584,6 +584,21 @@ async function main(): Promise<void> {
       markdown += contentMd;
     }
 
+    // Add subsections TOC for index.md files
+    if (hasChildren) {
+      markdown += '\n## Subsections\n\n';
+      for (const child of section.children) {
+        const childHasChildren = child.children.length > 0;
+        const childPath = getSectionPath(child, childHasChildren);
+        // Calculate relative path from current index.md to child
+        const currentDir = dirname(filePath);
+        const relativePath = childPath.startsWith(currentDir + '/')
+          ? childPath.slice(currentDir.length + 1)
+          : childPath;
+        markdown += `- [${child.number}. ${child.title}](./${relativePath})\n`;
+      }
+    }
+
     // Add navigation links
     markdown += '\n\n---\n\n';
     if (section.parent) {
