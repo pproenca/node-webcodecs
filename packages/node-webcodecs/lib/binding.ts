@@ -26,12 +26,14 @@ function detectPlatform(): string {
       return `${base}-musl`;
     }
     if (libc === null) {
-      // Could not detect libc - assume glibc (most common)
-      // This may fail on Alpine/musl systems where detection fails
-      console.warn(
-        '[node-webcodecs] Warning: Could not detect libc type. ' +
-          'Assuming glibc. If on Alpine Linux, ensure musl binary is installed.'
-      );
+      // Could not detect libc - this is unusual and likely indicates a problem
+      // Use console.error to ensure visibility even when warnings are suppressed
+      const warningMessage =
+        '[node-webcodecs] WARNING: Could not detect libc type (detect-libc returned null). ' +
+        'Falling back to glibc binary. If you are on Alpine Linux or another musl-based ' +
+        'system, loading will likely fail. Ensure the musl platform package is installed: ' +
+        'npm install @pproenca/node-webcodecs-linux-x64-musl';
+      console.error(warningMessage);
     }
     // libc === 'glibc' or null (fallback to glibc)
   }
@@ -61,8 +63,24 @@ function loadBinding(): unknown {
     const pkgPath = require.resolve(`${pkg}/package.json`);
     const binPath = join(dirname(pkgPath), 'webcodecs.node');
     return require(binPath);
-  } catch {
-    // Platform package not installed - fallback to local build
+  } catch (err: unknown) {
+    // Check if package is installed but loading failed (vs. not installed at all)
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    const errorCode = (err as NodeJS.ErrnoException)?.code;
+
+    if (errorCode === 'MODULE_NOT_FOUND' && errorMessage.includes(pkg)) {
+      // Package not installed - this is expected in dev, fall through to node-gyp-build
+    } else {
+      // Package is installed but failed to load - this is a real error
+      throw new Error(
+        `Platform package ${pkg} is installed but failed to load:\n` +
+          `${errorMessage}\n\n` +
+          `This usually indicates:\n` +
+          `  - Node.js version mismatch (try: npm rebuild)\n` +
+          `  - Corrupted installation (try: rm -rf node_modules && npm install)\n` +
+          `  - Missing system library (check native dependencies)`
+      );
+    }
   }
 
   // Fallback to node-gyp-build for local development
@@ -84,9 +102,14 @@ function loadBinding(): unknown {
 
 export const binding = loadBinding();
 
+// Export detectPlatform for testing
+export { detectPlatform };
+
 export const platformInfo = {
   platform: process.platform,
   arch: process.arch,
   nodeVersion: process.version,
   napiVersion: (process.versions as Record<string, string>).napi ?? 'unknown',
+  // Include the detected platform with libc variant for verification
+  detectedPlatform: detectPlatform(),
 };

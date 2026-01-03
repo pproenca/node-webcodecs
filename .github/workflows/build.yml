@@ -76,7 +76,9 @@ jobs:
           - runner: ubuntu-24.04
             platform: linux-x64-musl
             dockerfile: Dockerfile.linux-x64-musl
-          - runner: macos-13
+          # macos-13 deprecated Dec 2025 - use macos-15-intel for x64
+          # macos-15-intel available until Aug 2027 (last Intel runner)
+          - runner: macos-15-intel
             platform: darwin-x64
           - runner: macos-15
             platform: darwin-arm64
@@ -105,6 +107,13 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           set -euo pipefail
+
+          # Cleanup function for trap - ensures container is removed on exit
+          cleanup() {
+            docker rm -f extract 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
           mkdir -p artifacts/${{ matrix.platform }}
 
           echo "Creating container from ffmpeg-builder:${{ matrix.platform }}"
@@ -123,7 +132,8 @@ jobs:
             }
           done
 
-          docker rm extract
+          # Explicit cleanup (trap will also fire on exit)
+          cleanup
 
           # Verify extraction produced expected files
           if [ ! -f "artifacts/${{ matrix.platform }}/lib/libavcodec.a" ]; then
@@ -282,7 +292,8 @@ jobs:
         include:
           - runner: ubuntu-24.04
             platform: linux-x64
-          - runner: macos-13
+          # macos-13 deprecated Dec 2025 - use macos-15-intel for x64
+          - runner: macos-15-intel
             platform: darwin-x64
           - runner: macos-15
             platform: darwin-arm64
@@ -348,8 +359,14 @@ jobs:
       - name: Build TypeScript
         run: npm run build:ts
 
-      - name: Test
+      - name: Test (fast)
         run: npm run test:fast
+
+      - name: Test (contracts)
+        run: npm run test:contracts
+
+      - name: Test (guardrails)
+        run: npm run test:guardrails
 
       # Package for platform npm package
       - name: Package platform binary
@@ -427,11 +444,30 @@ jobs:
       - name: Download FFmpeg
         if: needs.resolve-deps.outputs.deps_version != ''
         run: |
-          apk add --no-cache curl
-          curl -L -o ffmpeg-linux-x64-musl.tar.gz \
-            "https://github.com/${{ github.repository }}/releases/download/deps-${{ needs.resolve-deps.outputs.deps_version }}/ffmpeg-linux-x64-musl.tar.gz"
-        env:
-          GH_TOKEN: ${{ github.token }}
+          set -euo pipefail
+          apk add --no-cache curl file
+
+          DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/deps-${{ needs.resolve-deps.outputs.deps_version }}/ffmpeg-linux-x64-musl.tar.gz"
+
+          echo "Downloading from: $DOWNLOAD_URL"
+          HTTP_CODE=$(curl -L -o ffmpeg-linux-x64-musl.tar.gz -w '%{http_code}' --fail "$DOWNLOAD_URL" || echo "$?")
+
+          # Check if curl failed (non-200 response or error)
+          if [ ! -f ffmpeg-linux-x64-musl.tar.gz ] || [ ! -s ffmpeg-linux-x64-musl.tar.gz ]; then
+            echo "::error::Download failed - file is missing or empty (HTTP code: $HTTP_CODE)"
+            echo "URL: $DOWNLOAD_URL"
+            exit 1
+          fi
+
+          # Verify it's actually a gzip file
+          if ! file ffmpeg-linux-x64-musl.tar.gz | grep -q 'gzip compressed'; then
+            echo "::error::Downloaded file is not a valid gzip archive"
+            file ffmpeg-linux-x64-musl.tar.gz
+            head -c 500 ffmpeg-linux-x64-musl.tar.gz || true
+            exit 1
+          fi
+
+          echo "Download successful ($(du -h ffmpeg-linux-x64-musl.tar.gz | cut -f1))"
 
       - name: Extract FFmpeg
         if: needs.resolve-deps.outputs.deps_version != ''
@@ -459,8 +495,14 @@ jobs:
       - name: Build TypeScript
         run: npm run build:ts
 
-      - name: Test
+      - name: Test (fast)
         run: npm run test:fast
+
+      - name: Test (contracts)
+        run: npm run test:contracts
+
+      - name: Test (guardrails)
+        run: npm run test:guardrails
 
       # Package for platform npm package
       - name: Package platform binary
@@ -520,7 +562,8 @@ jobs:
         include:
           - { runner: ubuntu-24.04, platform: linux-x64, node: '20' }
           - { runner: ubuntu-24.04, platform: linux-x64, node: '24' }
-          - { runner: macos-13, platform: darwin-x64, node: '20' }
+          # macos-13 deprecated Dec 2025 - use macos-15-intel for x64
+          - { runner: macos-15-intel, platform: darwin-x64, node: '20' }
           - { runner: macos-15, platform: darwin-arm64, node: '20' }
 
     steps:
@@ -548,11 +591,43 @@ jobs:
           npm run test:fast
 
   # ============================================================================
+  # Test musl compatibility (Alpine Linux)
+  # ============================================================================
+  test-compat-musl:
+    name: 'Test Node 22 / linux-x64-musl'
+    needs: [build-native-musl]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    container:
+      image: node:22-alpine
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download platform artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: platform-linux-x64-musl
+          path: packages/linux-x64-musl/
+
+      - name: Setup binary
+        run: |
+          mkdir -p packages/node-webcodecs/prebuilds/linux-x64-musl
+          cp packages/linux-x64-musl/webcodecs.node packages/node-webcodecs/prebuilds/linux-x64-musl/node.napi.node
+
+      - name: Install and test
+        run: |
+          npm install --ignore-scripts
+          npm run build:ts
+          npm run test:fast
+
+  # ============================================================================
   # Publish to npm (on v* tags)
   # ============================================================================
   publish:
     name: 'Publish to npm'
-    needs: [build-native, build-native-musl, test-compat]
+    needs: [build-native, build-native-musl, test-compat, test-compat-musl]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     permissions:
@@ -656,7 +731,8 @@ jobs:
       matrix:
         include:
           - { runner: ubuntu-24.04, platform: linux-x64 }
-          - { runner: macos-13, platform: darwin-x64 }
+          # macos-13 deprecated Dec 2025 - use macos-15-intel for x64
+          - { runner: macos-15-intel, platform: darwin-x64 }
           - { runner: macos-15, platform: darwin-arm64 }
 
     steps:

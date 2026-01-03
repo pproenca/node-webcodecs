@@ -12,26 +12,44 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Load versions from JSON
-if command -v jq &> /dev/null; then
-    VERSIONS=$(cat "$SCRIPT_DIR/versions.json")
-    FFMPEG_VERSION=$(echo "$VERSIONS" | jq -r '.ffmpeg')
-    X264_VERSION=$(echo "$VERSIONS" | jq -r '.x264')
-    X265_VERSION=$(echo "$VERSIONS" | jq -r '.x265')
-    LIBVPX_VERSION=$(echo "$VERSIONS" | jq -r '.libvpx')
-    LIBAOM_VERSION=$(echo "$VERSIONS" | jq -r '.libaom')
-    OPUS_VERSION=$(echo "$VERSIONS" | jq -r '.opus')
-    LAME_VERSION=$(echo "$VERSIONS" | jq -r '.lame')
-else
-    # Fallback if jq not available
-    FFMPEG_VERSION="n8.0"
-    X264_VERSION="stable"
-    X265_VERSION="3.6"
-    LIBVPX_VERSION="v1.15.2"
-    LIBAOM_VERSION="v3.12.1"
-    OPUS_VERSION="1.5.2"
-    LAME_VERSION="3.100"
+# macOS deployment target - must match binding.gyp MACOSX_DEPLOYMENT_TARGET
+# This ensures ABI compatibility between FFmpeg libs and the native addon.
+MACOS_DEPLOYMENT_TARGET="${MACOS_DEPLOYMENT_TARGET:-11.0}"
+
+# Load versions from JSON (jq is required)
+if ! command -v jq &> /dev/null; then
+    echo "ERROR: jq is required for reading versions.json"
+    echo "Install with: brew install jq (macOS) or apt install jq (Linux)"
+    exit 1
 fi
+
+if [ ! -f "$SCRIPT_DIR/versions.json" ]; then
+    echo "ERROR: versions.json not found at $SCRIPT_DIR/versions.json"
+    exit 1
+fi
+
+VERSIONS=$(cat "$SCRIPT_DIR/versions.json") || {
+    echo "ERROR: Failed to read versions.json"
+    exit 1
+}
+
+# Parse and validate all required version fields
+FFMPEG_VERSION=$(echo "$VERSIONS" | jq -r '.ffmpeg // empty')
+X264_VERSION=$(echo "$VERSIONS" | jq -r '.x264 // empty')
+X265_VERSION=$(echo "$VERSIONS" | jq -r '.x265 // empty')
+LIBVPX_VERSION=$(echo "$VERSIONS" | jq -r '.libvpx // empty')
+LIBAOM_VERSION=$(echo "$VERSIONS" | jq -r '.libaom // empty')
+OPUS_VERSION=$(echo "$VERSIONS" | jq -r '.opus // empty')
+LAME_VERSION=$(echo "$VERSIONS" | jq -r '.lame // empty')
+
+# Validate required fields are present
+for var in FFMPEG_VERSION X264_VERSION X265_VERSION LIBVPX_VERSION LIBAOM_VERSION OPUS_VERSION LAME_VERSION; do
+    if [ -z "${!var}" ]; then
+        echo "ERROR: versions.json is missing required field: $(echo $var | tr '_' '.' | tr '[:upper:]' '[:lower:]' | sed 's/\.version//')"
+        echo "Ensure versions.json contains all required codec versions."
+        exit 1
+    fi
+done
 
 # Detect platform
 detect_platform() {
@@ -302,8 +320,11 @@ build_ffmpeg() {
     fi
     cd ffmpeg
 
-    # Clean previous builds
-    make distclean 2>/dev/null || true
+    # Clean previous builds (only if Makefile exists from prior configure)
+    if [ -f Makefile ]; then
+        echo "Cleaning previous build..."
+        make distclean || echo "Warning: distclean failed, continuing with potentially stale files"
+    fi
 
     local extra_cflags="-I$PREFIX/include -fPIC"
     local extra_ldflags="-L$PREFIX/lib"
@@ -311,13 +332,13 @@ build_ffmpeg() {
 
     case "$PLATFORM" in
         darwin-arm64)
-            extra_cflags="$extra_cflags -arch arm64 -mmacosx-version-min=11.0"
-            extra_ldflags="$extra_ldflags -arch arm64 -mmacosx-version-min=11.0"
+            extra_cflags="$extra_cflags -arch arm64 -mmacosx-version-min=$MACOS_DEPLOYMENT_TARGET"
+            extra_ldflags="$extra_ldflags -arch arm64 -mmacosx-version-min=$MACOS_DEPLOYMENT_TARGET"
             platform_flags="--enable-videotoolbox --enable-audiotoolbox"
             ;;
         darwin-x64)
-            extra_cflags="$extra_cflags -arch x86_64 -mmacosx-version-min=11.0"
-            extra_ldflags="$extra_ldflags -arch x86_64 -mmacosx-version-min=11.0"
+            extra_cflags="$extra_cflags -arch x86_64 -mmacosx-version-min=$MACOS_DEPLOYMENT_TARGET"
+            extra_ldflags="$extra_ldflags -arch x86_64 -mmacosx-version-min=$MACOS_DEPLOYMENT_TARGET"
             platform_flags="--enable-videotoolbox --enable-audiotoolbox"
             ;;
         linux-x64-musl)
@@ -366,11 +387,12 @@ make_relocatable() {
             original_prefix=$(grep "^prefix=" "$pc_file" | cut -d= -f2)
             if [ -n "$original_prefix" ]; then
                 # Replace hardcoded paths with ${prefix} variables
-                sed -i.bak \
+                # Use portable sed pattern: create temp file and move
+                local temp_file="${pc_file}.tmp"
+                sed \
                     -e "s|^libdir=${original_prefix}/lib|libdir=\${prefix}/lib|" \
                     -e "s|^includedir=${original_prefix}/include|includedir=\${prefix}/include|" \
-                    "$pc_file"
-                rm -f "${pc_file}.bak"
+                    "$pc_file" > "$temp_file" && mv "$temp_file" "$pc_file"
             fi
         fi
     done
