@@ -10,7 +10,7 @@ WebCodecs API for Node.js — encode and decode video/audio with browser-compati
 | Feature              | node-webcodecs              | Browser WebCodecs |
 | -------------------- | --------------------------- | ----------------- |
 | **Video Codecs**     | H.264, H.265, VP8, VP9, AV1 | Varies by browser |
-| **Audio Codecs**     | AAC, Opus, MP3, FLAC        | Varies by browser |
+| **Audio Codecs**     | AAC, Opus, MP3, FLAC         | Varies by browser |
 | **Container Muxing** | MP4                         | Not in spec       |
 | **Demuxing**         | Any FFmpeg format           | Not in spec       |
 | **Server-side**      | Yes                         | Browser only      |
@@ -25,6 +25,7 @@ Prebuilt binaries with FFmpeg statically linked are included for:
 
 - macOS ARM64 (Apple Silicon)
 - macOS x64 (Intel)
+- Linux x64 (glibc)
 - Linux x64 (musl, fully static)
 
 <details>
@@ -55,6 +56,15 @@ sudo apt-get install libavcodec-dev libavformat-dev libavutil-dev \
 
 ```bash
 sudo dnf install ffmpeg-devel pkg-config
+```
+
+To build your own FFmpeg dependencies, use `ffmpeg/build.sh`. For an LGPL-only
+FFmpeg build (no x264/x265), set `FFMPEG_GPL=0` before running the script.
+
+To align local builds with CI, you can download the latest deps release:
+
+```bash
+./scripts/setup-ffmpeg.sh
 ```
 
 </details>
@@ -163,15 +173,17 @@ This library implements the [W3C WebCodecs specification](https://www.w3.org/TR/
 |                                           |                                 |
 | `Muxer` / `Demuxer`                       | Container I/O (beyond W3C spec) |
 
-**Video codecs:** H.264, H.265, VP8, VP9, AV1
-**Audio codecs:** AAC, Opus, MP3 (decode), FLAC (decode)
-
-See [docs/codecs.md](docs/codecs.md) for codec strings and pixel formats.
+See [SUPPORTED_CODECS.md](SUPPORTED_CODECS.md) for guaranteed codecs in prebuilt
+binaries and use `isConfigSupported` at runtime to verify exact profiles and
+levels.
 
 ## Contributing
 
 See [CONTRIBUTING.md](.github/CONTRIBUTING.md).
+Release workflow notes are in [docs/release.md](docs/release.md).
 
 ## License
 
-MIT
+Source code is MIT (see [LICENSE](LICENSE)). Prebuilt binaries include GPL
+components (x264/x265) and are distributed under GPL-2.0-or-later. If you need
+an LGPL-only build, compile FFmpeg with `FFMPEG_GPL=0` and build from source.

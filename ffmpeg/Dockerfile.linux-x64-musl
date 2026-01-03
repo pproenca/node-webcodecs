@@ -9,6 +9,9 @@
 
 FROM alpine:3.20 AS builder
 
+ARG FFMPEG_GPL=1
+ENV FFMPEG_GPL=$FFMPEG_GPL
+
 # Install build dependencies
 RUN apk add --no-cache \
     build-base git cmake nasm yasm pkgconfig \

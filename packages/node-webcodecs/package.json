@@ -46,7 +46,11 @@
     "lib/",
     "dist/",
     "src/",
-    "binding.gyp"
+    "binding.gyp",
+    "LICENSE",
+    "NOTICE",
+    "SUPPORTED_CODECS.md",
+    "README.md"
   ],
   "keywords": [
     "webcodecs",

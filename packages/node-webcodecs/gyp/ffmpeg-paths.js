@@ -10,8 +10,9 @@
 // 3. System pkg-config (fallback)
 //
 // The FFmpeg static libraries are built from:
-// - Linux: docker/Dockerfile.linux-x64 (Alpine musl, fully static)
-// - macOS: .github/workflows/build-ffmpeg.yml (native build)
+// - Linux glibc: ffmpeg/Dockerfile.linux-x64
+// - Linux musl: ffmpeg/Dockerfile.linux-x64-musl
+// - macOS: .github/workflows/ci.yml (native build)
 //
 // All codec dependencies (x264, x265, vpx, opus, etc.) are resolved automatically
 // via the .pc files in the FFmpeg build.

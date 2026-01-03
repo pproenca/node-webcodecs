@@ -104,3 +104,54 @@ jobs:
           yarn config set nodeLinker node-modules
           yarn install
           node smoke.mjs
+
+  smoke-test-musl:
+    name: "${{ github.ref_name }} linux-x64-musl-npm"
+    runs-on: ubuntu-24.04
+    container: node:22-alpine
+    steps:
+      - name: Get version
+        id: version
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.setOutput('semver', context.ref.replace('refs/tags/v',''))
+      - name: Create package.json
+        uses: DamianReeves/write-file-action@v1.3
+        with:
+          path: package.json
+          contents: |
+            {
+              "dependencies": {
+                "@pproenca/node-webcodecs": "${{ steps.version.outputs.semver }}"
+              },
+              "type": "module"
+            }
+      - name: Create smoke.mjs
+        uses: DamianReeves/write-file-action@v1.3
+        with:
+          path: smoke.mjs
+          contents: |
+            import { deepStrictEqual, ok } from 'node:assert';
+            import * as wc from '@pproenca/node-webcodecs';
+
+            // Verify all required exports exist
+            const required = ['VideoEncoder', 'VideoDecoder', 'AudioEncoder', 'AudioDecoder', 'VideoFrame', 'AudioData'];
+            for (const name of required) {
+              ok(typeof wc[name] === 'function', `Missing export: ${name}`);
+            }
+            console.log('All exports verified:', required.join(', '));
+
+            // Verify instantiation works
+            const encoder = new wc.VideoEncoder({
+              output: () => {},
+              error: (e) => console.error(e)
+            });
+            deepStrictEqual(encoder.state, 'unconfigured');
+            console.log('VideoEncoder instantiation OK');
+
+            console.log('Smoke test PASSED');
+      - name: Run with npm
+        run: |
+          npm install --ignore-scripts
+          node smoke.mjs

@@ -9,6 +9,15 @@ import { familySync, versionSync } from 'detect-libc';
 import { prebuiltPlatforms, runtimePlatformArch } from './platform';
 
 const runtimePlatform = runtimePlatformArch();
+export const detectPlatform = runtimePlatformArch;
+
+const platformInfo = {
+  platform: process.platform,
+  arch: process.arch,
+  nodeVersion: process.version,
+  napiVersion: (process.versions as Record<string, string>).napi ?? 'unknown',
+  detectedPlatform: runtimePlatform,
+};
 
 // Load paths in order of preference:
 // 1. Local node-gyp build (development)
@@ -35,6 +44,9 @@ for (const loadFn of paths) {
 }
 
 if (binding) {
+  (binding as Record<string, unknown>).binding = binding;
+  (binding as Record<string, unknown>).platformInfo = platformInfo;
+  (binding as Record<string, unknown>).detectPlatform = detectPlatform;
   module.exports = binding;
 } else {
   const isLinux = runtimePlatform.startsWith('linux');
@@ -105,10 +117,4 @@ if (binding) {
 // Re-export for TypeScript consumers
 export { binding };
 
-export const platformInfo = {
-  platform: process.platform,
-  arch: process.arch,
-  nodeVersion: process.version,
-  napiVersion: (process.versions as Record<string, string>).napi ?? 'unknown',
-  detectedPlatform: runtimePlatform,
-};
+export { platformInfo };

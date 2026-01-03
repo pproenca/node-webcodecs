@@ -11,7 +11,13 @@
   },
   "license": "GPL-2.0-or-later",
   "preferUnplugged": true,
-  "files": ["webcodecs.node"],
+  "files": [
+    "webcodecs.node",
+    "LICENSE",
+    "NOTICE",
+    "SUPPORTED_CODECS.md",
+    "README.md"
+  ],
   "publishConfig": {
     "access": "public"
   },

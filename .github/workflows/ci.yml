@@ -8,6 +8,13 @@ on:
         description: "Build FFmpeg (creates deps release)"
         type: boolean
         default: false
+      ffmpeg_variant:
+        description: "FFmpeg deps variant (gpl or lgpl)"
+        type: choice
+        options:
+          - gpl
+          - lgpl
+        default: gpl
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -33,6 +40,9 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/ffmpeg-') || inputs.build_ffmpeg
     name: "ffmpeg-${{ matrix.platform }}"
     runs-on: ${{ matrix.os }}
+    env:
+      FFMPEG_VARIANT: ${{ startsWith(github.ref_name, 'ffmpeg-lgpl-') && 'lgpl' || inputs.ffmpeg_variant || 'gpl' }}
+      FFMPEG_GPL: ${{ (startsWith(github.ref_name, 'ffmpeg-lgpl-') || inputs.ffmpeg_variant == 'lgpl') && '0' || '1' }}
     strategy:
       fail-fast: false
       matrix:
@@ -63,6 +73,8 @@ jobs:
           tags: ffmpeg-builder:${{ matrix.platform }}
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          build-args: |
+            FFMPEG_GPL=${{ env.FFMPEG_GPL }}
       - name: Extract FFmpeg (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -100,6 +112,20 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/ffmpeg-')
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/checkout@v4
+      - name: Resolve deps tag
+        id: deps_tag
+        run: |
+          REF="${GITHUB_REF_NAME}"
+          if [[ "$REF" == ffmpeg-lgpl-* ]]; then
+            VERSION="${REF#ffmpeg-lgpl-}"
+            echo "tag=deps-lgpl-$VERSION" >> "$GITHUB_OUTPUT"
+            echo "variant=lgpl" >> "$GITHUB_OUTPUT"
+          else
+            VERSION="${REF#ffmpeg-}"
+            echo "tag=deps-$VERSION" >> "$GITHUB_OUTPUT"
+            echo "variant=gpl" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/download-artifact@v4
         with:
           pattern: ffmpeg-*
@@ -111,14 +137,22 @@ jobs:
             tarball=$(find "$artifact" -name "*.tar.gz" | head -1)
             [ -n "$tarball" ] && cp "$tarball" release/
           done
+      - name: Generate manifest
+        run: |
+          node scripts/ffmpeg-manifest.mjs \
+            --artifacts release \
+            --variant "${{ steps.deps_tag.outputs.variant }}" \
+            --manifest-out release/deps-manifest.json \
+            --checksums-out release/SHA256SUMS
       - name: Create deps release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: deps-${{ github.ref_name }}
-          name: FFmpeg Dependencies ${{ github.ref_name }}
+          tag_name: ${{ steps.deps_tag.outputs.tag }}
+          name: FFmpeg Dependencies ${{ steps.deps_tag.outputs.tag }}
           files: release/*
           body: |
             FFmpeg static libraries for CI builds.
+            Variant: ${{ steps.deps_tag.outputs.variant }}
             **Do not use directly** - install `@pproenca/node-webcodecs` instead.
 
   resolve-deps:
@@ -126,35 +160,32 @@ jobs:
       contents: read
     runs-on: ubuntu-24.04
     outputs:
-      deps_version: ${{ steps.deps.outputs.version }}
-      has_musl: ${{ steps.deps.outputs.has_musl }}
+      deps_tag: ${{ steps.deps.outputs.deps_tag }}
+      deps_version: ${{ steps.deps.outputs.deps_version }}
+      has_linux_x64: ${{ steps.deps.outputs.has_linux_x64 }}
+      has_linux_x64_musl: ${{ steps.deps.outputs.has_linux_x64_musl }}
+      has_darwin_x64: ${{ steps.deps.outputs.has_darwin_x64 }}
+      has_darwin_arm64: ${{ steps.deps.outputs.has_darwin_arm64 }}
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
       - name: Find latest deps release
         id: deps
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          LATEST=$(gh release list --repo "${{ github.repository }}" --limit 100 --json tagName --jq '[.[] | select(.tagName | startswith("deps-"))][0].tagName' || echo "")
-          if [ -z "$LATEST" ]; then
-            echo "::error::No deps-* release found. Push a 'ffmpeg-*' tag first."
-            echo "version=" >> $GITHUB_OUTPUT
-            echo "has_musl=false" >> $GITHUB_OUTPUT
-          else
-            VERSION="${LATEST#deps-}"
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
-            HAS_MUSL=$(gh release view "$LATEST" --repo "${{ github.repository }}" --json assets --jq '[.assets[].name | select(. == "ffmpeg-linux-x64-musl.tar.gz")] | length' || echo 0)
-            if [ "$HAS_MUSL" -gt 0 ]; then
-              echo "has_musl=true" >> $GITHUB_OUTPUT
-            else
-              echo "has_musl=false" >> $GITHUB_OUTPUT
-            fi
-          fi
+          node scripts/resolve-deps.mjs \
+            --repo "${{ github.repository }}" \
+            --variant gpl \
+            --require all \
+            --github-output "$GITHUB_OUTPUT"
 
   build-native:
     permissions:
       contents: read
     needs: [lint, resolve-deps]
-    if: ${{ !contains(matrix.platform, 'linux-x64-musl') || needs.resolve-deps.outputs.has_musl == 'true' }}
     name: "build-${{ matrix.platform }}-nodejs-${{ matrix.nodejs_version_major }}${{ matrix.package && '-package' || '' }}"
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
@@ -231,24 +262,24 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install pkg-config
       - name: Verify FFmpeg deps
-        if: needs.resolve-deps.outputs.deps_version == ''
+        if: needs.resolve-deps.outputs.deps_tag == ''
         run: |
-          echo "::error::No FFmpeg deps release. Push 'ffmpeg-v1' tag first."
+          echo "::error::No FFmpeg deps release found. Push a 'ffmpeg-*' tag first."
           exit 1
       - name: Download FFmpeg
         if: "!contains(matrix.container, 'alpine')"
         uses: dsaltares/fetch-gh-release-asset@1.1.2
         with:
           repo: ${{ github.repository }}
-          version: tags/deps-${{ needs.resolve-deps.outputs.deps_version }}
+          version: tags/${{ needs.resolve-deps.outputs.deps_tag }}
           file: ffmpeg-${{ matrix.platform }}.tar.gz
           target: ffmpeg-${{ matrix.platform }}.tar.gz
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Download FFmpeg (Alpine)
         if: contains(matrix.container, 'alpine')
         run: |
-          curl -L -o ffmpeg-${{ matrix.platform }}.tar.gz \
-            "https://github.com/${{ github.repository }}/releases/download/deps-${{ needs.resolve-deps.outputs.deps_version }}/ffmpeg-${{ matrix.platform }}.tar.gz"
+          curl -fL -o ffmpeg-${{ matrix.platform }}.tar.gz \
+            "https://github.com/${{ github.repository }}/releases/download/${{ needs.resolve-deps.outputs.deps_tag }}/ffmpeg-${{ matrix.platform }}.tar.gz"
           file ffmpeg-${{ matrix.platform }}.tar.gz | grep -q 'gzip' || exit 1
       - name: Extract FFmpeg
         run: |
@@ -272,6 +303,7 @@ jobs:
           mkdir -p "$PKG_DIR"
           BINARY=$(find packages/node-webcodecs/prebuilds -name "*.node" | head -1)
           cp "$BINARY" "$PKG_DIR/webcodecs.node"
+          cp LICENSE NOTICE SUPPORTED_CODECS.md README.md "$PKG_DIR/"
           node -e "
             const pkg = require('./$PKG_DIR/package.json');
             pkg.version = '$VERSION';
@@ -309,6 +341,7 @@ jobs:
           for platform in linux-x64 linux-x64-musl darwin-x64 darwin-arm64; do
             [ -d "npm/$platform" ] && cp npm/$platform/* packages/$platform/
           done
+          cp LICENSE NOTICE SUPPORTED_CODECS.md README.md packages/node-webcodecs/
       - run: npm install --ignore-scripts
       - run: npm run build:ts
       - name: Publish platform packages

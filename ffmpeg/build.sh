@@ -4,6 +4,7 @@
 #
 # Usage: ./build.sh [platform]
 # Platforms: linux-x64, linux-x64-musl, darwin-arm64, darwin-x64
+# Set FFMPEG_GPL=0 to disable GPL codecs (x264/x265) for LGPL-only builds.
 #
 # This script builds FFmpeg with static linking for use as development
 # libraries when building the native Node.js addon.
@@ -11,6 +12,20 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FFMPEG_GPL="${FFMPEG_GPL:-1}"
+
+is_truthy() {
+    case "${1:-}" in
+        1|true|TRUE|yes|YES|on|ON) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+if is_truthy "$FFMPEG_GPL"; then
+    ENABLE_GPL=1
+else
+    ENABLE_GPL=0
+fi
 
 # macOS deployment target - must match binding.gyp MACOSX_DEPLOYMENT_TARGET
 # This ensures ABI compatibility between FFmpeg libs and the native addon.
@@ -42,8 +57,13 @@ LIBAOM_VERSION=$(echo "$VERSIONS" | jq -r '.libaom // empty')
 OPUS_VERSION=$(echo "$VERSIONS" | jq -r '.opus // empty')
 LAME_VERSION=$(echo "$VERSIONS" | jq -r '.lame // empty')
 
+required_vars=(FFMPEG_VERSION LIBVPX_VERSION LIBAOM_VERSION OPUS_VERSION LAME_VERSION)
+if [ "$ENABLE_GPL" -eq 1 ]; then
+    required_vars+=(X264_VERSION X265_VERSION)
+fi
+
 # Validate required fields are present
-for var in FFMPEG_VERSION X264_VERSION X265_VERSION LIBVPX_VERSION LIBAOM_VERSION OPUS_VERSION LAME_VERSION; do
+for var in "${required_vars[@]}"; do
     if [ -z "${!var}" ]; then
         echo "ERROR: versions.json is missing required field: $(echo $var | tr '_' '.' | tr '[:upper:]' '[:lower:]' | sed 's/\.version//')"
         echo "Ensure versions.json contains all required codec versions."
@@ -85,6 +105,11 @@ echo "FFmpeg Static Build"
 echo "=============================================="
 echo "Platform:     $PLATFORM"
 echo "FFmpeg:       $FFMPEG_VERSION"
+if [ "$ENABLE_GPL" -eq 1 ]; then
+    echo "GPL codecs:   enabled"
+else
+    echo "GPL codecs:   disabled"
+fi
 echo "Build dir:    $BUILD_DIR"
 echo "Install dir:  $PREFIX"
 echo "Parallel:     $NPROC jobs"
@@ -356,6 +381,11 @@ build_ffmpeg() {
             ;;
     esac
 
+    local gpl_flags=""
+    if [ "$ENABLE_GPL" -eq 1 ]; then
+        gpl_flags="--enable-gpl --enable-version3 --enable-libx264 --enable-libx265"
+    fi
+
     ./configure \
         --prefix="$PREFIX" \
         --extra-cflags="$extra_cflags" \
@@ -363,12 +393,9 @@ build_ffmpeg() {
         --pkg-config-flags="--static" \
         --enable-static \
         --disable-shared \
-        --enable-gpl \
-        --enable-version3 \
         --enable-pthreads \
         --enable-runtime-cpudetect \
-        --enable-libx264 \
-        --enable-libx265 \
+        $gpl_flags \
         --enable-libvpx \
         --enable-libaom \
         --enable-libopus \
@@ -412,8 +439,10 @@ make_relocatable() {
 # Main build sequence
 # ==============================================================================
 
-build_x264
-build_x265
+if [ "$ENABLE_GPL" -eq 1 ]; then
+    build_x264
+    build_x265
+fi
 build_libvpx
 build_libaom
 build_opus

@@ -8,7 +8,7 @@
 
 'use strict';
 
-const { readFileSync, writeFileSync } = require('node:fs');
+const { readFileSync, writeFileSync, readdirSync, existsSync } = require('node:fs');
 const { join } = require('node:path');
 
 const ROOT = join(__dirname, '..');
@@ -36,14 +36,38 @@ function updateJson(filePath, updater) {
 
 console.log(`\nBumping version to ${version}\n`);
 
-// Update main package.json
-updateJson(join(ROOT, 'package.json'), (pkg) => {
+const packagesDir = join(ROOT, 'packages');
+const mainPkgPath = join(packagesDir, 'node-webcodecs', 'package.json');
+
+updateJson(mainPkgPath, (pkg) => {
   pkg.version = version;
+  if (pkg.optionalDependencies) {
+    for (const name of Object.keys(pkg.optionalDependencies)) {
+      pkg.optionalDependencies[name] = version;
+    }
+  }
 });
+
+const packageDirs = readdirSync(packagesDir, { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name)
+  .filter((name) => name !== 'node-webcodecs' && name !== 'node_modules')
+  .filter((name) => existsSync(join(packagesDir, name, 'package.json')));
+
+for (const dir of packageDirs) {
+  const pkgPath = join(packagesDir, dir, 'package.json');
+  try {
+    updateJson(pkgPath, (pkg) => {
+      pkg.version = version;
+    });
+  } catch (error) {
+    console.warn(`Skipping ${pkgPath}: ${(error && error.message) || error}`);
+  }
+}
 
 console.log(`\nVersion bumped to ${version}`);
 console.log('\nNext steps:');
 console.log('  git add -A');
 console.log(`  git commit -m "chore: bump version to ${version}"`);
 console.log(`  git tag v${version}`);
-console.log('  git push origin master --tags');
+console.log('  git push origin main --tags');

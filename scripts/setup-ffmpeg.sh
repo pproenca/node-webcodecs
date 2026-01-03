@@ -4,8 +4,9 @@
 # This ensures local builds match CI exactly.
 #
 # Usage:
-#   ./scripts/setup-ffmpeg.sh              # Auto-detect platform
+#   ./scripts/setup-ffmpeg.sh              # Auto-detect platform (GPL deps)
 #   ./scripts/setup-ffmpeg.sh darwin-arm64 # Specific platform
+#   ./scripts/setup-ffmpeg.sh linux-x64 lgpl # LGPL-only deps
 #   ./scripts/setup-ffmpeg.sh darwin-x64   # For Intel Mac testing
 #   ./scripts/setup-ffmpeg.sh linux-x64    # For Linux testing (Docker)
 #
@@ -19,9 +20,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 INSTALL_DIR="$ROOT_DIR/ffmpeg-install"
 
-# Must match ci.yml DEPS_VERSION
-DEPS_VERSION="v4"
-REPO="pproenca/node-webcodecs"
+# Defaults to the current repository.
+REPO="${REPO:-pproenca/node-webcodecs}"
 
 # Detect platform if not specified
 detect_platform() {
@@ -49,6 +49,12 @@ detect_platform() {
 }
 
 PLATFORM="${1:-$(detect_platform)}"
+VARIANT="${2:-${FFMPEG_VARIANT:-gpl}}"
+
+if [ "$VARIANT" != "gpl" ] && [ "$VARIANT" != "lgpl" ]; then
+    echo "Error: Variant must be 'gpl' or 'lgpl'"
+    exit 1
+fi
 
 if [ "$PLATFORM" = "unknown" ]; then
     echo "Error: Could not detect platform. Specify one of:"
@@ -62,7 +68,7 @@ echo "========================================"
 echo "FFmpeg Setup for node-webcodecs"
 echo "========================================"
 echo "Platform:     $PLATFORM"
-echo "Deps version: deps-$DEPS_VERSION"
+echo "Variant:      $VARIANT"
 echo "Install dir:  $INSTALL_DIR"
 echo ""
 
@@ -84,8 +90,16 @@ fi
 ASSET_NAME="ffmpeg-$PLATFORM.tar.gz"
 DOWNLOAD_PATH="$ROOT_DIR/$ASSET_NAME"
 
-echo "Downloading $ASSET_NAME from deps-$DEPS_VERSION..."
-gh release download "deps-$DEPS_VERSION" \
+RESOLVE_JSON=$(node "$SCRIPT_DIR/resolve-deps.mjs" --repo "$REPO" --variant "$VARIANT" --json)
+DEPS_TAG=$(node -e "const data = JSON.parse(require('node:fs').readFileSync(0, 'utf8')); console.log(data.tag);" <<< "$RESOLVE_JSON")
+
+if [ -z "$DEPS_TAG" ]; then
+    echo "Error: Could not resolve deps release tag."
+    exit 1
+fi
+
+echo "Downloading $ASSET_NAME from $DEPS_TAG..."
+gh release download "$DEPS_TAG" \
     --repo "$REPO" \
     --pattern "$ASSET_NAME" \
     --output "$DOWNLOAD_PATH" \
