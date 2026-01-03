@@ -43,15 +43,16 @@ describe('ResourceManager', () => {
 
   beforeEach(() => {
     // Get fresh instance for each test
-    // Note: ResourceManager is singleton, so we need to reset it
     manager = ResourceManager.getInstance();
-    // Reset to clean state by setting a very short timeout for tests
+    // Reset to clean state - clears all codecs and resets timeout
+    manager._resetForTesting();
+    // Set a very short timeout for tests
     manager.setInactivityTimeout(10); // 10ms for fast tests
   });
 
   afterEach(() => {
-    // Clean up by unregistering all codecs
-    manager.setInactivityTimeout(10000); // Reset to default
+    // Clean up by resetting the manager
+    manager._resetForTesting();
   });
 
   describe('codec registration', () => {
@@ -159,7 +160,7 @@ describe('ResourceManager', () => {
       };
 
       manager.setInactivityTimeout(5);
-      const id = manager.register(codec, codec.codecType, codec.errorCallback);
+      manager.register(codec, codec.codecType, codec.errorCallback);
 
       // Wait for inactivity
       await new Promise((r) => setTimeout(r, 10));
@@ -289,9 +290,9 @@ describe('ResourceManager', () => {
       const codec3 = new MockCodec();
       manager.setInactivityTimeout(5);
 
-      const id1 = manager.register(codec1);
-      const id2 = manager.register(codec2);
-      const id3 = manager.register(codec3);
+      manager.register(codec1);
+      manager.register(codec2);
+      manager.register(codec3);
 
       await new Promise((r) => setTimeout(r, 10));
 
@@ -305,7 +306,7 @@ describe('ResourceManager', () => {
       manager.setInactivityTimeout(5);
 
       const activeId = manager.register(activeCodec);
-      const inactiveId = manager.register(inactiveCodec);
+      manager.register(inactiveCodec);
 
       // Wait for inactivity
       await new Promise((r) => setTimeout(r, 10));
@@ -372,7 +373,7 @@ describe('ResourceManager', () => {
       const codec = new MockCodec();
       manager.setInactivityTimeout(5);
 
-      const id = manager.register(codec);
+      manager.register(codec);
 
       // Simulate pending operation by recording activity
       // then waiting for timeout
