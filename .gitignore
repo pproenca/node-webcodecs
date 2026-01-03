@@ -31,6 +31,7 @@ CMakeFiles/
 
 # Claude Code - ignore personal/session files, keep shareable configs
 .claude/*
+!.claude/artifacts/
 !.claude/skills/
 !.claude/commands/
 !.claude/agents/
