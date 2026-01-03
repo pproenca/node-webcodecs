@@ -23,22 +23,22 @@ docker compose -f docker/docker-compose.yml up demo
 | `docker compose run --rm shell` | Interactive shell |
 | `docker compose up web` | Web UI only (after demos ran) |
 
-## Local Development
-
-If you have FFmpeg installed locally:
+## Running Examples
 
 ```bash
-# Prerequisites
-# macOS: brew install ffmpeg pkg-config
-# Ubuntu: apt-get install libavcodec-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev ffmpeg
-
-# From repository root
-npm install
-npm run build
-
-# Run interactive demo
 cd examples
+npm install
 node run-demo.js
+```
+
+Or run individual examples:
+
+```bash
+cd examples
+npm install
+node 01-encode-decode/index.js
+node generate-video.mjs
+node decode-gif.mjs
 ```
 
 The interactive demo walks you through the video processing capabilities step by step, and optionally starts the web dashboard to view results.
