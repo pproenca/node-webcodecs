@@ -245,6 +245,7 @@ jobs:
           mkdir -p ffmpeg-install
           tar -xzf ffmpeg-${{ matrix.platform }}.tar.gz -C ffmpeg-install --strip-components=1
           echo "FFMPEG_ROOT=${{ github.workspace }}/ffmpeg-install" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=${{ github.workspace }}/ffmpeg-install/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
       - run: npm install --ignore-scripts
       - name: Build native addon
         working-directory: packages/node-webcodecs
