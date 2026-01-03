@@ -490,6 +490,31 @@ function generateTocMarkdown(sections: Section[]): string {
 }
 
 /**
+ * Generates the TODO markdown file with checkboxes for audit tracking.
+ */
+function generateTodoMarkdown(sections: Section[]): string {
+  let md = '# WebCodecs Spec Audit Checklist\n\n';
+  md += `Source: [W3C WebCodecs](${SPEC_URL})\n\n`;
+
+  function renderSection(section: Section, indent: number): void {
+    const prefix = '  '.repeat(indent);
+    const hasChildren = section.children.length > 0;
+    const path = getSectionPath(section, hasChildren);
+    md += `${prefix}- [ ] [${section.number}. ${section.title}](./${path})\n`;
+
+    for (const child of section.children) {
+      renderSection(child, indent + 1);
+    }
+  }
+
+  for (const section of sections) {
+    renderSection(section, 0);
+  }
+
+  return md;
+}
+
+/**
  * Collects all anchor IDs for children of a section (for content extraction).
  */
 function getChildAnchorIds(section: Section): string[] {
@@ -572,6 +597,11 @@ async function main(): Promise<void> {
   console.log('\nGenerating toc.md...');
   const tocMd = generateTocMarkdown(sections);
   writeFileSync(join(OUTPUT_DIR, 'toc.md'), tocMd);
+
+  // Generate TODO markdown for audit tracking
+  console.log('Generating TODO.md...');
+  const todoMd = generateTodoMarkdown(sections);
+  writeFileSync(join(OUTPUT_DIR, 'TODO.md'), todoMd);
 
   // Process each section
   console.log('\nProcessing sections...');
