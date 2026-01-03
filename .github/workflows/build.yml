@@ -1,0 +1,705 @@
+# ==============================================================================
+# node-webcodecs Build & Release Workflow
+#
+# Single unified CI workflow inspired by sharp's architecture.
+# - Triggers on push + pull_request for all branches
+# - Publishes to npm on version tags (v*)
+# - Builds FFmpeg on ffmpeg-* tags (deps releases)
+#
+# Key patterns:
+# - Zero install scripts (pure npm mechanics)
+# - Platform binaries via optionalDependencies
+# - Static FFmpeg linking (no runtime deps)
+# - npm provenance attestation
+# ==============================================================================
+
+name: Build
+
+on:
+  push:
+    branches: [master, main]
+    tags: ['v*', 'ffmpeg-*']
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+    inputs:
+      build_ffmpeg:
+        description: 'Build FFmpeg (creates deps release)'
+        type: boolean
+        default: false
+
+# Cancel in-progress runs for PRs, but let master/main commits complete
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  # ============================================================================
+  # Lint - Fast fail on code quality issues
+  # ============================================================================
+  lint:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: npm install --ignore-scripts
+      - run: npm run build:ts
+      - run: npm run lint
+
+  # ============================================================================
+  # Build FFmpeg (only on ffmpeg-* tags or manual trigger)
+  # Creates deps-* release with static libraries for native addon builds
+  # ============================================================================
+  build-ffmpeg:
+    name: 'FFmpeg ${{ matrix.platform }}'
+    if: startsWith(github.ref, 'refs/tags/ffmpeg-') || inputs.build_ffmpeg
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux-x64
+            dockerfile: Dockerfile.linux-x64
+          - runner: ubuntu-24.04
+            platform: linux-x64-musl
+            dockerfile: Dockerfile.linux-x64-musl
+          - runner: macos-13
+            platform: darwin-x64
+          - runner: macos-15
+            platform: darwin-arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Linux: Docker build
+      - name: Set up Docker Buildx
+        if: runner.os == 'Linux'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build FFmpeg (Linux)
+        if: runner.os == 'Linux'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./ffmpeg
+          file: ./ffmpeg/${{ matrix.dockerfile }}
+          push: false
+          load: true
+          tags: ffmpeg-builder:${{ matrix.platform }}
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+
+      - name: Extract FFmpeg (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/${{ matrix.platform }}
+
+          echo "Creating container from ffmpeg-builder:${{ matrix.platform }}"
+          if ! docker create --name extract ffmpeg-builder:${{ matrix.platform }}; then
+            echo "::error::Failed to create container from ffmpeg-builder image"
+            docker images | grep ffmpeg || echo "No ffmpeg images found"
+            exit 1
+          fi
+
+          # Extract with verification
+          for dir in lib include bin; do
+            echo "Extracting /build/$dir"
+            docker cp extract:/build/$dir artifacts/${{ matrix.platform }}/ || {
+              echo "::error::Failed to extract /build/$dir from container"
+              exit 1
+            }
+          done
+
+          docker rm extract
+
+          # Verify extraction produced expected files
+          if [ ! -f "artifacts/${{ matrix.platform }}/lib/libavcodec.a" ]; then
+            echo "::error::FFmpeg extraction incomplete - libavcodec.a not found"
+            ls -laR artifacts/
+            exit 1
+          fi
+          echo "FFmpeg extraction completed successfully"
+
+      # macOS: Native build
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install nasm yasm cmake pkg-config autoconf automake libtool jq
+
+      - name: Build FFmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          chmod +x ffmpeg/build.sh
+          cd ffmpeg && ./build.sh ${{ matrix.platform }}
+          mkdir -p ../artifacts/${{ matrix.platform }}
+          cp -r build/${{ matrix.platform }}/install/* ../artifacts/${{ matrix.platform }}/
+
+      # Package artifact
+      - name: Package artifact
+        run: |
+          cd artifacts
+          tar -czvf ffmpeg-${{ matrix.platform }}.tar.gz ${{ matrix.platform }}/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-${{ matrix.platform }}
+          path: artifacts/ffmpeg-${{ matrix.platform }}.tar.gz
+          retention-days: 7
+
+  # ============================================================================
+  # Release FFmpeg (creates deps-* GitHub release)
+  # ============================================================================
+  release-ffmpeg:
+    name: 'Release FFmpeg deps'
+    needs: [build-ffmpeg]
+    if: startsWith(github.ref, 'refs/tags/ffmpeg-') || inputs.build_ffmpeg
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all FFmpeg artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ffmpeg-*
+          path: artifacts/
+
+      - name: Prepare release assets
+        run: |
+          set -euo pipefail
+          mkdir -p release
+
+          EXPECTED_PLATFORMS=(linux-x64 linux-x64-musl darwin-x64 darwin-arm64)
+          FOUND_PLATFORMS=()
+
+          for artifact in artifacts/ffmpeg-*/; do
+            [ -d "$artifact" ] || continue
+            tarball=$(find "$artifact" -name "*.tar.gz" | head -1)
+            if [ -n "$tarball" ]; then
+              platform=$(basename "$artifact" | sed 's/ffmpeg-//')
+              cp "$tarball" "release/ffmpeg-${platform}.tar.gz"
+              FOUND_PLATFORMS+=("$platform")
+              echo "Packaged: $platform"
+            fi
+          done
+
+          echo "Found platforms: ${FOUND_PLATFORMS[*]:-none}"
+          ls -la release/
+
+          # Verify all expected platforms are present
+          MISSING=()
+          for expected in "${EXPECTED_PLATFORMS[@]}"; do
+            if [ ! -f "release/ffmpeg-${expected}.tar.gz" ]; then
+              MISSING+=("$expected")
+            fi
+          done
+
+          if [ ${#MISSING[@]} -gt 0 ]; then
+            echo "::warning::Missing platforms: ${MISSING[*]}"
+          fi
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/ffmpeg-* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/ffmpeg-}"
+          else
+            VERSION="v$(date +%Y%m%d)"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create deps release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: deps-${{ steps.version.outputs.version }}
+          name: FFmpeg Dependencies ${{ steps.version.outputs.version }}
+          files: release/*
+          body: |
+            ## FFmpeg Static Libraries for CI
+
+            These files are consumed by the main CI workflow.
+            **Do not use directly** - install `@pproenca/node-webcodecs` instead.
+
+            ### Platforms
+            - `ffmpeg-linux-x64.tar.gz` - Linux x64 (glibc)
+            - `ffmpeg-linux-x64-musl.tar.gz` - Linux x64 (musl/Alpine)
+            - `ffmpeg-darwin-x64.tar.gz` - macOS Intel
+            - `ffmpeg-darwin-arm64.tar.gz` - macOS Apple Silicon
+
+  # ============================================================================
+  # Resolve FFmpeg deps version
+  # ============================================================================
+  resolve-deps:
+    name: 'Resolve deps'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      deps_version: ${{ steps.deps.outputs.version }}
+    steps:
+      - name: Find latest deps release
+        id: deps
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          LATEST_TAG=$(gh release list --repo "${{ github.repository }}" --limit 100 --json tagName --jq '[.[] | select(.tagName | startswith("deps-"))][0].tagName' || echo "")
+          if [ -z "$LATEST_TAG" ]; then
+            echo "::error title=Missing FFmpeg Dependencies::No deps-* release found. Push a tag like 'ffmpeg-v1' to create one first."
+            echo "version=" >> $GITHUB_OUTPUT
+          else
+            VERSION="${LATEST_TAG#deps-}"
+            echo "Found deps: $LATEST_TAG (version: $VERSION)"
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+          fi
+
+  # ============================================================================
+  # Build native addon for each platform
+  # ============================================================================
+  build-native:
+    name: 'Build ${{ matrix.platform }}'
+    needs: [lint, resolve-deps]
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux-x64
+          - runner: macos-13
+            platform: darwin-x64
+          - runner: macos-15
+            platform: darwin-arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install build tools (macOS)
+        if: runner.os == 'macOS'
+        run: brew install pkg-config
+
+      - name: Install build tools (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y pkg-config
+
+      # Fail early if no deps release exists
+      - name: Verify FFmpeg deps available
+        if: needs.resolve-deps.outputs.deps_version == ''
+        run: |
+          echo "::error::No FFmpeg deps release found. Create one by pushing a 'ffmpeg-*' tag first."
+          echo "To create FFmpeg deps: git tag ffmpeg-v1 && git push origin ffmpeg-v1"
+          exit 1
+
+      # Download FFmpeg from deps release
+      - name: Download FFmpeg
+        if: needs.resolve-deps.outputs.deps_version != ''
+        uses: dsaltares/fetch-gh-release-asset@v1.1.2
+        with:
+          repo: ${{ github.repository }}
+          version: tags/deps-${{ needs.resolve-deps.outputs.deps_version }}
+          file: ffmpeg-${{ matrix.platform }}.tar.gz
+          target: ffmpeg-${{ matrix.platform }}.tar.gz
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract FFmpeg
+        if: needs.resolve-deps.outputs.deps_version != ''
+        run: |
+          set -euo pipefail
+          mkdir -p ffmpeg-install
+          tar -xzvf ffmpeg-${{ matrix.platform }}.tar.gz -C ffmpeg-install --strip-components=1
+          echo "FFMPEG_ROOT=${{ github.workspace }}/ffmpeg-install" >> $GITHUB_ENV
+
+          # Verify extraction
+          if [ ! -f "ffmpeg-install/include/libavcodec/avcodec.h" ]; then
+            echo "::error::FFmpeg extraction failed - avcodec.h not found"
+            ls -laR ffmpeg-install/ || true
+            exit 1
+          fi
+          echo "FFmpeg extracted successfully"
+          ls -la ffmpeg-install/lib/
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Build native addon
+        working-directory: packages/node-webcodecs
+        run: npx prebuildify --napi --strip
+
+      - name: Build TypeScript
+        run: npm run build:ts
+
+      - name: Test
+        run: npm run test:fast
+
+      # Package for platform npm package
+      - name: Package platform binary
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./packages/node-webcodecs/package.json').version")
+          PKG_DIR="packages/${{ matrix.platform }}"
+          mkdir -p "$PKG_DIR"
+
+          # Verify binary was built
+          BINARY_COUNT=$(find packages/node-webcodecs/prebuilds -name "*.node" | wc -l)
+          if [ "$BINARY_COUNT" -eq 0 ]; then
+            echo "::error::Native build produced no .node binary"
+            ls -laR packages/node-webcodecs/prebuilds/ || echo "prebuilds directory does not exist"
+            exit 1
+          fi
+          if [ "$BINARY_COUNT" -gt 1 ]; then
+            echo "::warning::Multiple .node binaries found, using first match"
+            find packages/node-webcodecs/prebuilds -name "*.node"
+          fi
+
+          BINARY=$(find packages/node-webcodecs/prebuilds -name "*.node" | head -1)
+          echo "Copying binary: $BINARY"
+          cp "$BINARY" "$PKG_DIR/webcodecs.node"
+
+          # Verify copy succeeded
+          if [ ! -s "$PKG_DIR/webcodecs.node" ]; then
+            echo "::error::Copied binary is empty or missing"
+            exit 1
+          fi
+
+          # Update version in platform package.json
+          node -e "
+            const pkg = require('./$PKG_DIR/package.json');
+            pkg.version = '$VERSION';
+            require('fs').writeFileSync('./$PKG_DIR/package.json', JSON.stringify(pkg, null, 2));
+          "
+
+          echo "Packaged $PKG_DIR successfully"
+          ls -la "$PKG_DIR/"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-${{ matrix.platform }}
+          path: packages/${{ matrix.platform }}/
+          retention-days: 7
+
+  # ============================================================================
+  # Build native addon for Linux musl (Alpine) - requires Docker
+  # ============================================================================
+  build-native-musl:
+    name: 'Build linux-x64-musl'
+    needs: [lint, resolve-deps]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    container:
+      image: node:22-alpine
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: apk add --no-cache python3 make g++ pkgconfig git
+
+      # Fail early if no deps release exists
+      - name: Verify FFmpeg deps available
+        if: needs.resolve-deps.outputs.deps_version == ''
+        run: |
+          echo "::error::No FFmpeg deps release found. Create one by pushing a 'ffmpeg-*' tag first."
+          exit 1
+
+      # Download FFmpeg - manual curl since fetch-gh-release-asset doesn't work in Alpine
+      - name: Download FFmpeg
+        if: needs.resolve-deps.outputs.deps_version != ''
+        run: |
+          apk add --no-cache curl
+          curl -L -o ffmpeg-linux-x64-musl.tar.gz \
+            "https://github.com/${{ github.repository }}/releases/download/deps-${{ needs.resolve-deps.outputs.deps_version }}/ffmpeg-linux-x64-musl.tar.gz"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Extract FFmpeg
+        if: needs.resolve-deps.outputs.deps_version != ''
+        run: |
+          set -euo pipefail
+          mkdir -p ffmpeg-install
+          tar -xzvf ffmpeg-linux-x64-musl.tar.gz -C ffmpeg-install --strip-components=1
+          echo "FFMPEG_ROOT=${{ github.workspace }}/ffmpeg-install" >> $GITHUB_ENV
+
+          # Verify extraction
+          if [ ! -f "ffmpeg-install/include/libavcodec/avcodec.h" ]; then
+            echo "::error::FFmpeg extraction failed - avcodec.h not found"
+            ls -laR ffmpeg-install/ || true
+            exit 1
+          fi
+          echo "FFmpeg extracted successfully"
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Build native addon
+        working-directory: packages/node-webcodecs
+        run: npx prebuildify --napi --strip
+
+      - name: Build TypeScript
+        run: npm run build:ts
+
+      - name: Test
+        run: npm run test:fast
+
+      # Package for platform npm package
+      - name: Package platform binary
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./packages/node-webcodecs/package.json').version")
+          PKG_DIR="packages/linux-x64-musl"
+          mkdir -p "$PKG_DIR"
+
+          # Verify binary was built
+          BINARY_COUNT=$(find packages/node-webcodecs/prebuilds -name "*.node" | wc -l)
+          if [ "$BINARY_COUNT" -eq 0 ]; then
+            echo "::error::Native build produced no .node binary"
+            ls -laR packages/node-webcodecs/prebuilds/ || echo "prebuilds directory does not exist"
+            exit 1
+          fi
+
+          BINARY=$(find packages/node-webcodecs/prebuilds -name "*.node" | head -1)
+          echo "Copying binary: $BINARY"
+          cp "$BINARY" "$PKG_DIR/webcodecs.node"
+
+          # Verify copy succeeded
+          if [ ! -s "$PKG_DIR/webcodecs.node" ]; then
+            echo "::error::Copied binary is empty or missing"
+            exit 1
+          fi
+
+          # Update version in platform package.json
+          node -e "
+            const pkg = require('./$PKG_DIR/package.json');
+            pkg.version = '$VERSION';
+            require('fs').writeFileSync('./$PKG_DIR/package.json', JSON.stringify(pkg, null, 2));
+          "
+
+          echo "Packaged $PKG_DIR successfully"
+          ls -la "$PKG_DIR/"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-linux-x64-musl
+          path: packages/linux-x64-musl/
+          retention-days: 7
+
+  # ============================================================================
+  # Test Node version compatibility
+  # ============================================================================
+  test-compat:
+    name: 'Test Node ${{ matrix.node }} / ${{ matrix.platform }}'
+    needs: [build-native, build-native-musl]
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-24.04, platform: linux-x64, node: '20' }
+          - { runner: ubuntu-24.04, platform: linux-x64, node: '24' }
+          - { runner: macos-13, platform: darwin-x64, node: '20' }
+          - { runner: macos-15, platform: darwin-arm64, node: '20' }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Download platform artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: platform-${{ matrix.platform }}
+          path: packages/${{ matrix.platform }}/
+
+      - name: Setup binary
+        run: |
+          mkdir -p packages/node-webcodecs/prebuilds/${{ matrix.platform }}
+          cp packages/${{ matrix.platform }}/webcodecs.node packages/node-webcodecs/prebuilds/${{ matrix.platform }}/node.napi.node
+
+      - name: Install and test
+        run: |
+          npm install --ignore-scripts
+          npm run build:ts
+          npm run test:fast
+
+  # ============================================================================
+  # Publish to npm (on v* tags)
+  # ============================================================================
+  publish:
+    name: 'Publish to npm'
+    needs: [build-native, build-native-musl, test-compat]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/@pproenca/node-webcodecs
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: 'https://registry.npmjs.org'
+
+      # Download all platform artifacts
+      - name: Download platform artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: platform-*
+          path: dist-artifacts/
+
+      - name: Prepare packages
+        run: |
+          set -euo pipefail
+
+          # Check artifacts were downloaded
+          if ! ls dist-artifacts/platform-*/ 1>/dev/null 2>&1; then
+            echo "::error::No platform artifacts found"
+            ls -la dist-artifacts/ || echo "dist-artifacts directory does not exist"
+            exit 1
+          fi
+
+          # Copy artifacts into existing package directories
+          for dir in dist-artifacts/platform-*/; do
+            [ -d "$dir" ] || continue
+            platform=$(basename "$dir" | sed 's/platform-//')
+            echo "Preparing packages/$platform/ from $dir"
+
+            # Copy binary and updated package.json into existing package dir
+            cp "$dir"/* "packages/$platform/"
+          done
+
+          echo "Package preparation complete"
+          ls -laR packages/
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Build TypeScript
+        run: npm run build:ts
+
+      # Publish platform packages first
+      - name: Publish platform packages
+        run: |
+          set -euo pipefail
+          PLATFORMS=(linux-x64 linux-x64-musl darwin-x64 darwin-arm64)
+          PUBLISHED=()
+
+          for platform in "${PLATFORMS[@]}"; do
+            if [ -d "packages/$platform" ] && [ -f "packages/$platform/webcodecs.node" ]; then
+              echo "Publishing @pproenca/node-webcodecs-$platform"
+              if (cd "packages/$platform" && npm publish --provenance --access public); then
+                PUBLISHED+=("$platform")
+              else
+                echo "::error::Failed to publish $platform"
+                echo "Previously published: ${PUBLISHED[*]:-none}"
+                exit 1
+              fi
+            else
+              echo "::warning::packages/$platform not found or missing binary, skipping"
+            fi
+          done
+
+          echo "Successfully published: ${PUBLISHED[*]}"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Wait for npm registry propagation
+      - name: Wait for propagation
+        run: sleep 15
+
+      # Publish main package
+      - name: Publish main package
+        run: npm publish -w packages/node-webcodecs --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # ============================================================================
+  # Post-publish smoke test
+  # ============================================================================
+  smoke-test:
+    name: 'Smoke test ${{ matrix.platform }}'
+    needs: [publish]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-24.04, platform: linux-x64 }
+          - { runner: macos-13, platform: darwin-x64 }
+          - { runner: macos-15, platform: darwin-arm64 }
+
+    steps:
+      - name: Wait for npm propagation
+        run: sleep 30
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Install and verify
+        run: |
+          set -euo pipefail
+          mkdir smoke && cd smoke
+          npm init -y
+          npm install @pproenca/node-webcodecs@${{ steps.version.outputs.version }}
+
+          node -e "
+            try {
+              const wc = require('@pproenca/node-webcodecs');
+              console.log('Module loaded successfully');
+              console.log('Exports:', Object.keys(wc));
+
+              const required = ['VideoEncoder', 'VideoDecoder', 'AudioEncoder', 'AudioDecoder'];
+              const missing = required.filter(cls => typeof wc[cls] !== 'function');
+
+              if (missing.length > 0) {
+                console.error('Missing classes:', missing.join(', '));
+                console.error('Available exports:', Object.keys(wc).join(', '));
+                process.exit(1);
+              }
+
+              console.log('All required classes found:', required.join(', '));
+              console.log('Smoke test PASSED!');
+            } catch (err) {
+              console.error('Failed to load module:', err.message);
+              console.error('Stack:', err.stack);
+              process.exit(1);
+            }
+          "

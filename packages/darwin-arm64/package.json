@@ -1,0 +1,21 @@
+{
+  "name": "@pproenca/node-webcodecs-darwin-arm64",
+  "version": "1.0.0-alpha.1",
+  "description": "macOS ARM64 (Apple Silicon) binary for @pproenca/node-webcodecs",
+  "os": ["darwin"],
+  "cpu": ["arm64"],
+  "main": "webcodecs.node",
+  "files": ["webcodecs.node"],
+  "license": "GPL-2.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/pproenca/node-webcodecs.git",
+    "directory": "packages/darwin-arm64"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -1,0 +1,52 @@
+# ==============================================================================
+# FFmpeg Static Build for Linux x64 (glibc)
+#
+# Produces static libraries with -fPIC for linking into shared objects (.node)
+#
+# Build:   docker build -f Dockerfile.linux-x64 -t ffmpeg-linux-x64 ffmpeg/
+# Extract: docker create --name tmp ffmpeg-linux-x64 && docker cp tmp:/build . && docker rm tmp
+# ==============================================================================
+
+FROM ubuntu:24.04 AS builder
+
+# Prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential git cmake nasm yasm pkg-config \
+    autoconf automake libtool wget curl ca-certificates \
+    zlib1g-dev jq \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build environment
+ENV PREFIX=/build
+ENV PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig
+ENV PATH=$PREFIX/bin:$PATH
+ENV CFLAGS="-fPIC"
+ENV CXXFLAGS="-fPIC"
+
+WORKDIR /src
+
+# Copy versions and build script
+COPY versions.json build.sh /ffmpeg/
+RUN chmod +x /ffmpeg/build.sh
+
+# Build all dependencies and FFmpeg
+RUN /ffmpeg/build.sh linux-x64
+
+# Verify build
+RUN strip $PREFIX/bin/ffmpeg $PREFIX/bin/ffprobe && \
+    ls -lh $PREFIX/bin/ffmpeg $PREFIX/bin/ffprobe && \
+    $PREFIX/bin/ffmpeg -version
+
+# Runtime stage for extraction
+FROM ubuntu:24.04
+
+COPY --from=builder /build/bin /build/bin
+COPY --from=builder /build/lib /build/lib
+COPY --from=builder /build/include /build/include
+
+RUN /build/bin/ffmpeg -version
+
+CMD ["/build/bin/ffmpeg", "-version"]

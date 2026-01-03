@@ -1,0 +1,378 @@
+// Copyright 2024 The node-webcodecs Authors
+// SPDX-License-Identifier: MIT
+
+#include "src/video_filter.h"
+
+#include <algorithm>
+#include <cstdio>
+#include <sstream>
+#include <string>
+#include <vector>
+
+#include "src/common.h"
+#include "src/video_frame.h"
+
+Napi::Object VideoFilter::Init(Napi::Env env, Napi::Object exports) {
+  Napi::Function func = DefineClass(
+      env, "VideoFilter",
+      {
+          InstanceMethod("configure", &VideoFilter::Configure),
+          InstanceMethod("applyBlur", &VideoFilter::ApplyBlur),
+          InstanceMethod("close", &VideoFilter::Close),
+          InstanceAccessor("state", &VideoFilter::GetState, nullptr),
+      });
+
+  exports.Set("VideoFilter", func);
+  return exports;
+}
+
+VideoFilter::VideoFilter(const Napi::CallbackInfo& info)
+    : Napi::ObjectWrap<VideoFilter>(info),
+      buffersrc_ctx_(nullptr),
+      buffersink_ctx_(nullptr),
+      width_(0),
+      height_(0),
+      state_("unconfigured") {}
+
+VideoFilter::~VideoFilter() { Cleanup(); }
+
+void VideoFilter::Cleanup() {
+  filter_graph_.reset();
+  sws_rgba_to_yuv_.reset();
+  sws_yuv_to_rgba_.reset();
+  yuv_frame_.reset();
+  output_frame_.reset();
+  buffersrc_ctx_ = nullptr;
+  buffersink_ctx_ = nullptr;
+}
+
+Napi::Value VideoFilter::GetState(const Napi::CallbackInfo& info) {
+  return Napi::String::New(info.Env(), state_);
+}
+
+void VideoFilter::Close(const Napi::CallbackInfo& info) {
+  Cleanup();
+  state_ = "closed";
+}
+
+Napi::Value VideoFilter::Configure(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+
+  if (state_ == "closed") {
+    Napi::Error::New(env, "VideoFilter is closed").ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  if (info.Length() < 1 || !info[0].IsObject()) {
+    Napi::TypeError::New(env, "Config object required")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  Napi::Object config = info[0].As<Napi::Object>();
+
+  if (!webcodecs::HasAttr(config, "width") ||
+      !webcodecs::HasAttr(config, "height")) {
+    Napi::TypeError::New(env, "width and height required")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  width_ = webcodecs::AttrAsInt32(config, "width");
+  height_ = webcodecs::AttrAsInt32(config, "height");
+
+  if (width_ <= 0 || height_ <= 0) {
+    Napi::RangeError::New(env, "width and height must be positive")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  // Initialize swscale contexts for RGBA <-> YUV420P conversion
+  sws_rgba_to_yuv_.reset(sws_getContext(
+      width_, height_, AV_PIX_FMT_RGBA, width_, height_, AV_PIX_FMT_YUV420P,
+      SWS_BILINEAR, nullptr, nullptr, nullptr));
+
+  sws_yuv_to_rgba_.reset(
+      sws_getContext(width_, height_, AV_PIX_FMT_YUV420P, width_, height_,
+                     AV_PIX_FMT_RGBA, SWS_BILINEAR, nullptr, nullptr, nullptr));
+
+  if (!sws_rgba_to_yuv_ || !sws_yuv_to_rgba_) {
+    Cleanup();
+    Napi::Error::New(env, "Failed to create swscale contexts")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  // Allocate YUV frame for filter input
+  yuv_frame_ = ffmpeg::make_frame();
+  yuv_frame_->format = AV_PIX_FMT_YUV420P;
+  yuv_frame_->width = width_;
+  yuv_frame_->height = height_;
+  av_frame_get_buffer(yuv_frame_.get(), 0);
+
+  // Allocate output frame
+  output_frame_ = ffmpeg::make_frame();
+
+  state_ = "configured";
+  return env.Undefined();
+}
+
+std::string VideoFilter::BuildFilterString(
+    const std::vector<std::tuple<int, int, int, int>>& regions,
+    int blur_strength) {
+  // If no regions, return null filter (passthrough)
+  if (regions.empty()) {
+    return "null";
+  }
+
+  // Build filter: for each region, crop blurred area and overlay
+  // Strategy: blur entire frame, then overlay original except for regions
+  std::ostringstream oss;
+
+  // boxblur uses radius:power format. strength 1-100 maps to radius 1-50
+  int radius = std::max(1, blur_strength / 2);
+
+  // Split input into original and blurred version
+  oss << "[in]split=2[orig][toblur];";
+  oss << "[toblur]boxblur=" << radius << ":1[blurred];";
+
+  // For each region, crop from blurred and overlay onto original
+  std::string current = "orig";
+  for (size_t i = 0; i < regions.size(); ++i) {
+    int x = std::get<0>(regions[i]);
+    int y = std::get<1>(regions[i]);
+    int w = std::get<2>(regions[i]);
+    int h = std::get<3>(regions[i]);
+
+    // Clamp to frame bounds
+    x = std::max(0, std::min(x, width_ - 1));
+    y = std::max(0, std::min(y, height_ - 1));
+    w = std::min(w, width_ - x);
+    h = std::min(h, height_ - y);
+
+    if (w <= 0 || h <= 0) continue;
+
+    std::string crop_label = "crop" + std::to_string(i);
+    std::string out_label =
+        (i == regions.size() - 1) ? "out" : ("tmp" + std::to_string(i));
+
+    oss << "[blurred]crop=" << w << ":" << h << ":" << x << ":" << y << "["
+        << crop_label << "];";
+    oss << "[" << current << "][" << crop_label << "]overlay=" << x << ":" << y
+        << "[" << out_label << "]";
+
+    if (i < regions.size() - 1) {
+      oss << ";";
+    }
+    current = out_label;
+  }
+
+  return oss.str();
+}
+
+// InitFilterGraph not needed - filter graph is built dynamically per-frame
+// based on blur regions. See BuildFilterString() for filter construction.
+
+AVFrame* VideoFilter::ProcessFrame(AVFrame* input) {
+  // Safety check: filter contexts must be valid
+  if (!buffersrc_ctx_ || !buffersink_ctx_) {
+    return nullptr;
+  }
+
+  // This processes a YUV frame through the filter graph
+  // Returns filtered frame (caller does NOT own - internal buffer)
+  int ret = av_buffersrc_add_frame_flags(buffersrc_ctx_, input,
+                                         AV_BUFFERSRC_FLAG_KEEP_REF);
+  if (ret < 0) {
+    return nullptr;
+  }
+
+  ret = av_buffersink_get_frame(buffersink_ctx_, output_frame_.get());
+  if (ret < 0) {
+    return nullptr;
+  }
+
+  return output_frame_.get();
+}
+
+Napi::Value VideoFilter::ApplyBlur(const Napi::CallbackInfo& info) {
+  Napi::Env env = info.Env();
+
+  if (state_ != "configured") {
+    Napi::Error::New(env, "VideoFilter not configured")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  if (info.Length() < 2) {
+    Napi::TypeError::New(env, "frame and regions required")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  // Get native VideoFrame object
+  if (!info[0].IsObject()) {
+    Napi::TypeError::New(env, "frame must be a VideoFrame object")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  VideoFrame* video_frame =
+      Napi::ObjectWrap<VideoFrame>::Unwrap(info[0].As<Napi::Object>());
+  if (!video_frame) {
+    Napi::TypeError::New(env, "Invalid VideoFrame object")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  // Get regions array
+  Napi::Array regions_arr = info[1].As<Napi::Array>();
+  std::vector<std::tuple<int, int, int, int>> regions;
+
+  for (uint32_t i = 0; i < regions_arr.Length(); ++i) {
+    Napi::Object region = regions_arr.Get(i).As<Napi::Object>();
+    int x = webcodecs::AttrAsInt32(region, "x");
+    int y = webcodecs::AttrAsInt32(region, "y");
+    int w = webcodecs::AttrAsInt32(region, "width");
+    int h = webcodecs::AttrAsInt32(region, "height");
+    regions.emplace_back(x, y, w, h);
+  }
+
+  // Get blur strength (default 20)
+  int blur_strength = 20;
+  if (info.Length() >= 3 && info[2].IsNumber()) {
+    blur_strength = info[2].As<Napi::Number>().Int32Value();
+    blur_strength = std::max(1, std::min(100, blur_strength));
+  }
+
+  // If no regions, create a clone of the original frame
+  if (regions.empty()) {
+    return VideoFrame::CreateInstance(
+        env, video_frame->GetData(), video_frame->GetDataSize(),
+        video_frame->GetWidth(), video_frame->GetHeight(),
+        video_frame->GetTimestampValue(), "RGBA");
+  }
+
+  // Get RGBA data from frame
+  uint8_t* rgba_data = video_frame->GetData();
+  int64_t timestamp = video_frame->GetTimestampValue();
+
+  // Build and initialize filter graph for these regions
+  std::string filter_str = BuildFilterString(regions, blur_strength);
+
+  // Clean up previous filter graph
+  filter_graph_.reset();
+
+  filter_graph_ = ffmpeg::make_filter_graph();
+  if (!filter_graph_) {
+    Napi::Error::New(env, "Failed to allocate filter graph")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  // Create buffer source
+  const AVFilter* buffersrc = avfilter_get_by_name("buffer");
+  const AVFilter* buffersink = avfilter_get_by_name("buffersink");
+
+  char args[512];
+  snprintf(args, sizeof(args),
+           "video_size=%dx%d:pix_fmt=%d:time_base=1/30:pixel_aspect=1/1",
+           width_, height_, AV_PIX_FMT_YUV420P);
+
+  int ret = avfilter_graph_create_filter(&buffersrc_ctx_, buffersrc, "in", args,
+                                         nullptr, filter_graph_.get());
+  if (ret < 0) {
+    Napi::Error::New(env, "Failed to create buffer source")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  ret = avfilter_graph_create_filter(&buffersink_ctx_, buffersink, "out",
+                                     nullptr, nullptr, filter_graph_.get());
+  if (ret < 0) {
+    Napi::Error::New(env, "Failed to create buffer sink")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  // Parse and link filter graph (RAII for initial allocation safety)
+  ffmpeg::AVFilterInOutPtr outputs_raii = ffmpeg::make_filter_inout();
+  ffmpeg::AVFilterInOutPtr inputs_raii = ffmpeg::make_filter_inout();
+
+  if (!outputs_raii || !inputs_raii) {
+    Napi::Error::New(env, "Failed to allocate filter inout")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  outputs_raii->name = av_strdup("in");
+  outputs_raii->filter_ctx = buffersrc_ctx_;
+  outputs_raii->pad_idx = 0;
+  outputs_raii->next = nullptr;
+
+  inputs_raii->name = av_strdup("out");
+  inputs_raii->filter_ctx = buffersink_ctx_;
+  inputs_raii->pad_idx = 0;
+  inputs_raii->next = nullptr;
+
+  // Release ownership before parse_ptr (it may modify/consume the pointers)
+  AVFilterInOut* outputs = outputs_raii.release();
+  AVFilterInOut* inputs = inputs_raii.release();
+
+  ret = avfilter_graph_parse_ptr(filter_graph_.get(), filter_str.c_str(),
+                                 &inputs, &outputs, nullptr);
+  // parse_ptr may have modified pointers, free remaining
+  avfilter_inout_free(&inputs);
+  avfilter_inout_free(&outputs);
+
+  if (ret < 0) {
+    Napi::Error::New(env, "Failed to parse filter graph: " + filter_str)
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  ret = avfilter_graph_config(filter_graph_.get(), nullptr);
+  if (ret < 0) {
+    Napi::Error::New(env, "Failed to configure filter graph")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  // Convert RGBA to YUV420P
+  const uint8_t* src_slices[1] = {rgba_data};
+  int src_stride[1] = {width_ * 4};
+
+  sws_scale(sws_rgba_to_yuv_.get(), src_slices, src_stride, 0, height_,
+            yuv_frame_->data, yuv_frame_->linesize);
+
+  yuv_frame_->pts = 0;
+
+  // Process through filter
+  av_frame_unref(output_frame_.get());
+  AVFrame* filtered = ProcessFrame(yuv_frame_.get());
+  if (!filtered) {
+    Napi::Error::New(env, "Filter processing failed")
+        .ThrowAsJavaScriptException();
+    return env.Undefined();
+  }
+
+  // Convert YUV420P back to RGBA
+  size_t output_size = width_ * height_ * 4;
+  Napi::Buffer<uint8_t> output_buffer =
+      Napi::Buffer<uint8_t>::New(env, output_size);
+  uint8_t* output_data = output_buffer.Data();
+
+  uint8_t* dst_slices[1] = {output_data};
+  int dst_stride[1] = {width_ * 4};
+
+  sws_scale(sws_yuv_to_rgba_.get(), filtered->data, filtered->linesize, 0,
+            height_, dst_slices, dst_stride);
+
+  // Create new VideoFrame with blurred data using VideoFrame::CreateInstance
+  return VideoFrame::CreateInstance(env, output_data, output_size, width_,
+                                    height_, timestamp, "RGBA");
+}
+
+Napi::Object InitVideoFilter(Napi::Env env, Napi::Object exports) {
+  return VideoFilter::Init(env, exports);
+}

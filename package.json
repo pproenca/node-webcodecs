@@ -1,104 +1,35 @@
 {
-  "name": "@pproenca/node-webcodecs",
+  "name": "node-webcodecs-monorepo",
+  "private": true,
   "description": "WebCodecs API implementation for Node.js using FFmpeg",
-  "version": "0.1.1-alpha.8",
-  "author": "Pedro Proenca",
-  "homepage": "https://github.com/pproenca/node-webcodecs",
-  "repository": {
-    "type": "git",
-    "url": "git://github.com/pproenca/node-webcodecs.git"
-  },
-  "bugs": {
-    "url": "https://github.com/pproenca/node-webcodecs/issues"
-  },
+  "workspaces": [
+    "packages/node-webcodecs"
+  ],
   "scripts": {
-    "build": "node-gyp rebuild && tsc",
-    "build:native": "node-gyp rebuild",
-    "build:ts": "tsc",
-    "build:debug": "node-gyp rebuild --debug && tsc",
-    "rebuild": "npm run clean && npm run build",
-    "clean": "rm -rf src/build/ .nyc_output/ coverage/ test/fixtures/output.*",
-    "check": "npm run lint && npm test",
-    "test": "npm run test:fast && npm run test:guardrails",
-    "test:fast": "tsx --test --test-concurrency=1 --import ./test/setup.ts --test-timeout=30000 test/golden/*.test.ts test/unit/*.test.ts",
-    "test:golden": "tsx --test --test-concurrency=1 --import ./test/setup.ts --test-timeout=30000 test/golden/*.test.ts",
-    "test:unit": "tsx --test --test-concurrency=1 --import ./test/setup.ts --test-timeout=30000 test/unit/*.test.ts",
-    "test:stress": "tsx --test --test-concurrency=1 --import ./test/setup.ts --test-timeout=60000 test/stress/*.test.ts",
-    "test:contracts": "node test/contracts/video_encoder/state_machine.js && node test/contracts/audio_encoder/state_machine.js && node test/contracts/video_decoder/state_machine.js && node test/contracts/audio_decoder/state_machine.js",
-    "test:guardrails": "node test/guardrails/fuzzer.js && node test/guardrails/event_loop_lag.js",
-    "test:coverage": "c8 --check-coverage --lines 70 --branches 60 --functions 70 --statements 70 --include lib/**/*.ts --exclude lib/**/*.d.ts --exclude lib/types.ts npm run test:fast",
-    "lint": "npm run lint:cpp && npm run lint:ts && npm run lint:types && npm run lint:md",
-    "lint:cpp": "cpplint --quiet src/*.h src/*.cc",
-    "lint:ts": "biome lint",
-    "lint:types": "tsd",
-    "lint:md": "prettier --check \"**/*.md\"",
-    "format": "npm run format:md",
-    "format:md": "prettier --write \"**/*.md\"",
-    "version:bump": "node scripts/bump-version.js",
-    "create-platform-packages": "node scripts/create-platform-packages.mjs",
-    "fetch-spec": "tsx scripts/fetch-webcodecs-spec.ts"
-  },
-  "type": "commonjs",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "require": "./dist/index.js",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
-    }
-  },
-  "files": [
-    "lib",
-    "dist",
-    "src/*.{cc,h,gyp}",
-    "binding.gyp"
-  ],
-  "keywords": [
-    "webcodecs",
-    "video",
-    "encoder",
-    "ffmpeg",
-    "nodejs"
-  ],
-  "tsd": {
-    "directory": "test/types"
-  },
-  "optionalDependencies": {
-    "@pproenca/node-webcodecs-darwin-arm64": "0.1.1-alpha.8",
-    "@pproenca/node-webcodecs-darwin-x64": "0.1.1-alpha.8",
-    "@pproenca/node-webcodecs-linux-x64": "0.1.1-alpha.8"
-  },
-  "dependencies": {
-    "node-gyp-build": "^4.8.0"
+    "build": "npm run build -w packages/node-webcodecs",
+    "build:native": "npm run build:native -w packages/node-webcodecs",
+    "build:ts": "npm run build:ts -w packages/node-webcodecs",
+    "build:debug": "npm run build:debug -w packages/node-webcodecs",
+    "clean": "npm run clean -w packages/node-webcodecs",
+    "test": "npm run test -w packages/node-webcodecs",
+    "test:fast": "npm run test:fast -w packages/node-webcodecs",
+    "lint": "npm run lint -w packages/node-webcodecs",
+    "publish:main": "npm publish -w packages/node-webcodecs --access public"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.10",
     "@cpplint/cli": "^0.1.0",
     "@types/node": "^25.0.3",
-    "@types/turndown": "^5.0.6",
     "c8": "^10.1.3",
-    "cheerio": "^1.1.2",
-    "express": "^5.2.1",
-    "mediabunny": "^1.27.3",
     "node-addon-api": "^8.5.0",
     "node-gyp": "^12.1.0",
     "prebuildify": "^6.0.1",
     "prettier": "^3.7.4",
     "tsd": "^0.33.0",
     "tsx": "^4.21.0",
-    "turndown": "^7.2.2",
-    "typedoc": "^0.28.15",
     "typescript": "^5.9.3"
   },
-  "license": "MIT",
   "engines": {
-    "node": "^20.17.0 || ^22.9.0 || >=24"
-  },
-  "publishConfig": {
-    "access": "public",
-    "registry": "https://registry.npmjs.org/"
-  },
-  "gypfile": false
+    "node": ">=20.0.0"
+  }
 }

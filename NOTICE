@@ -1,0 +1,76 @@
+node-webcodecs
+Copyright 2024 Pedro Proenca
+
+This software includes the following third-party components:
+
+================================================================================
+FFmpeg (https://ffmpeg.org)
+================================================================================
+License: LGPL v2.1+
+Used components: libavcodec, libavformat, libavutil, libswscale, libswresample
+
+FFmpeg is a trademark of Fabrice Bellard.
+
+================================================================================
+x264 (https://www.videolan.org/developers/x264.html)
+================================================================================
+License: GPL v2+
+Copyright: x264 project
+
+Note: This component requires GPL licensing for the combined work.
+For LGPL-only builds, disable H.264 encoding.
+
+================================================================================
+x265 (https://x265.org)
+================================================================================
+License: GPL v2+
+Copyright: MulticoreWare, Inc.
+
+Note: This component requires GPL licensing for the combined work.
+For LGPL-only builds, disable H.265/HEVC encoding.
+
+================================================================================
+libvpx (https://chromium.googlesource.com/webm/libvpx)
+================================================================================
+License: BSD 3-Clause
+Copyright: The WebM Project Authors
+
+================================================================================
+libaom (https://aomedia.googlesource.com/aom)
+================================================================================
+License: BSD 2-Clause
+Copyright: Alliance for Open Media
+
+================================================================================
+Opus (https://opus-codec.org)
+================================================================================
+License: BSD 3-Clause
+Copyright: Xiph.Org Foundation
+
+================================================================================
+LAME (https://lame.sourceforge.io)
+================================================================================
+License: LGPL v2.0+
+Copyright: The LAME Project
+
+================================================================================
+node-addon-api (https://github.com/nodejs/node-addon-api)
+================================================================================
+License: MIT
+Copyright: Node.js contributors
+
+================================================================================
+detect-libc (https://github.com/lovell/detect-libc)
+================================================================================
+License: Apache-2.0
+Copyright: Lovell Fuller
+
+================================================================================
+
+For the complete license texts, see:
+- LGPL-2.1: https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
+- GPL-2.0: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+- BSD-3-Clause: https://opensource.org/licenses/BSD-3-Clause
+- BSD-2-Clause: https://opensource.org/licenses/BSD-2-Clause
+- MIT: https://opensource.org/licenses/MIT
+- Apache-2.0: https://www.apache.org/licenses/LICENSE-2.0

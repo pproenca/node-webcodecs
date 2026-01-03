@@ -1,0 +1,49 @@
+# ==============================================================================
+# FFmpeg Static Build for Linux x64 (musl/Alpine)
+#
+# Produces fully static binaries for Alpine Linux and similar musl-based distros
+#
+# Build:   docker build -f Dockerfile.linux-x64-musl -t ffmpeg-linux-x64-musl ffmpeg/
+# Extract: docker create --name tmp ffmpeg-linux-x64-musl && docker cp tmp:/build . && docker rm tmp
+# ==============================================================================
+
+FROM alpine:3.20 AS builder
+
+# Install build dependencies
+RUN apk add --no-cache \
+    build-base git cmake nasm yasm pkgconfig \
+    autoconf automake libtool wget curl \
+    linux-headers zlib-dev zlib-static jq bash
+
+# Build environment
+ENV PREFIX=/build
+ENV PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig
+ENV PATH=$PREFIX/bin:$PATH
+ENV CFLAGS="-fPIC"
+ENV CXXFLAGS="-fPIC"
+
+WORKDIR /src
+
+# Copy versions and build script
+COPY versions.json build.sh /ffmpeg/
+RUN chmod +x /ffmpeg/build.sh
+
+# Build all dependencies and FFmpeg
+RUN /ffmpeg/build.sh linux-x64-musl
+
+# Verify build - should be fully static
+RUN strip $PREFIX/bin/ffmpeg $PREFIX/bin/ffprobe && \
+    file $PREFIX/bin/ffmpeg && \
+    ls -lh $PREFIX/bin/ffmpeg $PREFIX/bin/ffprobe && \
+    $PREFIX/bin/ffmpeg -version
+
+# Runtime stage for extraction
+FROM alpine:3.20
+
+COPY --from=builder /build/bin /build/bin
+COPY --from=builder /build/lib /build/lib
+COPY --from=builder /build/include /build/include
+
+RUN /build/bin/ffmpeg -version
+
+CMD ["/build/bin/ffmpeg", "-version"]
