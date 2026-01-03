@@ -1,6 +1,6 @@
 # 9.4. VideoFrame Interface
 
-NOTE: `[VideoFrame](#videoframe)` is a `[CanvasImageSource](https://html.spec.whatwg.org/multipage/canvas.html#canvasimagesource)`. A `[VideoFrame](#videoframe)` can be passed to any method accepting a `[CanvasImageSource](https://html.spec.whatwg.org/multipage/canvas.html#canvasimagesource)`, including `[CanvasDrawImage](https://html.spec.whatwg.org/multipage/canvas.html#canvasdrawimage)`’s `[drawImage()](https://html.spec.whatwg.org/multipage/canvas.html#dom-context-2d-drawimage)`.
+NOTE: [`VideoFrame`](#videoframe) is a [`CanvasImageSource`](https://html.spec.whatwg.org/multipage/canvas.html#canvasimagesource). A [`VideoFrame`](#videoframe) can be passed to any method accepting a [`CanvasImageSource`](https://html.spec.whatwg.org/multipage/canvas.html#canvasimagesource), including [`CanvasDrawImage`](https://html.spec.whatwg.org/multipage/canvas.html#canvasdrawimage)’s [`drawImage()`](https://html.spec.whatwg.org/multipage/canvas.html#dom-context-2d-drawimage).
 
 ```webidl
 [Exposed=(Window,DedicatedWorker), Serializable, Transferable]
