@@ -15,7 +15,13 @@ on:
 
 permissions: {}
 
+env:
+  DEPS_VERSION: v9 # Bump when running new build-ffmpeg workflow
+
 jobs:
+  # ============================================================================
+  # Lint - Fast fail on code quality issues
+  # ============================================================================
   lint:
     permissions:
       contents: read
@@ -29,45 +35,31 @@ jobs:
       - run: npm run build:ts
       - run: npm run lint
 
-  build-and-test:
+  # ============================================================================
+  # Build native addon for each platform (single Node version)
+  # Produces release-ready artifacts that are tested across Node versions
+  # ============================================================================
+  build-native:
     permissions:
       contents: read
+      id-token: write # For OIDC attestation
+      attestations: write # For build provenance
     needs: [lint]
-    name: "build-${{ matrix.platform }}-nodejs-${{ matrix.nodejs_version }}"
+    name: "build-${{ matrix.platform }}"
     runs-on: ${{ matrix.os }}
-    env:
-      DEPS_VERSION: v9  # Bump when running new build-ffmpeg workflow
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-24.04
-            nodejs_version: "20.x"
             platform: linux-x64
-          - os: ubuntu-24.04
-            nodejs_version: "22.x"
-            platform: linux-x64
-          - os: ubuntu-24.04
-            nodejs_version: "24.x"
-            platform: linux-x64
+            arch: x64
           - os: macos-15-intel
-            nodejs_version: "20.x"
             platform: darwin-x64
-          - os: macos-15-intel
-            nodejs_version: "22.x"
-            platform: darwin-x64
-          - os: macos-15-intel
-            nodejs_version: "24.x"
-            platform: darwin-x64
+            arch: x64
           - os: macos-latest
-            nodejs_version: "20.x"
             platform: darwin-arm64
-          - os: macos-latest
-            nodejs_version: "22.x"
-            platform: darwin-arm64
-          - os: macos-latest
-            nodejs_version: "24.x"
-            platform: darwin-arm64
+            arch: arm64
 
     steps:
       - uses: actions/checkout@v6
@@ -75,10 +67,29 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: ${{ matrix.nodejs_version }}
+          node-version: "22"
+
+      - name: Fix macOS 15 PerfPowerServices CPU bug
+        if: runner.os == 'macOS'
+        run: |
+          # Workaround for known macOS 15 bug where PerfPowerServices consumes 100% CPU
+          # See: https://github.com/actions/runner-images/issues/13358
+          sudo defaults -currentHost write /Library/Preferences/com.apple.powerlogd SMCMonitorCadence 0
+          sudo killall PerfPowerServices || true
+
+      - name: Install build tools (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install pkg-config
+
+      - name: Install build tools (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config
 
       - name: Download FFmpeg from Release
-        uses: dsaltares/fetch-gh-release-asset@1.1.2
+        uses: dsaltares/fetch-gh-release-asset@aa2ab1243d6e0d5b405b973c89fa4d06a2d0fff7 # v1.1.2
         with:
           repo: ${{ github.repository }}
           version: tags/deps-${{ env.DEPS_VERSION }}
@@ -99,10 +110,139 @@ jobs:
           ls -la ffmpeg-install/lib/pkgconfig/ || { echo "ERROR: No pkgconfig directory"; exit 1; }
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --ignore-scripts
 
-      - name: Build
-        run: npm run build --if-present
+      - name: Build with prebuildify
+        run: |
+          npx prebuildify --napi --strip --arch=${{ matrix.arch }}
+
+          # prebuildify 6.x with scoped packages creates @scope+name.node
+          # but node-gyp-build expects node.napi.node - rename if needed
+          PREBUILD_DIR="prebuilds/${{ matrix.platform }}"
+
+          if [ ! -f "$PREBUILD_DIR/node.napi.node" ]; then
+            # Look for scoped package naming pattern
+            SCOPED_FILE=$(find "$PREBUILD_DIR" -name "*.node" -type f | head -1)
+            if [ -n "$SCOPED_FILE" ]; then
+              echo "Renaming $SCOPED_FILE to node.napi.node"
+              mv "$SCOPED_FILE" "$PREBUILD_DIR/node.napi.node"
+            else
+              echo "Error: No .node file found in $PREBUILD_DIR"
+              ls -laR prebuilds/
+              exit 1
+            fi
+          fi
+          echo "Prebuild OK: $PREBUILD_DIR/node.napi.node"
+          ls -la "$PREBUILD_DIR/"
+
+      - name: Build TypeScript
+        run: npm run build:ts
+
+      - name: Run Tests (verify build works)
+        run: npm run test:fast
+
+      - name: Package as platform npm package
+        run: |
+          # Read version from package.json
+          VERSION=$(node -p "require('./package.json').version")
+
+          # Create platform package directory
+          PKG_DIR="packages/@pproenca/node-webcodecs-${{ matrix.platform }}"
+          mkdir -p "$PKG_DIR/bin"
+
+          # Copy the native addon (use matrix.platform directly)
+          cp "prebuilds/${{ matrix.platform }}/node.napi.node" "$PKG_DIR/bin/"
+
+          # Create package.json for the platform package
+          cat > "$PKG_DIR/package.json" << EOF
+          {
+            "name": "@pproenca/node-webcodecs-${{ matrix.platform }}",
+            "version": "${VERSION}",
+            "description": "node-webcodecs native addon for ${{ matrix.platform }}",
+            "os": ["${{ runner.os == 'macOS' && 'darwin' || 'linux' }}"],
+            "cpu": ["${{ matrix.arch }}"],
+            "files": ["bin/"],
+            "license": "MIT",
+            "repository": {
+              "type": "git",
+              "url": "https://github.com/${{ github.repository }}"
+            }
+          }
+          EOF
+
+          echo "Created platform package:"
+          cat "$PKG_DIR/package.json"
+          ls -la "$PKG_DIR/bin/"
+
+          # Create tarball to preserve permissions
+          # NOTE: Use ./@pproenca/... to prevent BSD tar from interpreting @ as
+          # a special directive (@ prefix means "read archive" on macOS tar)
+          cd packages
+          tar -cvf "@pproenca-node-webcodecs-${{ matrix.platform }}.tar" "./@pproenca/node-webcodecs-${{ matrix.platform }}/"
+
+      - name: Upload platform package artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: platform-pkg-${{ matrix.platform }}
+          path: packages/@pproenca-node-webcodecs-${{ matrix.platform }}.tar
+          retention-days: 14 # Extended for release timing flexibility
+          compression-level: 0
+
+      - name: Attest platform package
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: packages/@pproenca/node-webcodecs-${{ matrix.platform }}/bin/node.napi.node
+
+  # ============================================================================
+  # Test across Node versions using prebuilt binaries
+  # Binary is built with Node 22 (tested in build-native), tested here for 20/24 compatibility
+  # ============================================================================
+  test-matrix:
+    permissions:
+      contents: read
+    needs: [build-native]
+    name: "test-node-${{ matrix.node }}-${{ matrix.platform }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux - Node 20/24 (Node 22 already tested in build-native)
+          - { os: ubuntu-24.04, platform: linux-x64, node: "20" }
+          - { os: ubuntu-24.04, platform: linux-x64, node: "24" }
+          # macOS Intel - Node 20/24
+          - { os: macos-15-intel, platform: darwin-x64, node: "20" }
+          - { os: macos-15-intel, platform: darwin-x64, node: "24" }
+          # macOS ARM - Node 20/24
+          - { os: macos-latest, platform: darwin-arm64, node: "20" }
+          - { os: macos-latest, platform: darwin-arm64, node: "24" }
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Download prebuilt artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: platform-pkg-${{ matrix.platform }}
+
+      - name: Extract prebuilt binary
+        run: |
+          # Extract tarball and place binary where node-gyp-build expects it
+          tar -xf "@pproenca-node-webcodecs-${{ matrix.platform }}.tar"
+          mkdir -p prebuilds/${{ matrix.platform }}
+          cp "./@pproenca/node-webcodecs-${{ matrix.platform }}/bin/node.napi.node" prebuilds/${{ matrix.platform }}/
+          ls -la prebuilds/${{ matrix.platform }}/
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Build TypeScript
+        run: npm run build:ts
 
       - name: Test
         run: npm test
