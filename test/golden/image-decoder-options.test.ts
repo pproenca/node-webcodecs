@@ -44,7 +44,12 @@ describe('ImageDecoder Configuration Options', () => {
   });
 
   describe('desiredWidth and desiredHeight', () => {
-    it('accepts desiredWidth/desiredHeight options', async () => {
+    // W3C Spec 10.3 - valid ImageDecoderInit validation steps 4-5:
+    // "If desiredWidth exists and desiredHeight does not exist, return false."
+    // "If desiredHeight exists and desiredWidth does not exist, return false."
+    // Both must be present together or neither should be present.
+
+    it('accepts desiredWidth/desiredHeight options together', async () => {
       const data = createMinimalPNG();
       const decoder = new ImageDecoder({
         type: 'image/png',
@@ -57,28 +62,46 @@ describe('ImageDecoder Configuration Options', () => {
       decoder.close();
     });
 
-    it('accepts only desiredWidth', async () => {
+    it('accepts neither desiredWidth nor desiredHeight', async () => {
       const data = createMinimalPNG();
       const decoder = new ImageDecoder({
         type: 'image/png',
         data,
-        desiredWidth: 100,
+        // No desiredWidth or desiredHeight
       });
 
       assert.strictEqual(decoder.type, 'image/png');
       decoder.close();
     });
 
-    it('accepts only desiredHeight', async () => {
+    // W3C Spec 10.3 step 4: desiredWidth without desiredHeight is INVALID
+    it('throws TypeError for desiredWidth without desiredHeight (spec 10.3 step 4)', () => {
       const data = createMinimalPNG();
-      const decoder = new ImageDecoder({
-        type: 'image/png',
-        data,
-        desiredHeight: 100,
-      });
+      assert.throws(
+        () =>
+          new ImageDecoder({
+            type: 'image/png',
+            data,
+            desiredWidth: 100,
+            // No desiredHeight - violates spec step 4
+          }),
+        TypeError,
+      );
+    });
 
-      assert.strictEqual(decoder.type, 'image/png');
-      decoder.close();
+    // W3C Spec 10.3 step 5: desiredHeight without desiredWidth is INVALID
+    it('throws TypeError for desiredHeight without desiredWidth (spec 10.3 step 5)', () => {
+      const data = createMinimalPNG();
+      assert.throws(
+        () =>
+          new ImageDecoder({
+            type: 'image/png',
+            data,
+            desiredHeight: 100,
+            // No desiredWidth - violates spec step 5
+          }),
+        TypeError,
+      );
     });
   });
 
