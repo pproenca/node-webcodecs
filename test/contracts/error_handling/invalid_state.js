@@ -287,6 +287,168 @@ test('accessing closed AudioData throws or returns null', () => {
   );
 });
 
+// VideoEncoder.flush() on wrong states
+test('VideoEncoder.flush() on unconfigured throws', async () => {
+  const encoder = new VideoEncoder({output: () => {}, error: () => {}});
+  let threw = false;
+  try {
+    await encoder.flush();
+  } catch (_e) {
+    threw = true;
+  }
+  encoder.close();
+  assert.ok(threw, 'should throw on unconfigured encoder');
+});
+
+test('VideoEncoder.flush() on closed throws', async () => {
+  const encoder = new VideoEncoder({output: () => {}, error: () => {}});
+  encoder.configure({
+    codec: 'avc1.42001e',
+    width: 100,
+    height: 100,
+    bitrate: 1_000_000,
+  });
+  encoder.close();
+
+  let threw = false;
+  try {
+    await encoder.flush();
+  } catch (_e) {
+    threw = true;
+  }
+  assert.ok(threw, 'should throw on closed encoder');
+});
+
+// VideoDecoder.flush() on wrong states
+test('VideoDecoder.flush() on unconfigured throws', async () => {
+  const decoder = new VideoDecoder({output: () => {}, error: () => {}});
+  let threw = false;
+  try {
+    await decoder.flush();
+  } catch (_e) {
+    threw = true;
+  }
+  decoder.close();
+  assert.ok(threw, 'should throw on unconfigured decoder');
+});
+
+test('VideoDecoder.flush() on closed throws', async () => {
+  const decoder = new VideoDecoder({output: () => {}, error: () => {}});
+  decoder.configure({
+    codec: 'avc1.42001e',
+    codedWidth: 100,
+    codedHeight: 100,
+  });
+  decoder.close();
+
+  let threw = false;
+  try {
+    await decoder.flush();
+  } catch (_e) {
+    threw = true;
+  }
+  assert.ok(threw, 'should throw on closed decoder');
+});
+
+// AudioEncoder.flush() on wrong states
+test('AudioEncoder.flush() on unconfigured throws', async () => {
+  const encoder = new AudioEncoder({output: () => {}, error: () => {}});
+  let threw = false;
+  try {
+    await encoder.flush();
+  } catch (_e) {
+    threw = true;
+  }
+  encoder.close();
+  assert.ok(threw, 'should throw on unconfigured encoder');
+});
+
+test('AudioEncoder.flush() on closed throws', async () => {
+  const encoder = new AudioEncoder({output: () => {}, error: () => {}});
+  encoder.configure({
+    codec: 'mp4a.40.2',
+    sampleRate: 48000,
+    numberOfChannels: 2,
+    bitrate: 128_000,
+  });
+  encoder.close();
+
+  let threw = false;
+  try {
+    await encoder.flush();
+  } catch (_e) {
+    threw = true;
+  }
+  assert.ok(threw, 'should throw on closed encoder');
+});
+
+// AudioDecoder.flush() on wrong states
+test('AudioDecoder.flush() on unconfigured throws', async () => {
+  const decoder = new AudioDecoder({output: () => {}, error: () => {}});
+  let threw = false;
+  try {
+    await decoder.flush();
+  } catch (_e) {
+    threw = true;
+  }
+  decoder.close();
+  assert.ok(threw, 'should throw on unconfigured decoder');
+});
+
+test('AudioDecoder.flush() on closed throws', async () => {
+  const decoder = new AudioDecoder({output: () => {}, error: () => {}});
+  decoder.configure({
+    codec: 'mp4a.40.2',
+    sampleRate: 48000,
+    numberOfChannels: 2,
+  });
+  decoder.close();
+
+  let threw = false;
+  try {
+    await decoder.flush();
+  } catch (_e) {
+    threw = true;
+  }
+  assert.ok(threw, 'should throw on closed decoder');
+});
+
+// configure() on closed state tests
+test('VideoEncoder.configure() on closed throws', () => {
+  const encoder = new VideoEncoder({output: () => {}, error: () => {}});
+  encoder.close();
+
+  let threw = false;
+  try {
+    encoder.configure({
+      codec: 'avc1.42001e',
+      width: 100,
+      height: 100,
+      bitrate: 1_000_000,
+    });
+  } catch (_e) {
+    threw = true;
+  }
+  assert.ok(threw, 'should throw on closed encoder');
+});
+
+test('VideoDecoder.configure() on closed throws', () => {
+  const decoder = new VideoDecoder({output: () => {}, error: () => {}});
+  decoder.close();
+
+  let threw = false;
+  try {
+    decoder.configure({
+      codec: 'avc1.42001e',
+      codedWidth: 100,
+      codedHeight: 100,
+    });
+  } catch (_e) {
+    threw = true;
+  }
+  assert.ok(threw, 'should throw on closed decoder');
+});
+
 async function run() {
   console.log('Contract: Invalid State Error Handling\n');
   let passed = 0,
