@@ -241,7 +241,7 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          brew install automake libtool nasm cmake pkg-config
+          brew install autoconf automake libtool nasm cmake pkg-config
 
       - name: Cache compiled libraries
         uses: actions/cache@v5
@@ -277,14 +277,16 @@ jobs:
           if curl -fSL --retry 3 --retry-delay 5 "$NASM_URL" -o nasm.tar.bz2 2>/dev/null; then
             echo "Downloaded nasm from primary source"
             tar xjf nasm.tar.bz2
+            cd nasm-${NASM_VERSION}
           else
             echo "Primary nasm download failed, trying GitHub mirror..."
             curl -fSL --retry 3 "$NASM_GITHUB" -o nasm.tar.gz
             tar xzf nasm.tar.gz
-            mv nasm-nasm-${NASM_VERSION} nasm-${NASM_VERSION}
+            cd nasm-nasm-${NASM_VERSION}
+            # GitHub source archive requires autogen.sh to create configure script
+            ./autogen.sh
           fi
 
-          cd nasm-${NASM_VERSION}
           ./configure --prefix="$TARGET"
           make -j$(sysctl -n hw.ncpu)
           make install

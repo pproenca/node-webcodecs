@@ -36,7 +36,7 @@ jobs:
     name: "build-${{ matrix.platform }}-nodejs-${{ matrix.nodejs_version }}"
     runs-on: ${{ matrix.os }}
     env:
-      DEPS_VERSION: v7  # Bump when running new build-ffmpeg workflow
+      DEPS_VERSION: v8  # Bump when running new build-ffmpeg workflow
     strategy:
       fail-fast: false
       matrix:
@@ -82,7 +82,8 @@ jobs:
         with:
           repo: ${{ github.repository }}
           version: tags/deps-${{ env.DEPS_VERSION }}
-          file: ffmpeg-${{ matrix.platform }}.tar.gz
+          # Use glibc variant for Linux (musl libs can't link into glibc shared objects)
+          file: ffmpeg-${{ matrix.platform }}${{ runner.os == 'Linux' && '-glibc' || '' }}.tar.gz
           target: ffmpeg-${{ matrix.platform }}.tar.gz
           token: ${{ secrets.GITHUB_TOKEN }}
 
