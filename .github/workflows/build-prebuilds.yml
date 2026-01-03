@@ -42,7 +42,7 @@ jobs:
     name: "prebuild-${{ matrix.platform }}"
     runs-on: ${{ matrix.os }}
     env:
-      DEPS_VERSION: ${{ inputs.deps_version || 'v7' }}
+      DEPS_VERSION: ${{ inputs.deps_version || 'v8' }}
     strategy:
       fail-fast: false
       matrix:
