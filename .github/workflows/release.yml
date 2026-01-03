@@ -114,17 +114,10 @@ jobs:
           tar -tf "$tarball" > /dev/null || { echo "ERROR: Tarball is corrupted"; exit 1; }
 
           echo "Extracting $tarball"
-          mkdir -p packages
-          tar -xvf "$tarball" -C packages/
-
-          # Verify binary exists
-          pkg_dir="packages/@pproenca/node-webcodecs-${{ matrix.platform }}"
-          if [ ! -f "$pkg_dir/bin/node.napi.node" ]; then
-            echo "ERROR: Missing binary for ${{ matrix.platform }}"
-            ls -laR packages/
-            exit 1
-          fi
-          echo "OK: Binary verified at $pkg_dir/bin/node.napi.node"
+          node scripts/ci/platform-package.mjs extract \
+            --platform "${{ matrix.platform }}" \
+            --tar "$tarball" \
+            --out packages
 
       # Create the tarball exactly as npm publish would
       - name: Create npm package tarball
@@ -237,7 +230,10 @@ jobs:
               echo "Validating $tarball integrity..."
               tar -tf "$tarball" > /dev/null || { echo "ERROR: Tarball $tarball is corrupted"; exit 1; }
               echo "Extracting $tarball"
-              tar -xvf "$tarball" -C packages/
+              node scripts/ci/platform-package.mjs extract \
+                --platform "$platform" \
+                --tar "$tarball" \
+                --out packages
             else
               echo "Error: No tarball found in $artifact_dir"
               echo "Did CI complete successfully for commit?"
