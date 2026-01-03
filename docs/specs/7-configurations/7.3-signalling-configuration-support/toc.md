@@ -11,4 +11,4 @@
 
 ---
 
-[← Back to 7. Configurations](../../7-configurations/toc.md)
+[← Back to 7. Configurations](../../7-configurations/TOC.md)

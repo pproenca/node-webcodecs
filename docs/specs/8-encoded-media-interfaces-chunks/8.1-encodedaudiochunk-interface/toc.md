@@ -36,4 +36,4 @@ enum EncodedAudioChunkType {
 
 ---
 
-[← Back to 8. Encoded Media Interfaces (Chunks)](../../8-encoded-media-interfaces-chunks/toc.md)
+[← Back to 8. Encoded Media Interfaces (Chunks)](../../8-encoded-media-interfaces-chunks/TOC.md)

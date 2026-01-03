@@ -10,11 +10,11 @@
  *
  * Output structure:
  *   docs/specs/
- *   ├── toc.md                              # Table of contents
+ *   ├── TOC.md                              # Table of contents
  *   ├── images/                             # Downloaded images
  *   ├── 1-definitions.md
  *   ├── 2-codec-processing-model/
- *   │   ├── toc.md
+ *   │   ├── TOC.md
  *   │   ├── 2.1-background.md
  *   │   └── ...
  *   └── ...
@@ -100,9 +100,9 @@ function getSectionPath(section: Section, hasChildren: boolean): string {
 
   if (hasChildren) {
     if (parentPath) {
-      return join(parentPath, slug, 'toc.md');
+      return join(parentPath, slug, 'TOC.md');
     }
-    return join(slug, 'toc.md');
+    return join(slug, 'TOC.md');
   }
 
   if (parentPath) {
@@ -594,9 +594,9 @@ async function main(): Promise<void> {
   mkdirSync(IMAGES_DIR, {recursive: true});
 
   // Generate TOC markdown
-  console.log('\nGenerating toc.md...');
+  console.log('\nGenerating TOC.md...');
   const tocMd = generateTocMarkdown(sections);
-  writeFileSync(join(OUTPUT_DIR, 'toc.md'), tocMd);
+  writeFileSync(join(OUTPUT_DIR, 'TOC.md'), tocMd);
 
   // Generate TODO markdown for audit tracking
   console.log('Generating TODO.md...');
@@ -658,7 +658,7 @@ async function main(): Promise<void> {
     } else {
       const depth = dirname(filePath).split('/').length;
       const prefix = depth > 0 ? '../'.repeat(depth) : './';
-      markdown += `[← Back to Table of Contents](${prefix}toc.md)\n`;
+      markdown += `[← Back to Table of Contents](${prefix}TOC.md)\n`;
     }
 
     writeFileSync(fullPath, markdown);
