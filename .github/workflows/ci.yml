@@ -16,7 +16,7 @@ on:
 permissions: {}
 
 env:
-  DEPS_VERSION: v9 # Bump when running new build-ffmpeg workflow
+  DEPS_VERSION: v10 # Bump when running new build-ffmpeg workflow
 
 jobs:
   # ============================================================================
