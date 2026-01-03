@@ -14,7 +14,7 @@
  *   ├── images/                             # Downloaded images
  *   ├── 1-definitions.md
  *   ├── 2-codec-processing-model/
- *   │   ├── index.md
+ *   │   ├── toc.md
  *   │   ├── 2.1-background.md
  *   │   └── ...
  *   └── ...
@@ -100,9 +100,9 @@ function getSectionPath(section: Section, hasChildren: boolean): string {
 
   if (hasChildren) {
     if (parentPath) {
-      return join(parentPath, slug, 'index.md');
+      return join(parentPath, slug, 'toc.md');
     }
-    return join(slug, 'index.md');
+    return join(slug, 'toc.md');
   }
 
   if (parentPath) {
