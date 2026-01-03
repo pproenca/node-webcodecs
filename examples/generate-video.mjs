@@ -12,14 +12,7 @@
  * Output: output.mp4 (640x480, 30fps, H.264)
  */
 
-// Use local build if available, otherwise published package
-let lib;
-try {
-  lib = await import('../dist/index.js');
-} catch {
-  lib = await import('@pproenca/node-webcodecs');
-}
-const { VideoEncoder, VideoFrame, Muxer } = lib;
+import { VideoEncoder, VideoFrame, Muxer } from '@pproenca/node-webcodecs';
 
 // Video settings
 const WIDTH = 640;

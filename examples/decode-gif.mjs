@@ -11,14 +11,7 @@
  *   node decode-gif.mjs [path-to-gif]
  */
 
-// Use local build if available, otherwise published package
-let lib;
-try {
-  lib = await import('../dist/index.js');
-} catch {
-  lib = await import('@pproenca/node-webcodecs');
-}
-const { ImageDecoder } = lib;
+import { ImageDecoder } from '@pproenca/node-webcodecs';
 
 // Create a simple 2-frame animated GIF for demo purposes
 function createDemoGIF() {

@@ -1,0 +1,11 @@
+{
+  "name": "node-webcodecs-examples",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Examples for @pproenca/node-webcodecs",
+  "type": "module",
+  "dependencies": {
+    "@pproenca/node-webcodecs": "0.1.1-alpha.8",
+    "express": "^4.18.0"
+  }
+}
