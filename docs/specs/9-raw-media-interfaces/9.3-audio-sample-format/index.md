@@ -47,6 +47,12 @@ enum AudioSampleFormat {
 
 **f32-planar**
 : [32-bit float](https://webidl.spec.whatwg.org/#idl-float) [samples](#sample) with [planar](#planar) [channel arrangement](../../9-raw-media-interfaces/9.3-audio-sample-format/9.3.1-arrangement-of-audio-buffer.md).
+## Subsections
+
+- [9.3.1. Arrangement of audio buffer](./9.3.1-arrangement-of-audio-buffer.md)
+- [9.3.2. Magnitude of the audio samples](./9.3.2-magnitude-of-the-audio-samples.md)
+- [9.3.3. Audio channel ordering](./9.3.3-audio-channel-ordering.md)
+
 
 ---
 
