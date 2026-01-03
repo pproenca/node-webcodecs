@@ -1,5 +1,5 @@
 // Copyright 2024 The node-webcodecs Authors
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: MIT
 //
 // Platform detection following sharp's lib/libvips.js pattern.
 

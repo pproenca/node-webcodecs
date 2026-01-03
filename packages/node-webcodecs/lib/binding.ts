@@ -1,5 +1,5 @@
 // Copyright 2024 The node-webcodecs Authors
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: MIT
 //
 // Native binding loader following sharp's lib/sharp.js pattern.
 // Inspects the runtime environment and exports the relevant webcodecs.node binary.

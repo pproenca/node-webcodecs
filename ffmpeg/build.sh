@@ -110,10 +110,10 @@ build_x264() {
     local extra_flags=""
     case "$PLATFORM" in
         darwin-arm64)
-            extra_flags="--extra-cflags='-arch arm64' --extra-ldflags='-arch arm64'"
+            extra_flags="--extra-cflags='-arch arm64 -mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET}' --extra-ldflags='-arch arm64 -mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET}'"
             ;;
         darwin-x64)
-            extra_flags="--extra-cflags='-arch x86_64' --extra-ldflags='-arch x86_64'"
+            extra_flags="--extra-cflags='-arch x86_64 -mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET}' --extra-ldflags='-arch x86_64 -mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET}'"
             ;;
     esac
 
@@ -140,10 +140,10 @@ build_x265() {
     local cmake_flags=""
     case "$PLATFORM" in
         darwin-arm64)
-            cmake_flags="-DCMAKE_OSX_ARCHITECTURES=arm64"
+            cmake_flags="-DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOS_DEPLOYMENT_TARGET}"
             ;;
         darwin-x64)
-            cmake_flags="-DCMAKE_OSX_ARCHITECTURES=x86_64"
+            cmake_flags="-DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOS_DEPLOYMENT_TARGET}"
             ;;
     esac
 
@@ -185,18 +185,27 @@ build_libvpx() {
     cd libvpx
 
     local target=""
+    local extra_cflags=""
+    local ldflags_env=""
     case "$PLATFORM" in
         linux-x64|linux-x64-musl)
             target="x86_64-linux-gcc"
             ;;
         darwin-arm64)
             target="arm64-darwin-gcc"
+            extra_cflags="--extra-cflags=-mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET}"
+            ldflags_env="LDFLAGS=-mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET}"
             ;;
         darwin-x64)
             target="x86_64-darwin-gcc"
+            extra_cflags="--extra-cflags=-mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET}"
+            ldflags_env="LDFLAGS=-mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET}"
             ;;
     esac
 
+    # NOTE: libvpx only supports --extra-cflags, NOT --extra-ldflags.
+    # LDFLAGS must be passed as an environment variable.
+    $ldflags_env \
     ./configure \
         --prefix="$PREFIX" \
         --target="$target" \
@@ -208,7 +217,8 @@ build_libvpx() {
         --disable-examples \
         --disable-tools \
         --disable-unit-tests \
-        --disable-docs
+        --disable-docs \
+        $extra_cflags
 
     make -j"$NPROC"
     make install
@@ -225,10 +235,10 @@ build_libaom() {
     local cmake_flags=""
     case "$PLATFORM" in
         darwin-arm64)
-            cmake_flags="-DCMAKE_OSX_ARCHITECTURES=arm64"
+            cmake_flags="-DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOS_DEPLOYMENT_TARGET}"
             ;;
         darwin-x64)
-            cmake_flags="-DCMAKE_OSX_ARCHITECTURES=x86_64"
+            cmake_flags="-DCMAKE_OSX_ARCHITECTURES=x86_64 -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOS_DEPLOYMENT_TARGET}"
             ;;
     esac
 
@@ -259,10 +269,10 @@ build_opus() {
     local extra_flags=""
     case "$PLATFORM" in
         darwin-arm64)
-            extra_flags="CFLAGS='-arch arm64' LDFLAGS='-arch arm64'"
+            extra_flags="CFLAGS='-arch arm64 -mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET}' LDFLAGS='-arch arm64 -mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET}'"
             ;;
         darwin-x64)
-            extra_flags="CFLAGS='-arch x86_64' LDFLAGS='-arch x86_64'"
+            extra_flags="CFLAGS='-arch x86_64 -mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET}' LDFLAGS='-arch x86_64 -mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET}'"
             ;;
     esac
 
@@ -290,10 +300,10 @@ build_lame() {
     local extra_flags=""
     case "$PLATFORM" in
         darwin-arm64)
-            extra_flags="CFLAGS='-arch arm64' LDFLAGS='-arch arm64'"
+            extra_flags="CFLAGS='-arch arm64 -mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET}' LDFLAGS='-arch arm64 -mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET}'"
             ;;
         darwin-x64)
-            extra_flags="CFLAGS='-arch x86_64' LDFLAGS='-arch x86_64'"
+            extra_flags="CFLAGS='-arch x86_64 -mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET}' LDFLAGS='-arch x86_64 -mmacosx-version-min=${MACOS_DEPLOYMENT_TARGET}'"
             ;;
     esac
 
