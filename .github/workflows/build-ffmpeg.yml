@@ -53,6 +53,14 @@ env:
   OPUS_VERSION: '1.5.2'
   LAME_VERSION: '3.100'
   FFMPEG_VERSION: 'n8.0'
+  # SHA256 checksums for tarball downloads (hermetic build verification)
+  # These MUST be updated when changing versions above
+  # Sources: https://opus-codec.org/downloads/, https://sourceforge.net/projects/lame/
+  # NASM uses GitHub source archive (more reliable than nasm.us)
+  NASM_VERSION: '2.16.03'
+  NASM_SHA256: 'e7f77b8247de72f3c2a2c57a9c72b2a0c847ec5e99ce6e68c1e225fa2e37c04c' # GitHub source archive
+  OPUS_SHA256: '65c1d2f78b9f2fb20082c38cbe47c951ad5839345876e46941612ee87f9a7ce1'
+  LAME_SHA256: 'ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e'
   # npm scope for platform packages
   NPM_SCOPE: '@pproenca/ffmpeg'
   # Bump this to invalidate all caches
@@ -287,37 +295,34 @@ jobs:
           rm -rf x264 x265_git libvpx aom aom_build opus-* lame-* nasm-*
 
           echo "=== Building nasm ==="
-          NASM_VERSION="2.16.03"
-          NASM_URL="https://www.nasm.us/pub/nasm/releasebuilds/${NASM_VERSION}/nasm-${NASM_VERSION}.tar.bz2"
-          NASM_GITHUB="https://github.com/netwide-assembler/nasm/archive/refs/tags/nasm-${NASM_VERSION}.tar.gz"
+          # Use GitHub source archive (more reliable than nasm.us which often has connectivity issues)
+          NASM_URL="https://github.com/netwide-assembler/nasm/archive/refs/tags/nasm-${{ env.NASM_VERSION }}.tar.gz"
 
-          # Try primary source with retries, fallback to GitHub mirror
-          NASM_FROM_GITHUB=false
-          if curl -fSL --retry 3 --retry-delay 5 "$NASM_URL" -o nasm.tar.bz2; then
-            echo "Downloaded nasm from primary source"
-            tar xjf nasm.tar.bz2
-            cd nasm-${NASM_VERSION}
-          else
-            echo "Primary nasm download failed, trying GitHub mirror..."
-            curl -fSL --retry 3 "$NASM_GITHUB" -o nasm.tar.gz
-            tar xzf nasm.tar.gz
-            cd nasm-nasm-${NASM_VERSION}
-            NASM_FROM_GITHUB=true
-            # GitHub source archive requires autogen.sh to create configure script
-            ./autogen.sh
-          fi
+          echo "Downloading NASM from GitHub..."
+          curl -fSL --retry 3 --retry-delay 5 "$NASM_URL" -o nasm.tar.gz || {
+            echo "ERROR: Failed to download NASM from $NASM_URL"
+            exit 1
+          }
 
+          # SHA256 verification (hermetic build)
+          echo "${{ env.NASM_SHA256 }}  nasm.tar.gz" | shasum -a 256 -c - || {
+            echo "ERROR: NASM checksum verification failed!"
+            echo "Expected: ${{ env.NASM_SHA256 }}"
+            echo "Got:      $(shasum -a 256 nasm.tar.gz | cut -d' ' -f1)"
+            exit 1
+          }
+          echo "NASM checksum verified"
+
+          tar xzf nasm.tar.gz
+          cd nasm-nasm-${{ env.NASM_VERSION }}
+          # GitHub source archive requires autogen.sh to create configure script
+          ./autogen.sh
           ./configure --prefix="$TARGET"
           make -j$(sysctl -n hw.ncpu)
-
           # GitHub source doesn't include pre-generated man pages (requires asciidoc)
           # Install binaries directly to avoid man page install failure
-          if [ "$NASM_FROM_GITHUB" = true ]; then
-            mkdir -p "$TARGET/bin"
-            install -c nasm ndisasm "$TARGET/bin/"
-          else
-            make install
-          fi
+          mkdir -p "$TARGET/bin"
+          install -c nasm ndisasm "$TARGET/bin/"
           cd ..
 
           echo "=== Building x264 (GPL) ==="
@@ -415,7 +420,21 @@ jobs:
           cd ..
 
           echo "=== Building libopus (BSD) ==="
-          curl -sL https://downloads.xiph.org/releases/opus/opus-${{ env.OPUS_VERSION }}.tar.gz | tar xz
+          curl -fSL --retry 3 https://downloads.xiph.org/releases/opus/opus-${{ env.OPUS_VERSION }}.tar.gz -o opus.tar.gz || {
+            echo "ERROR: Failed to download Opus from xiph.org"
+            exit 1
+          }
+
+          # SHA256 verification (hermetic build)
+          echo "${{ env.OPUS_SHA256 }}  opus.tar.gz" | shasum -a 256 -c - || {
+            echo "ERROR: Opus checksum verification failed!"
+            echo "Expected: ${{ env.OPUS_SHA256 }}"
+            echo "Got:      $(shasum -a 256 opus.tar.gz | cut -d' ' -f1)"
+            exit 1
+          }
+          echo "Opus checksum verified"
+
+          tar xzf opus.tar.gz
           cd opus-${{ env.OPUS_VERSION }}
           ./configure \
             --prefix="$TARGET" \
@@ -428,7 +447,21 @@ jobs:
           cd ..
 
           echo "=== Building libmp3lame (LGPL) ==="
-          curl -sL "https://downloads.sourceforge.net/project/lame/lame/${{ env.LAME_VERSION }}/lame-${{ env.LAME_VERSION }}.tar.gz" | tar xz
+          curl -fSL --retry 3 "https://downloads.sourceforge.net/project/lame/lame/${{ env.LAME_VERSION }}/lame-${{ env.LAME_VERSION }}.tar.gz" -o lame.tar.gz || {
+            echo "ERROR: Failed to download LAME from SourceForge"
+            exit 1
+          }
+
+          # SHA256 verification (hermetic build)
+          echo "${{ env.LAME_SHA256 }}  lame.tar.gz" | shasum -a 256 -c - || {
+            echo "ERROR: LAME checksum verification failed!"
+            echo "Expected: ${{ env.LAME_SHA256 }}"
+            echo "Got:      $(shasum -a 256 lame.tar.gz | cut -d' ' -f1)"
+            exit 1
+          }
+          echo "LAME checksum verified"
+
+          tar xzf lame.tar.gz
           cd lame-${{ env.LAME_VERSION }}
           ./configure \
             --prefix="$TARGET" \
