@@ -144,6 +144,26 @@ describe('VideoDecoder Methods: 4.5', () => {
 
       decoder.close();
     });
+
+    describe('W3C validation', () => {
+      it('should throw TypeError for empty codec', () => {
+        const decoder = createDecoder();
+        assert.throws(() => decoder.configure({ codec: '' }), TypeError);
+        decoder.close();
+      });
+
+      it('should throw TypeError for missing codec', () => {
+        const decoder = createDecoder();
+        assert.throws(
+          () => {
+            // @ts-expect-error Testing invalid input
+            decoder.configure({});
+          },
+          TypeError,
+        );
+        decoder.close();
+      });
+    });
   });
 
   describe('decode() method', () => {

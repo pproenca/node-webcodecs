@@ -142,6 +142,12 @@ export class VideoDecoder extends CodecBase {
       throw new DOMException('Decoder is closed', 'InvalidStateError');
     }
 
+    // W3C spec: validate config is a valid VideoDecoderConfig
+    is.assertDefined(config.codec, 'config.codec');
+    if (typeof config.codec === 'string' && config.codec.trim() === '') {
+      throw new TypeError('config.codec cannot be empty');
+    }
+
     // Validate rotation (node-webcodecs extension)
     if ('rotation' in config && config.rotation !== undefined) {
       if (![0, 90, 180, 270].includes(config.rotation)) {
