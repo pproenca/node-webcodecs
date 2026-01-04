@@ -3,12 +3,11 @@
 
 #include "src/video_decoder.h"
 
-#include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <memory>
 #include <string>
-#include <thread>
 #include <utility>
 #include <vector>
 
@@ -19,7 +18,6 @@
 namespace {
 
 constexpr int kMaxDimension = 16384;
-constexpr int kBytesPerPixelRgba = 4;
 
 }  // namespace
 
@@ -52,7 +50,6 @@ Napi::Object VideoDecoder::Init(Napi::Env env, Napi::Object exports) {
 
 VideoDecoder::VideoDecoder(const Napi::CallbackInfo& info)
     : Napi::ObjectWrap<VideoDecoder>(info),
-      codec_(nullptr),
       state_("unconfigured"),
       coded_width_(0),
       coded_height_(0) {
@@ -82,13 +79,7 @@ VideoDecoder::VideoDecoder(const Napi::CallbackInfo& info)
 }
 
 VideoDecoder::~VideoDecoder() {
-  // CRITICAL: Call Cleanup() first to stop the async worker thread and wait
-  // for pending TSFN callbacks. The worker may still be processing frames,
-  // and we must ensure it exits cleanly before any further cleanup.
   Cleanup();
-
-  // Now safe to disable FFmpeg logging. The worker thread has exited and all
-  // pending callbacks have been processed or aborted.
   webcodecs::ShutdownFFmpegLogging();
 
   // Track active decoder instance (following sharp pattern)
@@ -97,54 +88,184 @@ VideoDecoder::~VideoDecoder() {
 }
 
 void VideoDecoder::Cleanup() {
-  // Stop async worker before cleaning up codec context
-  if (async_worker_) {
-    // Stop() joins the worker thread - after this, no new TSFN calls will be made
-    async_worker_->Stop();
+  // Stop worker first
+  if (worker_) {
+    worker_->Stop();
+    worker_.reset();
+  }
 
-    // DARWIN-X64 FIX: Wait for pending TSFN callbacks to complete.
-    // After Stop() joins the thread, there may still be queued TSFN callbacks
-    // that haven't been processed yet. These callbacks reference memory that
-    // will be freed below.
-    auto deadline =
-        std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
-    while (async_worker_->GetPendingFrames() > 0 &&
-           std::chrono::steady_clock::now() < deadline) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  // Shutdown control queue
+  if (control_queue_) {
+    control_queue_->Shutdown();
+    control_queue_.reset();
+  }
+
+  // Release TSFNs
+  frame_tsfn_.Release();
+  flush_tsfn_.Release();
+  error_tsfn_.Release();
+  dequeue_tsfn_.Release();
+
+  // Clear pending promises
+  pending_flushes_.clear();
+}
+
+void VideoDecoder::SetupWorkerCallbacks(Napi::Env env) {
+  // Capture 'this' pointer and metadata config for callbacks
+  auto* self = this;
+
+  // Set output frame callback
+  worker_->SetOutputFrameCallback([self](ffmpeg::AVFramePtr frame) {
+    // Create callback data with frame and metadata
+    auto* data = new FrameCallbackData();
+    data->frame = std::move(frame);
+    data->metadata.rotation = self->rotation_;
+    data->metadata.flip = self->flip_;
+    data->metadata.display_width = self->display_aspect_width_;
+    data->metadata.display_height = self->display_aspect_height_;
+    data->metadata.color_primaries = self->color_primaries_;
+    data->metadata.color_transfer = self->color_transfer_;
+    data->metadata.color_matrix = self->color_matrix_;
+    data->metadata.color_full_range = self->color_full_range_;
+    data->metadata.has_color_space = self->has_color_space_;
+
+    self->pending_frames_++;
+    if (!self->frame_tsfn_.Call(data)) {
+      self->pending_frames_--;
+      delete data;
     }
+  });
+
+  // Set error callback
+  worker_->SetOutputErrorCallback(
+      [self](int error_code, const std::string& message) {
+        auto* data = new ErrorCallbackData{error_code, message};
+        if (!self->error_tsfn_.Call(data)) {
+          delete data;
+        }
+      });
+
+  // Set flush complete callback
+  worker_->SetFlushCompleteCallback(
+      [self](uint32_t promise_id, bool success, const std::string& error) {
+        auto* data = new FlushCallbackData{promise_id, success, error};
+        if (!self->flush_tsfn_.Call(data)) {
+          delete data;
+        }
+      });
+
+  // Set dequeue callback
+  worker_->SetDequeueCallback([self](uint32_t new_queue_size) {
+    auto* data = new uint32_t(new_queue_size);
+    if (!self->dequeue_tsfn_.Call(data)) {
+      delete data;
+    }
+  });
+}
+
+// TSFN callback: handle decoded frame on JS thread
+void VideoDecoder::OnFrameCallback(Napi::Env env, Napi::Function fn,
+                                   std::nullptr_t*, FrameCallbackData* data) {
+  if (env == nullptr || data == nullptr) {
+    delete data;
+    return;
   }
 
-  // DARWIN-X64 FIX: Release ThreadSafeFunctions to ensure proper cleanup.
-  // Release() signals no more calls will be made and decrements the reference
-  // count. Without explicit Release(), TSFN cleanup during environment teardown
-  // may race with other shutdown operations on Intel Mac (slower timing).
-  // The shared_ptr<atomic<int>> pending_frames_ captured by callbacks ensures
-  // thread-safety even if callbacks are cancelled mid-flight.
-  if (async_mode_) {
-    output_tsfn_.Release();
-    error_tsfn_.Release();
-    async_mode_ = false;
+  try {
+    AVFrame* frame = data->frame.get();
+    if (!frame) {
+      delete data;
+      return;
+    }
+
+    // Extract dimensions and metadata
+    int width = frame->width;
+    int height = frame->height;
+    int64_t timestamp = frame->pts;
+
+    // Get display dimensions from sample_aspect_ratio (stored by worker)
+    int display_width =
+        frame->sample_aspect_ratio.num > 0 ? frame->sample_aspect_ratio.num : width;
+    int display_height =
+        frame->sample_aspect_ratio.den > 0 ? frame->sample_aspect_ratio.den : height;
+
+    // Get rotation and flip from opaque (encoded by worker)
+    intptr_t opaque_val = reinterpret_cast<intptr_t>(frame->opaque);
+    int rotation = static_cast<int>((opaque_val >> 1) & 0x3) * 90;
+    bool flip = (opaque_val & 1) != 0;
+
+    // Frame data is already in RGBA format
+    size_t data_size = width * height * 4;
+
+    // Create VideoFrame
+    Napi::Object video_frame;
+    if (data->metadata.has_color_space) {
+      video_frame = VideoFrame::CreateInstance(
+          env, frame->data[0], data_size, width, height, timestamp, "RGBA",
+          rotation, flip, display_width, display_height,
+          data->metadata.color_primaries, data->metadata.color_transfer,
+          data->metadata.color_matrix, data->metadata.color_full_range);
+    } else {
+      video_frame = VideoFrame::CreateInstance(
+          env, frame->data[0], data_size, width, height, timestamp, "RGBA",
+          rotation, flip, display_width, display_height);
+    }
+
+    fn.Call({video_frame});
+  } catch (const std::exception& e) {
+    fprintf(stderr, "VideoDecoder frame callback error: %s\n", e.what());
   }
 
-  // Safe to destroy async_worker_ - worker thread has exited and TSFN aborted
-  if (async_worker_) {
-    async_worker_.reset();
+  delete data;
+  webcodecs::counterQueue--;
+}
+
+// TSFN callback: handle flush completion on JS thread
+void VideoDecoder::OnFlushCallback(Napi::Env env, Napi::Function /* fn */,
+                                   std::nullptr_t*, FlushCallbackData* data) {
+  if (env == nullptr || data == nullptr) {
+    delete data;
+    return;
   }
 
-  // DARWIN-X64 FIX: Flush codec internal buffers before destruction.
-  // Some decoders may have internal queued frames. Flushing ensures they're
-  // drained before context destruction, preventing use-after-free.
-  // CRITICAL: Only flush if codec was successfully opened. avcodec_flush_buffers
-  // crashes on an unopened codec context (the internal codec pointer is NULL).
-  if (codec_context_ && avcodec_is_open(codec_context_.get())) {
-    avcodec_flush_buffers(codec_context_.get());
+  // Note: We need to access the decoder's pending_flushes_ map
+  // This callback is associated with a specific decoder instance
+  // The 'fn' here is a dummy function - we resolve/reject via the stored
+  // deferred
+
+  delete data;
+}
+
+// TSFN callback: handle error on JS thread
+void VideoDecoder::OnErrorCallback(Napi::Env env, Napi::Function fn,
+                                   std::nullptr_t*, ErrorCallbackData* data) {
+  if (env == nullptr || data == nullptr) {
+    delete data;
+    return;
   }
 
-  frame_.reset();
-  packet_.reset();
-  sws_context_.reset();
-  codec_context_.reset();
-  codec_ = nullptr;
+  try {
+    Napi::Error error = Napi::Error::New(env, data->message);
+    fn.Call({error.Value()});
+  } catch (const std::exception& e) {
+    fprintf(stderr, "VideoDecoder error callback error: %s\n", e.what());
+  }
+
+  delete data;
+}
+
+// TSFN callback: handle dequeue event on JS thread
+void VideoDecoder::OnDequeueCallback(Napi::Env env, Napi::Function /* fn */,
+                                     std::nullptr_t*, uint32_t* data) {
+  if (env == nullptr || data == nullptr) {
+    delete data;
+    return;
+  }
+
+  // Note: Queue size update is handled internally
+  // This callback allows future extensions (e.g., dequeue event emission)
+
+  delete data;
 }
 
 Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
@@ -193,40 +314,6 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
     throw Napi::Error::New(env, "Unsupported codec: " + codec_str);
   }
 
-  // Find decoder.
-  codec_ = avcodec_find_decoder(codec_id);
-  if (!codec_) {
-    throw Napi::Error::New(env, "Decoder not found for codec: " + codec_str);
-  }
-
-  // Allocate codec context.
-  codec_context_ = ffmpeg::make_codec_context(codec_);
-  if (!codec_context_) {
-    throw Napi::Error::New(env, "Could not allocate codec context");
-  }
-
-  // Set dimensions only if provided (decoder will use bitstream dimensions
-  // otherwise).
-  if (coded_width_ > 0) {
-    codec_context_->width = coded_width_;
-  }
-  if (coded_height_ > 0) {
-    codec_context_->height = coded_height_;
-  }
-
-  // Handle optional description (extradata / SPS+PPS for H.264).
-  auto [desc_data, desc_size] = webcodecs::AttrAsBuffer(config, "description");
-  if (desc_data != nullptr && desc_size > 0) {
-    codec_context_->extradata = static_cast<uint8_t*>(
-        av_malloc(desc_size + AV_INPUT_BUFFER_PADDING_SIZE));
-    if (codec_context_->extradata) {
-      memcpy(codec_context_->extradata, desc_data, desc_size);
-      memset(codec_context_->extradata + desc_size, 0,
-             AV_INPUT_BUFFER_PADDING_SIZE);
-      codec_context_->extradata_size = static_cast<int>(desc_size);
-    }
-  }
-
   // Parse optional rotation (must be 0, 90, 180, or 270).
   rotation_ = webcodecs::AttrAsInt32(config, "rotation", 0);
   if (rotation_ != 0 && rotation_ != 90 && rotation_ != 180 &&
@@ -265,10 +352,8 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
       webcodecs::AttrAsBool(config, "optimizeForLatency", false);
 
   // Parse optional hardwareAcceleration (per W3C spec).
-  // Note: This is a stub - FFmpeg uses software decoding.
   hardware_acceleration_ =
       webcodecs::AttrAsStr(config, "hardwareAcceleration", "no-preference");
-  // Validate W3C enum values per spec.
   if (hardware_acceleration_ != "no-preference" &&
       hardware_acceleration_ != "prefer-hardware" &&
       hardware_acceleration_ != "prefer-software") {
@@ -278,70 +363,76 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
         "or 'prefer-software'");
   }
 
-  // Apply low-latency flags if requested (before opening codec).
-  if (optimize_for_latency_) {
-    codec_context_->flags |= AV_CODEC_FLAG_LOW_DELAY;
-    codec_context_->flags2 |= AV_CODEC_FLAG2_FAST;
+  // Handle optional description (extradata / SPS+PPS for H.264).
+  auto [desc_data, desc_size] = webcodecs::AttrAsBuffer(config, "description");
+  std::vector<uint8_t> extradata;
+  if (desc_data != nullptr && desc_size > 0) {
+    extradata.assign(desc_data, desc_data + desc_size);
   }
 
-  // Open codec.
-  int ret = avcodec_open2(codec_context_.get(), codec_, nullptr);
-  if (ret < 0) {
-    char errbuf[256];
-    av_strerror(ret, errbuf, sizeof(errbuf));
-    Cleanup();
-    throw Napi::Error::New(env,
-                           std::string("Could not open decoder: ") + errbuf);
+  // Create control queue and worker
+  control_queue_ = std::make_unique<webcodecs::VideoControlQueue>();
+  worker_ =
+      std::make_unique<webcodecs::VideoDecoderWorker>(control_queue_.get());
+
+  // Create TSFNs for callbacks
+  auto frame_tsfn = FrameTSFN::TSFN::New(
+      env, output_callback_.Value(), "VideoDecoderFrame", 0, 1);
+  frame_tsfn_.Init(std::move(frame_tsfn));
+
+  // Create a dummy function for flush TSFN since we use stored deferred
+  // Note: We'll handle flush completion via a different mechanism
+  auto flush_fn = Napi::Function::New(env, [](const Napi::CallbackInfo&) {});
+  auto flush_tsfn =
+      FlushTSFN::TSFN::New(env, flush_fn, "VideoDecoderFlush", 0, 1);
+  flush_tsfn_.Init(std::move(flush_tsfn));
+
+  auto error_tsfn = ErrorTSFN::TSFN::New(env, error_callback_.Value(),
+                                         "VideoDecoderError", 0, 1);
+  error_tsfn_.Init(std::move(error_tsfn));
+
+  auto dequeue_fn = Napi::Function::New(env, [](const Napi::CallbackInfo&) {});
+  auto dequeue_tsfn =
+      DequeueTSFN::TSFN::New(env, dequeue_fn, "VideoDecoderDequeue", 0, 1);
+  dequeue_tsfn_.Init(std::move(dequeue_tsfn));
+
+  // Setup worker callbacks
+  SetupWorkerCallbacks(env);
+
+  // Prepare decoder config
+  webcodecs::VideoDecoderConfig decoder_config;
+  decoder_config.codec_id = codec_id;
+  decoder_config.coded_width = coded_width_;
+  decoder_config.coded_height = coded_height_;
+  decoder_config.extradata = std::move(extradata);
+  decoder_config.optimize_for_latency = optimize_for_latency_;
+  decoder_config.metadata.rotation = rotation_;
+  decoder_config.metadata.flip = flip_;
+  decoder_config.metadata.display_width = display_aspect_width_;
+  decoder_config.metadata.display_height = display_aspect_height_;
+  decoder_config.metadata.color_primaries = color_primaries_;
+  decoder_config.metadata.color_transfer = color_transfer_;
+  decoder_config.metadata.color_matrix = color_matrix_;
+  decoder_config.metadata.color_full_range = color_full_range_;
+  decoder_config.metadata.has_color_space = has_color_space_;
+
+  worker_->SetConfig(decoder_config);
+
+  // Start worker
+  if (!worker_->Start()) {
+    throw Napi::Error::New(env, "Failed to start decoder worker");
   }
 
-  // Allocate frame and packet.
-  frame_ = ffmpeg::make_frame();
-  if (!frame_) {
-    Cleanup();
-    throw Napi::Error::New(env, "Could not allocate frame");
-  }
+  // Enqueue configure message
+  webcodecs::VideoControlQueue::ConfigureMessage configure_msg;
+  configure_msg.configure_fn = []() { return true; };
 
-  packet_ = ffmpeg::make_packet();
-  if (!packet_) {
-    Cleanup();
-    throw Napi::Error::New(env, "Could not allocate packet");
+  if (!worker_->Enqueue(configure_msg)) {
+    throw Napi::Error::New(env, "Failed to enqueue configure message");
   }
 
   state_ = "configured";
-
-  // Enable async decoding via worker thread.
-  // Flush semantics use pendingFrames counter - TypeScript polls with
-  // setTimeout to wait for all TSFN callbacks to complete without blocking
-  // the event loop.
-  async_mode_ = true;
-
-  // Create ThreadSafeFunctions for async callbacks
-  output_tsfn_ = Napi::ThreadSafeFunction::New(env, output_callback_.Value(),
-                                               "VideoDecoderOutput", 0, 1);
-  error_tsfn_ = Napi::ThreadSafeFunction::New(env, error_callback_.Value(),
-                                              "VideoDecoderError", 0, 1);
-
-  // Create and start the async worker
-  async_worker_ =
-      std::make_unique<AsyncDecodeWorker>(this, output_tsfn_, error_tsfn_);
-  // Pass nullptr for sws_context - AsyncDecodeWorker creates it lazily
-  async_worker_->SetCodecContext(codec_context_.get(), nullptr, coded_width_,
-                                 coded_height_);
-
-  // Set metadata config for async output frames (matching encoder pattern)
-  DecoderMetadataConfig metadata_config;
-  metadata_config.rotation = rotation_;
-  metadata_config.flip = flip_;
-  metadata_config.display_width = display_aspect_width_;
-  metadata_config.display_height = display_aspect_height_;
-  metadata_config.color_primaries = color_primaries_;
-  metadata_config.color_transfer = color_transfer_;
-  metadata_config.color_matrix = color_matrix_;
-  metadata_config.color_full_range = color_full_range_;
-  metadata_config.has_color_space = has_color_space_;
-  async_worker_->SetMetadataConfig(metadata_config);
-
-  async_worker_->Start();
+  key_chunk_required_ = true;
 
   return env.Undefined();
 }
@@ -351,18 +442,22 @@ Napi::Value VideoDecoder::GetState(const Napi::CallbackInfo& info) {
 }
 
 Napi::Value VideoDecoder::GetDecodeQueueSize(const Napi::CallbackInfo& info) {
-  return Napi::Number::New(info.Env(), decode_queue_size_);
+  if (control_queue_) {
+    return Napi::Number::New(info.Env(), static_cast<int>(control_queue_->size()));
+  }
+  return Napi::Number::New(info.Env(), 0);
 }
 
 Napi::Value VideoDecoder::GetCodecSaturated(const Napi::CallbackInfo& info) {
-  return Napi::Boolean::New(info.Env(), codec_saturated_.load());
+  if (control_queue_) {
+    return Napi::Boolean::New(info.Env(),
+                              control_queue_->size() >= kMaxQueueSize);
+  }
+  return Napi::Boolean::New(info.Env(), false);
 }
 
 Napi::Value VideoDecoder::GetPendingFrames(const Napi::CallbackInfo& info) {
-  if (async_worker_) {
-    return Napi::Number::New(info.Env(), async_worker_->GetPendingFrames());
-  }
-  return Napi::Number::New(info.Env(), 0);
+  return Napi::Number::New(info.Env(), pending_frames_.load());
 }
 
 Napi::Value VideoDecoder::Decode(const Napi::CallbackInfo& info) {
@@ -373,15 +468,7 @@ Napi::Value VideoDecoder::Decode(const Napi::CallbackInfo& info) {
   }
 
   // Reject if queue is too large (prevents OOM).
-  if (async_mode_ && async_worker_) {
-    size_t queue = async_worker_->QueueSize() + async_worker_->GetPendingFrames();
-    if (queue >= kMaxHardQueueSize) {
-      throw Napi::Error::New(
-          env,
-          "QuotaExceededError: Decode queue is full. You must handle "
-          "backpressure by waiting for decodeQueueSize to decrease.");
-    }
-  } else if (decode_queue_size_ >= static_cast<int>(kMaxHardQueueSize)) {
+  if (control_queue_ && control_queue_->size() >= kMaxHardQueueSize) {
     throw Napi::Error::New(
         env,
         "QuotaExceededError: Decode queue is full. You must handle "
@@ -400,60 +487,45 @@ Napi::Value VideoDecoder::Decode(const Napi::CallbackInfo& info) {
   const uint8_t* data = chunk->GetData();
   size_t data_size = chunk->GetDataSize();
   int64_t timestamp = chunk->GetTimestampValue();
-  int64_t duration = chunk->GetDurationValue();
   bool is_key_frame = (chunk->GetTypeValue() == "key");
 
-  // Use async decoding path
-  if (async_mode_ && async_worker_) {
-    // Create decode task with copy of chunk data
-    DecodeTask task;
-    task.data.assign(data, data + data_size);
-    task.timestamp = timestamp;
-    task.duration = duration;
-    task.is_key = is_key_frame;
-
-    // Enqueue to async worker (non-blocking)
-    async_worker_->Enqueue(std::move(task));
-
-    // Update queue size tracking
-    decode_queue_size_++;
-    webcodecs::counterQueue++;  // Global queue tracking
-    bool saturated = decode_queue_size_ >= static_cast<int>(kMaxQueueSize);
-    codec_saturated_.store(saturated);
-
-    return env.Undefined();
+  // Check key chunk requirement
+  if (key_chunk_required_ && !is_key_frame) {
+    // Per W3C spec, first chunk after configure/reset must be a key frame
+    throw Napi::Error::New(
+        env, "DataError: First chunk after configure/reset must be a key frame");
   }
-
-  // Fallback to synchronous decoding (shouldn't normally reach here)
-  // Setup packet.
-  av_packet_unref(packet_.get());
-  packet_->data = const_cast<uint8_t*>(data);
-  packet_->size = static_cast<int>(data_size);
-  packet_->pts = timestamp;
-  packet_->dts = timestamp;
-
   if (is_key_frame) {
-    packet_->flags |= AV_PKT_FLAG_KEY;
+    key_chunk_required_ = false;
   }
 
-  // Send packet to decoder.
-  int ret = avcodec_send_packet(codec_context_.get(), packet_.get());
-  if (ret < 0 && ret != AVERROR(EAGAIN)) {
-    char errbuf[256];
-    av_strerror(ret, errbuf, sizeof(errbuf));
-    error_callback_.Call(
-        {Napi::Error::New(env, std::string("Decode error: ") + errbuf)
-             .Value()});
-    return env.Undefined();
+  // Create packet for decode message
+  auto packet = ffmpeg::make_packet();
+  if (!packet) {
+    throw Napi::Error::New(env, "Failed to allocate packet");
   }
 
-  // Increment queue size after successful packet submission
-  decode_queue_size_++;
-  bool saturated = decode_queue_size_ >= static_cast<int>(kMaxQueueSize);
-  codec_saturated_.store(saturated);
+  // Allocate buffer and copy data
+  int ret = av_new_packet(packet.get(), static_cast<int>(data_size));
+  if (ret < 0) {
+    throw Napi::Error::New(env, "Failed to allocate packet buffer");
+  }
+  memcpy(packet->data, data, data_size);
+  packet->pts = timestamp;
+  packet->dts = timestamp;
+  if (is_key_frame) {
+    packet->flags |= AV_PKT_FLAG_KEY;
+  }
 
-  // Emit any available decoded frames.
-  EmitFrames(env);
+  // Enqueue decode message
+  webcodecs::VideoControlQueue::DecodeMessage decode_msg;
+  decode_msg.packet = std::move(packet);
+
+  if (!control_queue_->Enqueue(std::move(decode_msg))) {
+    throw Napi::Error::New(env, "Failed to enqueue decode message");
+  }
+
+  webcodecs::counterQueue++;
 
   return env.Undefined();
 }
@@ -461,51 +533,47 @@ Napi::Value VideoDecoder::Decode(const Napi::CallbackInfo& info) {
 Napi::Value VideoDecoder::Flush(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
 
-  if (state_ != "configured") {
-    // Return resolved promise if not configured.
-    Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
-    deferred.Resolve(env.Undefined());
-    return deferred.Promise();
-  }
-
-  // Use async flush path
-  if (async_mode_ && async_worker_) {
-    // Wait for async worker's task queue to drain
-    async_worker_->Flush();
-
-    // Reset queue after flush
-    decode_queue_size_ = 0;
-    codec_saturated_.store(false);
-
-    // Return resolved promise.
-    // TypeScript layer will poll pendingFrames to wait for all TSFN
-    // callbacks to complete.
-    Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
-    deferred.Resolve(env.Undefined());
-    return deferred.Promise();
-  }
-
-  // Fallback to synchronous flush (shouldn't normally reach here)
-  // Send NULL packet to flush decoder.
-  int ret = avcodec_send_packet(codec_context_.get(), nullptr);
-  if (ret < 0 && ret != AVERROR_EOF) {
-    char errbuf[256];
-    av_strerror(ret, errbuf, sizeof(errbuf));
-    error_callback_.Call(
-        {Napi::Error::New(env, std::string("Flush error: ") + errbuf).Value()});
-  }
-
-  // Emit remaining decoded frames.
-  EmitFrames(env);
-
-  // Reset queue after flush
-  decode_queue_size_ = 0;
-  codec_saturated_.store(false);
-
-  // Return resolved promise.
+  // Create promise
   Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
-  deferred.Resolve(env.Undefined());
-  return deferred.Promise();
+
+  if (state_ != "configured") {
+    // Return resolved promise if not configured
+    deferred.Resolve(env.Undefined());
+    return deferred.Promise();
+  }
+
+  // Generate promise ID and store deferred
+  uint32_t promise_id = next_promise_id_++;
+  pending_flushes_.emplace(promise_id, std::move(deferred));
+
+  // Enqueue flush message
+  webcodecs::VideoControlQueue::FlushMessage flush_msg;
+  flush_msg.promise_id = promise_id;
+
+  if (!control_queue_->Enqueue(std::move(flush_msg))) {
+    // Remove pending promise and reject
+    pending_flushes_.erase(promise_id);
+    Napi::Promise::Deferred reject_deferred = Napi::Promise::Deferred::New(env);
+    reject_deferred.Reject(
+        Napi::Error::New(env, "Failed to enqueue flush message").Value());
+    return reject_deferred.Promise();
+  }
+
+  // The flush is now queued. Per W3C spec, flush() returns a promise that
+  // resolves when all queued work is complete. Since we're using an async
+  // worker, we resolve the promise immediately (non-blocking) and the
+  // TypeScript layer can poll pendingFrames for true completion if needed.
+  // This matches the current behavior and ensures we don't block the event loop.
+  auto it = pending_flushes_.find(promise_id);
+  if (it != pending_flushes_.end()) {
+    it->second.Resolve(env.Undefined());
+    return it->second.Promise();
+  }
+
+  // Fallback - should never reach here
+  Napi::Promise::Deferred fallback = Napi::Promise::Deferred::New(env);
+  fallback.Resolve(env.Undefined());
+  return fallback.Promise();
 }
 
 Napi::Value VideoDecoder::Reset(const Napi::CallbackInfo& info) {
@@ -516,40 +584,44 @@ Napi::Value VideoDecoder::Reset(const Napi::CallbackInfo& info) {
     return env.Undefined();
   }
 
-  // Stop async worker first before accessing codec
-  if (async_worker_) {
-    async_worker_->Stop();
-    async_worker_.reset();
-  }
-
-  // Release ThreadSafeFunctions
-  if (async_mode_) {
-    output_tsfn_.Release();
-    error_tsfn_.Release();
-    async_mode_ = false;
-  }
-
-  // Flush any pending frames (discard them).
-  if (codec_context_) {
-    avcodec_send_packet(codec_context_.get(), nullptr);
-    while (avcodec_receive_frame(codec_context_.get(), frame_.get()) == 0) {
-      av_frame_unref(frame_.get());
+  // Stop worker and clear queue
+  if (worker_) {
+    // Enqueue reset message to clear internal state (best-effort, ignore result)
+    if (control_queue_) {
+      webcodecs::VideoControlQueue::ResetMessage reset_msg;
+      (void)control_queue_->Enqueue(std::move(reset_msg));
     }
+
+    // Stop the worker
+    worker_->Stop();
+    worker_.reset();
   }
 
-  // Clean up FFmpeg resources.
-  frame_.reset();
-  packet_.reset();
-  sws_context_.reset();
-  codec_context_.reset();
-  codec_ = nullptr;
+  // Shutdown and recreate control queue
+  if (control_queue_) {
+    control_queue_->Shutdown();
+    control_queue_.reset();
+  }
 
-  // Reset state.
+  // Release TSFNs
+  frame_tsfn_.Release();
+  flush_tsfn_.Release();
+  error_tsfn_.Release();
+  dequeue_tsfn_.Release();
+
+  // Clear pending promises
+  for (auto& [id, deferred] : pending_flushes_) {
+    deferred.Reject(Napi::Error::New(env, "Decoder reset").Value());
+  }
+  pending_flushes_.clear();
+
+  // Reset state
   state_ = "unconfigured";
   coded_width_ = 0;
   coded_height_ = 0;
   decode_queue_size_ = 0;
-  codec_saturated_.store(false);
+  pending_frames_.store(0);
+  key_chunk_required_ = true;
 
   return env.Undefined();
 }
@@ -614,8 +686,6 @@ Napi::Value VideoDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   }
 
   // Validate and copy codedWidth (optional for isConfigSupported per W3C spec).
-  // Note: 0 is valid (decoder infers from bitstream), consistent with
-  // configure().
   if (config.Has("codedWidth") && config.Get("codedWidth").IsNumber()) {
     int coded_width = config.Get("codedWidth").As<Napi::Number>().Int32Value();
     if (coded_width < 0 || coded_width > kMaxDimension) {
@@ -625,8 +695,6 @@ Napi::Value VideoDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   }
 
   // Validate and copy codedHeight (optional per W3C spec).
-  // Note: 0 is valid (decoder infers from bitstream), consistent with
-  // configure().
   if (config.Has("codedHeight") && config.Get("codedHeight").IsNumber()) {
     int coded_height =
         config.Get("codedHeight").As<Napi::Number>().Int32Value();
@@ -689,7 +757,6 @@ Napi::Value VideoDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   // Handle hardwareAcceleration with default value per W3C spec.
   std::string hw =
       webcodecs::AttrAsStr(config, "hardwareAcceleration", "no-preference");
-  // Validate W3C enum values per spec.
   if (hw != "no-preference" && hw != "prefer-hardware" &&
       hw != "prefer-software") {
     supported = false;
@@ -703,7 +770,6 @@ Napi::Value VideoDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   }
   if (config.Has("rotation") && config.Get("rotation").IsNumber()) {
     int rotation = config.Get("rotation").As<Napi::Number>().Int32Value();
-    // Validate rotation value.
     if (rotation == 0 || rotation == 90 || rotation == 180 || rotation == 270) {
       normalized_config.Set("rotation", rotation);
     } else {
@@ -721,99 +787,4 @@ Napi::Value VideoDecoder::IsConfigSupported(const Napi::CallbackInfo& info) {
   Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
   deferred.Resolve(result);
   return deferred.Promise();
-}
-
-void VideoDecoder::EmitFrames(Napi::Env env) {
-  while (true) {
-    int ret = avcodec_receive_frame(codec_context_.get(), frame_.get());
-    if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-      break;
-    }
-    if (ret < 0) {
-      char errbuf[256];
-      av_strerror(ret, errbuf, sizeof(errbuf));
-      error_callback_.Call(
-          {Napi::Error::New(env, std::string("Decode receive error: ") + errbuf)
-               .Value()});
-      break;
-    }
-
-    // Initialize or recreate SwsContext if frame format/dimensions change
-    // (convert from decoder's pixel format to RGBA).
-    AVPixelFormat frame_format = static_cast<AVPixelFormat>(frame_->format);
-
-    if (!sws_context_ || last_frame_format_ != frame_format ||
-        last_frame_width_ != frame_->width ||
-        last_frame_height_ != frame_->height) {
-      sws_context_.reset(
-          sws_getContext(frame_->width, frame_->height, frame_format,
-                         frame_->width, frame_->height, AV_PIX_FMT_RGBA,
-                         SWS_BILINEAR, nullptr, nullptr, nullptr));
-
-      if (!sws_context_) {
-        error_callback_.Call(
-            {Napi::Error::New(env, "Could not create sws context").Value()});
-        av_frame_unref(frame_.get());
-        break;
-      }
-
-      last_frame_format_ = frame_format;
-      last_frame_width_ = frame_->width;
-      last_frame_height_ = frame_->height;
-    }
-
-    // Allocate RGBA buffer.
-    int rgba_size = frame_->width * frame_->height * kBytesPerPixelRgba;
-    std::vector<uint8_t> rgba_data(rgba_size);
-
-    // Setup output pointers.
-    uint8_t* dst_data[1] = {rgba_data.data()};
-    int dst_linesize[1] = {frame_->width * kBytesPerPixelRgba};
-
-    // Convert to RGBA.
-    sws_scale(sws_context_.get(), frame_->data, frame_->linesize, 0,
-              frame_->height, dst_data, dst_linesize);
-
-    // Calculate display dimensions based on aspect ratio (per W3C spec).
-    // If displayAspectWidth/displayAspectHeight are set, compute display
-    // dimensions maintaining the height and adjusting width to match ratio.
-    int display_width = frame_->width;
-    int display_height = frame_->height;
-    if (display_aspect_width_ > 0 && display_aspect_height_ > 0) {
-      // Per W3C spec: displayWidth = codedHeight * aspectWidth / aspectHeight
-      display_width = static_cast<int>(
-          std::round(static_cast<double>(frame_->height) *
-                     static_cast<double>(display_aspect_width_) /
-                     static_cast<double>(display_aspect_height_)));
-      display_height = frame_->height;
-    }
-
-    // Create VideoFrame with rotation, flip, display dimensions, and
-    // colorSpace.
-    Napi::Object video_frame;
-    if (has_color_space_) {
-      video_frame = VideoFrame::CreateInstance(
-          env, rgba_data.data(), rgba_data.size(), frame_->width,
-          frame_->height, frame_->pts, "RGBA", rotation_, flip_, display_width,
-          display_height, color_primaries_, color_transfer_, color_matrix_,
-          color_full_range_);
-    } else {
-      video_frame = VideoFrame::CreateInstance(
-          env, rgba_data.data(), rgba_data.size(), frame_->width,
-          frame_->height, frame_->pts, "RGBA", rotation_, flip_, display_width,
-          display_height);
-    }
-
-    // Call output callback.
-    output_callback_.Call({video_frame});
-
-    // Decrement queue size after frame is emitted
-    if (decode_queue_size_ > 0) {
-      decode_queue_size_--;
-      bool saturated = decode_queue_size_ >= static_cast<int>(kMaxQueueSize);
-      codec_saturated_.store(saturated);
-    }
-
-    av_frame_unref(frame_.get());
-  }
 }
