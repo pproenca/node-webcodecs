@@ -38,6 +38,7 @@ function createEncoder() {
 function createTestFrame() {
   const buf = Buffer.alloc(320 * 240 * 4);
   return new VideoFrame(buf, {
+    format: 'RGBA',
     codedWidth: 320,
     codedHeight: 240,
     timestamp: 0,
@@ -162,7 +163,7 @@ async function run() {
   console.log('Contract: VideoEncoder State Machine\n');
   let passed = 0,
     failed = 0;
-  for (const {name, fn} of tests) 
+  for (const {name, fn} of tests) {
     try {
       await fn();
       console.log(`  [PASS] ${name}`);
@@ -171,6 +172,7 @@ async function run() {
       console.log(`  [FAIL] ${name}: ${e.message}`);
       failed++;
     }
+  }
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);
 }
