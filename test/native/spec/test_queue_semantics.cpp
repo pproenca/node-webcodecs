@@ -517,15 +517,16 @@ TEST_F(QueueSemanticsTest, Concurrent_BlockedFlag_PreventsRaces) {
 
   producer.join();
 
-  // Final processing
+  // Stop consumer before final processing to avoid race
+  stop.store(true);
+  consumer.join();
+
+  // Final processing (no concurrent threads now)
   processor_->SetBlocked(false);
   while (!queue_.empty()) {
     int count = processor_->ProcessQueue();
     processed_count.fetch_add(count);
   }
-
-  stop.store(true);
-  consumer.join();
 
   // All 100 messages should be processed eventually
   EXPECT_EQ(processed_count.load(), 100);

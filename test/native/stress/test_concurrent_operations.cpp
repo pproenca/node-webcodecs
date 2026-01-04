@@ -483,23 +483,17 @@ TEST_F(ConcurrentOperationsTest, HighLoad_MixedOperations_NoRaces) {
   // Consumer threads
   for (int i = 0; i < kConsumers; ++i) {
     threads.emplace_back([this, &consumed, &producers_done]() {
+      int local_consumed = 0;
       while (!producers_done.load() || !queue_->empty()) {
-        // Mix of TryDequeue and Peek/PopFront
-        if (consumed.load() % 2 == 0) {
-          auto msg = queue_->TryDequeue();
-          if (msg.has_value()) {
-            consumed++;
-          }
-        } else {
-          const Message* front = queue_->Peek();
-          if (front != nullptr) {
-            queue_->PopFront();
-            consumed++;
-          }
+        // Use TryDequeue only (Peek/PopFront is not thread-safe across threads)
+        auto msg = queue_->TryDequeue();
+        if (msg.has_value()) {
+          local_consumed++;
         }
 
         std::this_thread::yield();
       }
+      consumed.fetch_add(local_consumed);
     });
   }
 

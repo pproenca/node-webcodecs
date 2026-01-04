@@ -1,0 +1,11 @@
+# Build directory
+build/
+
+# Coverage files
+*.gcda
+*.gcno
+*.gcov
+coverage.info
+coverage_*.info
+coverage_html/
+coverage_summary.sh
