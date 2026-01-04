@@ -912,4 +912,21 @@ describe('ImageDecoder', () => {
       decoder.close();
     });
   });
+
+  describe('Resource Management', () => {
+    it('can be constructed multiple times without leaks', async () => {
+      const iterations = 100;
+      for (let i = 0; i < iterations; i++) {
+        const decoder = new ImageDecoder({
+          type: 'image/png',
+          data: new Uint8Array([
+            0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, // PNG signature
+          ]),
+        });
+        decoder.close();
+      }
+      // If there's a leak, this will accumulate memory
+      // We'll verify with leak checker in Task 3
+    });
+  });
 });

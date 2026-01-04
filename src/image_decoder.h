@@ -75,10 +75,10 @@ class ImageDecoder : public Napi::ObjectWrap<ImageDecoder> {
   ffmpeg::AVPacketPtr packet_;
 
   // FFmpeg state for animated image parsing.
-  AVFormatContext* format_context_;  // For container parsing
-  AVIOContext* avio_context_;        // Custom I/O for memory buffer
-  struct MemoryBufferContext* mem_ctx_;  // Owned, freed in Cleanup()
-  int video_stream_index_;           // Stream index for video track
+  ffmpeg::ImageFormatContextPtr format_context_;  // For container parsing
+  ffmpeg::AVIOContextPtr avio_context_;           // Custom I/O for memory buffer
+  ffmpeg::MemoryBufferContextPtr mem_ctx_;        // Owned, RAII managed
+  int video_stream_index_;                        // Stream index for video track
 
   // Decoded frame data (static images).
   std::vector<uint8_t> decoded_data_;
