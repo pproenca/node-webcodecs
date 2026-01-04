@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **ALWAYS check `docs/specs/` before modifying C++ or codec behavior.** The W3C WebCodecs spec is the source of truth for API behavior, error handling, and state transitions.
+
 ## Project
 
 W3C WebCodecs API implementation for Node.js using FFmpeg. Browser-compatible video/audio encoding/decoding plus MP4 muxing/demuxing extensions.
