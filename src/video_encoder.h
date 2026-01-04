@@ -19,11 +19,12 @@ extern "C" {
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <unordered_map>
 
-#include "src/async_encode_worker.h"
 #include "src/ffmpeg_raii.h"
-
-class AsyncEncodeWorker;
+#include "src/shared/control_message_queue.h"
+#include "src/shared/safe_tsfn.h"
+#include "src/video_encoder_worker.h"
 
 class VideoEncoder : public Napi::ObjectWrap<VideoEncoder> {
  public:
@@ -50,64 +51,67 @@ class VideoEncoder : public Napi::ObjectWrap<VideoEncoder> {
 
   // Internal helpers.
   void Cleanup();
-  void EmitChunks(Napi::Env env);
-  void ReinitializeCodec();  // Recreates codec context after flush
 
-  // FFmpeg state.
-  const AVCodec*
-      codec_;  // Not owned - references FFmpeg's static codec descriptor
-  ffmpeg::AVCodecContextPtr codec_context_;
-  ffmpeg::SwsContextPtr sws_context_;
-  ffmpeg::AVFramePtr frame_;
-  ffmpeg::AVPacketPtr packet_;
+  // TSFN callback helpers
+  static void OnOutputTSFN(Napi::Env env, Napi::Function fn, VideoEncoder* ctx,
+                           webcodecs::EncodedPacketData* data);
+  static void OnErrorTSFN(Napi::Env env, Napi::Function fn, VideoEncoder* ctx,
+                          webcodecs::ErrorOutputData* data);
+  static void OnFlushTSFN(Napi::Env env, Napi::Function fn, VideoEncoder* ctx,
+                          webcodecs::FlushCompleteData* data);
 
-  // Callbacks.
+  // Callbacks from JS
   Napi::FunctionReference output_callback_;
   Napi::FunctionReference error_callback_;
 
-  // State.
+  // State
   std::string state_;
-  int width_;
-  int height_;
-  int display_width_;
-  int display_height_;
+  int width_ = 0;
+  int height_ = 0;
+  int display_width_ = 0;
+  int display_height_ = 0;
   std::string codec_string_;
   std::string color_primaries_;
   std::string color_transfer_;
   std::string color_matrix_;
-  bool color_full_range_;
-  int temporal_layer_count_;
-  // Bitstream format for AVC/HEVC (per W3C codec registration).
-  // "avc"/"hevc": Description (SPS/PPS) provided separately
-  // "annexb": Description embedded in bitstream (default for backwards compat)
+  bool color_full_range_ = false;
+  int temporal_layer_count_ = 1;
   std::string bitstream_format_;
-  int64_t frame_count_;
+  int64_t frame_count_ = 0;
 
-  // Stored configuration for codec reinitialization after flush.
-  // FFmpeg encoders enter EOF mode after flush (sending NULL frame),
-  // requiring full reinitialization to accept new frames per W3C spec.
-  int bitrate_;
-  int framerate_;
-  int max_b_frames_;
-  bool use_qscale_;
-  int encode_queue_size_;
+  // Saturation tracking
+  int encode_queue_size_ = 0;
   std::atomic<bool> codec_saturated_{false};
-  static constexpr size_t kMaxQueueSize = 16;  // Saturation threshold
-
-  // HARD LIMIT: The "Circuit Breaker".
-  // If the user ignores backpressure signals and keeps pushing frames,
-  // we reject requests to prevent OOM.
-  // 64 frames @ 4K RGBA (3840x2160x4) is ~2GB of RAM.
+  static constexpr size_t kMaxQueueSize = 16;
   static constexpr size_t kMaxHardQueueSize = 64;
 
-  // Saturation status accessor
-  bool IsCodecSaturated() const { return codec_saturated_.load(); }
+  // Lifecycle safety flag - prevents use-after-free in callbacks
+  // Set to false at the start of Cleanup() before any member access
+  std::atomic<bool> alive_{true};
 
-  // Async encoding support
-  std::unique_ptr<AsyncEncodeWorker> async_worker_;
-  Napi::ThreadSafeFunction output_tsfn_;
-  Napi::ThreadSafeFunction error_tsfn_;
-  bool async_mode_ = false;
+  // Worker-based encoding (new architecture)
+  std::unique_ptr<webcodecs::VideoControlQueue> control_queue_;
+  std::unique_ptr<webcodecs::VideoEncoderWorker> worker_;
+
+  // ThreadSafeFunctions for async callbacks
+  using OutputTSFN = webcodecs::SafeThreadSafeFunction<
+      VideoEncoder, webcodecs::EncodedPacketData, OnOutputTSFN>;
+  using ErrorTSFN = webcodecs::SafeThreadSafeFunction<
+      VideoEncoder, webcodecs::ErrorOutputData, OnErrorTSFN>;
+  using FlushTSFN = webcodecs::SafeThreadSafeFunction<
+      VideoEncoder, webcodecs::FlushCompleteData, OnFlushTSFN>;
+
+  OutputTSFN output_tsfn_;
+  ErrorTSFN error_tsfn_;
+  FlushTSFN flush_tsfn_;
+
+  // Promise tracking for flush
+  uint32_t next_promise_id_ = 0;
+  std::unordered_map<uint32_t, Napi::Promise::Deferred> pending_flush_promises_;
+  std::mutex flush_promise_mutex_;
+
+  // Encoder configuration for worker
+  webcodecs::VideoEncoderConfig encoder_config_;
 };
 
 #endif  // SRC_VIDEO_ENCODER_H_
