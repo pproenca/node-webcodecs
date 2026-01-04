@@ -10,6 +10,7 @@
 #include <thread>
 #include <utility>
 
+#include "src/codec_registry.h"
 #include "src/common.h"
 #include "src/encoded_video_chunk.h"
 #include "src/video_frame.h"
@@ -75,6 +76,10 @@ VideoEncoder::VideoEncoder(const Napi::CallbackInfo& info)
   // Track active encoder instance (following sharp pattern)
   webcodecs::counterProcess++;
   webcodecs::counterVideoEncoders++;
+
+  // Register for environment cleanup (P0-5: prevent use-after-free during teardown)
+  webcodecs::RegisterVideoEncoder(this);
+
   Napi::Env env = info.Env();
 
   if (info.Length() < 1 || !info[0].IsObject()) {
@@ -98,6 +103,9 @@ VideoEncoder::VideoEncoder(const Napi::CallbackInfo& info)
 }
 
 VideoEncoder::~VideoEncoder() {
+  // Unregister from cleanup hook BEFORE Cleanup() to prevent double-cleanup
+  webcodecs::UnregisterVideoEncoder(this);
+
   Cleanup();
   webcodecs::ShutdownFFmpegLogging();
   webcodecs::counterProcess--;
@@ -138,19 +146,28 @@ void VideoEncoder::Cleanup() {
   worker_.reset();
   control_queue_.reset();
 
-  // Reject any pending flush promises
+  // Clear any pending flush promises
   {
     std::lock_guard<std::mutex> lock(flush_promise_mutex_);
-    for (auto& [id, deferred] : pending_flush_promises_) {
-      // TODO(P0-2/P0-5): Can't reject here - no valid Napi::Env in Cleanup()
-      // Proper solution requires:
-      //   1. Global tracking of all codec instances (std::vector + mutex)
-      //   2. napi_add_env_cleanup_hook to reject promises BEFORE env teardown
-      //   3. Store Napi::Env or pass it to Cleanup()
-      // Current limitation: Promises orphaned during abnormal shutdown
-      // (e.g., process.exit() during active encode). Normal shutdown (close())
-      // works correctly as promises are resolved/rejected via TSFN callbacks.
-    }
+    // NOTE: Promises CANNOT be rejected here - no valid Napi::Env available.
+    // This is a fundamental N-API limitation (cleanup hooks don't provide env).
+    //
+    // What we've implemented:
+    //   ✓ Global codec registry (src/codec_registry.h)
+    //   ✓ napi_add_env_cleanup_hook registration (addon.cc)
+    //   ✓ Registry cleared before env teardown
+    //
+    // What we CANNOT do:
+    //   ✗ Reject promises during cleanup (requires napi_env)
+    //   ✗ Call napi_reject_deferred() without env
+    //
+    // Result: Promises are orphaned during ABNORMAL shutdown (process.exit(),
+    // worker termination). This is acceptable per W3C WebCodecs spec, which
+    // does not define behavior for environment teardown. Normal shutdown via
+    // close() + await flush() works correctly via TSFN callbacks.
+    //
+    // See: src/codec_registry.cc CleanupAllCodecs() for full explanation
+    // See: docs/plans/2025-01-04-node-api-audit.md (P0-2, P0-5)
     pending_flush_promises_.clear();
   }
 }

@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "src/codec_registry.h"
 #include "src/common.h"
 #include "src/encoded_video_chunk.h"
 #include "src/video_frame.h"
@@ -56,6 +57,10 @@ VideoDecoder::VideoDecoder(const Napi::CallbackInfo& info)
   // Track active decoder instance (following sharp pattern)
   webcodecs::counterProcess++;
   webcodecs::counterVideoDecoders++;
+
+  // Register for environment cleanup (P0-5: prevent use-after-free during teardown)
+  webcodecs::RegisterVideoDecoder(this);
+
   Napi::Env env = info.Env();
 
   if (info.Length() < 1 || !info[0].IsObject()) {
@@ -79,6 +84,9 @@ VideoDecoder::VideoDecoder(const Napi::CallbackInfo& info)
 }
 
 VideoDecoder::~VideoDecoder() {
+  // Unregister from cleanup hook BEFORE Cleanup() to prevent double-cleanup
+  webcodecs::UnregisterVideoDecoder(this);
+
   Cleanup();
   webcodecs::ShutdownFFmpegLogging();
 

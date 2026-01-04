@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "src/audio_data.h"
+#include "src/codec_registry.h"
 #include "src/common.h"
 #include "src/encoded_audio_chunk.h"
 
@@ -46,6 +47,10 @@ AudioEncoder::AudioEncoder(const Napi::CallbackInfo& info)
       frame_count_(0) {
   // Track active encoder instance
   webcodecs::counterAudioEncoders++;
+
+  // Register for environment cleanup (P0-5: prevent use-after-free during teardown)
+  webcodecs::RegisterAudioEncoder(this);
+
   Napi::Env env = info.Env();
 
   if (info.Length() < 1 || !info[0].IsObject()) {
@@ -66,6 +71,9 @@ AudioEncoder::AudioEncoder(const Napi::CallbackInfo& info)
 }
 
 AudioEncoder::~AudioEncoder() {
+  // Unregister from cleanup hook BEFORE Cleanup() to prevent double-cleanup
+  webcodecs::UnregisterAudioEncoder(this);
+
   // CRITICAL: Call Cleanup() first to ensure codec context is properly
   // flushed before any further cleanup.
   Cleanup();

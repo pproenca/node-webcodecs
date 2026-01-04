@@ -8,6 +8,7 @@
       "sources": [
         "src/addon.cc",
         "src/common.cc",
+        "src/codec_registry.cc",
         "src/video_encoder.cc",
         "src/video_decoder.cc",
         "src/video_frame.cc",
