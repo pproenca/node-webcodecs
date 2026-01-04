@@ -146,6 +146,25 @@ export class VideoEncoder extends CodecBase {
       throw new DOMException('Encoder is closed', 'InvalidStateError');
     }
 
+    // W3C spec: validate config is a valid VideoEncoderConfig
+    is.assertDefined(config.codec, 'config.codec');
+    is.assertDefined(config.width, 'config.width');
+    is.assertDefined(config.height, 'config.height');
+
+    if (typeof config.codec === 'string' && config.codec.trim() === '') {
+      throw new TypeError('config.codec cannot be empty');
+    }
+
+    is.assertPositiveInteger(config.width, 'config.width');
+    is.assertPositiveInteger(config.height, 'config.height');
+
+    if (config.displayWidth !== undefined) {
+      is.assertPositiveInteger(config.displayWidth, 'config.displayWidth');
+    }
+    if (config.displayHeight !== undefined) {
+      is.assertPositiveInteger(config.displayHeight, 'config.displayHeight');
+    }
+
     // Validate display dimensions pairing per W3C spec
     if ((config.displayWidth !== undefined) !== (config.displayHeight !== undefined)) {
       throw new TypeError('displayWidth and displayHeight must both be present or both absent');

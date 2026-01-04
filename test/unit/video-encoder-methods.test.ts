@@ -192,6 +192,135 @@ describe('VideoEncoder Methods: 6.5', () => {
       assert.strictEqual(encoder.state, 'configured');
       encoder.close();
     });
+
+    describe('W3C validation', () => {
+      it('should throw TypeError for empty codec', () => {
+        const encoder = createEncoder();
+        assert.throws(
+          () => {
+            encoder.configure({ codec: '', width: 100, height: 100, bitrate: 1_000_000 });
+          },
+          TypeError,
+        );
+        encoder.close();
+      });
+
+      it('should throw TypeError for missing codec', () => {
+        const encoder = createEncoder();
+        assert.throws(
+          () => {
+            // @ts-expect-error Testing invalid input
+            encoder.configure({ width: 100, height: 100, bitrate: 1_000_000 });
+          },
+          TypeError,
+        );
+        encoder.close();
+      });
+
+      it('should throw TypeError for missing width', () => {
+        const encoder = createEncoder();
+        assert.throws(
+          () => {
+            // @ts-expect-error Testing invalid input
+            encoder.configure({ codec: 'avc1.42001e', height: 100, bitrate: 1_000_000 });
+          },
+          TypeError,
+        );
+        encoder.close();
+      });
+
+      it('should throw TypeError for missing height', () => {
+        const encoder = createEncoder();
+        assert.throws(
+          () => {
+            // @ts-expect-error Testing invalid input
+            encoder.configure({ codec: 'avc1.42001e', width: 100, bitrate: 1_000_000 });
+          },
+          TypeError,
+        );
+        encoder.close();
+      });
+
+      it('should throw TypeError for zero width', () => {
+        const encoder = createEncoder();
+        assert.throws(
+          () => {
+            encoder.configure({ codec: 'avc1.42001e', width: 0, height: 100, bitrate: 1_000_000 });
+          },
+          TypeError,
+        );
+        encoder.close();
+      });
+
+      it('should throw TypeError for zero height', () => {
+        const encoder = createEncoder();
+        assert.throws(
+          () => {
+            encoder.configure({ codec: 'avc1.42001e', width: 100, height: 0, bitrate: 1_000_000 });
+          },
+          TypeError,
+        );
+        encoder.close();
+      });
+
+      it('should throw TypeError for negative width', () => {
+        const encoder = createEncoder();
+        assert.throws(
+          () => {
+            encoder.configure({ codec: 'avc1.42001e', width: -100, height: 100, bitrate: 1_000_000 });
+          },
+          TypeError,
+        );
+        encoder.close();
+      });
+
+      it('should throw TypeError for negative height', () => {
+        const encoder = createEncoder();
+        assert.throws(
+          () => {
+            encoder.configure({ codec: 'avc1.42001e', width: 100, height: -100, bitrate: 1_000_000 });
+          },
+          TypeError,
+        );
+        encoder.close();
+      });
+
+      it('should throw TypeError for zero displayWidth', () => {
+        const encoder = createEncoder();
+        assert.throws(
+          () => {
+            encoder.configure({
+              codec: 'avc1.42001e',
+              width: 100,
+              height: 100,
+              displayWidth: 0,
+              displayHeight: 100,
+              bitrate: 1_000_000,
+            });
+          },
+          TypeError,
+        );
+        encoder.close();
+      });
+
+      it('should throw TypeError for zero displayHeight', () => {
+        const encoder = createEncoder();
+        assert.throws(
+          () => {
+            encoder.configure({
+              codec: 'avc1.42001e',
+              width: 100,
+              height: 100,
+              displayWidth: 100,
+              displayHeight: 0,
+              bitrate: 1_000_000,
+            });
+          },
+          TypeError,
+        );
+        encoder.close();
+      });
+    });
   });
 
   describe('encode() method', () => {
