@@ -9,9 +9,9 @@
  * Usage: node scripts/check-macos-abi.cjs
  */
 
-const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+const { execSync } = require('node:child_process');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const ROOT_DIR = path.join(__dirname, '..');
 const BINDING_GYP = path.join(ROOT_DIR, 'binding.gyp');
@@ -35,7 +35,7 @@ function getBindingTarget() {
     }
 
     return null;
-  } catch (err) {
+  } catch {
     return null;
   }
 }
@@ -56,18 +56,18 @@ function getLibraryTarget(libPath) {
     if (buildVersionMatch) {
       // Normalize to X.Y format
       const version = buildVersionMatch[1];
-      return version.includes('.') ? version : version + '.0';
+      return version.includes('.') ? version : `${version}.0`;
     }
 
     // Look for LC_VERSION_MIN_MACOSX (older format)
     const versionMinMatch = output.match(/LC_VERSION_MIN_MACOSX[\s\S]*?version\s+(\d+(?:\.\d+)?)/);
     if (versionMinMatch) {
       const version = versionMinMatch[1];
-      return version.includes('.') ? version : version + '.0';
+      return version.includes('.') ? version : `${version}.0`;
     }
 
     return null;
-  } catch (err) {
+  } catch {
     return null;
   }
 }
@@ -152,19 +152,19 @@ function main() {
   if (compareVersions(ffmpegTarget, bindingTarget) > 0) {
     const box = [
       '',
-      '\u2554' + '\u2550'.repeat(68) + '\u2557',
-      '\u2551  \u274C ABI MISMATCH DETECTED' + ' '.repeat(43) + '\u2551',
-      '\u2560' + '\u2550'.repeat(68) + '\u2563',
-      `\u2551  FFmpeg was built for macOS ${ffmpegTarget}, but binding.gyp targets ${bindingTarget}`.padEnd(69) + '\u2551',
-      '\u2551' + ' '.repeat(68) + '\u2551',
-      '\u2551  This causes segfaults in STL types (std::function, std::vector)  '.padEnd(69) + '\u2551',
-      '\u2551  that appear as crashes during object instantiation.              '.padEnd(69) + '\u2551',
-      '\u2551' + ' '.repeat(68) + '\u2551',
-      '\u2551  Solutions:                                                       '.padEnd(69) + '\u2551',
-      `\u2551  1. Rebuild FFmpeg with -mmacosx-version-min=${bindingTarget}`.padEnd(69) + '\u2551',
-      `\u2551  2. Update binding.gyp to target macOS ${ffmpegTarget}`.padEnd(69) + '\u2551',
-      '\u2551  3. Use pre-built FFmpeg from CI releases (recommended)           '.padEnd(69) + '\u2551',
-      '\u255A' + '\u2550'.repeat(68) + '\u255D',
+      `\u2554${'\u2550'.repeat(68)}\u2557`,
+      `\u2551  \u274C ABI MISMATCH DETECTED${' '.repeat(43)}\u2551`,
+      `\u2560${'\u2550'.repeat(68)}\u2563`,
+      `${`\u2551  FFmpeg was built for macOS ${ffmpegTarget}, but binding.gyp targets ${bindingTarget}`.padEnd(69)}\u2551`,
+      `\u2551${' '.repeat(68)}\u2551`,
+      `${'\u2551  This causes segfaults in STL types (std::function, std::vector)  '.padEnd(69)}\u2551`,
+      `${'\u2551  that appear as crashes during object instantiation.              '.padEnd(69)}\u2551`,
+      `\u2551${' '.repeat(68)}\u2551`,
+      `${'\u2551  Solutions:                                                       '.padEnd(69)}\u2551`,
+      `${`\u2551  1. Rebuild FFmpeg with -mmacosx-version-min=${bindingTarget}`.padEnd(69)}\u2551`,
+      `${`\u2551  2. Update binding.gyp to target macOS ${ffmpegTarget}`.padEnd(69)}\u2551`,
+      `${'\u2551  3. Use pre-built FFmpeg from CI releases (recommended)           '.padEnd(69)}\u2551`,
+      `\u255A${'\u2550'.repeat(68)}\u255D`,
     ];
     console.error(box.join('\n'));
     process.exit(1);

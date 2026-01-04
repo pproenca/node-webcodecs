@@ -1,5 +1,12 @@
 // Global setup - inject WebCodecs API into globalThis
+import { after } from 'node:test';
 import * as webcodecs from '@pproenca/node-webcodecs';
+
+// Global teardown - reset ResourceManager singleton to prevent cross-test contamination.
+// The ResourceManager accumulates codec references across test files, causing stale state.
+after(() => {
+  webcodecs.ResourceManager.getInstance()._resetForTesting();
+});
 
 declare global {
   var VideoDecoder: typeof webcodecs.VideoDecoder;
