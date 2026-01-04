@@ -10,6 +10,7 @@ import {DEFAULT_RUNNER, type CommandRunner} from './runner';
 interface PrebuildifyOptions {
   readonly arch: string;
   readonly platform: string;
+  readonly libc?: string;
 }
 
 interface PackagePlatformOptions {
@@ -20,6 +21,7 @@ interface PackagePlatformOptions {
   readonly prebuild: string;
   readonly outDir: string;
   readonly scope?: string;
+  readonly libc?: string;
 }
 
 interface ExtractPrebuiltOptions {
@@ -141,7 +143,11 @@ export function extractFfmpegArchive(
 }
 
 export function runPrebuildify(runner: CommandRunner, options: PrebuildifyOptions): void {
-  runner.runOrThrow('npx', ['prebuildify', '--napi', '--strip', `--arch=${options.arch}`], {
+  const args = ['prebuildify', '--napi', '--strip', `--arch=${options.arch}`];
+  if (options.libc) {
+    args.push('--tag-libc', options.libc);
+  }
+  runner.runOrThrow('npx', args, {
     stdio: 'inherit',
   });
 
@@ -252,7 +258,8 @@ export function main(
     if (command === 'prebuildify') {
       const arch = requireFlag(flags, 'arch');
       const platform = requireFlag(flags, 'platform');
-      runPrebuildify(runner, {arch, platform});
+      const libc = flags.libc;
+      runPrebuildify(runner, {arch, platform, libc});
       return 0;
     }
 
@@ -263,9 +270,10 @@ export function main(
       const outDir = resolve(flags.out ?? 'packages');
       const prebuild = resolve(flags.prebuild ?? join('prebuilds', platform, 'node.napi.node'));
       const scope = flags.scope;
+      const libc = flags.libc;
       const version = flags.version ?? resolvePackageVersion(process.cwd());
 
-      packagePlatform(runner, {platform, os: osName, cpu, version, prebuild, outDir, scope});
+      packagePlatform(runner, {platform, os: osName, cpu, version, prebuild, outDir, scope, libc});
       return 0;
     }
 

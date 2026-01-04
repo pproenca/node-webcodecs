@@ -205,7 +205,7 @@ jobs:
         run: npx tsx scripts/ci/ci-workflow.ts extract-ffmpeg --archive "ffmpeg-${{ matrix.platform }}.tar.gz" --out ffmpeg-install
 
       - name: Build with prebuildify
-        run: npx tsx scripts/ci/ci-workflow.ts prebuildify --arch "${{ matrix.arch }}" --platform "${{ matrix.platform }}"
+        run: npx tsx scripts/ci/ci-workflow.ts prebuildify --arch "${{ matrix.arch }}" --platform "${{ matrix.platform }}"${{ runner.os == 'Linux' && ' --libc glibc' || '' }}
 
       - name: Build TypeScript
         run: npm run build:ts
@@ -218,20 +218,21 @@ jobs:
           PLATFORM: ${{ matrix.platform }}
           PLATFORM_OS: ${{ runner.os == 'macOS' && 'darwin' || 'linux' }}
           PLATFORM_CPU: ${{ matrix.arch }}
-        run: npx tsx scripts/ci/ci-workflow.ts package-platform --platform "$PLATFORM" --os "$PLATFORM_OS" --cpu "$PLATFORM_CPU" --prebuild "prebuilds/${{ matrix.platform }}/node.napi.node" --out packages
+          PLATFORM_LIBC: ${{ runner.os == 'Linux' && 'glibc' || '' }}
+        run: npx tsx scripts/ci/ci-workflow.ts package-platform --platform "$PLATFORM" --os "$PLATFORM_OS" --cpu "$PLATFORM_CPU" --prebuild "prebuilds/${{ matrix.platform }}/node.napi.node" --out packages${{ runner.os == 'Linux' && ' --libc glibc' || '' }}
 
       - name: Upload platform package artifact
         uses: actions/upload-artifact@v6
         with:
-          name: platform-pkg-${{ matrix.platform }}
-          path: packages/@pproenca-node-webcodecs-${{ matrix.platform }}.tar
+          name: platform-pkg-${{ matrix.platform }}${{ runner.os == 'Linux' && '-glibc' || '' }}
+          path: packages/@pproenca-node-webcodecs-${{ matrix.platform }}${{ runner.os == 'Linux' && '-glibc' || '' }}.tar
           retention-days: 14 # Extended for release timing flexibility
           compression-level: 0
 
       - name: Attest platform package
         uses: actions/attest-build-provenance@v3
         with:
-          subject-path: packages/@pproenca/node-webcodecs-${{ matrix.platform }}/bin/node.napi.node
+          subject-path: packages/@pproenca/node-webcodecs-${{ matrix.platform }}${{ runner.os == 'Linux' && '-glibc' || '' }}/bin/node.napi.node
 
   # ============================================================================
   # Test Node version compatibility using prebuilt binaries

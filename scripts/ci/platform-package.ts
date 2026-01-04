@@ -20,6 +20,7 @@ interface PackOptions {
   readonly prebuildPath: string;
   readonly outDir: string;
   readonly scope: string;
+  readonly libc?: string;
 }
 
 function ensureDir(pathname: string): void {
@@ -27,7 +28,8 @@ function ensureDir(pathname: string): void {
 }
 
 function writePlatformPackage(options: PackOptions): {pkgDir: string} {
-  const pkgDir = join(options.outDir, `@${options.scope}/node-webcodecs-${options.platform}`);
+  const platformSuffix = options.libc ? `${options.platform}-${options.libc}` : options.platform;
+  const pkgDir = join(options.outDir, `@${options.scope}/node-webcodecs-${platformSuffix}`);
   const binDir = join(pkgDir, 'bin');
   ensureDir(binDir);
 
@@ -37,10 +39,10 @@ function writePlatformPackage(options: PackOptions): {pkgDir: string} {
 
   copyFileSync(options.prebuildPath, join(binDir, 'node.napi.node'));
 
-  const pkgJson = {
-    name: `@${options.scope}/node-webcodecs-${options.platform}`,
+  const pkgJson: Record<string, unknown> = {
+    name: `@${options.scope}/node-webcodecs-${platformSuffix}`,
     version: options.version,
-    description: `node-webcodecs native addon for ${options.platform}`,
+    description: `node-webcodecs native addon for ${platformSuffix}`,
     os: [options.os],
     cpu: [options.cpu],
     files: ['bin/'],
@@ -51,14 +53,20 @@ function writePlatformPackage(options: PackOptions): {pkgDir: string} {
     },
   };
 
+  // Add libc field for Linux packages
+  if (options.libc) {
+    pkgJson.libc = [options.libc];
+  }
+
   writeFileSync(join(pkgDir, 'package.json'), `${JSON.stringify(pkgJson, null, 2)}\n`);
   return {pkgDir};
 }
 
-function createTarball(outDir: string, platform: string, scope: string): {tarPath: string} {
-  const tarName = `@${scope}-node-webcodecs-${platform}.tar`;
+function createTarball(outDir: string, platform: string, scope: string, libc?: string): {tarPath: string} {
+  const platformSuffix = libc ? `${platform}-${libc}` : platform;
+  const tarName = `@${scope}-node-webcodecs-${platformSuffix}.tar`;
   const tarPath = join(outDir, tarName);
-  const pkgDir = `./@${scope}/node-webcodecs-${platform}/`;
+  const pkgDir = `./@${scope}/node-webcodecs-${platformSuffix}/`;
 
   const cwd = resolve(outDir);
   execFileSync('tar', ['-cvf', tarName, pkgDir], {cwd, stdio: 'inherit'});
@@ -70,11 +78,12 @@ function extractTarball(tarPath: string, outDir: string): void {
   execFileSync('tar', ['-xf', tarPath], {cwd, stdio: 'inherit'});
 }
 
-function verifyPlatformPackage(outDir: string, platform: string, scope: string): {
+function verifyPlatformPackage(outDir: string, platform: string, scope: string, libc?: string): {
   binPath: string;
   pkgDir: string;
 } {
-  const pkgDir = join(outDir, `@${scope}/node-webcodecs-${platform}`);
+  const platformSuffix = libc ? `${platform}-${libc}` : platform;
+  const pkgDir = join(outDir, `@${scope}/node-webcodecs-${platformSuffix}`);
   const binPath = join(pkgDir, 'bin', 'node.napi.node');
   if (!existsSync(binPath)) {
     throw new Error(`Missing binary: ${binPath}`);
@@ -99,29 +108,33 @@ export function main(args: string[]): number {
       const os = requireFlag(flags, 'os');
       const cpu = requireFlag(flags, 'cpu');
       const version = requireFlag(flags, 'version');
+      const libc = flags.libc;
       const outDir = resolve(flags.out ?? 'packages');
       const prebuildPath = resolve(flags.prebuild ?? join('prebuilds', platform, 'node.napi.node'));
 
       ensureDir(outDir);
-      writePlatformPackage({platform, os, cpu, version, prebuildPath, outDir, scope});
-      createTarball(outDir, platform, scope);
-      console.log(`Packaged @${scope}/node-webcodecs-${platform}`);
+      writePlatformPackage({platform, os, cpu, version, prebuildPath, outDir, scope, libc});
+      createTarball(outDir, platform, scope, libc);
+      const platformSuffix = libc ? `${platform}-${libc}` : platform;
+      console.log(`Packaged @${scope}/node-webcodecs-${platformSuffix}`);
       return 0;
     }
 
     if (mode === 'extract') {
       const platform = requireFlag(flags, 'platform');
+      const libc = flags.libc;
       const tarPath = resolve(requireFlag(flags, 'tar'));
       const outDir = resolve(flags.out ?? 'packages');
       const prebuildsDir = flags.prebuilds ? resolve(flags.prebuilds) : undefined;
 
       ensureDir(outDir);
       extractTarball(tarPath, outDir);
-      const {binPath} = verifyPlatformPackage(outDir, platform, scope);
+      const {binPath} = verifyPlatformPackage(outDir, platform, scope, libc);
       if (prebuildsDir) {
         copyToPrebuilds(prebuildsDir, platform, binPath);
       }
-      console.log(`Extracted @${scope}/node-webcodecs-${platform}`);
+      const platformSuffix = libc ? `${platform}-${libc}` : platform;
+      console.log(`Extracted @${scope}/node-webcodecs-${platformSuffix}`);
       return 0;
     }
 

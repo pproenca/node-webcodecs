@@ -9,7 +9,7 @@ import { resolve, dirname, join } from 'node:path';
 const PLATFORMS: Record<string, string> = {
   'darwin-arm64': '@pproenca/node-webcodecs-darwin-arm64',
   'darwin-x64': '@pproenca/node-webcodecs-darwin-x64',
-  'linux-x64': '@pproenca/node-webcodecs-linux-x64',
+  'linux-x64': '@pproenca/node-webcodecs-linux-x64-glibc',
 };
 
 /**
