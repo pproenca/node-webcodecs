@@ -17,16 +17,22 @@ extern "C" {
 #include <atomic>
 #include <memory>
 #include <string>
+#include <unordered_map>
 
-#include "src/async_decode_worker.h"
 #include "src/ffmpeg_raii.h"
+#include "src/shared/control_message_queue.h"
+#include "src/shared/safe_tsfn.h"
+#include "src/video_decoder_worker.h"
+
+// Forward declaration for backward compatibility
+struct DecoderMetadataConfig;
 
 class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
  public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
   static Napi::Value IsConfigSupported(const Napi::CallbackInfo& info);
   explicit VideoDecoder(const Napi::CallbackInfo& info);
-  ~VideoDecoder();
+  ~VideoDecoder() override;
 
   // Disallow copy and assign.
   VideoDecoder(const VideoDecoder&) = delete;
@@ -46,15 +52,34 @@ class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
 
   // Internal helpers.
   void Cleanup();
-  void EmitFrames(Napi::Env env);
+  void SetupWorkerCallbacks(Napi::Env env);
 
-  // FFmpeg state.
-  const AVCodec*
-      codec_;  // Not owned - references FFmpeg's static codec descriptor
-  ffmpeg::AVCodecContextPtr codec_context_;
-  ffmpeg::SwsContextPtr sws_context_;
-  ffmpeg::AVFramePtr frame_;
-  ffmpeg::AVPacketPtr packet_;
+  // TSFN callback data types
+  struct FrameCallbackData {
+    ffmpeg::AVFramePtr frame;
+    webcodecs::VideoDecoderMetadataConfig metadata;
+  };
+
+  struct FlushCallbackData {
+    uint32_t promise_id;
+    bool success;
+    std::string error_message;
+  };
+
+  struct ErrorCallbackData {
+    int error_code;
+    std::string message;
+  };
+
+  // TSFN callback handlers
+  static void OnFrameCallback(Napi::Env env, Napi::Function fn,
+                              std::nullptr_t*, FrameCallbackData* data);
+  static void OnFlushCallback(Napi::Env env, Napi::Function fn,
+                              std::nullptr_t*, FlushCallbackData* data);
+  static void OnErrorCallback(Napi::Env env, Napi::Function fn,
+                              std::nullptr_t*, ErrorCallbackData* data);
+  static void OnDequeueCallback(Napi::Env env, Napi::Function fn,
+                                std::nullptr_t*, uint32_t* data);
 
   // Callbacks.
   Napi::FunctionReference output_callback_;
@@ -91,17 +116,37 @@ class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
   // Note: This is a stub - FFmpeg uses software decoding.
   std::string hardware_acceleration_ = "no-preference";
 
-  // Track last frame format/dimensions for sws_context recreation.
-  AVPixelFormat last_frame_format_ = AV_PIX_FMT_NONE;
-  int last_frame_width_ = 0;
-  int last_frame_height_ = 0;
+  // Worker-owned codec model
+  std::unique_ptr<webcodecs::VideoControlQueue> control_queue_;
+  std::unique_ptr<webcodecs::VideoDecoderWorker> worker_;
 
-  // Async decoding via worker thread (non-blocking).
-  bool async_mode_ = false;
-  Napi::ThreadSafeFunction output_tsfn_;
-  Napi::ThreadSafeFunction error_tsfn_;
-  std::unique_ptr<AsyncDecodeWorker> async_worker_;
-  std::atomic<int> pending_frames_{0};  // Track frames in flight for flush
+  // ThreadSafeFunctions for async callbacks
+  using FrameTSFN =
+      webcodecs::SafeThreadSafeFunction<std::nullptr_t, FrameCallbackData,
+                                        OnFrameCallback>;
+  using FlushTSFN =
+      webcodecs::SafeThreadSafeFunction<std::nullptr_t, FlushCallbackData,
+                                        OnFlushCallback>;
+  using ErrorTSFN =
+      webcodecs::SafeThreadSafeFunction<std::nullptr_t, ErrorCallbackData,
+                                        OnErrorCallback>;
+  using DequeueTSFN = webcodecs::SafeThreadSafeFunction<std::nullptr_t,
+                                                        uint32_t, OnDequeueCallback>;
+
+  FrameTSFN frame_tsfn_;
+  FlushTSFN flush_tsfn_;
+  ErrorTSFN error_tsfn_;
+  DequeueTSFN dequeue_tsfn_;
+
+  // Promise management for flush
+  uint32_t next_promise_id_ = 0;
+  std::unordered_map<uint32_t, Napi::Promise::Deferred> pending_flushes_;
+
+  // Track pending frames for pendingFrames attribute
+  std::atomic<int> pending_frames_{0};
+
+  // Key chunk required flag (reset after flush/reset)
+  bool key_chunk_required_ = true;
 };
 
 #endif  // SRC_VIDEO_DECODER_H_

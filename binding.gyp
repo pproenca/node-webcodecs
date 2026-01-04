@@ -23,6 +23,8 @@
         "src/test_video_generator.cc",
         "src/async_encode_worker.cc",
         "src/async_decode_worker.cc",
+        "src/video_decoder_worker.cc",
+        "src/video_encoder_worker.cc",
         "src/warnings.cc",
         "src/error_builder.cc",
         "src/descriptors.cc"
@@ -45,7 +47,7 @@
             "<!@(node gyp/ffmpeg-paths.js include 2>/dev/null || pkg-config --cflags-only-I libavcodec libavutil libswscale libswresample libavfilter 2>/dev/null | sed s/-I//g || echo '/opt/homebrew/include /usr/local/include')"
           ],
           "libraries": [
-            "<!@(node gyp/ffmpeg-paths.js lib 2>/dev/null || pkg-config --libs --static libavcodec libavformat libavutil libswscale libswresample libavfilter 2>/dev/null || echo '-L/opt/homebrew/lib -L/usr/local/lib -lavcodec -lavformat -lavutil -lswscale -lswresample -lavfilter')",
+            "<!@(node gyp/ffmpeg-paths.js lib 2>/dev/null || (pkg-config --libs libavcodec libavformat libavutil libswscale libswresample libavfilter 2>/dev/null | sed 's/-framework [^ ]*//g') || echo '-L/opt/homebrew/lib -L/usr/local/lib -lavcodec -lavformat -lavutil -lswscale -lswresample -lavfilter')",
             "-framework VideoToolbox",
             "-framework AudioToolbox",
             "-framework CoreMedia",
