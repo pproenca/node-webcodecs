@@ -67,10 +67,15 @@ export class AudioDecoder extends CodecBase {
       throw new DOMException('Decoder is closed', 'InvalidStateError');
     }
 
-    // W3C spec: validate required fields with TypeError
+    // W3C spec: validate config is a valid AudioDecoderConfig
     is.assertDefined(config.codec, 'config.codec');
     is.assertDefined(config.sampleRate, 'config.sampleRate');
     is.assertDefined(config.numberOfChannels, 'config.numberOfChannels');
+
+    // Validate codec is not empty
+    if (typeof config.codec === 'string' && config.codec.trim() === '') {
+      throw new TypeError('config.codec cannot be empty');
+    }
 
     this._needsKeyFrame = true;
     // Configure synchronously to set state immediately per W3C spec

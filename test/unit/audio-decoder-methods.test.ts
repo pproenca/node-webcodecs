@@ -76,6 +76,48 @@ describe('AudioDecoder Methods: 3.5', () => {
     return encodedChunks;
   }
 
+  describe('configure() method', () => {
+    it('should throw InvalidStateError when closed', () => {
+      const decoder = createDecoder();
+      decoder.close();
+      assert.throws(
+        () => decoder.configure(validConfig),
+        (e: Error) => e instanceof DOMException && e.name === 'InvalidStateError',
+      );
+    });
+
+    it('should set state to configured', () => {
+      const decoder = createDecoder();
+      assert.strictEqual(decoder.state, 'unconfigured');
+      decoder.configure(validConfig);
+      assert.strictEqual(decoder.state, 'configured');
+      decoder.close();
+    });
+
+    describe('W3C validation', () => {
+      it('should throw TypeError for empty codec', () => {
+        const decoder = createDecoder();
+        assert.throws(
+          () => decoder.configure({ codec: '', sampleRate: 48000, numberOfChannels: 2 }),
+          TypeError,
+        );
+        decoder.close();
+      });
+
+      it('should throw TypeError for missing codec', () => {
+        const decoder = createDecoder();
+        assert.throws(
+          () => {
+            // @ts-expect-error Testing invalid input
+            decoder.configure({ sampleRate: 48000, numberOfChannels: 2 });
+          },
+          TypeError,
+        );
+        decoder.close();
+      });
+    });
+  });
+
   describe('decode() method', () => {
     // Spec 3.5 step 3: Increment [[decodeQueueSize]]
     it('should increment decodeQueueSize on decode()', async () => {
