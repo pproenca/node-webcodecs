@@ -9,3 +9,8 @@ coverage.info
 coverage_*.info
 coverage_html/
 coverage_summary.sh
+
+# Benchmark results
+bench_results.json
+benchmark_results/
+*.csv
