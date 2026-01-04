@@ -19,12 +19,6 @@ import {
   resolveReleaseVersion,
   verifyCiCompleted,
 } from '../../scripts/ci/release-workflow';
-import {
-  createMainNpmPackage,
-  extractAndPackageNpm,
-  resolveDepsVersion,
-  verifyAndStripMacosBinaries,
-} from '../../scripts/ci/build-ffmpeg-workflow';
 
 interface RecordedCall {
   readonly command: string;
@@ -190,44 +184,4 @@ test('resolveReleaseVersion extracts tag versions', () => {
 
 test('resolveReleaseVersion rejects non-tag refs', () => {
   assert.throws(() => resolveReleaseVersion({GITHUB_REF: 'refs/heads/main'}));
-});
-
-test('resolveDepsVersion prefers explicit input', () => {
-  assert.strictEqual(resolveDepsVersion('v5', 'deps-v3'), 'v5');
-  assert.strictEqual(resolveDepsVersion(undefined, 'deps-v3'), 'v3');
-});
-
-test('verifyAndStripMacosBinaries fails without TARGET', () => {
-  const {runner} = createRunner([]);
-  assert.throws(() => verifyAndStripMacosBinaries(runner, {}));
-});
-
-test('extractAndPackageNpm writes platform packages', () => {
-  const root = createTempRoot();
-  const artifactsDir = join(root, 'artifacts');
-  const packagesDir = join(root, 'packages');
-  const artifactDir = join(artifactsDir, 'ffmpeg-linux-x64');
-  const srcDir = join(artifactDir, 'linux-x64', 'bin');
-  mkdirSync(srcDir, {recursive: true});
-  writeFileSync(join(artifactDir, 'bundle.tar'), 'tar');
-  writeFileSync(join(srcDir, 'ffmpeg'), 'bin');
-  writeFileSync(join(srcDir, 'ffprobe'), 'bin');
-
-  const {runner} = createRunner([okResult()]);
-  extractAndPackageNpm(runner, {NPM_SCOPE: '@pproenca/ffmpeg', GITHUB_REF_NAME: 'v1.2.3'}, artifactsDir, packagesDir);
-
-  const pkgJson = readFileSync(
-    join(packagesDir, '@pproenca/ffmpeg-linux-x64', 'package.json'),
-    'utf8',
-  );
-  assert.ok(pkgJson.includes('"name": "@pproenca/ffmpeg-linux-x64"'));
-});
-
-test('createMainNpmPackage writes main package files', () => {
-  const root = createTempRoot();
-  const packagesDir = join(root, 'packages');
-  createMainNpmPackage({NPM_SCOPE: '@pproenca/ffmpeg', GITHUB_REF_NAME: 'v1.2.3'}, packagesDir);
-
-  const pkgPath = join(packagesDir, '@pproenca/ffmpeg', 'package.json');
-  assert.ok(readFileSync(pkgPath, 'utf8').includes('"name": "@pproenca/ffmpeg"'));
 });

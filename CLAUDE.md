@@ -190,5 +190,5 @@ Test GitHub Actions locally:
 
 ```bash
 act -l  # List jobs
-act push -j build-linux-x64 --container-architecture linux/amd64 -W .github/workflows/build-ffmpeg.yml
+act push -j build-native --container-architecture linux/amd64 -W .github/workflows/ci.yml
 ```

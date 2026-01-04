@@ -4,13 +4,12 @@
 // Resolve FFmpeg paths for node-gyp binding.
 //
 // Resolution order:
-// 1. FFMPEG_ROOT env var (set by CI from deps-v* release artifacts)
+// 1. FFMPEG_ROOT env var (set by CI from @pproenca/ffmpeg-dev-* npm packages)
 // 2. ./ffmpeg-install directory (local development)
 // 3. System pkg-config (fallback)
 //
-// The FFmpeg static libraries are built from:
-// - Linux: docker/Dockerfile.linux-x64 (Alpine musl, fully static)
-// - macOS: .github/workflows/build-ffmpeg.yml (native build)
+// FFmpeg static libraries are distributed via npm packages from the
+// ffmpeg-prebuilds repository (https://github.com/pproenca/ffmpeg-prebuilds)
 //
 // All codec dependencies (x264, x265, vpx, opus, etc.) are resolved automatically
 // via the .pc files in the FFmpeg build.

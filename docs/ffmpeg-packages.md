@@ -2,13 +2,11 @@
 
 ## Overview
 
-node-webcodecs uses FFmpeg static libraries for native addon compilation. As of this update, FFmpeg dependencies are sourced from **npm packages with automatic fallback** to GitHub releases.
+node-webcodecs uses FFmpeg static libraries for native addon compilation. FFmpeg dependencies are distributed via **npm packages** from the [ffmpeg-prebuilds](https://github.com/pproenca/ffmpeg-prebuilds) repository.
 
-## Package Sources (Priority Order)
+## Packages
 
-### 1. npm Packages (Primary) ✅
-
-**Packages:** `@pproenca/ffmpeg-dev-*` (development libraries + headers)
+**Development packages:** `@pproenca/ffmpeg-dev-*` (static libraries + headers)
 
 **Platforms:**
 - `@pproenca/ffmpeg-dev-darwin-arm64` (macOS Apple Silicon)
@@ -16,51 +14,25 @@ node-webcodecs uses FFmpeg static libraries for native addon compilation. As of 
 - `@pproenca/ffmpeg-dev-linux-x64-glibc` (Linux glibc)
 - `@pproenca/ffmpeg-dev-linux-x64-musl` (Linux musl/Alpine)
 
-**Advantages:**
-- ✅ Faster installation (no GitHub API rate limits)
-- ✅ Better caching (npm cache vs GitHub artifact download)
-- ✅ Consistent with Node.js ecosystem patterns
-- ✅ Supports semantic versioning
+**Included codecs:** H.264, H.265, VP9, AV1, Opus, MP3 (via libmp3lame), Vorbis
 
 **Repository:** [pproenca/ffmpeg-prebuilds](https://github.com/pproenca/ffmpeg-prebuilds)
 
-### 2. GitHub Releases (Fallback) 📦
+## CI Workflow
 
-**Source:** `deps-v*` releases in this repository
-
-**Used when:** npm package doesn't exist yet (e.g., during migration period or new FFmpeg versions)
-
-**File pattern:** `ffmpeg-{platform}.tar.gz`
-
-## CI Workflow Behavior
-
-### Automatic Source Resolution
-
-The CI workflow automatically determines which source to use:
+The CI workflow automatically installs the appropriate FFmpeg package for each platform:
 
 ```yaml
-1. Check if npm package exists (npm view @pproenca/ffmpeg-dev-{platform})
-2. If exists → Install from npm
-3. If not exists → Download from GitHub releases (fallback)
+- name: Install FFmpeg from npm
+  run: |
+    npm install --no-save @pproenca/ffmpeg-dev-${{ matrix.platform }}
+    FFMPEG_ROOT="$(npm root)/@pproenca/ffmpeg-dev-${{ matrix.platform }}"
+    echo "FFMPEG_ROOT=$FFMPEG_ROOT" >> "$GITHUB_ENV"
 ```
 
-### Environment Variable
-
-Both sources set `FFMPEG_ROOT` for `gyp/ffmpeg-paths.js`:
-
-```bash
-# npm source
-FFMPEG_ROOT=$(npm root)/@pproenca/ffmpeg-dev-{platform}
-
-# GitHub release source
-FFMPEG_ROOT=./ffmpeg-install
-```
-
-The `gyp/ffmpeg-paths-lib.ts` resolver already supports `FFMPEG_ROOT` (lines 51-56), so no changes needed.
+The `gyp/ffmpeg-paths-lib.ts` resolver uses `FFMPEG_ROOT` to locate libraries and headers.
 
 ## Local Development
-
-### Using npm Packages
 
 ```bash
 # Install FFmpeg dev package for your platform
@@ -73,50 +45,22 @@ export FFMPEG_ROOT="$(npm root)/@pproenca/ffmpeg-dev-darwin-arm64"
 npm run build
 ```
 
-### Using Local FFmpeg Build
+## Package Versioning
 
-The existing `npm run setup-ffmpeg` still works:
+FFmpeg npm package versions follow the FFmpeg release version:
 
-```bash
-npm run setup-ffmpeg darwin-arm64
-# Creates ffmpeg-install/ directory
-# FFMPEG_ROOT automatically detected by gyp/ffmpeg-paths.js
-```
-
-## Migration Timeline
-
-### Phase 1: Parallel Operation (Current)
-- CI tries npm first, falls back to GitHub releases
-- Both systems coexist
-- Zero breaking changes
-
-### Phase 2: npm Primary (After 4 Weeks)
-- npm packages stable and proven
-- GitHub releases kept as emergency fallback
-- Documentation updated to recommend npm approach
-
-### Phase 3: Cleanup (After 8 Weeks)
-- Remove `build-ffmpeg.yml` workflow
-- Archive old `deps-*` releases
-- npm becomes sole distribution method
-
-## Package Version Mapping
-
-| FFmpeg Version | npm Package Version | GitHub Release Tag |
-|----------------|---------------------|-------------------|
-| n8.0 | 8.0.0 | deps-v5 |
-| n8.1 (future) | 8.1.0 | deps-v6 |
+| FFmpeg Version | npm Package Version |
+|----------------|---------------------|
+| n8.0 | 8.0.0 |
+| n8.1 (future) | 8.1.0 |
 
 ## Troubleshooting
 
 ### npm package not found
 
 ```bash
-# Check if package exists
+# Check if package exists for your platform
 npm view @pproenca/ffmpeg-dev-linux-x64-glibc
-
-# Fallback to GitHub release
-npm run setup-ffmpeg linux-x64-glibc deps-v5
 ```
 
 ### Build can't find FFmpeg
@@ -130,25 +74,20 @@ node gyp/ffmpeg-paths.js include
 node gyp/ffmpeg-paths.js lib
 ```
 
-### Wrong FFmpeg version
+### Specific FFmpeg version needed
 
 ```bash
-# Specify exact version
+# Install exact version
 npm install --save-dev @pproenca/ffmpeg-dev-darwin-arm64@8.0.0
-
-# Or use GitHub release with specific tag
-npm run setup-ffmpeg darwin-arm64 deps-v5
 ```
 
 ## Related Files
 
-- **CI Workflow:** `.github/workflows/ci.yml` (lines 203-256)
-- **FFmpeg Resolver:** `gyp/ffmpeg-paths-lib.ts` (lines 50-66)
-- **Setup Script:** `scripts/setup-ffmpeg.ts`
+- **CI Workflow:** `.github/workflows/ci.yml` (FFmpeg installation steps)
+- **FFmpeg Resolver:** `gyp/ffmpeg-paths-lib.ts` (FFMPEG_ROOT resolution)
 - **Binding Config:** `binding.gyp` (uses gyp/ffmpeg-paths.js)
 
 ## References
 
-- [ffmpeg-prebuilds Repository](https://github.com/pproenca/ffmpeg-prebuilds)
-- [sharp-libvips](https://github.com/lovell/sharp-libvips) (inspiration for this approach)
-- [npm Optional Dependencies](https://docs.npmjs.com/cli/v10/configuring-npm/package-json#optionaldependencies)
+- [ffmpeg-prebuilds Repository](https://github.com/pproenca/ffmpeg-prebuilds) - Build and distribution
+- [sharp-libvips](https://github.com/lovell/sharp-libvips) - Pattern inspiration
