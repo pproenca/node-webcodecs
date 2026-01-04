@@ -260,6 +260,7 @@ jobs:
     env:
       TARGET: ${{ github.workspace }}/ffmpeg_build
       ARCH: ${{ matrix.target }}
+      MACOSX_DEPLOYMENT_TARGET: ${{ env.MACOS_DEPLOYMENT_TARGET }}
 
     steps:
       - name: Checkout
@@ -526,6 +527,11 @@ jobs:
 
           make -j$(sysctl -n hw.ncpu)
           make install
+
+      - name: Verify macOS deployment targets
+        run: |
+          export FFMPEG_ROOT="$TARGET"
+          node scripts/check-macos-abi.cjs
 
       - name: Verify and strip binaries
         run: |
