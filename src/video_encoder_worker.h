@@ -161,8 +161,9 @@ class VideoEncoderWorker : public CodecWorker<VideoControlQueue> {
 
   /**
    * Reinitialize codec after flush (FFmpeg enters EOF mode).
+   * @return true on success, false on failure
    */
-  void ReinitializeCodec();
+  bool ReinitializeCodec();
 
   /**
    * Emit an encoded packet via callback.
