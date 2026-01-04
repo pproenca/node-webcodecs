@@ -10,48 +10,6 @@
             "timeout": 30
           }
         ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "pattern": "**/*.cc|**/*.h",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "npm run format || true && npm run build:native 2>&1 | grep -E '(error|warning)' | head -20",
-            "timeout": 120
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Before stopping, verify:\n1. Is there an active TODO-X.X task? Check .claude/artifacts/TODO*.md\n2. If yes, is the handoff artifact created at .claude/artifacts/TODO-X.X-handoff.md?\n3. Does the handoff include the Spec Compliance Mapping table?\n4. Have all tests passed? Run: npm run check\n5. For C++ changes: Are there zero warnings? Run: npm run build:native 2>&1 | grep -i warning\n\nIf ANY item is incomplete, continue working. Do not stop mid-task."
-          }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Before this subagent completes:\n1. Verify all items in 'Completion Checklist' are checked\n2. Verify handoff artifact exists with Spec Compliance Mapping\n3. Verify all tests pass\n4. Verify no TypeScript errors\n5. For C++ work: Verify no build warnings\n\nIf verification fails, continue working."
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo '=== WebCodecs Session Start ===' && ls -la .claude/artifacts/TODO*.md 2>/dev/null | head -5 || echo 'No pending TODO files'",
-            "timeout": 5
-          }
-        ]
       }
     ]
   }
