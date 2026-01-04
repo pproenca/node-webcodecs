@@ -25,8 +25,7 @@
 
 import {existsSync} from 'node:fs';
 import {execSync} from 'node:child_process';
-import {join, resolve, dirname} from 'node:path';
-import {fileURLToPath} from 'node:url';
+import {join, resolve} from 'node:path';
 
 const FFMPEG_LIBS = 'libavcodec libavformat libavutil libswscale libswresample libavfilter';
 
@@ -123,6 +122,5 @@ export function resolveIncludeFlags(
 }
 
 export function resolveProjectRoot(): string {
-  const currentDir = dirname(fileURLToPath(import.meta.url));
-  return resolve(currentDir, '..');
+  return resolve(__dirname, '..');
 }
