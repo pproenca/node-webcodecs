@@ -33,7 +33,6 @@ exports.resolveProjectRoot = resolveProjectRoot;
 const node_fs_1 = require("node:fs");
 const node_child_process_1 = require("node:child_process");
 const node_path_1 = require("node:path");
-const node_url_1 = require("node:url");
 const FFMPEG_LIBS = 'libavcodec libavformat libavutil libswscale libswresample libavfilter';
 function filterFrameworkFlags(flags) {
     const tokens = flags.split(/\s+/);
@@ -104,6 +103,5 @@ function resolveIncludeFlags(projectRoot, env) {
     return result.replace(/-I/g, '').trim();
 }
 function resolveProjectRoot() {
-    const currentDir = (0, node_path_1.dirname)((0, node_url_1.fileURLToPath)(import.meta.url));
-    return (0, node_path_1.resolve)(currentDir, '..');
+    return (0, node_path_1.resolve)(__dirname, '..');
 }
