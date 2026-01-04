@@ -33,14 +33,18 @@ static void PremultiplyAlpha(uint8_t* rgba_data, int width, int height) {
 }
 
 // Custom read callback for AVIOContext to read from memory buffer
+// NOTE: Defined in ffmpeg namespace to match RAII wrapper in ffmpeg_raii.h
+namespace ffmpeg {
 struct MemoryBufferContext {
   const uint8_t* data;
   size_t size;
   size_t position;
 };
+}  // namespace ffmpeg
 
 static int ReadPacket(void* opaque, uint8_t* buf, int buf_size) {
-  MemoryBufferContext* ctx = static_cast<MemoryBufferContext*>(opaque);
+  ffmpeg::MemoryBufferContext* ctx =
+      static_cast<ffmpeg::MemoryBufferContext*>(opaque);
   int64_t remaining = static_cast<int64_t>(ctx->size - ctx->position);
   if (remaining <= 0) {
     return AVERROR_EOF;
@@ -52,7 +56,8 @@ static int ReadPacket(void* opaque, uint8_t* buf, int buf_size) {
 }
 
 static int64_t SeekPacket(void* opaque, int64_t offset, int whence) {
-  MemoryBufferContext* ctx = static_cast<MemoryBufferContext*>(opaque);
+  ffmpeg::MemoryBufferContext* ctx =
+      static_cast<ffmpeg::MemoryBufferContext*>(opaque);
   int64_t new_pos = 0;
 
   switch (whence) {
@@ -108,9 +113,9 @@ ImageDecoder::ImageDecoder(const Napi::CallbackInfo& info)
       sws_context_(),
       frame_(),
       packet_(),
-      format_context_(nullptr),
-      avio_context_(nullptr),
-      mem_ctx_(nullptr),
+      format_context_(),
+      avio_context_(),
+      mem_ctx_(),
       video_stream_index_(-1),
       decoded_width_(0),
       decoded_height_(0),
@@ -233,26 +238,24 @@ ImageDecoder::ImageDecoder(const Napi::CallbackInfo& info)
 ImageDecoder::~ImageDecoder() { Cleanup(); }
 
 void ImageDecoder::Cleanup() {
-  // RAII wrappers handle deallocation automatically via reset()
+  // Reset RAII members (automatic cleanup)
+  codec_context_.reset();
   sws_context_.reset();
   frame_.reset();
   packet_.reset();
-  codec_context_.reset();
-  if (format_context_) {
-    avformat_close_input(&format_context_);
-    format_context_ = nullptr;
-  }
-  // Free MemoryBufferContext BEFORE avio_context_free (it's stored in opaque)
-  if (mem_ctx_) {
-    delete mem_ctx_;
-    mem_ctx_ = nullptr;
-  }
-  if (avio_context_) {
-    // The buffer is freed by avio_context_free
-    av_freep(&avio_context_->buffer);
-    avio_context_free(&avio_context_);
-    avio_context_ = nullptr;
-  }
+
+  // Reset animated image RAII members
+  // Order matters: format_context_ first (may reference avio_context_->buffer)
+  // then avio_context_ (frees buffer too via AVIOContextDeleter)
+  // then mem_ctx_ (no longer needed)
+  format_context_.reset();  // Calls ImageFormatContextDeleter
+  avio_context_.reset();    // Calls AVIOContextDeleter (frees buffer too)
+  mem_ctx_.reset();         // Calls MemoryBufferContextDeleter
+
+  video_stream_index_ = -1;
+
+  // Clear decoded frame data
+  decoded_data_.clear();
   decoded_frames_.clear();
 }
 
@@ -320,41 +323,39 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
     return false;
   }
 
-  // Allocate memory buffer context for custom I/O
-  mem_ctx_ = new MemoryBufferContext();
-  mem_ctx_->data = data_.data();
-  mem_ctx_->size = data_.size();
-  mem_ctx_->position = 0;
+  // Allocate memory buffer context for custom I/O (RAII managed)
+  mem_ctx_.reset(new ffmpeg::MemoryBufferContext{
+      .data = data_.data(),
+      .size = data_.size(),
+      .position = 0,
+  });
 
-  // Allocate AVIO buffer
+  // Allocate AVIO buffer (will be owned by AVIOContext)
   uint8_t* avio_buffer = static_cast<uint8_t*>(av_malloc(kAVIOBufferSize));
   if (!avio_buffer) {
-    delete mem_ctx_;
-    mem_ctx_ = nullptr;
+    mem_ctx_.reset();  // RAII cleanup
     return false;
   }
 
-  // Create custom AVIO context
-  avio_context_ = avio_alloc_context(avio_buffer, kAVIOBufferSize, 0, mem_ctx_,
-                                     ReadPacket, nullptr, SeekPacket);
-  if (!avio_context_) {
-    av_free(avio_buffer);
-    delete mem_ctx_;
-    mem_ctx_ = nullptr;
+  // Create custom AVIO context (takes ownership of avio_buffer)
+  AVIOContext* raw_avio = avio_alloc_context(
+      avio_buffer, kAVIOBufferSize, 0, mem_ctx_.get(),
+      ReadPacket, nullptr, SeekPacket);
+  if (!raw_avio) {
+    av_free(avio_buffer);  // avio_alloc_context failed, free buffer manually
+    mem_ctx_.reset();
     return false;
   }
+  avio_context_.reset(raw_avio);  // Transfer ownership to RAII wrapper
 
-  // Allocate format context
-  format_context_ = avformat_alloc_context();
+  // Allocate format context (RAII managed)
+  format_context_.reset(avformat_alloc_context());
   if (!format_context_) {
-    av_freep(&avio_context_->buffer);
-    avio_context_free(&avio_context_);
-    delete mem_ctx_;
-    mem_ctx_ = nullptr;
+    // RAII will clean up avio_context_ and mem_ctx_ automatically
     return false;
   }
 
-  format_context_->pb = avio_context_;
+  format_context_->pb = avio_context_.get();  // Use raw pointer for FFmpeg API
   format_context_->flags |= AVFMT_FLAG_CUSTOM_IO;
 
   // Determine format based on MIME type
@@ -365,30 +366,20 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
     input_format = av_find_input_format("webp");
   }
 
-  // Open input
-  int ret =
-      avformat_open_input(&format_context_, nullptr, input_format, nullptr);
+  // Open input (avformat_open_input takes ownership on success, frees on failure)
+  AVFormatContext* raw_fmt = format_context_.release();  // Release ownership
+  int ret = avformat_open_input(&raw_fmt, nullptr, input_format, nullptr);
   if (ret < 0) {
-    // format_context_ is freed by avformat_open_input on failure
-    format_context_ = nullptr;
-    av_freep(&avio_context_->buffer);
-    avio_context_free(&avio_context_);
-    avio_context_ = nullptr;
-    delete mem_ctx_;
-    mem_ctx_ = nullptr;
+    // avformat_open_input freed raw_fmt on failure, set to nullptr
+    // RAII handles cleanup of avio_context_ and mem_ctx_
     return false;
   }
+  format_context_.reset(raw_fmt);  // Take ownership back on success
 
   // Find stream info
-  ret = avformat_find_stream_info(format_context_, nullptr);
+  ret = avformat_find_stream_info(format_context_.get(), nullptr);
   if (ret < 0) {
-    avformat_close_input(&format_context_);
-    av_freep(&avio_context_->buffer);
-    avio_context_free(&avio_context_);
-    avio_context_ = nullptr;
-    delete mem_ctx_;
-    mem_ctx_ = nullptr;
-    return false;
+    return false;  // RAII handles cleanup automatically
   }
 
   // Find video stream
@@ -402,13 +393,7 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
   }
 
   if (video_stream_index_ < 0) {
-    avformat_close_input(&format_context_);
-    av_freep(&avio_context_->buffer);
-    avio_context_free(&avio_context_);
-    avio_context_ = nullptr;
-    delete mem_ctx_;
-    mem_ctx_ = nullptr;
-    return false;
+    return false;  // RAII handles cleanup automatically
   }
 
   AVStream* video_stream = format_context_->streams[video_stream_index_];
@@ -421,63 +406,33 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
   // Find decoder for the stream
   const AVCodec* stream_codec = avcodec_find_decoder(codecpar->codec_id);
   if (!stream_codec) {
-    avformat_close_input(&format_context_);
-    av_freep(&avio_context_->buffer);
-    avio_context_free(&avio_context_);
-    avio_context_ = nullptr;
-    delete mem_ctx_;
-    mem_ctx_ = nullptr;
-    return false;
+    return false;  // RAII handles cleanup automatically
   }
 
   // Allocate new codec context for the stream (RAII managed)
   ffmpeg::AVCodecContextPtr stream_codec_ctx =
       ffmpeg::make_codec_context(stream_codec);
   if (!stream_codec_ctx) {
-    avformat_close_input(&format_context_);
-    av_freep(&avio_context_->buffer);
-    avio_context_free(&avio_context_);
-    avio_context_ = nullptr;
-    delete mem_ctx_;
-    mem_ctx_ = nullptr;
-    return false;
+    return false;  // RAII handles cleanup automatically
   }
 
   // Copy codec parameters
   ret = avcodec_parameters_to_context(stream_codec_ctx.get(), codecpar);
   if (ret < 0) {
-    avformat_close_input(&format_context_);
-    av_freep(&avio_context_->buffer);
-    avio_context_free(&avio_context_);
-    avio_context_ = nullptr;
-    delete mem_ctx_;
-    mem_ctx_ = nullptr;
-    return false;
+    return false;  // RAII handles cleanup automatically
   }
 
   // Open codec
   ret = avcodec_open2(stream_codec_ctx.get(), stream_codec, nullptr);
   if (ret < 0) {
-    avformat_close_input(&format_context_);
-    av_freep(&avio_context_->buffer);
-    avio_context_free(&avio_context_);
-    avio_context_ = nullptr;
-    delete mem_ctx_;
-    mem_ctx_ = nullptr;
-    return false;
+    return false;  // RAII handles cleanup automatically
   }
 
   // Count frames and decode them (RAII managed)
   ffmpeg::AVPacketPtr pkt = ffmpeg::make_packet();
   ffmpeg::AVFramePtr frm = ffmpeg::make_frame();
   if (!pkt || !frm) {
-    avformat_close_input(&format_context_);
-    av_freep(&avio_context_->buffer);
-    avio_context_free(&avio_context_);
-    avio_context_ = nullptr;
-    delete mem_ctx_;
-    mem_ctx_ = nullptr;
-    return false;
+    return false;  // RAII handles cleanup automatically
   }
 
   frame_count_ = 0;
@@ -513,7 +468,7 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
     repetition_count_ = std::numeric_limits<double>::infinity();
 
     AVDictionaryEntry* loop_entry =
-        av_dict_get(format_context_->metadata, "loop", nullptr, 0);
+        av_dict_get(format_context_->metadata, "loop", nullptr, 0);  // -> works on unique_ptr
     if (loop_entry) {
       int loop_count = std::atoi(loop_entry->value);
       if (loop_count == 0) {
@@ -525,7 +480,7 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
   }
 
   // Read all frames
-  while (av_read_frame(format_context_, pkt.get()) >= 0) {
+  while (av_read_frame(format_context_.get(), pkt.get()) >= 0) {
     if (pkt->stream_index == video_stream_index_) {
       ret = avcodec_send_packet(stream_codec_ctx.get(), pkt.get());
       if (ret >= 0) {
