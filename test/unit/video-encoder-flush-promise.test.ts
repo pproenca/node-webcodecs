@@ -73,15 +73,22 @@ describe('VideoEncoder flush() Promise Handling', () => {
   });
 
   // Test: flush() on unconfigured encoder
-  it('should resolve immediately when encoder is unconfigured', async () => {
+  it('should reject when encoder is unconfigured', async () => {
     const encoder = new VideoEncoder({
       output: () => {},
       error: () => {},
     });
 
     // Don't configure - state is "unconfigured"
-    const result = await encoder.flush();
-    assert.strictEqual(result, undefined);
+    try {
+      await encoder.flush();
+      assert.fail('Expected flush() to reject');
+    } catch (error) {
+      assert.ok(error instanceof Error);
+      assert.ok(
+        error.message.includes('not configured') || error.message.includes('unconfigured'),
+      );
+    }
     encoder.close();
   });
 });

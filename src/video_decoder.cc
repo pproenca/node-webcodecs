@@ -579,7 +579,7 @@ Napi::Value VideoDecoder::Flush(const Napi::CallbackInfo& info) {
     // Reject immediately if we can't enqueue
     auto it = pending_flushes_.find(promise_id);
     if (it != pending_flushes_.end()) {
-      napi_value promise = it->second.Promise();  // Get promise BEFORE erase
+      Napi::Promise promise = it->second.Promise();  // Get promise BEFORE erase
       it->second.Reject(
           Napi::Error::New(env, "Failed to enqueue flush message").Value());
       pending_flushes_.erase(it);
