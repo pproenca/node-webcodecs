@@ -39,7 +39,35 @@ npm run test:unit      # Fast iteration
 npm run lint           # All linters
 npm run lint:cpp       # cpplint
 npm run lint:ts        # biome
+
+# Filter test output
+npm run test:failures  # Show only failures
+npm run test:summary   # Show only summary stats
 ```
+
+## Test Output (Spec Reporter)
+
+Tests use Node.js spec reporter for clean, greppable output:
+
+**Symbols:**
+
+- `✔` = passing test
+- `✖` = failing test
+- `ℹ` = summary stats
+
+**Automated analysis:**
+
+```bash
+npm test 2>&1 | grep '✖'        # Find failures
+npm test 2>&1 | grep '^ℹ fail'  # Get fail count
+npm run test:summary            # Quick stats
+```
+
+**Exit codes:**
+
+- `0` = all tests passed
+- `1` = test failures or errors
+- Helper scripts (`test:failures`, `test:summary`) always exit 0
 
 ## Architecture
 
