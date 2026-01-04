@@ -140,6 +140,65 @@ describe('AudioEncoder Methods: 5.5', () => {
 
       encoder.close();
     });
+
+    describe('W3C validation', () => {
+      it('should throw TypeError for empty codec', () => {
+        const encoder = createEncoder();
+        assert.throws(
+          () => encoder.configure({ codec: '', sampleRate: 48000, numberOfChannels: 2 }),
+          TypeError,
+        );
+        encoder.close();
+      });
+
+      it('should throw TypeError for missing codec', () => {
+        const encoder = createEncoder();
+        assert.throws(
+          () => {
+            // @ts-expect-error Testing invalid input
+            encoder.configure({ sampleRate: 48000, numberOfChannels: 2 });
+          },
+          TypeError,
+        );
+        encoder.close();
+      });
+
+      it('should throw TypeError for zero sampleRate', () => {
+        const encoder = createEncoder();
+        assert.throws(
+          () => encoder.configure({ codec: 'opus', sampleRate: 0, numberOfChannels: 2 }),
+          TypeError,
+        );
+        encoder.close();
+      });
+
+      it('should throw TypeError for negative sampleRate', () => {
+        const encoder = createEncoder();
+        assert.throws(
+          () => encoder.configure({ codec: 'opus', sampleRate: -48000, numberOfChannels: 2 }),
+          TypeError,
+        );
+        encoder.close();
+      });
+
+      it('should throw TypeError for zero numberOfChannels', () => {
+        const encoder = createEncoder();
+        assert.throws(
+          () => encoder.configure({ codec: 'opus', sampleRate: 48000, numberOfChannels: 0 }),
+          TypeError,
+        );
+        encoder.close();
+      });
+
+      it('should throw TypeError for negative numberOfChannels', () => {
+        const encoder = createEncoder();
+        assert.throws(
+          () => encoder.configure({ codec: 'opus', sampleRate: 48000, numberOfChannels: -2 }),
+          TypeError,
+        );
+        encoder.close();
+      });
+    });
   });
 
   describe('encode() method', () => {
