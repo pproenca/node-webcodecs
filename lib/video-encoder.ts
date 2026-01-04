@@ -176,13 +176,13 @@ export class VideoEncoder extends CodecBase {
     }
     await this._controlQueue.flush();
 
-    // Flush the native encoder (waits for worker queue to drain)
-    this._native.flush();
+    // Flush the native encoder - this returns a Promise that resolves when
+    // the worker has finished processing all queued frames
+    await this._native.flush();
 
     // Poll for pending TSFN callbacks to complete.
+    // Even after flush completes, TSFN callbacks may still be queued.
     // This allows the event loop to run (delivering callbacks) while we wait.
-    // Using setTimeout(1ms) instead of setImmediate to ensure other event loop
-    // phases (timers, I/O) can run, preventing event loop starvation.
     while (this._native.pendingChunks > 0) {
       await new Promise((resolve) => setTimeout(resolve, 1)); // 1ms poll
     }
