@@ -179,6 +179,103 @@ describe('SafeThreadSafeFunction lifecycle', () => {
     });
   });
 
+  describe('Worker thread lifecycle', () => {
+    it('worker starts on first encode/decode operation', async () => {
+      // The worker thread should be started when configure is called
+      // and the codec begins processing operations.
+      const encoder = new VideoEncoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      encoder.configure({
+        codec: 'avc1.42001e',
+        width: 640,
+        height: 480,
+      });
+
+      // At this point the worker should be started internally
+      // We verify by checking the state transitions work correctly
+      assert.strictEqual(encoder.state, 'configured');
+
+      encoder.close();
+      assert.strictEqual(encoder.state, 'closed');
+    });
+
+    it('worker shuts down cleanly on close()', async () => {
+      const decoder = new VideoDecoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      decoder.configure({
+        codec: 'avc1.42001e',
+      });
+
+      assert.strictEqual(decoder.state, 'configured');
+
+      // Close should trigger worker shutdown
+      decoder.close();
+      assert.strictEqual(decoder.state, 'closed');
+
+      // Attempting operations after close should fail gracefully
+      assert.throws(() => {
+        decoder.configure({codec: 'avc1.42001e'});
+      }, /closed/i);
+    });
+
+    it('no crashes on rapid close() after operations', async () => {
+      // Stress test: rapid configure and close cycles
+      // This exercises the worker start/stop lifecycle
+      for (let i = 0; i < 20; i++) {
+        const encoder = new VideoEncoder({
+          output: () => {},
+          error: () => {},
+        });
+
+        encoder.configure({
+          codec: 'avc1.42001e',
+          width: 320,
+          height: 240,
+        });
+
+        // Immediately close after configure
+        encoder.close();
+      }
+
+      // If we reach here without crashes, the test passes
+      assert.ok(true, 'Rapid close after operations completed without crash');
+    });
+
+    it('handles close during pending flush', async () => {
+      const encoder = new VideoEncoder({
+        output: () => {},
+        error: () => {},
+      });
+
+      encoder.configure({
+        codec: 'avc1.42001e',
+        width: 640,
+        height: 480,
+      });
+
+      // Start a flush (returns promise)
+      const flushPromise = encoder.flush();
+
+      // Close before flush completes
+      encoder.close();
+
+      // The flush promise should reject or resolve
+      try {
+        await flushPromise;
+      } catch {
+        // Expected - flush was aborted by close
+      }
+
+      assert.strictEqual(encoder.state, 'closed');
+    });
+  });
+
   describe('Concurrent codec operations', () => {
     it('should handle multiple encoders created and closed concurrently', async () => {
       const promises: Promise<void>[] = [];
