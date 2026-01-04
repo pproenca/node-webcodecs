@@ -572,16 +572,24 @@ Napi::Value VideoDecoder::Flush(const Napi::CallbackInfo& info) {
   webcodecs::VideoControlQueue::FlushMessage flush_msg;
   flush_msg.promise_id = promise_id;
 
+  // Store the deferred promise FIRST - before enqueue attempt
+  pending_flushes_.emplace(promise_id, std::move(deferred));
+
   if (!control_queue_->Enqueue(std::move(flush_msg))) {
     // Reject immediately if we can't enqueue
-    deferred.Reject(
-        Napi::Error::New(env, "Failed to enqueue flush message").Value());
-    return deferred.Promise();
+    auto it = pending_flushes_.find(promise_id);
+    if (it != pending_flushes_.end()) {
+      napi_value promise = it->second.Promise();  // Get promise BEFORE erase
+      it->second.Reject(
+          Napi::Error::New(env, "Failed to enqueue flush message").Value());
+      pending_flushes_.erase(it);
+      return promise;  // Return the CORRECT promise
+    }
+    // Fallback (should never happen)
+    Napi::Promise::Deferred fallback = Napi::Promise::Deferred::New(env);
+    fallback.Reject(Napi::Error::New(env, "Internal error").Value());
+    return fallback.Promise();
   }
-
-  // Store the deferred promise - it will be resolved by OnFlushCallback
-  // when the worker completes the flush operation
-  pending_flushes_.emplace(promise_id, std::move(deferred));
 
   // Return the promise - it will be resolved/rejected by OnFlushCallback
   // when the worker signals flush completion via TSFN

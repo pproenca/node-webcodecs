@@ -386,7 +386,12 @@ void AsyncEncodeWorker::EmitChunk(AVPacket* pkt) {
       metadata.Set("decoderConfig", decoder_config);
     }
 
-    fn.Call({chunk, metadata});
+    try {
+      fn.Call({chunk, metadata});
+    } catch (...) {
+      // User callback threw an exception. Log it but don't propagate to N-API
+      // layer, as this would cause undefined behavior in TSFN context.
+    }
 
     // ChunkCallbackData is no longer tied to the buffer lifetime.
     // Delete it now that the data has been copied into the EncodedVideoChunk.
