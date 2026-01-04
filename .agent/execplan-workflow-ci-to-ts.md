@@ -16,9 +16,9 @@ each new script entrypoint.
 ## Progress
 
 - [x] (2025-02-14 00:00Z) Inventory all workflow Bash blocks and define script mapping.
-- [ ] (2025-02-14 00:00Z) Implement TS scripts + shared helpers for CI workflows.
-- [ ] (2025-02-14 00:00Z) Update workflows to call TS scripts with parity.
-- [ ] (2025-02-14 00:00Z) Add unit tests covering happy + sad paths and record results.
+- [x] (2025-02-14 00:00Z) Implement TS scripts + shared helpers for CI workflows.
+- [x] (2025-02-14 00:00Z) Update workflows to call TS scripts with parity.
+- [x] (2025-02-14 00:00Z) Add unit tests covering happy + sad paths and record results.
 
 ## Surprises & Discoveries
 

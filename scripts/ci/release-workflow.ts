@@ -127,7 +127,14 @@ export function createNpmTarball(
     throw new Error('npm pack did not create a tarball');
   }
   writeGithubEnv(env, 'PACKED_TGZ', tarball);
-  runner.runOrThrow('tar', ['-tzf', tarball], {stdio: 'inherit'});
+  const listResult = runner.run('tar', ['-tzf', tarball]);
+  if (listResult.exitCode !== 0) {
+    throw new Error(`Tarball is corrupted: ${tarball}`);
+  }
+  const preview = listResult.stdout.split('\n').slice(0, 20).join('\n');
+  if (preview) {
+    console.log(preview);
+  }
 }
 
 export function prepublishSmokeTest(
@@ -137,9 +144,10 @@ export function prepublishSmokeTest(
   packagesDir: string,
 ): void {
   const stageDir = resolve('smoke-stage');
+  const resolvedTarball = resolve(tarball);
   ensureDir(stageDir);
   runner.runOrThrow('npm', ['init', '-y'], {cwd: stageDir, stdio: 'inherit'});
-  runner.runOrThrow('npm', ['install', '--ignore-scripts', tarball], {
+  runner.runOrThrow('npm', ['install', '--ignore-scripts', resolvedTarball], {
     cwd: stageDir,
     stdio: 'inherit',
   });
