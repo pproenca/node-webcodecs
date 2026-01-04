@@ -196,6 +196,32 @@ class ControlMessageQueue {
     return msg;
   }
 
+  /**
+   * Peek at the front message without removing it.
+   * Required for W3C spec 2.2 "not processed" semantics.
+   *
+   * @return Pointer to front message, or nullptr if queue is empty
+   */
+  [[nodiscard]] const Message* Peek() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (queue_.empty()) {
+      return nullptr;
+    }
+    return &queue_.front();
+  }
+
+  /**
+   * Remove the front message from the queue.
+   * Should only be called after Peek() when message is "processed".
+   * Per W3C spec 2.2: messages that return "not processed" remain in queue.
+   */
+  void PopFront() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!queue_.empty()) {
+      queue_.pop();
+    }
+  }
+
   // ===========================================================================
   // RESET / SHUTDOWN
   // ===========================================================================
