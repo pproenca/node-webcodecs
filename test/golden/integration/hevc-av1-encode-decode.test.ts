@@ -3,8 +3,8 @@
  * Phase 5: Extended Codec Support
  */
 
-import {describe, expect, it} from 'vitest';
-import {AudioData, AudioDecoder, AudioEncoder, EncodedAudioChunk, EncodedVideoChunk, VideoDecoder, VideoEncoder, VideoFrame} from '@pproenca/node-webcodecs';
+import {expect, it} from 'vitest';
+import {VideoDecoder, VideoEncoder, VideoFrame} from '@pproenca/node-webcodecs';
 
 // Helper to create a test frame
 function createTestFrame(

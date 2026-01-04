@@ -3,7 +3,7 @@
  */
 
 import {describe, expect, it} from 'vitest';
-import {AudioData, AudioDecoder, AudioEncoder, EncodedAudioChunk, EncodedVideoChunk, VideoDecoder, VideoEncoder, VideoFrame} from '@pproenca/node-webcodecs';
+import {EncodedVideoChunk, VideoDecoder, VideoEncoder, VideoFrame} from '@pproenca/node-webcodecs';
 
 /**
  * Extracts dominant color from VideoFrame by sampling center pixel
@@ -16,7 +16,7 @@ async function getDominantColor(frame) {
   const buffer = new Uint8Array(size);
   await frame.copyTo(buffer);
 
-  let y;
+  let y: number;
   const format = frame.format;
 
   if (format === 'RGBA' || format === 'RGBX' || format === 'BGRA' || format === 'BGRX') {
@@ -27,7 +27,9 @@ async function getDominantColor(frame) {
     const centerOffset = (centerY * frame.codedWidth + centerX) * bytesPerPixel;
 
     // Extract RGB values based on format
-    let r, g, b;
+    let r: number;
+    let g: number;
+    let b: number;
     if (format === 'RGBA' || format === 'RGBX') {
       r = buffer[centerOffset];
       g = buffer[centerOffset + 1];

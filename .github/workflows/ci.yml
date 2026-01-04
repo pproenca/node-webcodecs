@@ -31,26 +31,16 @@ jobs:
     outputs:
       deps_version: ${{ steps.deps.outputs.version }}
     steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+      - run: npm install --ignore-scripts
       - name: Find latest deps release
         id: deps
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          # Find the latest deps-* release tag
-          # Use --limit 200 to ensure we find deps releases even with many other releases
-          LATEST_TAG=$(gh release list --repo "${{ github.repository }}" --limit 200 --json tagName --jq '[.[] | select(.tagName | startswith("deps-"))][0].tagName' || echo "")
-
-          if [ -z "$LATEST_TAG" ]; then
-            echo "ERROR: No deps-* release found in repository"
-            echo "Please run the build-ffmpeg workflow first to create a deps release"
-            exit 1
-          fi
-
-          # Extract version (deps-v10 -> v10)
-          VERSION="${LATEST_TAG#deps-}"
-
-          echo "Detected latest dependencies: $LATEST_TAG (version: $VERSION)"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+        run: npx tsx scripts/ci/ci-workflow.ts resolve-deps --repo "${{ github.repository }}"
 
 
   # ============================================================================
@@ -103,25 +93,20 @@ jobs:
         with:
           node-version: "22"
 
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
       - name: Fix macOS 15 PerfPowerServices CPU bug
         if: runner.os == 'macOS'
-        run: |
-          # Workaround for known macOS 15 bug where PerfPowerServices consumes 100% CPU
-          # See: https://github.com/actions/runner-images/issues/13358
-          # Both commands are tolerant - may fail on future macOS versions
-          sudo defaults -currentHost write /Library/Preferences/com.apple.powerlogd SMCMonitorCadence 0 || echo "Warning: defaults write failed (may not be needed on this macOS version)"
-          sudo killall PerfPowerServices || true
+        run: npx tsx scripts/ci/ci-workflow.ts fix-macos-power
 
       - name: Install build tools (macOS)
         if: runner.os == 'macOS'
-        run: |
-          brew install pkg-config
+        run: npx tsx scripts/ci/ci-workflow.ts install-build-tools --os macos
 
       - name: Install build tools (Ubuntu)
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config
+        run: npx tsx scripts/ci/ci-workflow.ts install-build-tools --os linux
 
       - name: Download FFmpeg from Release
         uses: dsaltares/fetch-gh-release-asset@aa2ab1243d6e0d5b405b973c89fa4d06a2d0fff7 # v1.1.2
@@ -134,42 +119,10 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract FFmpeg and Set Environment
-        run: |
-          mkdir -p ffmpeg-install
-          tar -xzvf ffmpeg-${{ matrix.platform }}.tar.gz -C ffmpeg-install
-
-          # Set FFMPEG_ROOT for ffmpeg-paths.js to use --define-variable=prefix=
-          echo "FFMPEG_ROOT=${{ github.workspace }}/ffmpeg-install" >> $GITHUB_ENV
-
-          ls -la ffmpeg-install/lib/
-          ls -la ffmpeg-install/lib/pkgconfig/ || { echo "ERROR: No pkgconfig directory"; exit 1; }
-
-      - name: Install dependencies
-        run: npm install --ignore-scripts
+        run: npx tsx scripts/ci/ci-workflow.ts extract-ffmpeg --archive "ffmpeg-${{ matrix.platform }}.tar.gz" --out ffmpeg-install
 
       - name: Build with prebuildify
-        run: |
-          set -e
-          npx prebuildify --napi --strip --arch=${{ matrix.arch }}
-
-          # prebuildify 6.x with scoped packages creates @scope+name.node
-          # but node-gyp-build expects node.napi.node - rename if needed
-          PREBUILD_DIR="prebuilds/${{ matrix.platform }}"
-
-          if [ ! -f "$PREBUILD_DIR/node.napi.node" ]; then
-            # Look for scoped package naming pattern
-            SCOPED_FILE=$(find "$PREBUILD_DIR" -name "*.node" -type f | head -1)
-            if [ -n "$SCOPED_FILE" ]; then
-              echo "Renaming $SCOPED_FILE to node.napi.node"
-              mv "$SCOPED_FILE" "$PREBUILD_DIR/node.napi.node"
-            else
-              echo "Error: No .node file found in $PREBUILD_DIR"
-              ls -laR prebuilds/
-              exit 1
-            fi
-          fi
-          echo "Prebuild OK: $PREBUILD_DIR/node.napi.node"
-          ls -la "$PREBUILD_DIR/"
+        run: npx tsx scripts/ci/ci-workflow.ts prebuildify --arch "${{ matrix.arch }}" --platform "${{ matrix.platform }}"
 
       - name: Build TypeScript
         run: npm run build:ts
@@ -182,22 +135,7 @@ jobs:
           PLATFORM: ${{ matrix.platform }}
           PLATFORM_OS: ${{ runner.os == 'macOS' && 'darwin' || 'linux' }}
           PLATFORM_CPU: ${{ matrix.arch }}
-        run: |
-          set -e
-          VERSION=$(node -p "require('./package.json').version")
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9] ]]; then
-            echo "ERROR: Failed to extract valid version from package.json: '$VERSION'"
-            exit 1
-          fi
-          echo "Package version: $VERSION"
-
-          npx tsx scripts/ci/platform-package.ts pack \
-            --platform "$PLATFORM" \
-            --os "$PLATFORM_OS" \
-            --cpu "$PLATFORM_CPU" \
-            --version "$VERSION" \
-            --prebuild "prebuilds/${{ matrix.platform }}/node.napi.node" \
-            --out packages
+        run: npx tsx scripts/ci/ci-workflow.ts package-platform --platform "$PLATFORM" --os "$PLATFORM_OS" --cpu "$PLATFORM_CPU" --prebuild "prebuilds/${{ matrix.platform }}/node.napi.node" --out packages
 
       - name: Upload platform package artifact
         uses: actions/upload-artifact@v6
@@ -245,30 +183,16 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
 
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
       - name: Download prebuilt artifact
         uses: actions/download-artifact@v6
         with:
           name: platform-pkg-${{ matrix.platform }}
 
       - name: Extract prebuilt binary
-        run: |
-          set -e
-          TAR_PATH=$(find . -name "@pproenca-node-webcodecs-${{ matrix.platform }}.tar" -type f | head -1)
-          if [ -z "$TAR_PATH" ]; then
-            echo "ERROR: Platform tarball not found for ${{ matrix.platform }}"
-            exit 1
-          fi
-
-          npx tsx scripts/ci/platform-package.ts extract \
-            --platform "${{ matrix.platform }}" \
-            --tar "$TAR_PATH" \
-            --out packages \
-            --prebuilds prebuilds
-
-          ls -la prebuilds/${{ matrix.platform }}/
-
-      - name: Install dependencies
-        run: npm install --ignore-scripts
+        run: npx tsx scripts/ci/ci-workflow.ts extract-prebuilt --platform "${{ matrix.platform }}" --out packages --prebuilds prebuilds
 
       - name: Build TypeScript
         run: npm run build:ts

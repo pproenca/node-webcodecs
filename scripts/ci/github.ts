@@ -1,8 +1,6 @@
 import {appendFileSync} from 'node:fs';
 
-export interface EnvWriter {
-  (path: string, data: string): void;
-}
+export type EnvWriter = (path: string, data: string) => void
 
 export function requireEnv(env: NodeJS.ProcessEnv, key: string): string {
   const value = env[key];

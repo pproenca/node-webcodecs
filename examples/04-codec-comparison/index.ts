@@ -58,7 +58,7 @@ async function generateTestFrames() {
 async function encodeWithCodec(codecConfig, frames) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    let startTime;
+    let startTime: number;
 
     const encoder = new VideoEncoder({
       output: chunk => chunks.push(chunk),

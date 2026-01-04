@@ -52,7 +52,7 @@ test('VideoEncoder: 65+ frames without flush throws QuotaExceededError', () => {
     try {
       encoder.encode(frame);
     } catch (e) {
-      if (e.message && e.message.includes('QuotaExceededError')) {
+      if (e.message?.includes('QuotaExceededError')) {
         quotaError = e;
       }
     } finally {
@@ -100,7 +100,7 @@ test('VideoDecoder: rapid enqueue bursts can trigger QuotaExceededError', () => 
     try {
       decoder.decode(chunk);
     } catch (e) {
-      if (e.message && e.message.includes('QuotaExceededError')) {
+      if (e.message?.includes('QuotaExceededError')) {
         quotaError = e;
       }
     }

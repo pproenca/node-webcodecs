@@ -36,7 +36,7 @@ function createEncoder() {
 
 // Helper to create a test frame
 function createTestFrame() {
-  CONST buf = Buffer.alloc(320 * 240 * 4);
+  const buf = Buffer.alloc(320 * 240 * 4);
   return new VideoFrame(buf, {
     codedWidth: 320,
     codedHeight: 240,
@@ -46,14 +46,14 @@ function createTestFrame() {
 
 // Test 1: Initial state is unconfigured
 test('initial state is unconfigured', () => {
-  CONST encoder = createEncoder();
+  const encoder = createEncoder();
   assert.strictEqual(encoder.state, 'unconfigured');
   encoder.close();
 });
 
 // Test 2: configure() transitions unconfigured -> configured
 test('configure() transitions unconfigured -> configured', () => {
-  CONST encoder = createEncoder();
+  const encoder = createEncoder();
   assert.strictEqual(encoder.state, 'unconfigured');
   encoder.configure(videoConfig);
   assert.strictEqual(encoder.state, 'configured');
@@ -62,7 +62,7 @@ test('configure() transitions unconfigured -> configured', () => {
 
 // Test 3: reset() transitions configured -> unconfigured
 test('reset() transitions configured -> unconfigured', () => {
-  CONST encoder = createEncoder();
+  const encoder = createEncoder();
   encoder.configure(videoConfig);
   assert.strictEqual(encoder.state, 'configured');
   encoder.reset();
@@ -72,7 +72,7 @@ test('reset() transitions configured -> unconfigured', () => {
 
 // Test 4: close() from configured transitions to closed
 test('close() from configured transitions to closed', () => {
-  CONST encoder = createEncoder();
+  const encoder = createEncoder();
   encoder.configure(videoConfig);
   assert.strictEqual(encoder.state, 'configured');
   encoder.close();
@@ -81,7 +81,7 @@ test('close() from configured transitions to closed', () => {
 
 // Test 5: close() from unconfigured transitions to closed
 test('close() from unconfigured transitions to closed', () => {
-  CONST encoder = createEncoder();
+  const encoder = createEncoder();
   assert.strictEqual(encoder.state, 'unconfigured');
   encoder.close();
   assert.strictEqual(encoder.state, 'closed');
@@ -89,8 +89,8 @@ test('close() from unconfigured transitions to closed', () => {
 
 // Test 6: encode() on unconfigured throws
 test('encode() on unconfigured throws', () => {
-  CONST encoder = createEncoder();
-  CONST frame = createTestFrame();
+  const encoder = createEncoder();
+  const frame = createTestFrame();
   try {
     encoder.encode(frame);
     assert.fail('Should have thrown an error');
@@ -109,7 +109,7 @@ test('encode() on unconfigured throws', () => {
 
 // Test 7: configure() on closed throws (or resets to configured per implementation)
 test('configure() on closed throws', () => {
-  CONST encoder = createEncoder();
+  const encoder = createEncoder();
   encoder.close();
   assert.strictEqual(encoder.state, 'closed');
   let threw = false;
@@ -135,7 +135,7 @@ test('configure() on closed throws', () => {
 
 // Test 8: can reconfigure after reset
 test('can reconfigure after reset', () => {
-  CONST encoder = createEncoder();
+  const encoder = createEncoder();
 
   // First configuration
   encoder.configure(videoConfig);
@@ -146,7 +146,7 @@ test('can reconfigure after reset', () => {
   assert.strictEqual(encoder.state, 'unconfigured');
 
   // Reconfigure with different dimensions
-  CONST newConfig = {
+  const newConfig = {
     codec: 'avc1.42001E',
     width: 640,
     height: 480,
@@ -162,7 +162,7 @@ async function run() {
   console.log('Contract: VideoEncoder State Machine\n');
   let passed = 0,
     failed = 0;
-  for (CONST {name, fn} of tests) {
+  for (const {name, fn} of tests) 
     try {
       await fn();
       console.log(`  [PASS] ${name}`);
@@ -171,7 +171,6 @@ async function run() {
       console.log(`  [FAIL] ${name}: ${e.message}`);
       failed++;
     }
-  }
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);
 }

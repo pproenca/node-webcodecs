@@ -103,7 +103,7 @@ async function main() {
     // Run detection
     const detections = mockDetectContent(i);
 
-    let processedFrame;
+    let processedFrame: VideoFrame;
     if (detections.length > 0) {
       // Apply blur to detected regions
       const regions = detections.map(d => ({

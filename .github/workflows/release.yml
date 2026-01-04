@@ -62,25 +62,14 @@ jobs:
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
+      - run: npm install --ignore-scripts
 
       # For workflow_dispatch/release triggers, verify CI passed first
       - name: Verify CI workflow completed (manual triggers)
         if: github.event_name != 'workflow_run'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          COMMIT_SHA="${{ github.sha }}"
-          echo "Checking if CI workflow completed for commit $COMMIT_SHA..."
-
-          CONCLUSION=$(gh run list --workflow=ci.yml --commit="$COMMIT_SHA" --status=completed --limit=1 --json conclusion -q '.[0].conclusion' || echo "not_found")
-
-          if [ "$CONCLUSION" != "success" ]; then
-            echo "ERROR: CI workflow has not successfully completed for commit $COMMIT_SHA"
-            echo "Found conclusion: $CONCLUSION"
-            echo "Ensure CI passes before triggering release"
-            exit 1
-          fi
-          echo "CI workflow completed successfully"
+        run: npx tsx scripts/ci/release-workflow.ts verify-ci --workflow ci.yml --commit "${{ github.sha }}"
 
       # Download artifacts from the CI workflow run for this commit
       - name: Download platform artifact from CI
@@ -92,83 +81,19 @@ jobs:
           path: platform-artifacts
           if_no_artifact_found: fail
 
-      - name: Install dependencies
-        run: npm install --ignore-scripts
-
       - name: Build TypeScript
         run: npm run build:ts
 
       - name: Extract and setup platform binary
-        run: |
-          echo "=== Downloaded artifact ==="
-          ls -la platform-artifacts/
-
-          # Extract platform package tarball
-          tarball=$(find platform-artifacts -name "*.tar" -type f | head -1)
-          if [ -z "$tarball" ]; then
-            echo "ERROR: No tarball found in platform-artifacts"
-            exit 1
-          fi
-
-          echo "Validating $tarball integrity..."
-          tar -tf "$tarball" > /dev/null || { echo "ERROR: Tarball is corrupted"; exit 1; }
-
-          echo "Extracting $tarball"
-          npx tsx scripts/ci/platform-package.ts extract \
-            --platform "${{ matrix.platform }}" \
-            --tar "$tarball" \
-            --out packages
+        run: npx tsx scripts/ci/release-workflow.ts extract-platform-artifact --platform "${{ matrix.platform }}" --artifacts platform-artifacts --out packages
 
       # Create the tarball exactly as npm publish would
       - name: Create npm package tarball
-        run: |
-          npm pack
-          PACKED_TGZ=$(find . -maxdepth 1 -name "*.tgz" | head -1)
-          if [ -z "$PACKED_TGZ" ]; then
-            echo "ERROR: npm pack did not create a tarball"
-            exit 1
-          fi
-          echo "PACKED_TGZ=$PACKED_TGZ" >> $GITHUB_ENV
-          echo "Created package tarball: $PACKED_TGZ"
-          tar -tzf "$PACKED_TGZ" | head -20
+        run: npx tsx scripts/ci/release-workflow.ts npm-pack
 
       # The critical "staging" smoke test - install from tarball, not registry
       - name: Smoke Test (Pre-Publish Verification)
-        run: |
-          mkdir -p smoke-stage
-          cd smoke-stage
-          npm init -y
-
-          # Install from the local tarball (simulating what npm publish would produce)
-          # Use --ignore-scripts to skip node-gyp-build (platform package provides binary)
-          npm install --ignore-scripts "../${{ env.PACKED_TGZ }}"
-
-          # Also install the platform package from extracted artifact
-          npm install "../packages/@pproenca/node-webcodecs-${{ matrix.platform }}"
-
-          # Verify the binding loads correctly
-          node -e "
-            const wc = require('@pproenca/node-webcodecs');
-            console.log('Loaded exports:', Object.keys(wc));
-
-            // Verify core classes exist
-            const required = ['VideoDecoder', 'VideoEncoder', 'AudioDecoder', 'AudioEncoder', 'VideoFrame', 'AudioData'];
-            for (const cls of required) {
-              if (typeof wc[cls] !== 'function') {
-                console.error(cls + ' not a function');
-                process.exit(1);
-              }
-            }
-
-            // Verify native binding loaded (not just TS stubs)
-            const encoder = new wc.VideoEncoder({
-              output: () => {},
-              error: (e) => console.error(e)
-            });
-            console.log('VideoEncoder created, state:', encoder.state);
-
-            console.log('Pre-Publish Smoke Test PASSED for ${{ matrix.platform }}!');
-          "
+        run: npx tsx scripts/ci/release-workflow.ts prepublish-smoke-test --platform "${{ matrix.platform }}" --tarball "${{ env.PACKED_TGZ }}" --packages packages
 
   # ============================================================================
   # Phase 2: Publish to npm
@@ -195,6 +120,7 @@ jobs:
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
+      - run: npm install --ignore-scripts
 
       # Download ALL platform artifacts
       - name: Download artifacts from CI
@@ -207,69 +133,17 @@ jobs:
           path: platform-artifacts
           if_no_artifact_found: fail
 
-      - name: Install dependencies
-        run: npm install --ignore-scripts
-
       - name: Build TypeScript
         run: npm run build:ts
 
       - name: Extract and verify platform packages
-        run: |
-          mkdir -p packages
-
-          echo "=== Downloaded artifacts ==="
-          ls -la platform-artifacts/
-
-          # Extract each platform package tarball
-          for artifact_dir in platform-artifacts/platform-pkg-*/; do
-            platform=$(basename "$artifact_dir" | sed 's/platform-pkg-//')
-            echo "Processing platform: $platform"
-
-            tarball=$(find "$artifact_dir" -name "*.tar" -type f | head -1)
-            if [ -n "$tarball" ]; then
-              echo "Validating $tarball integrity..."
-              tar -tf "$tarball" > /dev/null || { echo "ERROR: Tarball $tarball is corrupted"; exit 1; }
-              echo "Extracting $tarball"
-              npx tsx scripts/ci/platform-package.ts extract \
-                --platform "$platform" \
-                --tar "$tarball" \
-                --out packages
-            else
-              echo "Error: No tarball found in $artifact_dir"
-              echo "Did CI complete successfully for commit?"
-              exit 1
-            fi
-          done
-
-          echo "=== Final packages structure ==="
-          ls -laR packages/
-
-          # Verify all platform packages present
-          for platform in $PLATFORMS; do
-            pkg_dir="packages/@pproenca/node-webcodecs-$platform"
-            if [ ! -f "$pkg_dir/bin/node.napi.node" ]; then
-              echo "Error: Missing binary for $platform"
-              exit 1
-            fi
-            echo "OK: $pkg_dir"
-          done
+        run: npx tsx scripts/ci/release-workflow.ts extract-platform-packages --platforms "${{ env.PLATFORMS }}" --artifacts platform-artifacts --out packages
 
       # NPM_TOKEN required for first-time publish; OIDC provenance for supply chain security
       - name: Publish platform packages
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          set -e
-          for platform in $PLATFORMS; do
-            pkg_dir="packages/@pproenca/node-webcodecs-$platform"
-            echo "Publishing $pkg_dir..."
-            (cd "$pkg_dir" && npm publish --provenance --access public)
-            echo "Successfully published $platform"
-          done
-
-          # Wait for npm registry propagation
-          echo "Waiting for npm registry propagation..."
-          sleep 15
+        run: npx tsx scripts/ci/release-workflow.ts publish-platform-packages --platforms "${{ env.PLATFORMS }}" --packages packages
 
       - name: Publish main package
         env:
@@ -302,53 +176,16 @@ jobs:
       - name: Wait for NPM Registry Propagation
         run: sleep 30
 
+      - uses: actions/checkout@v6
+
       - uses: actions/setup-node@v6
         with:
           node-version: "22"
+      - run: npm install --ignore-scripts
 
       - name: Get Release Version
         id: version
-        run: |
-          # This job only runs for tag releases (if: startsWith(github.ref, 'refs/tags/v'))
-          # but validate anyway for safety
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            VERSION="${GITHUB_REF#refs/tags/v}"
-          else
-            echo "ERROR: smoke-test should only run on tag releases"
-            echo "GITHUB_REF: $GITHUB_REF"
-            exit 1
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Testing version: $VERSION"
+        run: npx tsx scripts/ci/release-workflow.ts resolve-release-version
 
       - name: Install and Verify
-        run: |
-          mkdir smoke-test && cd smoke-test
-          npm init -y
-
-          # Install main package - should automatically install correct platform package
-          npm install @pproenca/node-webcodecs@${{ steps.version.outputs.version }}
-
-          # Verify the binding loads correctly
-          node -e "
-            const wc = require('@pproenca/node-webcodecs');
-            console.log('Loaded exports:', Object.keys(wc));
-
-            // Verify core classes exist
-            const required = ['VideoDecoder', 'VideoEncoder', 'AudioDecoder', 'AudioEncoder', 'VideoFrame', 'AudioData'];
-            for (const cls of required) {
-              if (typeof wc[cls] !== 'function') {
-                console.error(cls + ' not a function');
-                process.exit(1);
-              }
-            }
-
-            // Verify native binding loaded (not just TS stubs)
-            const encoder = new wc.VideoEncoder({
-              output: () => {},
-              error: (e) => console.error(e)
-            });
-            console.log('VideoEncoder created, state:', encoder.state);
-
-            console.log('Smoke Test Passed!');
-          "
+        run: npx tsx scripts/ci/release-workflow.ts smoke-test-registry --platform "${{ matrix.platform }}" --version "${{ steps.version.outputs.version }}"

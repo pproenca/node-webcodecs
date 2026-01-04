@@ -174,7 +174,9 @@ async function main() {
   }
 
   // Collect frames first
-  let frames, videoWidth, videoHeight;
+  let frames: VideoFrame[];
+  let videoWidth: number;
+  let videoHeight: number;
   if (useExternalFile) {
     const result = await processFromFile(INPUT_VIDEO);
     frames = result.frames;

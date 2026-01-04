@@ -16,7 +16,6 @@ const {
   VideoDecoder,
   AudioDecoder,
   VideoEncoder,
-  AudioEncoder,
   VideoFrame,
   EncodedVideoChunk,
   EncodedAudioChunk,

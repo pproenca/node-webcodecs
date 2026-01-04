@@ -9,7 +9,7 @@
  */
 
 import {
-  EncodedVideoChunk,
+  type EncodedVideoChunk,
   VideoDecoder,
   VideoEncoder,
   VideoFrame,

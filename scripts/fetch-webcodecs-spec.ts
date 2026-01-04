@@ -373,7 +373,7 @@ function createTurndownService(): TurndownService {
           (node as Element).classList?.contains('def'))
       );
     },
-    replacement: (content, node) => {
+    replacement: (_content, node) => {
       const text = (node as Element).textContent ?? '';
       return `\n\`\`\`webidl\n${text.trim()}\n\`\`\`\n`;
     },
@@ -382,7 +382,7 @@ function createTurndownService(): TurndownService {
   // Handle definition lists
   turndown.addRule('definitionList', {
     filter: 'dl',
-    replacement: (content, node) => {
+    replacement: (_content, node) => {
       let result = '\n';
       const dl = node as Element;
       const children = Array.from(dl.children);
@@ -640,7 +640,7 @@ async function main(): Promise<void> {
         const childPath = getSectionPath(child, childHasChildren);
         // Calculate relative path from current index.md to child
         const currentDir = dirname(filePath);
-        const relativePath = childPath.startsWith(currentDir + '/')
+        const relativePath = childPath.startsWith(`${currentDir}/`)
           ? childPath.slice(currentDir.length + 1)
           : childPath;
         markdown += `- [${child.number}. ${child.title}](./${relativePath})\n`;
