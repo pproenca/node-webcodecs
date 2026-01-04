@@ -253,7 +253,9 @@ async function captureCallbackError(
     );
 
     try {
-      if (config) {\n        codec.configure(config);\n      }
+      if (config) {
+        codec.configure(config);
+      }
       operation(codec);
     } catch {
       // Sync errors are NOT what we're testing - ignore
@@ -261,7 +263,11 @@ async function captureCallbackError(
 
     // Wait for async callback to fire
     setTimeout(() => {
-      try {\n        codec.close();\n      } catch {\n        // Best-effort cleanup.\n      }
+      try {
+        codec.close();
+      } catch {
+        // Best-effort cleanup.
+      }
       resolve(errorReceived);
     }, timeout);
   });

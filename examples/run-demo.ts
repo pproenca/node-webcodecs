@@ -837,8 +837,7 @@ async function main(): Promise<void> {
     print(`  ${c('cyan', '→')} Press ${c('bold', 'Ctrl+C')} to exit`);
     print();
     // Dynamic import for web-ui server
-    // @ts-expect-error - server.js is plain JavaScript with no type declarations
-    await import('./web-ui/server.js');
+    await import('./web-ui/server.ts');
     // Keep process running - server handles its own lifecycle
     return;
   }

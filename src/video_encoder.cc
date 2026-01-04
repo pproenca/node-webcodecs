@@ -362,12 +362,6 @@ Napi::Value VideoEncoder::Configure(const Napi::CallbackInfo& info) {
       New(env, flush_fn, "VideoEncoderFlush", 0, 1, this);
   flush_tsfn_.Init(flush_tsfn);
 
-  // Allow Node.js to exit even if TSFNs have pending work.
-  // Without Unref(), the TSFN references keep the event loop alive indefinitely.
-  output_tsfn_.Unref(env);
-  error_tsfn_.Unref(env);
-  flush_tsfn_.Unref(env);
-
   // Set up worker callbacks
   // Note: These callbacks capture 'this' but are protected by:
   // 1. alive_ atomic flag checked before accessing members

@@ -189,6 +189,7 @@ describe('TypeError validation per W3C spec', () => {
         });
 
         const frame = new VideoFrame(Buffer.alloc(100 * 100 * 4), {
+          format: 'RGBA',
           codedWidth: 100,
           codedHeight: 100,
           timestamp: 0,
@@ -268,6 +269,7 @@ describe('TypeError validation per W3C spec', () => {
         assert.throws(
           () => {
             new VideoFrame(Buffer.alloc(100 * 100 * 4), {
+              format: 'RGBA',
               codedWidth: 100,
               codedHeight: 100,
               // timestamp is missing

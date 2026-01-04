@@ -419,13 +419,6 @@ Napi::Value VideoDecoder::Configure(const Napi::CallbackInfo& info) {
       DequeueTSFN::TSFN::New(env, dequeue_fn, "VideoDecoderDequeue", 0, 1);
   dequeue_tsfn_.Init(std::move(dequeue_tsfn));
 
-  // Allow Node.js to exit even if TSFNs have pending work.
-  // Without Unref(), the TSFN references keep the event loop alive indefinitely.
-  frame_tsfn_.Unref(env);
-  flush_tsfn_.Unref(env);
-  error_tsfn_.Unref(env);
-  dequeue_tsfn_.Unref(env);
-
   // Setup worker callbacks
   SetupWorkerCallbacks(env);
 
