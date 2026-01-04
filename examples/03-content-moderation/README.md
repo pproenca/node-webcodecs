@@ -16,7 +16,7 @@ This example shows a complete frame-by-frame processing pipeline:
 ```bash
 # From project root
 npm run build
-node examples/content-moderation/moderate.js
+tsx examples/03-content-moderation/index.ts
 ```
 
 ## Expected Output

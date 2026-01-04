@@ -58,6 +58,7 @@ describe('VideoEncoder Circuit Breaker', () => {
     // Fill queue to near limit
     for (let i = 0; i < 60; i++) {
       const frame = new VideoFrame(buf, {
+        format: 'RGBA',
         codedWidth: 64,
         codedHeight: 64,
         timestamp: i * 33000,
@@ -71,6 +72,7 @@ describe('VideoEncoder Circuit Breaker', () => {
 
     // Should be able to encode again
     const frame = new VideoFrame(buf, {
+      format: 'RGBA',
       codedWidth: 64,
       codedHeight: 64,
       timestamp: 60 * 33000,

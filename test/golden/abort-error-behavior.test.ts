@@ -105,6 +105,9 @@ describe('AbortError behavior per W3C spec', () => {
       );
 
       encoder.close();
+
+      // Allow TSFN finalizers to complete cleanup (event loop tick)
+      await new Promise(resolve => setImmediate(resolve));
     });
 
     it('should NOT trigger error callback on close()', async () => {
@@ -144,6 +147,9 @@ describe('AbortError behavior per W3C spec', () => {
         false,
         'error callback should NOT be invoked on close()',
       );
+
+      // Allow TSFN finalizers to complete cleanup (event loop tick)
+      await new Promise(resolve => setImmediate(resolve));
     });
   });
 

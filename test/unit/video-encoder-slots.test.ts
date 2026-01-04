@@ -39,21 +39,23 @@ describe('VideoEncoder Internal Slots: 6.1', () => {
 
   describe('Constructor initialization (6.2)', () => {
     // Spec 6.2: Assign "unconfigured" to [[state]]
-    it('should initialize state to "unconfigured"', () => {
+    it('should initialize state to "unconfigured"', async () => {
       const encoder = createEncoder();
       assert.strictEqual(encoder.state, 'unconfigured');
       encoder.close();
+      await new Promise(resolve => setImmediate(resolve));
     });
 
     // Spec 6.2: Assign 0 to [[encodeQueueSize]]
-    it('should initialize encodeQueueSize to 0', () => {
+    it('should initialize encodeQueueSize to 0', async () => {
       const encoder = createEncoder();
       assert.strictEqual(encoder.encodeQueueSize, 0);
       encoder.close();
+      await new Promise(resolve => setImmediate(resolve));
     });
 
     // Spec 6.2: Assign init.output to [[output callback]]
-    it('should store output callback (verified via encoder creation)', () => {
+    it('should store output callback (verified via encoder creation)', async () => {
       const encoder = new VideoEncoder({
         output: () => {},
         error: () => {},
@@ -62,10 +64,11 @@ describe('VideoEncoder Internal Slots: 6.1', () => {
       // Verify encoder was created successfully with output callback
       assert.strictEqual(encoder.state, 'unconfigured');
       encoder.close();
+      await new Promise(resolve => setImmediate(resolve));
     });
 
     // Spec 6.2: Assign init.error to [[error callback]]
-    it('should store error callback (verified via encoder creation)', () => {
+    it('should store error callback (verified via encoder creation)', async () => {
       let errorCallbackCalled = false;
 
       const encoder = new VideoEncoder({
@@ -84,10 +87,11 @@ describe('VideoEncoder Internal Slots: 6.1', () => {
       // Note: We can't easily trigger an error to verify the callback
       // but the encoder was created successfully with it
       assert.strictEqual(errorCallbackCalled, false, 'Error callback not yet called');
+      await new Promise(resolve => setImmediate(resolve));
     });
 
     // Spec 6.2: Assign new queue to [[control message queue]]
-    it('should have control message queue (verified via reset behavior)', () => {
+    it('should have control message queue (verified via reset behavior)', async () => {
       const encoder = createEncoder();
       encoder.configure(config);
 
@@ -96,6 +100,7 @@ describe('VideoEncoder Internal Slots: 6.1', () => {
 
       assert.strictEqual(encoder.state, 'unconfigured');
       encoder.close();
+      await new Promise(resolve => setImmediate(resolve));
     });
   });
 
@@ -171,11 +176,12 @@ describe('VideoEncoder Internal Slots: 6.1', () => {
       }
 
       encoder.close();
+      await new Promise(resolve => setImmediate(resolve));
     });
   });
 
   describe('Independent instances', () => {
-    it('should maintain independent state for multiple encoders', () => {
+    it('should maintain independent state for multiple encoders', async () => {
       const encoder1 = createEncoder();
       const encoder2 = createEncoder();
 
@@ -194,9 +200,10 @@ describe('VideoEncoder Internal Slots: 6.1', () => {
       assert.strictEqual(encoder2.state, 'unconfigured');
 
       encoder2.close();
+      await new Promise(resolve => setImmediate(resolve));
     });
 
-    it('should maintain independent encodeQueueSize', () => {
+    it('should maintain independent encodeQueueSize', async () => {
       const encoder1 = createEncoder();
       const encoder2 = createEncoder();
 
@@ -209,20 +216,22 @@ describe('VideoEncoder Internal Slots: 6.1', () => {
 
       encoder1.close();
       encoder2.close();
+      await new Promise(resolve => setImmediate(resolve));
     });
   });
 
   describe('[[active encoder config]] slot', () => {
-    it('should be null before configure (inferred from state)', () => {
+    it('should be null before configure (inferred from state)', async () => {
       const encoder = createEncoder();
 
       // State is unconfigured means no active config
       assert.strictEqual(encoder.state, 'unconfigured');
 
       encoder.close();
+      await new Promise(resolve => setImmediate(resolve));
     });
 
-    it('should be set after configure', () => {
+    it('should be set after configure', async () => {
       const encoder = createEncoder();
 
       encoder.configure(config);
@@ -231,9 +240,10 @@ describe('VideoEncoder Internal Slots: 6.1', () => {
       assert.strictEqual(encoder.state, 'configured');
 
       encoder.close();
+      await new Promise(resolve => setImmediate(resolve));
     });
 
-    it('should update on reconfigure', () => {
+    it('should update on reconfigure', async () => {
       const encoder = createEncoder();
 
       encoder.configure(config);
@@ -252,20 +262,22 @@ describe('VideoEncoder Internal Slots: 6.1', () => {
       assert.strictEqual(encoder.state, 'configured');
 
       encoder.close();
+      await new Promise(resolve => setImmediate(resolve));
     });
   });
 
   describe('[[codec saturated]] slot', () => {
-    it('should be false initially', () => {
+    it('should be false initially', async () => {
       const encoder = createEncoder();
 
       // codecSaturated should be false when no encoding is happening
       assert.strictEqual(encoder.codecSaturated, false);
 
       encoder.close();
+      await new Promise(resolve => setImmediate(resolve));
     });
 
-    it('should be accessible after configure', () => {
+    it('should be accessible after configure', async () => {
       const encoder = createEncoder();
       encoder.configure(config);
 
@@ -273,28 +285,31 @@ describe('VideoEncoder Internal Slots: 6.1', () => {
       assert.strictEqual(encoder.codecSaturated, false);
 
       encoder.close();
+      await new Promise(resolve => setImmediate(resolve));
     });
   });
 
   describe('maxQueueDepth (backpressure)', () => {
-    it('should have default maxQueueDepth of 16', () => {
+    it('should have default maxQueueDepth of 16', async () => {
       const encoder = createEncoder();
 
       assert.strictEqual(encoder.maxQueueDepth, 16);
 
       encoder.close();
+      await new Promise(resolve => setImmediate(resolve));
     });
 
-    it('should allow setting maxQueueDepth', () => {
+    it('should allow setting maxQueueDepth', async () => {
       const encoder = createEncoder();
 
       encoder.maxQueueDepth = 32;
       assert.strictEqual(encoder.maxQueueDepth, 32);
 
       encoder.close();
+      await new Promise(resolve => setImmediate(resolve));
     });
 
-    it('should throw RangeError for maxQueueDepth < 1', () => {
+    it('should throw RangeError for maxQueueDepth < 1', async () => {
       const encoder = createEncoder();
 
       assert.throws(
@@ -305,6 +320,7 @@ describe('VideoEncoder Internal Slots: 6.1', () => {
       );
 
       encoder.close();
+      await new Promise(resolve => setImmediate(resolve));
     });
   });
 
@@ -321,6 +337,7 @@ describe('VideoEncoder Internal Slots: 6.1', () => {
       assert.ok(elapsed < 100, 'ready should resolve immediately when queue empty');
 
       encoder.close();
+      await new Promise(resolve => setImmediate(resolve));
     });
   });
 });
