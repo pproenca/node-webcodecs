@@ -64,7 +64,7 @@ env:
   # npm scope for platform packages
   NPM_SCOPE: '@pproenca/ffmpeg'
   # Bump this to invalidate all caches
-  CACHE_VERSION: '10'
+  CACHE_VERSION: '11'
   # macOS deployment target - must match binding.gyp MACOSX_DEPLOYMENT_TARGET
   # This ensures ABI compatibility between FFmpeg libs and the native addon.
   # Using 11.0 (Big Sur) as minimum for widest compatibility.
@@ -278,7 +278,7 @@ jobs:
             ${{ github.workspace }}/ffmpeg_build
             ${{ github.workspace }}/ffmpeg_sources
           # Include ALL library versions to ensure cache invalidates when any dependency changes
-          key: macos-${{ matrix.arch }}-libs-${{ env.X264_VERSION }}-${{ env.X265_VERSION }}-${{ env.LIBVPX_VERSION }}-${{ env.LIBAOM_VERSION }}-${{ env.OPUS_VERSION }}-${{ env.LAME_VERSION }}-v${{ env.CACHE_VERSION }}
+          key: macos-${{ matrix.arch }}-libs-${{ env.X264_VERSION }}-${{ env.X265_VERSION }}-${{ env.LIBVPX_VERSION }}-${{ env.LIBAOM_VERSION }}-${{ env.OPUS_VERSION }}-${{ env.LAME_VERSION }}-${{ env.MACOS_DEPLOYMENT_TARGET }}-v${{ env.CACHE_VERSION }}
           restore-keys: |
             macos-${{ matrix.arch }}-libs-
 
@@ -1007,8 +1007,8 @@ jobs:
               fi
 
               # Make .pc files relocatable by replacing hardcoded paths with ${prefix}
-              # FFmpeg generates absolute paths, but we need ${prefix} variables for
-              # --define-variable=prefix= to work when consuming these in build-prebuilds
+              # FFmpeg and some dependencies embed absolute paths in Libs/Cflags,
+              # so rewrite them to use ${prefix} for relocation via pkg-config.
               echo "Making .pc files relocatable for $platform..."
               for pc_file in "artifacts/${platform}/lib/pkgconfig/"*.pc; do
                 if [ -f "$pc_file" ]; then
@@ -1021,6 +1021,7 @@ jobs:
                       -e "s|^includedir=${original_prefix}/include|includedir=\${prefix}/include|" \
                       -e "s|^libdir=${original_prefix}|libdir=\${prefix}|" \
                       -e "s|^includedir=${original_prefix}|includedir=\${prefix}|" \
+                      -e "/^prefix=/! s|${original_prefix}|\\\${prefix}|g" \
                       "$pc_file"
                     rm -f "${pc_file}.bak"
                   fi
