@@ -531,7 +531,7 @@ jobs:
       - name: Verify macOS deployment targets
         run: |
           export FFMPEG_ROOT="$TARGET"
-          node scripts/check-macos-abi.cjs
+          npx tsx scripts/check-macos-abi.ts
 
       - name: Verify and strip binaries
         run: |

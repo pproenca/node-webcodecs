@@ -114,7 +114,7 @@ jobs:
           tar -tf "$tarball" > /dev/null || { echo "ERROR: Tarball is corrupted"; exit 1; }
 
           echo "Extracting $tarball"
-          node scripts/ci/platform-package.mjs extract \
+          npx tsx scripts/ci/platform-package.ts extract \
             --platform "${{ matrix.platform }}" \
             --tar "$tarball" \
             --out packages
@@ -230,7 +230,7 @@ jobs:
               echo "Validating $tarball integrity..."
               tar -tf "$tarball" > /dev/null || { echo "ERROR: Tarball $tarball is corrupted"; exit 1; }
               echo "Extracting $tarball"
-              node scripts/ci/platform-package.mjs extract \
+              npx tsx scripts/ci/platform-package.ts extract \
                 --platform "$platform" \
                 --tar "$tarball" \
                 --out packages

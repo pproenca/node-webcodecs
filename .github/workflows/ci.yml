@@ -191,7 +191,7 @@ jobs:
           fi
           echo "Package version: $VERSION"
 
-          node scripts/ci/platform-package.mjs pack \
+          npx tsx scripts/ci/platform-package.ts pack \
             --platform "$PLATFORM" \
             --os "$PLATFORM_OS" \
             --cpu "$PLATFORM_CPU" \
@@ -259,7 +259,7 @@ jobs:
             exit 1
           fi
 
-          node scripts/ci/platform-package.mjs extract \
+          npx tsx scripts/ci/platform-package.ts extract \
             --platform "${{ matrix.platform }}" \
             --tar "$TAR_PATH" \
             --out packages \
