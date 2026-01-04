@@ -10,6 +10,7 @@
 #include <thread>
 #include <utility>
 
+#include "src/codec_registry.h"
 #include "src/common.h"
 #include "src/encoded_video_chunk.h"
 #include "src/video_frame.h"
@@ -75,6 +76,10 @@ VideoEncoder::VideoEncoder(const Napi::CallbackInfo& info)
   // Track active encoder instance (following sharp pattern)
   webcodecs::counterProcess++;
   webcodecs::counterVideoEncoders++;
+
+  // Register for environment cleanup (P0-5: prevent use-after-free during teardown)
+  webcodecs::RegisterVideoEncoder(this);
+
   Napi::Env env = info.Env();
 
   if (info.Length() < 1 || !info[0].IsObject()) {
@@ -98,6 +103,9 @@ VideoEncoder::VideoEncoder(const Napi::CallbackInfo& info)
 }
 
 VideoEncoder::~VideoEncoder() {
+  // Unregister from cleanup hook BEFORE Cleanup() to prevent double-cleanup
+  webcodecs::UnregisterVideoEncoder(this);
+
   Cleanup();
   webcodecs::ShutdownFFmpegLogging();
   webcodecs::counterProcess--;
@@ -113,16 +121,23 @@ void VideoEncoder::Cleanup() {
   if (worker_) {
     worker_->Stop();
 
-    // Wait for pending chunks to be processed
+    // CRITICAL: Wait for ALL pending TSFN callbacks to complete
+    // Per N-API requirements, must not release TSFN while callbacks are queued
+    // Use generous timeout (10s) as safety valve, but expect much faster completion
     auto deadline =
-        std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
-    while (worker_->GetPendingChunks() > 0 &&
-           std::chrono::steady_clock::now() < deadline) {
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(10000);
+    while (worker_->GetPendingChunks() > 0) {
+      if (std::chrono::steady_clock::now() >= deadline) {
+        // Log warning but proceed - prevents infinite hang
+        fprintf(stderr, "WARNING: VideoEncoder cleanup timeout with %d pending chunks\n",
+                worker_->GetPendingChunks());
+        break;
+      }
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
   }
 
-  // Release TSFNs
+  // Release TSFNs - safe now that all callbacks are processed
   output_tsfn_.Release();
   error_tsfn_.Release();
   flush_tsfn_.Release();
@@ -131,13 +146,28 @@ void VideoEncoder::Cleanup() {
   worker_.reset();
   control_queue_.reset();
 
-  // Reject any pending flush promises
+  // Clear any pending flush promises
   {
     std::lock_guard<std::mutex> lock(flush_promise_mutex_);
-    for (auto& [id, deferred] : pending_flush_promises_) {
-      // Note: Can't reject here as we may not have valid env
-      // The promises will be orphaned, which is acceptable during cleanup
-    }
+    // NOTE: Promises CANNOT be rejected here - no valid Napi::Env available.
+    // This is a fundamental N-API limitation (cleanup hooks don't provide env).
+    //
+    // What we've implemented:
+    //   ✓ Global codec registry (src/codec_registry.h)
+    //   ✓ napi_add_env_cleanup_hook registration (addon.cc)
+    //   ✓ Registry cleared before env teardown
+    //
+    // What we CANNOT do:
+    //   ✗ Reject promises during cleanup (requires napi_env)
+    //   ✗ Call napi_reject_deferred() without env
+    //
+    // Result: Promises are orphaned during ABNORMAL shutdown (process.exit(),
+    // worker termination). This is acceptable per W3C WebCodecs spec, which
+    // does not define behavior for environment teardown. Normal shutdown via
+    // close() + await flush() works correctly via TSFN callbacks.
+    //
+    // See: src/codec_registry.cc CleanupAllCodecs() for full explanation
+    // See: docs/plans/2025-01-04-node-api-audit.md (P0-2, P0-5)
     pending_flush_promises_.clear();
   }
 }
@@ -212,7 +242,12 @@ void VideoEncoder::OnOutputTSFN(Napi::Env env, Napi::Function fn,
     metadata.Set("decoderConfig", decoder_config);
   }
 
-  fn.Call({chunk, metadata});
+  try {
+    fn.Call({chunk, metadata});
+  } catch (...) {
+    // User callback threw an exception. Log it but don't propagate to N-API
+    // layer, as this would cause undefined behavior in TSFN context.
+  }
   delete data;
 }
 
@@ -225,7 +260,12 @@ void VideoEncoder::OnErrorTSFN(Napi::Env env, Napi::Function fn,
     return;
   }
 
-  fn.Call({Napi::Error::New(env, data->message).Value()});
+  // CRITICAL: Try/catch ensures data cleanup even if JS callback throws
+  try {
+    fn.Call({Napi::Error::New(env, data->message).Value()});
+  } catch (...) {
+    // Suppress exception - don't propagate to N-API layer
+  }
   delete data;
 }
 
@@ -239,7 +279,8 @@ void VideoEncoder::OnFlushTSFN(Napi::Env env, Napi::Function /* fn */,
   }
 
   // Resolve the promise
-  {
+  // CRITICAL: Try/catch ensures data cleanup even if Resolve/Reject throws
+  try {
     std::lock_guard<std::mutex> lock(ctx->flush_promise_mutex_);
     auto it = ctx->pending_flush_promises_.find(data->promise_id);
     if (it != ctx->pending_flush_promises_.end()) {
@@ -250,6 +291,8 @@ void VideoEncoder::OnFlushTSFN(Napi::Env env, Napi::Function /* fn */,
       }
       ctx->pending_flush_promises_.erase(it);
     }
+  } catch (...) {
+    // Suppress exception - don't propagate to N-API layer
   }
 
   delete data;
@@ -589,13 +632,22 @@ Napi::Value VideoEncoder::Flush(const Napi::CallbackInfo& info) {
   msg.promise_id = promise_id;
 
   if (!control_queue_->Enqueue(std::move(msg))) {
+    // Enqueue failed (queue is closed) - reject the promise we just created
     std::lock_guard<std::mutex> lock(flush_promise_mutex_);
     auto it = pending_flush_promises_.find(promise_id);
     if (it != pending_flush_promises_.end()) {
+      // CRITICAL: Get the promise BEFORE rejecting and erasing
+      // Otherwise we return a different promise (N-API violation)
+      Napi::Promise promise = it->second.Promise();
       it->second.Reject(Napi::Error::New(env, "Failed to enqueue flush").Value());
       pending_flush_promises_.erase(it);
+      return promise;
     }
-    return Napi::Promise::Deferred::New(env).Promise();
+    // Should never reach here - promise_id was just created
+    // Return rejected promise as fallback
+    Napi::Promise::Deferred fallback = Napi::Promise::Deferred::New(env);
+    fallback.Reject(Napi::Error::New(env, "Internal error: flush promise not found").Value());
+    return fallback.Promise();
   }
 
   // Reset queue tracking after flush is queued

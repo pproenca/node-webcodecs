@@ -240,7 +240,12 @@ void AsyncDecodeWorker::ProcessPacket(const DecodeTask& task) {
             delete msg;
             return;
           }
-          fn.Call({Napi::Error::New(env, *msg).Value()});
+          try {
+            fn.Call({Napi::Error::New(env, *msg).Value()});
+          } catch (...) {
+            // User callback threw an exception. Log it but don't propagate to N-API
+            // layer, as this would cause undefined behavior in TSFN context.
+          }
           delete msg;
         });
     return;

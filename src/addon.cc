@@ -5,6 +5,7 @@
 
 #include <string>
 
+#include "src/codec_registry.h"
 #include "src/common.h"
 #include "src/descriptors.h"
 #include "src/error_builder.h"
@@ -93,6 +94,13 @@ Napi::Value TestAttrAsEnum(const Napi::CallbackInfo& info) {
   return Napi::String::New(env, webcodecs::ColorPrimariesToString(primaries));
 }
 
+// Cleanup hook for codec registry (called BEFORE FFmpeg logging cleanup).
+// Clears codec registries to prevent use-after-free during environment teardown.
+// Note: Cannot reject pending promises here - N-API limitation (no env provided).
+static void CodecCleanupCallback(void* arg) {
+  webcodecs::CleanupAllCodecs(arg);
+}
+
 // Cleanup hook called when the Node.js environment is being torn down.
 // This prevents the static destruction order fiasco where FFmpeg's log
 // callback might access destroyed static objects during process exit.
@@ -105,9 +113,13 @@ Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
   webcodecs::InitFFmpeg();
   webcodecs::InitFFmpegLogging();
 
-  // Register cleanup hook to disable FFmpeg logging before static destructors.
-  // This fixes crashes on macOS x64 where FFmpeg logs during process exit.
+  // Register cleanup hooks in reverse order of desired execution (LIFO):
+  // 1. Register FFmpeg logging cleanup FIRST (executes LAST)
   napi_add_env_cleanup_hook(env, CleanupCallback, nullptr);
+
+  // 2. Register codec cleanup SECOND (executes FIRST, before FFmpeg shutdown)
+  //    This clears codec registries to prevent use-after-free during teardown.
+  napi_add_env_cleanup_hook(env, CodecCleanupCallback, nullptr);
 
   InitVideoEncoder(env, exports);
   InitVideoDecoder(env, exports);

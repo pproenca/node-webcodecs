@@ -12,6 +12,7 @@ extern "C" {
 }
 
 #include "src/audio_data.h"
+#include "src/codec_registry.h"
 #include "src/common.h"
 #include "src/encoded_audio_chunk.h"
 
@@ -52,6 +53,10 @@ AudioDecoder::AudioDecoder(const Napi::CallbackInfo& info)
       number_of_channels_(0) {
   // Track active decoder instance
   webcodecs::counterAudioDecoders++;
+
+  // Register for environment cleanup (P0-5: prevent use-after-free during teardown)
+  webcodecs::RegisterAudioDecoder(this);
+
   Napi::Env env = info.Env();
 
   if (info.Length() < 1 || !info[0].IsObject()) {
@@ -78,6 +83,9 @@ AudioDecoder::AudioDecoder(const Napi::CallbackInfo& info)
 }
 
 AudioDecoder::~AudioDecoder() {
+  // Unregister from cleanup hook BEFORE Cleanup() to prevent double-cleanup
+  webcodecs::UnregisterAudioDecoder(this);
+
   // CRITICAL: Call Cleanup() first to ensure codec context is properly
   // flushed before any further cleanup.
   Cleanup();
