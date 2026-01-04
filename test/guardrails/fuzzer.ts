@@ -1,14 +1,16 @@
-const {VideoEncoder, VideoFrame} = require('@pproenca/node-webcodecs');
+import {VideoEncoder, VideoFrame} from '@pproenca/node-webcodecs';
 
 console.log('Input Robustness Fuzzer');
 
 const encoder = new VideoEncoder({
   output: () => {},
-  error: e => console.error('Encoder error:', e.message),
+  error: error => {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Encoder error:', message);
+  },
 });
 encoder.configure({codec: 'avc1.42001E', width: 100, height: 100});
 
-// Vectors that MUST be rejected (invalid inputs that could cause crashes)
 const mustRejectVectors = [
   {name: 'Zero Buffer', buf: Buffer.alloc(0), w: 100, h: 100, ts: 0},
   {name: 'Tiny Buffer', buf: Buffer.alloc(10), w: 100, h: 100, ts: 0},
@@ -18,8 +20,6 @@ const mustRejectVectors = [
   {name: 'Negative Width', buf: Buffer.alloc(400), w: -10, h: 100, ts: 0},
 ];
 
-// Vectors that may be accepted (valid per WebCodecs spec but edge cases)
-// Negative timestamps are valid in WebCodecs (microseconds, can be negative for relative timing)
 const edgeCaseVectors = [
   {
     name: 'Negative Timestamp',
@@ -34,46 +34,43 @@ let failed = false;
 let passed = 0;
 
 console.log('\n--- Must Reject (Invalid Inputs) ---');
-mustRejectVectors.forEach(v => {
+for (const vector of mustRejectVectors) {
   try {
-    const frame = new VideoFrame(v.buf, {
-      codedWidth: v.w,
-      codedHeight: v.h,
-      timestamp: v.ts,
+    const frame = new VideoFrame(vector.buf, {
+      codedWidth: vector.w,
+      codedHeight: vector.h,
+      timestamp: vector.ts,
     });
     encoder.encode(frame);
     frame.close();
 
-    // If we reach here, bad data was accepted
-    console.error(`  FAIL: Accepted "${v.name}" without error!`);
+    console.error(`  FAIL: Accepted "${vector.name}" without error!`);
     failed = true;
-  } catch (e) {
-    console.log(
-      `  PASS: Caught error for "${v.name}": ${e.message.slice(0, 50)}`,
-    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`  PASS: Caught error for "${vector.name}": ${message.slice(0, 50)}`);
     passed++;
   }
-});
+}
 
 console.log('\n--- Edge Cases (May Accept Per Spec) ---');
-edgeCaseVectors.forEach(v => {
+for (const vector of edgeCaseVectors) {
   try {
-    const frame = new VideoFrame(v.buf, {
-      codedWidth: v.w,
-      codedHeight: v.h,
-      timestamp: v.ts,
+    const frame = new VideoFrame(vector.buf, {
+      codedWidth: vector.w,
+      codedHeight: vector.h,
+      timestamp: vector.ts,
     });
     encoder.encode(frame);
     frame.close();
-    console.log(`  INFO: Accepted "${v.name}" (valid per WebCodecs spec)`);
-  } catch (e) {
-    console.log(`  INFO: Rejected "${v.name}": ${e.message.slice(0, 50)}`);
+    console.log(`  INFO: Accepted "${vector.name}" (valid per WebCodecs spec)`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`  INFO: Rejected "${vector.name}": ${message.slice(0, 50)}`);
   }
-});
+}
 
-console.log(
-  `\nResults: ${passed}/${mustRejectVectors.length} invalid inputs rejected`,
-);
+console.log(`\nResults: ${passed}/${mustRejectVectors.length} invalid inputs rejected`);
 
 if (failed) {
   console.error('FAILURE: Some malformed inputs were accepted!');
@@ -81,7 +78,6 @@ if (failed) {
   process.exit(1);
 }
 
-// Note: If we got here without segfault, that's also a pass
 console.log('SUCCESS: All malformed inputs rejected safely (no segfaults).');
 encoder.close();
 process.exit(0);

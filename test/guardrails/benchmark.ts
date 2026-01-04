@@ -1,17 +1,17 @@
-const {VideoEncoder, VideoFrame} = require('@pproenca/node-webcodecs');
+import {VideoEncoder, VideoFrame} from '@pproenca/node-webcodecs';
 
 const TARGET_FPS = 30;
 const FRAMES = 100;
 
-async function run() {
+async function run(): Promise<void> {
   console.log(`Performance Benchmark (Target: ${TARGET_FPS} FPS at 720p)`);
 
   const encoder = new VideoEncoder({
     output: chunk => {
       if (chunk.close) chunk.close();
     },
-    error: e => {
-      throw e;
+    error: error => {
+      throw error;
     },
   });
   encoder.configure({codec: 'avc1.42001E', width: 1280, height: 720});
@@ -25,7 +25,7 @@ async function run() {
     const frame = new VideoFrame(buf, {
       codedWidth: 1280,
       codedHeight: 720,
-      timestamp: i * 33000, // ~30fps
+      timestamp: i * 33000,
     });
     encoder.encode(frame);
     frame.close();
@@ -48,7 +48,8 @@ async function run() {
   console.log('SUCCESS: Performance target met.');
 }
 
-run().catch(e => {
-  console.error('FAILURE:', e.message);
+run().catch(error => {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error('FAILURE:', message);
   process.exit(1);
 });

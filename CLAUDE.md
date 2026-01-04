@@ -2,126 +2,107 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> **ALWAYS check `docs/specs/` before modifying C++ or codec behavior.** The W3C WebCodecs spec is the source of truth for API behavior, error handling, and state transitions.
-
 ## Project
 
-W3C WebCodecs API implementation for Node.js using FFmpeg. Browser-compatible video/audio encoding/decoding plus MP4 muxing/demuxing extensions.
+W3C WebCodecs API for Node.js using FFmpeg. Browser-compatible video/audio encoding/decoding with MP4 muxing/demuxing extensions.
 
-## Principles
+**CRITICAL:** Check `docs/specs/` before modifying C++ or codec behavior. W3C WebCodecs spec is the source of truth.
 
-- **Safety over velocity** — C++ segfault = entire Node process crash
-- **RAII mandatory** — Use `src/ffmpeg_raii.h` wrappers, never raw `av_*_alloc/free`
-- **Thread paranoia** — `AVCodecContext` is not thread-safe; isolate main thread from `AsyncWorker`
-- **Spec compliance** — Throw exact DOMException types per W3C spec
+## Core Principles
+
+- **Safety over velocity** — C++ segfault crashes entire Node process
+- **RAII mandatory** — Use `src/ffmpeg_raii.h` wrappers (`AVFramePtr`, `AVPacketPtr`), never raw `av_*_alloc/free`
+- **Thread paranoia** — `AVCodecContext` is NOT thread-safe; isolate from main thread in `AsyncWorker`
+- **Spec compliance** — Throw exact DOMException types per W3C spec (use `error_builder.h`)
 
 ## Required Skills
 
-- **C++**: Use `/dev-cpp` for `src/*.cc`, `src/*.h` (Google C++ Style)
-- **TypeScript**: Use `/dev-ts` for `lib/*.ts`, `test/*.ts` (Google TS Style)
+- **C++** (`src/*.cc`, `src/*.h`): `/dev-cpp` (Google C++ Style Guide)
+- **TypeScript** (`lib/*.ts`, `test/*.ts`): `/dev-ts` (Google TypeScript Style Guide)
+- **FFmpeg C++ review**: Custom `ffmpeg-cpp-sentinel` agent (automatically available)
 
 ## Commands
 
-**Always use `npm run` scripts. Never bypass with `npx`, `tsx`, or direct tool invocations.**
+**ALWAYS use `npm run` scripts. Never use `npx`, `tsx`, or direct tool invocations.**
 
 ```bash
 # Build
-npm run build          # Full (native + TS)
-npm run build:native   # C++ addon only
-npm run build:debug    # Debug build
+npm run build          # Full (native + TS), auto-runs after Write/Edit
+npm run build:native   # C++ only
+npm run build:debug    # Debug symbols
 
 # Test
-npm run check          # Lint + test (matches CI)
-npm test               # All tests
+npm run check          # Lint + test (CI equivalent)
+npm test               # All tests (unit + guardrails)
 npm run test:unit      # Fast iteration
 
 # Lint
-npm run lint           # All linters
-npm run lint:cpp       # cpplint
-npm run lint:ts        # biome
+npm run lint           # All (cpp + ts + types + md)
+npm run lint:cpp       # cpplint only
+npm run lint:ts        # biome only
 
-# Filter test output
-npm run test:failures  # Show only failures
-npm run test:summary   # Show only summary stats
+# Output filters (spec reporter)
+npm run test:failures  # ✖ only
+npm run test:summary   # ℹ stats only
 ```
 
-## Test Output (Spec Reporter)
-
-Tests use Node.js spec reporter for clean, greppable output:
-
-**Symbols:**
-
-- `✔` = passing test
-- `✖` = failing test
-- `ℹ` = summary stats
-
-**Automated analysis:**
-
-```bash
-npm test 2>&1 | grep '✖'        # Find failures
-npm test 2>&1 | grep '^ℹ fail'  # Get fail count
-npm run test:summary            # Quick stats
-```
-
-**Exit codes:**
-
-- `0` = all tests passed
-- `1` = test failures or errors
-- Helper scripts (`test:failures`, `test:summary`) always exit 0
+**PostToolUse hook:** `Write|Edit` → auto-format + build TypeScript (see output for errors)
 
 ## Architecture
 
 **Two-layer design:**
 
-- `lib/` — TypeScript: W3C spec compliance, state validation, EventTarget
-- `src/` — C++17 N-API: FFmpeg operations, async workers
+- `lib/` (TypeScript) → W3C spec compliance, state validation, EventTarget
+- `src/` (C++17 N-API) → FFmpeg operations, async workers
 
-**Key files:**
+**Critical files:**
 
-- `src/ffmpeg_raii.h` — RAII wrappers: `AVFramePtr`, `AVPacketPtr`, `AVCodecContextPtr`
-- `src/error_builder.h` — DOMException builder for spec errors
-- `lib/resource-manager.ts` — Tracks instances for W3C reclamation (10s inactive)
-- `lib/binding.ts` — Platform-specific addon loader
+- `src/ffmpeg_raii.h` — RAII wrappers (prevents leaks)
+- `src/error_builder.h` — DOMException builder
+- `lib/resource-manager.ts` — W3C reclamation (10s inactive timeout)
+- `lib/binding.ts` — Platform addon loader
 
-**Pattern:** TS wraps native classes, handles state; native focuses on FFmpeg ops.
+**Pattern:** TS handles state/validation, C++ handles FFmpeg ops. Clean separation.
 
 ## FFmpeg Rules
 
-- Version 5.0+ required (enforced in `common.h`)
-- Always check return values, use `FFmpegErrorString()` for messages
-- Never assume 1:1 packet/frame relationship
-- Handle timebase conversions explicitly
+- **Version:** 5.0+ required (`common.h` enforces)
+- **Return values:** Always check, use `FFmpegErrorString()` for messages
+- **Packet/frame ratio:** NEVER assume 1:1 relationship
+- **Timebase:** Handle conversions explicitly (check W3C spec)
 
-## Codec Strings
+## Codec Strings Reference
 
-- H.264: `avc1.42001e` (Baseline), `avc1.4d001e` (Main), `avc1.64001e` (High)
-- H.265: `hvc1.*`, `hev1.*`
-- VP9: `vp09.00.10.08`, AV1: `av01.0.04M.08`
-- Audio: `mp4a.40.2` (AAC), `opus`, `mp3`, `flac`
-
-## C++ Debugging
-
-**STOP before editing code. Triage first:**
-
-1. Check linker warnings — "built for macOS-X but linking with Y" = ABI issue, not code
-2. Crash in trivial code (constructor, allocation) = problem is NOT that code
-3. Crash "moves around" = memory corruption elsewhere or ABI mismatch
-
-```bash
-# Check linked libraries
-otool -L ./build/Release/*.node  # macOS
-ldd ./build/Release/*.node       # Linux
-
-# If linker mismatch: fix binding.gyp, rebuild deps. Do NOT touch source.
+```
+H.264: avc1.42001e (Baseline), avc1.4d001e (Main), avc1.64001e (High)
+H.265: hvc1.*, hev1.*
+VP9:   vp09.00.10.08
+AV1:   av01.0.04M.08
+AAC:   mp4a.40.2
 ```
 
-**Loop detection:** Edited same file 3+ times for same crash → STOP. Bug is elsewhere.
+## C++ Debugging Protocol
+
+**STOP before editing code. Triage FIRST:**
+
+1. Linker warnings ("built for macOS-X but linking with Y") = ABI issue, NOT code bug
+2. Crash in trivial code (constructor, allocation) = problem is ELSEWHERE
+3. Crash "moves around" when you edit = memory corruption or ABI mismatch
+
+```bash
+# Diagnose linked libraries
+otool -L ./build/Release/*.node  # macOS
+ldd ./build/Release/*.node       # Linux
+```
+
+**Loop detection:** Edited same file 3+ times for same crash → STOP. Root cause is elsewhere.
+**Fix:** Adjust `binding.gyp`, rebuild deps. Do NOT modify source as first response.
 
 ## CI Testing
 
-Test GitHub Actions locally before pushing:
+Test GitHub Actions locally:
 
 ```bash
-act -l                                                    # List jobs
+act -l  # List jobs
 act push -j build-linux-x64 --container-architecture linux/amd64 -W .github/workflows/build-ffmpeg.yml
 ```
