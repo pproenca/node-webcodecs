@@ -80,7 +80,7 @@ describe('Security: Input Validation', () => {
 
   describe('VideoFrame creation', () => {
     // Spec 12: Validate chunk data bounds
-    // Note: Comprehensive buffer validation is tested by test/guardrails/fuzzer.js
+    // Note: Comprehensive buffer validation is tested by test/guardrails/fuzzer.ts
     // which tests the compiled package. These tests verify source-level behavior.
 
     it('should accept correctly sized RGBA buffer', () => {

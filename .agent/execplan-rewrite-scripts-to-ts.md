@@ -15,17 +15,17 @@ reliable across platforms and user install paths.
 
 ## Progress
 
-- [ ] (2026-02-14 00:00Z) Inventory script scope and classify generated/third-party files.
-- [ ] (2026-02-14 00:00Z) Design the TS runtime strategy (compile vs tsx) with a
+- [x] (2026-02-14 00:00Z) Inventory script scope and classify generated/third-party files.
+- [x] (2026-02-14 00:00Z) Design the TS runtime strategy (compile vs tsx) with a
       compatibility plan for node-gyp entrypoints.
-- [ ] (2026-02-14 00:00Z) Convert Bash scripts to TS CLIs with parity and tests.
-- [ ] (2026-02-14 00:00Z) Convert JS scripts to TS, update call sites, and add tests.
+- [x] (2026-02-14 00:00Z) Convert Bash scripts to TS CLIs with parity and tests.
+- [x] (2026-02-14 00:00Z) Convert JS scripts to TS, update call sites, and add tests.
 - [ ] (2026-02-14 00:00Z) Verify end-to-end builds/tests and document outcomes.
 
 ## Surprises & Discoveries
 
-- Observation: Pending script inventory and CI verification.
-  Evidence: Not yet collected.
+- Observation: Leak scripts referenced a missing `test/guardrails/memory_sentinel.js`.
+  Evidence: Added `test/guardrails/memory_sentinel.ts` and updated leak scripts.
 
 ## Decision Log
 
@@ -36,6 +36,10 @@ reliable across platforms and user install paths.
 - Decision: Keep `gyp/ffmpeg-paths.js` as a compiled JS artifact generated from TS.
   Rationale: `binding.gyp` calls `node gyp/ffmpeg-paths.js` before TS compilation; a
   JS artifact avoids adding runtime TS loaders to user builds.
+  Date/Author: 2026-02-14 / Codex
+
+- Decision: Convert story and example scripts to TS and run with `tsx`.
+  Rationale: Keeps dev workflows in TS without requiring consumers to compile scripts.
   Date/Author: 2026-02-14 / Codex
 
 ## Outcomes & Retrospective
