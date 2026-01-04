@@ -77,6 +77,14 @@ export class VideoDecoder extends CodecBase {
   }
 
   /**
+   * Returns the number of pending frames waiting to be delivered via output callback.
+   * This tracks frames that have been decoded by the worker but not yet delivered to JS.
+   */
+  get pendingFrames(): number {
+    return this._native.pendingFrames;
+  }
+
+  /**
    * Returns a Promise that resolves when the decoder has capacity for more chunks.
    * Use this to implement backpressure in high-throughput decoding pipelines.
    *

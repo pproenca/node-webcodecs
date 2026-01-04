@@ -58,6 +58,7 @@ class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
   struct FrameCallbackData {
     ffmpeg::AVFramePtr frame;
     webcodecs::VideoDecoderMetadataConfig metadata;
+    std::atomic<int>* pending_frames_ptr;  // For decrementing in callback
   };
 
   struct FlushCallbackData {
