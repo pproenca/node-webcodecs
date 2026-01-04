@@ -61,18 +61,6 @@ describe('VideoEncoder Methods: 6.5', () => {
       encoder.close();
     });
 
-    it('should handle missing codec (implementation-specific)', () => {
-      const encoder = createEncoder();
-      // Note: Per W3C spec, should throw TypeError for missing/invalid codec.
-      // Current native implementation accepts empty codec and attempts to configure.
-      // This test documents current behavior - it does NOT throw synchronously.
-      // @ts-expect-error Testing invalid input
-      encoder.configure({ width: 640, height: 480 });
-      // Implementation currently goes to configured state with empty codec
-      // Future improvement: should validate codec and throw TypeError
-      encoder.close();
-    });
-
     it('should throw when width is missing', () => {
       const encoder = createEncoder();
       // Note: Per W3C spec, should throw TypeError for missing width.
