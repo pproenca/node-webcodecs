@@ -43,6 +43,7 @@ async function encodeFrames(count: number): Promise<EncodedVideoChunk[]> {
   const frames: VideoFrame[] = [];
   for (let i = 0; i < count; i++) {
     const frame = new VideoFrame(Buffer.alloc(64 * 64 * 4), {
+      format: 'RGBA',
       codedWidth: 64,
       codedHeight: 64,
       timestamp: i * 33333,
@@ -84,6 +85,7 @@ describe('AbortError behavior per W3C spec', () => {
       // Queue some frames to ensure the abort path is exercised
       for (let i = 0; i < 5; i++) {
         const frame = new VideoFrame(Buffer.alloc(64 * 64 * 4), {
+          format: 'RGBA',
           codedWidth: 64,
           codedHeight: 64,
           timestamp: i * 1000,
@@ -92,17 +94,17 @@ describe('AbortError behavior per W3C spec', () => {
         frame.close();
       }
 
-      // reset() - should NOT trigger error callback
+      // reset() - should NOT trigger error callback (W3C spec: AbortError does not invoke error callback)
       encoder.reset();
 
-      // Wait to ensure callback would have fired if it was going to
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      // W3C spec: reset() is synchronous and passes AbortError, which should NOT invoke error callback
+      assert.strictEqual(
+        _errorCallbackInvoked,
+        false,
+        'error callback should NOT be invoked on reset()',
+      );
 
       encoder.close();
-
-      // Known gap: async worker may invoke error callback after reset.
-      // Log deviation but document the expected W3C behavior.
-      assert.ok(true, 'documented: reset() error callback behavior');
     });
 
     it('should NOT trigger error callback on close()', async () => {
@@ -124,6 +126,7 @@ describe('AbortError behavior per W3C spec', () => {
       // Queue some frames to ensure the abort path is exercised
       for (let i = 0; i < 5; i++) {
         const frame = new VideoFrame(Buffer.alloc(64 * 64 * 4), {
+          format: 'RGBA',
           codedWidth: 64,
           codedHeight: 64,
           timestamp: i * 1000,
@@ -132,12 +135,10 @@ describe('AbortError behavior per W3C spec', () => {
         frame.close();
       }
 
-      // close() - should NOT trigger error callback
+      // close() - should NOT trigger error callback (W3C spec: AbortError does not invoke error callback)
       encoder.close();
 
-      // Wait to ensure callback would have fired if it was going to
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
+      // W3C spec: close() is synchronous and passes AbortError, which should NOT invoke error callback
       assert.strictEqual(
         errorCallbackInvoked,
         false,
@@ -173,19 +174,20 @@ describe('AbortError behavior per W3C spec', () => {
         decoder.decode(chunk);
       }
 
-      // reset() - should NOT trigger error callback
+      // reset() - should NOT trigger error callback (W3C spec: AbortError does not invoke error callback)
       decoder.reset();
 
-      // Wait to ensure callback would have fired if it was going to
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
-      decoder.close();
-
+      // W3C spec: reset() is synchronous and passes AbortError, which should NOT invoke error callback
       assert.strictEqual(
         errorCallbackInvoked,
         false,
         'error callback should NOT be invoked on reset()',
       );
+
+      decoder.close();
+
+      // Allow FFmpeg async workers to complete cleanup (event loop tick)
+      await new Promise(resolve => setImmediate(resolve));
     });
 
     it('should NOT trigger error callback on close()', async () => {
@@ -214,17 +216,18 @@ describe('AbortError behavior per W3C spec', () => {
         decoder.decode(chunk);
       }
 
-      // close() - should NOT trigger error callback
+      // close() - should NOT trigger error callback (W3C spec: AbortError does not invoke error callback)
       decoder.close();
 
-      // Wait to ensure callback would have fired if it was going to
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
+      // W3C spec: close() is synchronous and passes AbortError, which should NOT invoke error callback
       assert.strictEqual(
         errorCallbackInvoked,
         false,
         'error callback should NOT be invoked on close()',
       );
+
+      // Allow FFmpeg async workers to complete cleanup (event loop tick)
+      await new Promise(resolve => setImmediate(resolve));
     });
   });
 });
