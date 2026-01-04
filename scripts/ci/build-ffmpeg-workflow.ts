@@ -334,12 +334,13 @@ export function buildMacosCodecs(runner: CommandRunner, env: NodeJS.ProcessEnv):
   if (!env.TARGET || !env.ARCH || !env.MACOS_DEPLOYMENT_TARGET) {
     throw new Error('TARGET, ARCH, and MACOS_DEPLOYMENT_TARGET must be set');
   }
+  const workspace = env.GITHUB_WORKSPACE ?? process.cwd();
   const script = `
 set -e
 export PATH="$TARGET/bin:$PATH"
 export PKG_CONFIG_PATH="$TARGET/lib/pkgconfig"
 mkdir -p "$TARGET"/{include,lib,bin}
-mkdir -p "${env.GITHUB_WORKSPACE}/ffmpeg_sources" && cd "${env.GITHUB_WORKSPACE}/ffmpeg_sources"
+mkdir -p "${workspace}/ffmpeg_sources" && cd "${workspace}/ffmpeg_sources"
 
 rm -rf x264 x265_git libvpx aom aom_build opus-* lame-* nasm-*
 
@@ -515,13 +516,14 @@ export function buildMacosFfmpeg(runner: CommandRunner, env: NodeJS.ProcessEnv):
   if (!env.TARGET || !env.ARCH || !env.MACOS_DEPLOYMENT_TARGET) {
     throw new Error('TARGET, ARCH, and MACOS_DEPLOYMENT_TARGET must be set');
   }
+  const workspace = env.GITHUB_WORKSPACE ?? process.cwd();
   const script = `
 set -e
 export PATH="$TARGET/bin:$PATH"
 export PKG_CONFIG_PATH="$TARGET/lib/pkgconfig"
 
-mkdir -p "${env.GITHUB_WORKSPACE}/ffmpeg_sources"
-cd "${env.GITHUB_WORKSPACE}/ffmpeg_sources"
+mkdir -p "${workspace}/ffmpeg_sources"
+cd "${workspace}/ffmpeg_sources"
 
 if [ ! -d ffmpeg ]; then
   for i in 1 2 3; do
@@ -754,11 +756,7 @@ export function prepareReleaseAssets(
   runner.runOrThrow('ls', ['-la', releaseDir], {stdio: 'inherit'});
 }
 
-export function resolveDepsVersion(
-  _env: NodeJS.ProcessEnv,
-  inputVersion: string | undefined,
-  refName: string,
-): string {
+export function resolveDepsVersion(inputVersion: string | undefined, refName: string): string {
   if (inputVersion) {
     return inputVersion;
   }
@@ -767,7 +765,6 @@ export function resolveDepsVersion(
 
 export function prepareDepsReleaseAssets(
   runner: CommandRunner,
-  _env: NodeJS.ProcessEnv,
   artifactsDir: string,
   releaseDir: string,
 ): void {
@@ -893,7 +890,7 @@ export function main(
     if (command === 'resolve-deps-version') {
       const inputVersion = flags.input;
       const refName = requireFlag(flags, 'ref');
-      const version = resolveDepsVersion(env, inputVersion, refName);
+      const version = resolveDepsVersion(inputVersion, refName);
       writeGithubOutput(env, 'version', version);
       return 0;
     }
@@ -901,7 +898,7 @@ export function main(
     if (command === 'prepare-deps-assets') {
       const artifactsDir = resolve(flags.artifacts ?? 'artifacts');
       const releaseDir = resolve(flags.release ?? 'release');
-      prepareDepsReleaseAssets(runner, env, artifactsDir, releaseDir);
+      prepareDepsReleaseAssets(runner, artifactsDir, releaseDir);
       return 0;
     }
 
