@@ -260,7 +260,7 @@ jobs:
     env:
       TARGET: ${{ github.workspace }}/ffmpeg_build
       ARCH: ${{ matrix.target }}
-      MACOSX_DEPLOYMENT_TARGET: ${{ env.MACOS_DEPLOYMENT_TARGET }}
+      MACOSX_DEPLOYMENT_TARGET: '11.0'
 
     steps:
       - name: Checkout
