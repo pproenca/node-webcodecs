@@ -106,8 +106,26 @@ bool VideoEncoderWorker::InitializeCodec() {
   }
 
   // Fallback to software encoder
+  // When prefer-software is set (or no HW encoder found), explicitly find
+  // software encoders by name to avoid avcodec_find_encoder returning a
+  // hardware encoder (e.g., VideoToolbox on macOS).
   if (!codec_) {
-    codec_ = avcodec_find_encoder(codec_id);
+    if (codec_id == AV_CODEC_ID_H264) {
+      codec_ = avcodec_find_encoder_by_name("libx264");
+    } else if (codec_id == AV_CODEC_ID_HEVC) {
+      codec_ = avcodec_find_encoder_by_name("libx265");
+    } else if (codec_id == AV_CODEC_ID_VP8) {
+      codec_ = avcodec_find_encoder_by_name("libvpx");
+    } else if (codec_id == AV_CODEC_ID_VP9) {
+      codec_ = avcodec_find_encoder_by_name("libvpx-vp9");
+    } else if (codec_id == AV_CODEC_ID_AV1) {
+      codec_ = avcodec_find_encoder_by_name("libsvtav1");
+      if (!codec_) codec_ = avcodec_find_encoder_by_name("libaom-av1");
+    }
+    // Final fallback to generic encoder lookup
+    if (!codec_) {
+      codec_ = avcodec_find_encoder(codec_id);
+    }
   }
 
   if (!codec_) {
@@ -129,7 +147,11 @@ bool VideoEncoderWorker::InitializeCodec() {
   codec_context_->framerate = {config_.framerate, 1};
   codec_context_->pix_fmt = AV_PIX_FMT_YUV420P;
   codec_context_->gop_size = config_.gop_size;
-  codec_context_->max_b_frames = config_.max_b_frames;
+  // CRITICAL: Disable B-frames for reliable keyframe control.
+  // B-frames cause frame reordering which breaks pict_type hints.
+  // Per WebCodecs spec, when keyFrame=true, the output MUST be a keyframe,
+  // which requires no frame reordering.
+  codec_context_->max_b_frames = 0;
 
   if (config_.use_qscale) {
     codec_context_->flags |= AV_CODEC_FLAG_QSCALE;
@@ -210,7 +232,8 @@ bool VideoEncoderWorker::InitializeCodec() {
         codec_context_->framerate = {config_.framerate, 1};
         codec_context_->pix_fmt = AV_PIX_FMT_YUV420P;
         codec_context_->gop_size = config_.gop_size;
-        codec_context_->max_b_frames = config_.max_b_frames;
+        // Disable B-frames for reliable keyframe control
+        codec_context_->max_b_frames = 0;
 
         if (config_.use_qscale) {
           codec_context_->flags |= AV_CODEC_FLAG_QSCALE;
@@ -275,19 +298,22 @@ bool VideoEncoderWorker::InitializeCodec() {
   return true;
 }
 
-void VideoEncoderWorker::ReinitializeCodec() {
+bool VideoEncoderWorker::ReinitializeCodec() {
   if (!codec_) {
-    return;
+    return false;  // No codec to reinitialize
   }
 
   // Close old codec context
   codec_context_.reset();
   sws_context_.reset();
 
-  // Reinitialize
-  InitializeCodec();
+  // Reinitialize and propagate result
+  if (!InitializeCodec()) {
+    return false;
+  }
 
   // Note: frame_count_ is NOT reset - continue numbering from before flush
+  return true;
 }
 
 void VideoEncoderWorker::OnEncode(const EncodeMessage& msg) {
@@ -390,11 +416,16 @@ void VideoEncoderWorker::OnFlush(const FlushMessage& msg) {
   frame_info_.clear();
 
   // Reinitialize codec (FFmpeg enters EOF mode after NULL frame)
-  ReinitializeCodec();
+  bool reinit_success = ReinitializeCodec();
 
-  // Signal flush complete
+  // Signal flush complete (with success/failure from reinitialization)
   if (flush_callback_) {
-    flush_callback_(msg.promise_id, true, "");
+    if (reinit_success) {
+      flush_callback_(msg.promise_id, true, "");
+    } else {
+      flush_callback_(msg.promise_id, false,
+                      "Failed to reinitialize codec after flush");
+    }
   }
 }
 
