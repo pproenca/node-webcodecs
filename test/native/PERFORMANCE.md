@@ -9,11 +9,10 @@ Comprehensive performance testing for FFmpeg-based WebCodecs implementation usin
 npm run bench:native
 
 # Run specific benchmark
-npm run bench:native:filter=BM_H264_Encode
+npm run bench:native:filter -- BM_H264_Encode
 
 # Run with custom settings
-cd test/native/build
-./webcodecs_benchmarks --benchmark_min_time=1.0s --benchmark_repetitions=5
+npm run bench:native -- --benchmark_min_time=1.0s --benchmark_repetitions=5
 ```
 
 ## Benchmark Suites
