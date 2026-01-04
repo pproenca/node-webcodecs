@@ -77,6 +77,10 @@ export class AudioDecoder extends CodecBase {
       throw new TypeError('config.codec cannot be empty');
     }
 
+    // Validate positive values (W3C spec: unsigned long requires positive integer)
+    is.assertPositiveInteger(config.sampleRate, 'config.sampleRate');
+    is.assertPositiveInteger(config.numberOfChannels, 'config.numberOfChannels');
+
     this._needsKeyFrame = true;
     // Configure synchronously to set state immediately per W3C spec
     this._native.configure(config);

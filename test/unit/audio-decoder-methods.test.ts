@@ -115,6 +115,75 @@ describe('AudioDecoder Methods: 3.5', () => {
         );
         decoder.close();
       });
+
+      it('should throw TypeError for whitespace-only codec', () => {
+        const decoder = createDecoder();
+        assert.throws(
+          () => decoder.configure({ codec: '   ', sampleRate: 48000, numberOfChannels: 2 }),
+          TypeError,
+        );
+        decoder.close();
+      });
+
+      it('should throw TypeError for missing sampleRate', () => {
+        const decoder = createDecoder();
+        assert.throws(
+          () => {
+            // @ts-expect-error Testing invalid input
+            decoder.configure({ codec: 'opus', numberOfChannels: 2 });
+          },
+          TypeError,
+        );
+        decoder.close();
+      });
+
+      it('should throw TypeError for missing numberOfChannels', () => {
+        const decoder = createDecoder();
+        assert.throws(
+          () => {
+            // @ts-expect-error Testing invalid input
+            decoder.configure({ codec: 'opus', sampleRate: 48000 });
+          },
+          TypeError,
+        );
+        decoder.close();
+      });
+
+      it('should throw TypeError for zero sampleRate', () => {
+        const decoder = createDecoder();
+        assert.throws(
+          () => decoder.configure({ codec: 'opus', sampleRate: 0, numberOfChannels: 2 }),
+          TypeError,
+        );
+        decoder.close();
+      });
+
+      it('should throw TypeError for negative sampleRate', () => {
+        const decoder = createDecoder();
+        assert.throws(
+          () => decoder.configure({ codec: 'opus', sampleRate: -48000, numberOfChannels: 2 }),
+          TypeError,
+        );
+        decoder.close();
+      });
+
+      it('should throw TypeError for zero numberOfChannels', () => {
+        const decoder = createDecoder();
+        assert.throws(
+          () => decoder.configure({ codec: 'opus', sampleRate: 48000, numberOfChannels: 0 }),
+          TypeError,
+        );
+        decoder.close();
+      });
+
+      it('should throw TypeError for negative numberOfChannels', () => {
+        const decoder = createDecoder();
+        assert.throws(
+          () => decoder.configure({ codec: 'opus', sampleRate: 48000, numberOfChannels: -2 }),
+          TypeError,
+        );
+        decoder.close();
+      });
     });
   });
 
