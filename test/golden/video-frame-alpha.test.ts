@@ -24,7 +24,7 @@ describe('VideoFrame alpha option', () => {
       alpha: 'discard',
     });
     // Format should be non-alpha
-    assert.ok(['RGBX', 'I420', 'RGB'].includes(frame.format!));
+    assert.ok(['RGBX', 'I420', 'RGB'].includes(frame.format ?? ''));
     frame.close();
   });
 

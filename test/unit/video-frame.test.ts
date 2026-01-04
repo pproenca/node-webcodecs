@@ -214,10 +214,10 @@ describe('VideoFrame: 9.4', () => {
       const rect = frame.codedRect;
 
       assert.ok(rect !== null);
-      assert.strictEqual(rect!.x, 0);
-      assert.strictEqual(rect!.y, 0);
-      assert.strictEqual(rect!.width, 640);
-      assert.strictEqual(rect!.height, 480);
+      assert.strictEqual(rect?.x, 0);
+      assert.strictEqual(rect?.y, 0);
+      assert.strictEqual(rect?.width, 640);
+      assert.strictEqual(rect?.height, 480);
 
       frame.close();
     });
@@ -228,8 +228,8 @@ describe('VideoFrame: 9.4', () => {
       const rect = frame.visibleRect;
 
       assert.ok(rect !== null);
-      assert.strictEqual(rect!.width, 640);
-      assert.strictEqual(rect!.height, 480);
+      assert.strictEqual(rect?.width, 640);
+      assert.strictEqual(rect?.height, 480);
 
       frame.close();
     });

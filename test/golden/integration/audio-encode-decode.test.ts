@@ -2,8 +2,8 @@
  * Integration tests for AudioEncoder/AudioDecoder
  */
 
-import {describe, expect, it} from 'vitest';
-import {AudioData, AudioDecoder, AudioEncoder, EncodedAudioChunk, EncodedVideoChunk, VideoDecoder, VideoEncoder, VideoFrame} from '@pproenca/node-webcodecs';
+import {it} from 'vitest';
+import {AudioData, AudioEncoder, } from '@pproenca/node-webcodecs';
 
 it('AudioEncoderAAC', {timeout: 10_000}, async () => {
   const chunks = [];

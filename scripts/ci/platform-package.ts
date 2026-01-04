@@ -22,14 +22,6 @@ interface PackOptions {
   readonly scope: string;
 }
 
-interface ExtractOptions {
-  readonly platform: string;
-  readonly tarPath: string;
-  readonly outDir: string;
-  readonly scope: string;
-  readonly prebuildsDir?: string;
-}
-
 function ensureDir(pathname: string): void {
   mkdirSync(pathname, {recursive: true});
 }

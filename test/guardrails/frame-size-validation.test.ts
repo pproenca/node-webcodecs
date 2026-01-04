@@ -27,7 +27,7 @@ describe('Guardrails: Frame Size Validation', () => {
       // Configure encoder for 320x240
       const encoder = new VideoEncoder({
         output: () => {},
-        error: (e) => {
+        error: (_e) => {
           // Error callback may be invoked - that's acceptable
           // What's NOT acceptable is a crash/segfault
         },
@@ -91,7 +91,7 @@ describe('Guardrails: Frame Size Validation', () => {
       // Configure encoder for 320x240
       const encoder = new VideoEncoder({
         output: () => {},
-        error: (e) => {
+        error: (_e) => {
           // Error callback may be invoked - that's acceptable
         },
       });

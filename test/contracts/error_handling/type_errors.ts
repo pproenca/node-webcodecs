@@ -13,9 +13,7 @@
 
 const {
   VideoEncoder,
-  VideoDecoder,
   AudioEncoder,
-  AudioDecoder,
   VideoFrame,
   AudioData,
 } = require('@pproenca/node-webcodecs');
@@ -47,14 +45,14 @@ test('VideoEncoder.configure() with empty codec throws TypeError', () => {
 // during actual encoding, or may validate the codec format.
 test('VideoEncoder.configure() with non-string codec throws or fails validation', () => {
   const encoder = new VideoEncoder({output: () => {}, error: () => {}});
-  let errorOccurred = false;
+  let _errorOccurred = false;
   try {
     encoder.configure({codec: 123, width: 100, height: 100, bitrate: 1_000_000});
     // If configure succeeds, the codec "123" is invalid and would fail at encode time
     // Check if the encoder state indicates an error
-    errorOccurred = encoder.state === 'closed';
-  } catch (e) {
-    errorOccurred = true;
+    _errorOccurred = encoder.state === 'closed';
+  } catch (_e) {
+    _errorOccurred = true;
   }
   encoder.close();
   // Note: Per W3C spec, invalid codec strings should throw NotSupportedError
