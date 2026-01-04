@@ -11,6 +11,7 @@ extern "C" {
 #include <libswscale/swscale.h>
 }
 
+#include <atomic>
 #include <string>
 #include <vector>
 
@@ -123,7 +124,8 @@ class VideoDecoderWorker : public CodecWorker<VideoControlQueue> {
   int last_frame_height_ = 0;
 
   // Track if codec is configured (for reset safety)
-  bool codec_configured_ = false;
+  // Atomic because IsCodecOpen() may be called from main thread
+  std::atomic<bool> codec_configured_{false};
 };
 
 }  // namespace webcodecs

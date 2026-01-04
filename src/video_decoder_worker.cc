@@ -45,7 +45,7 @@ void VideoDecoderWorker::SetConfig(const VideoDecoderConfig& config) {
 }
 
 bool VideoDecoderWorker::IsCodecOpen() const {
-  return codec_configured_ && codec_context_ &&
+  return codec_configured_.load(std::memory_order_acquire) && codec_context_ &&
          avcodec_is_open(codec_context_.get());
 }
 
@@ -125,12 +125,12 @@ bool VideoDecoderWorker::OnConfigure(const ConfigureMessage& msg) {
     return false;
   }
 
-  codec_configured_ = true;
+  codec_configured_.store(true, std::memory_order_release);
   return true;
 }
 
 void VideoDecoderWorker::OnDecode(const DecodeMessage& msg) {
-  if (!codec_context_ || !codec_configured_) {
+  if (!codec_context_ || !codec_configured_.load(std::memory_order_acquire)) {
     OutputError(AVERROR_INVALIDDATA, "Decoder not configured");
     return;
   }
@@ -173,7 +173,7 @@ void VideoDecoderWorker::OnDecode(const DecodeMessage& msg) {
 }
 
 void VideoDecoderWorker::OnFlush(const FlushMessage& msg) {
-  if (!codec_context_ || !codec_configured_) {
+  if (!codec_context_ || !codec_configured_.load(std::memory_order_acquire)) {
     // Not configured - just resolve the promise
     FlushComplete(msg.promise_id, true);
     return;
@@ -216,7 +216,7 @@ void VideoDecoderWorker::OnReset() {
   queue()->Clear();
 
   // Flush decoder buffers if configured
-  if (codec_context_ && codec_configured_ &&
+  if (codec_context_ && codec_configured_.load(std::memory_order_acquire) &&
       avcodec_is_open(codec_context_.get())) {
     avcodec_flush_buffers(codec_context_.get());
   }
@@ -230,7 +230,7 @@ void VideoDecoderWorker::OnReset() {
 
 void VideoDecoderWorker::OnClose() {
   // Release all resources
-  codec_configured_ = false;
+  codec_configured_.store(false, std::memory_order_release);
 
   if (codec_context_ && avcodec_is_open(codec_context_.get())) {
     avcodec_flush_buffers(codec_context_.get());
