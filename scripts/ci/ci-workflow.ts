@@ -109,8 +109,19 @@ export function installBuildTools(runner: CommandRunner, osName: string): void {
     return;
   }
   if (osName === 'linux') {
-    runner.runOrThrow('sudo', ['apt-get', 'update'], {stdio: 'inherit'});
-    runner.runOrThrow('sudo', ['apt-get', 'install', '-y', 'pkg-config'], {stdio: 'inherit'});
+    // Detect if running in Alpine (musl container)
+    const isAlpine = existsSync('/etc/alpine-release');
+
+    if (isAlpine) {
+      // Alpine Linux - use apk
+      runner.runOrThrow('apk', ['add', '--no-cache', 'build-base', 'python3', 'pkgconf'], {
+        stdio: 'inherit',
+      });
+    } else {
+      // Ubuntu/Debian - use apt-get
+      runner.runOrThrow('sudo', ['apt-get', 'update'], {stdio: 'inherit'});
+      runner.runOrThrow('sudo', ['apt-get', 'install', '-y', 'pkg-config'], {stdio: 'inherit'});
+    }
     return;
   }
   throw new Error(`Unsupported OS: ${osName}`);

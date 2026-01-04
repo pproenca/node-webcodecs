@@ -4,12 +4,14 @@
 // Native binding loader using esbuild-style platform resolution.
 // Tries platform-specific package first, falls back to node-gyp-build for local dev.
 
+import * as detectLibc from 'detect-libc';
 import { resolve, dirname, join } from 'node:path';
 
 const PLATFORMS: Record<string, string> = {
   'darwin-arm64': '@pproenca/node-webcodecs-darwin-arm64',
   'darwin-x64': '@pproenca/node-webcodecs-darwin-x64',
-  'linux-x64': '@pproenca/node-webcodecs-linux-x64-glibc',
+  'linux-x64-glibc': '@pproenca/node-webcodecs-linux-x64-glibc',
+  'linux-x64-musl': '@pproenca/node-webcodecs-linux-x64-musl',
 };
 
 /**
@@ -20,7 +22,24 @@ const PLATFORMS: Record<string, string> = {
  * 2. node-gyp-build (local development fallback)
  */
 function loadBinding(): unknown {
-  const platform = `${process.platform}-${process.arch}`;
+  let platform = `${process.platform}-${process.arch}`;
+
+  // Detect libc on Linux
+  if (process.platform === 'linux') {
+    const libc = detectLibc.familySync(); // Returns 'glibc' or 'musl'
+    if (libc) {
+      platform = `${platform}-${libc}`;
+    } else {
+      // Fallback to glibc (most common)
+      platform = `${platform}-glibc`;
+      console.warn(
+        `Warning: Could not detect libc, falling back to glibc. ` +
+          `If you're on Alpine Linux, please install the musl package manually: ` +
+          `npm install @pproenca/node-webcodecs-linux-x64-musl`
+      );
+    }
+  }
+
   const pkg = PLATFORMS[platform];
 
   if (!pkg) {

@@ -158,12 +158,16 @@ npm install @pproenca/node-webcodecs
 - Amazon Linux
 - Most mainstream Linux distributions
 
-### Unsupported Linux Distributions (musl) ⚠️
-- Alpine Linux
+### Supported Linux Distributions (musl) ✅
+- Alpine Linux (v3.14+)
 - Void Linux (musl variant)
-- Other musl-based distros
+- Other musl-based distributions
 
-**Impact:** Low — most Node.js deployments use glibc-based distributions.
+**Installation:**
+```bash
+npm install @pproenca/node-webcodecs
+# Automatically selects musl package on Alpine
+```
 
 ---
 

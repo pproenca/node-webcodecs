@@ -78,9 +78,11 @@
   "optionalDependencies": {
     "@pproenca/node-webcodecs-darwin-arm64": "0.1.1-alpha.8",
     "@pproenca/node-webcodecs-darwin-x64": "0.1.1-alpha.8",
-    "@pproenca/node-webcodecs-linux-x64-glibc": "0.1.1-alpha.8"
+    "@pproenca/node-webcodecs-linux-x64-glibc": "0.1.1-alpha.8",
+    "@pproenca/node-webcodecs-linux-x64-musl": "0.1.1-alpha.8"
   },
   "dependencies": {
+    "detect-libc": "^2.1.2",
     "node-gyp-build": "^4.8.0"
   },
   "devDependencies": {

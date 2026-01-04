@@ -154,13 +154,20 @@ jobs:
     needs: [lint, resolve-deps]
     name: "build-${{ matrix.platform }}"
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-24.04
-            platform: linux-x64
+            platform: linux-x64-glibc
             arch: x64
+            libc: glibc
+          - os: ubuntu-24.04
+            platform: linux-x64-musl
+            arch: x64
+            libc: musl
+            container: node:22-alpine
           - os: macos-15-intel
             platform: darwin-x64
             arch: x64
@@ -196,8 +203,11 @@ jobs:
         with:
           repo: ${{ github.repository }}
           version: tags/deps-${{ needs.resolve-deps.outputs.deps_version }}
-          # Use glibc variant for Linux (musl libs can't link into glibc shared objects)
-          file: ffmpeg-${{ matrix.platform }}${{ runner.os == 'Linux' && '-glibc' || '' }}.tar.gz
+          # Map platform to FFmpeg asset name:
+          # - linux-x64-musl → ffmpeg-linux-x64.tar.gz (musl build)
+          # - linux-x64-glibc → ffmpeg-linux-x64-glibc.tar.gz
+          # - darwin-* → ffmpeg-darwin-*.tar.gz
+          file: ffmpeg-${{ matrix.platform == 'linux-x64-musl' && 'linux-x64' || matrix.platform }}.tar.gz
           target: ffmpeg-${{ matrix.platform }}.tar.gz
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -205,7 +215,7 @@ jobs:
         run: npx tsx scripts/ci/ci-workflow.ts extract-ffmpeg --archive "ffmpeg-${{ matrix.platform }}.tar.gz" --out ffmpeg-install
 
       - name: Build with prebuildify
-        run: npx tsx scripts/ci/ci-workflow.ts prebuildify --arch "${{ matrix.arch }}" --platform "${{ matrix.platform }}"${{ runner.os == 'Linux' && ' --libc glibc' || '' }}
+        run: npx tsx scripts/ci/ci-workflow.ts prebuildify --arch "${{ matrix.arch }}" --platform "${{ matrix.platform }}"${{ matrix.libc && format(' --libc {0}', matrix.libc) || '' }}
 
       - name: Build TypeScript
         run: npm run build:ts
@@ -218,21 +228,20 @@ jobs:
           PLATFORM: ${{ matrix.platform }}
           PLATFORM_OS: ${{ runner.os == 'macOS' && 'darwin' || 'linux' }}
           PLATFORM_CPU: ${{ matrix.arch }}
-          PLATFORM_LIBC: ${{ runner.os == 'Linux' && 'glibc' || '' }}
-        run: npx tsx scripts/ci/ci-workflow.ts package-platform --platform "$PLATFORM" --os "$PLATFORM_OS" --cpu "$PLATFORM_CPU" --prebuild "prebuilds/${{ matrix.platform }}/node.napi.node" --out packages${{ runner.os == 'Linux' && ' --libc glibc' || '' }}
+        run: npx tsx scripts/ci/ci-workflow.ts package-platform --platform "$PLATFORM" --os "$PLATFORM_OS" --cpu "$PLATFORM_CPU" --prebuild "prebuilds/${{ matrix.platform }}/node.napi.node" --out packages${{ matrix.libc && format(' --libc {0}', matrix.libc) || '' }}
 
       - name: Upload platform package artifact
         uses: actions/upload-artifact@v6
         with:
-          name: platform-pkg-${{ matrix.platform }}${{ runner.os == 'Linux' && '-glibc' || '' }}
-          path: packages/@pproenca-node-webcodecs-${{ matrix.platform }}${{ runner.os == 'Linux' && '-glibc' || '' }}.tar
+          name: platform-pkg-${{ matrix.platform }}
+          path: packages/@pproenca-node-webcodecs-${{ matrix.platform }}.tar
           retention-days: 14 # Extended for release timing flexibility
           compression-level: 0
 
       - name: Attest platform package
         uses: actions/attest-build-provenance@v3
         with:
-          subject-path: packages/@pproenca/node-webcodecs-${{ matrix.platform }}${{ runner.os == 'Linux' && '-glibc' || '' }}/bin/node.napi.node
+          subject-path: packages/@pproenca/node-webcodecs-${{ matrix.platform }}/bin/node.napi.node
 
   # ============================================================================
   # Test Node version compatibility using prebuilt binaries

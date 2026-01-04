@@ -30,6 +30,7 @@ const PLATFORMS: PlatformConfig[] = [
   {name: 'darwin-arm64', os: 'darwin', cpu: 'arm64'},
   {name: 'darwin-x64', os: 'darwin', cpu: 'x64'},
   {name: 'linux-x64-glibc', os: 'linux', cpu: 'x64', libc: 'glibc'},
+  {name: 'linux-x64-musl', os: 'linux', cpu: 'x64', libc: 'musl'},
 ];
 
 function resolveRootDir(): string {
