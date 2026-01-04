@@ -128,6 +128,7 @@ void VideoDecoder::SetupWorkerCallbacks(Napi::Env env) {
     data->metadata.color_matrix = self->color_matrix_;
     data->metadata.color_full_range = self->color_full_range_;
     data->metadata.has_color_space = self->has_color_space_;
+    data->pending_frames_ptr = &self->pending_frames_;
 
     self->pending_frames_++;
     if (!self->frame_tsfn_.Call(data)) {
@@ -167,6 +168,10 @@ void VideoDecoder::SetupWorkerCallbacks(Napi::Env env) {
 void VideoDecoder::OnFrameCallback(Napi::Env env, Napi::Function fn,
                                    std::nullptr_t*, FrameCallbackData* data) {
   if (env == nullptr || data == nullptr) {
+    // Still need to decrement if we have a valid pointer
+    if (data && data->pending_frames_ptr) {
+      (*data->pending_frames_ptr)--;
+    }
     delete data;
     return;
   }
@@ -174,6 +179,10 @@ void VideoDecoder::OnFrameCallback(Napi::Env env, Napi::Function fn,
   try {
     AVFrame* frame = data->frame.get();
     if (!frame) {
+      // Decrement pending frames even on early exit
+      if (data->pending_frames_ptr) {
+        (*data->pending_frames_ptr)--;
+      }
       delete data;
       return;
     }
@@ -214,6 +223,11 @@ void VideoDecoder::OnFrameCallback(Napi::Env env, Napi::Function fn,
     fn.Call({video_frame});
   } catch (const std::exception& e) {
     fprintf(stderr, "VideoDecoder frame callback error: %s\n", e.what());
+  }
+
+  // Decrement pending frames counter after frame is delivered
+  if (data->pending_frames_ptr) {
+    (*data->pending_frames_ptr)--;
   }
 
   delete data;
