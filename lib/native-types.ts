@@ -526,6 +526,7 @@ export interface NativeModule {
     videoDecoders: number;
     audioEncoders: number;
     audioDecoders: number;
+    imageDecoders: number;
     queue: number;
     process: number;
     frames: number;

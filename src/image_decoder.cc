@@ -125,6 +125,8 @@ ImageDecoder::ImageDecoder(const Napi::CallbackInfo& info)
       complete_(false),
       closed_(false),
       premultiply_alpha_("default") {
+  // Increment instance counter for leak detection
+  webcodecs::counterImageDecoders.fetch_add(1);
   Napi::Env env = info.Env();
 
   if (info.Length() < 1 || !info[0].IsObject()) {
@@ -235,7 +237,11 @@ ImageDecoder::ImageDecoder(const Napi::CallbackInfo& info)
   }
 }
 
-ImageDecoder::~ImageDecoder() { Cleanup(); }
+ImageDecoder::~ImageDecoder() {
+  // Decrement instance counter for leak detection
+  webcodecs::counterImageDecoders.fetch_sub(1);
+  Cleanup();
+}
 
 void ImageDecoder::Cleanup() {
   // Reset RAII members (automatic cleanup)

@@ -53,6 +53,10 @@ static std::atomic<int64_t>& GetCounterAudioDecoders() {
   static auto* counter = new std::atomic<int64_t>(0);
   return *counter;
 }
+static std::atomic<int64_t>& GetCounterImageDecoders() {
+  static auto* counter = new std::atomic<int64_t>(0);
+  return *counter;
+}
 
 // Legacy counters (maintained for backwards compatibility)
 static std::atomic<int>& GetCounterQueue() {
@@ -75,6 +79,7 @@ std::atomic<int64_t>& counterVideoEncoders = GetCounterVideoEncoders();
 std::atomic<int64_t>& counterVideoDecoders = GetCounterVideoDecoders();
 std::atomic<int64_t>& counterAudioEncoders = GetCounterAudioEncoders();
 std::atomic<int64_t>& counterAudioDecoders = GetCounterAudioDecoders();
+std::atomic<int64_t>& counterImageDecoders = GetCounterImageDecoders();
 
 std::atomic<int>& counterQueue = GetCounterQueue();
 std::atomic<int>& counterProcess = GetCounterProcess();
