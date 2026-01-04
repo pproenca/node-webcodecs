@@ -65,6 +65,7 @@ class VideoDecoder : public Napi::ObjectWrap<VideoDecoder> {
     uint32_t promise_id;
     bool success;
     std::string error_message;
+    VideoDecoder* decoder;  // For resolving promise in callback
   };
 
   struct ErrorCallbackData {

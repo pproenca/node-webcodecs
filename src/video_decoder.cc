@@ -149,7 +149,7 @@ void VideoDecoder::SetupWorkerCallbacks(Napi::Env env) {
   // Set flush complete callback
   worker_->SetFlushCompleteCallback(
       [self](uint32_t promise_id, bool success, const std::string& error) {
-        auto* data = new FlushCallbackData{promise_id, success, error};
+        auto* data = new FlushCallbackData{promise_id, success, error, self};
         if (!self->flush_tsfn_.Call(data)) {
           delete data;
         }
@@ -242,10 +242,19 @@ void VideoDecoder::OnFlushCallback(Napi::Env env, Napi::Function /* fn */,
     return;
   }
 
-  // Note: We need to access the decoder's pending_flushes_ map
-  // This callback is associated with a specific decoder instance
-  // The 'fn' here is a dummy function - we resolve/reject via the stored
-  // deferred
+  // Resolve or reject the stored promise
+  if (data->decoder) {
+    auto it = data->decoder->pending_flushes_.find(data->promise_id);
+    if (it != data->decoder->pending_flushes_.end()) {
+      if (data->success) {
+        it->second.Resolve(env.Undefined());
+      } else {
+        it->second.Reject(
+            Napi::Error::New(env, data->error_message).Value());
+      }
+      data->decoder->pending_flushes_.erase(it);
+    }
+  }
 
   delete data;
 }
@@ -558,36 +567,25 @@ Napi::Value VideoDecoder::Flush(const Napi::CallbackInfo& info) {
 
   // Generate promise ID and store deferred
   uint32_t promise_id = next_promise_id_++;
-  pending_flushes_.emplace(promise_id, std::move(deferred));
 
   // Enqueue flush message
   webcodecs::VideoControlQueue::FlushMessage flush_msg;
   flush_msg.promise_id = promise_id;
 
   if (!control_queue_->Enqueue(std::move(flush_msg))) {
-    // Remove pending promise and reject
-    pending_flushes_.erase(promise_id);
-    Napi::Promise::Deferred reject_deferred = Napi::Promise::Deferred::New(env);
-    reject_deferred.Reject(
+    // Reject immediately if we can't enqueue
+    deferred.Reject(
         Napi::Error::New(env, "Failed to enqueue flush message").Value());
-    return reject_deferred.Promise();
+    return deferred.Promise();
   }
 
-  // The flush is now queued. Per W3C spec, flush() returns a promise that
-  // resolves when all queued work is complete. Since we're using an async
-  // worker, we resolve the promise immediately (non-blocking) and the
-  // TypeScript layer can poll pendingFrames for true completion if needed.
-  // This matches the current behavior and ensures we don't block the event loop.
-  auto it = pending_flushes_.find(promise_id);
-  if (it != pending_flushes_.end()) {
-    it->second.Resolve(env.Undefined());
-    return it->second.Promise();
-  }
+  // Store the deferred promise - it will be resolved by OnFlushCallback
+  // when the worker completes the flush operation
+  pending_flushes_.emplace(promise_id, std::move(deferred));
 
-  // Fallback - should never reach here
-  Napi::Promise::Deferred fallback = Napi::Promise::Deferred::New(env);
-  fallback.Resolve(env.Undefined());
-  return fallback.Promise();
+  // Return the promise - it will be resolved/rejected by OnFlushCallback
+  // when the worker signals flush completion via TSFN
+  return pending_flushes_.at(promise_id).Promise();
 }
 
 Napi::Value VideoDecoder::Reset(const Napi::CallbackInfo& info) {
