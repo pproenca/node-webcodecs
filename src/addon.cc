@@ -71,6 +71,8 @@ Napi::Value GetCountersJS(const Napi::CallbackInfo& info) {
                static_cast<double>(webcodecs::counterAudioEncoders.load()));
   counters.Set("audioDecoders",
                static_cast<double>(webcodecs::counterAudioDecoders.load()));
+  counters.Set("imageDecoders",
+               static_cast<double>(webcodecs::counterImageDecoders.load()));
 
   // Legacy counters (for backwards compatibility)
   counters.Set("queue", webcodecs::counterQueue.load());

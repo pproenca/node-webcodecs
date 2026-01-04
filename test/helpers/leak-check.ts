@@ -30,6 +30,7 @@ export interface CounterSnapshot {
   videoDecoders: number;
   audioEncoders: number;
   audioDecoders: number;
+  imageDecoders: number;
 }
 
 export function getCounters(): CounterSnapshot {
@@ -83,6 +84,13 @@ export function assertNoLeaks(
     leaks.push(
       'AudioDecoder leak detected: ' +
         (after.audioDecoders - before.audioDecoders) +
+        ' instances not released'
+    );
+  }
+  if (after.imageDecoders !== before.imageDecoders) {
+    leaks.push(
+      'ImageDecoder leak detected: ' +
+        (after.imageDecoders - before.imageDecoders) +
         ' instances not released'
     );
   }

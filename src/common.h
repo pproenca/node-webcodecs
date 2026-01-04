@@ -123,6 +123,7 @@ extern std::atomic<int64_t>& counterVideoEncoders;
 extern std::atomic<int64_t>& counterVideoDecoders;
 extern std::atomic<int64_t>& counterAudioEncoders;
 extern std::atomic<int64_t>& counterAudioDecoders;
+extern std::atomic<int64_t>& counterImageDecoders;
 
 // Legacy counters (maintained for backwards compatibility)
 extern std::atomic<int>& counterQueue;

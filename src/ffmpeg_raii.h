@@ -115,6 +115,40 @@ struct AVFilterInOutDeleter {
   }
 };
 
+// Forward declare MemoryBufferContext from image_decoder.cc
+struct MemoryBufferContext;
+
+// MemoryBufferContext deleter (custom delete)
+// Used by ImageDecoder for in-memory buffer I/O context
+struct MemoryBufferContextDeleter {
+  void operator()(MemoryBufferContext* ctx) const noexcept { delete ctx; }
+};
+
+// AVIOContext deleter (handles avio_context_free semantics)
+// NOTE: Also frees the internal buffer allocated with av_malloc
+struct AVIOContextDeleter {
+  void operator()(AVIOContext* ctx) const noexcept {
+    if (ctx) {
+      // Free the buffer allocated with av_malloc before freeing context
+      if (ctx->buffer) {
+        av_freep(&ctx->buffer);
+      }
+      avio_context_free(&ctx);
+    }
+  }
+};
+
+// AVFormatContext deleter for image decoding (uses alloc + close_input)
+// Also cleans up associated AVIO context stored in ctx->pb
+struct ImageFormatContextDeleter {
+  void operator()(AVFormatContext* ctx) const noexcept {
+    if (ctx) {
+      // avformat_close_input handles both the context and its streams
+      avformat_close_input(&ctx);
+    }
+  }
+};
+
 // Type aliases for convenient usage
 using AVFramePtr = std::unique_ptr<AVFrame, AVFrameDeleter>;
 using AVPacketPtr = std::unique_ptr<AVPacket, AVPacketDeleter>;
@@ -128,6 +162,11 @@ using AVFormatContextOutputPtr =
     std::unique_ptr<AVFormatContext, AVFormatContextOutputDeleter>;
 using AVFilterGraphPtr = std::unique_ptr<AVFilterGraph, AVFilterGraphDeleter>;
 using AVFilterInOutPtr = std::unique_ptr<AVFilterInOut, AVFilterInOutDeleter>;
+using MemoryBufferContextPtr =
+    std::unique_ptr<MemoryBufferContext, MemoryBufferContextDeleter>;
+using AVIOContextPtr = std::unique_ptr<AVIOContext, AVIOContextDeleter>;
+using ImageFormatContextPtr =
+    std::unique_ptr<AVFormatContext, ImageFormatContextDeleter>;
 
 // Factory functions for cleaner allocation
 inline AVFramePtr make_frame() { return AVFramePtr(av_frame_alloc()); }
