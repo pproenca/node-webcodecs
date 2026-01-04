@@ -208,6 +208,70 @@ if(COVERAGE)
 endif()
 
 # =============================================================================
+# GOOGLE BENCHMARK (Performance Tests)
+# =============================================================================
+
+option(BUILD_BENCHMARKS "Build performance benchmarks" OFF)
+
+if(BUILD_BENCHMARKS)
+  message(STATUS "Building performance benchmarks")
+
+  FetchContent_Declare(
+    benchmark
+    GIT_REPOSITORY https://github.com/google/benchmark.git
+    GIT_TAG v1.8.3
+  )
+
+  set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+  set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "" FORCE)
+
+  FetchContent_MakeAvailable(benchmark)
+
+  # Benchmark executable
+  file(GLOB BENCHMARK_SOURCES "benchmark/*.cpp")
+
+  add_executable(webcodecs_benchmarks
+    ${BENCHMARK_SOURCES}
+    ${SOURCE_FILES}
+  )
+
+  target_include_directories(webcodecs_benchmarks PRIVATE
+    ${CMAKE_SOURCE_DIR}/../..
+    ${FFMPEG_INCLUDE_DIRS}
+    ${CMAKE_CURRENT_SOURCE_DIR}/mocks
+    ${CMAKE_CURRENT_SOURCE_DIR}/helpers
+  )
+
+  target_link_directories(webcodecs_benchmarks PRIVATE
+    ${FFMPEG_LIBRARY_DIRS}
+  )
+
+  target_link_libraries(webcodecs_benchmarks PRIVATE
+    benchmark::benchmark
+    benchmark::benchmark_main
+    ${FFMPEG_LIBRARIES}
+  )
+
+  # Platform-specific flags
+  if(APPLE)
+    target_compile_options(webcodecs_benchmarks PRIVATE
+      -Wall -Wextra -O3 -DNDEBUG
+    )
+  elseif(UNIX)
+    target_compile_options(webcodecs_benchmarks PRIVATE
+      -Wall -Wextra -O3 -DNDEBUG -fPIC
+    )
+  endif()
+
+  add_custom_target(run_benchmarks
+    COMMAND webcodecs_benchmarks
+    DEPENDS webcodecs_benchmarks
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Running performance benchmarks..."
+  )
+endif()
+
+# =============================================================================
 # TESTING
 # =============================================================================
 
@@ -222,6 +286,16 @@ add_custom_target(run_tests
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   COMMENT "Running all native tests..."
 )
+
+# macOS leaks detection
+if(APPLE)
+  add_custom_target(run_tests_leaks
+    COMMAND leaks --atExit -- ./webcodecs_tests --gtest_brief=1
+    DEPENDS webcodecs_tests
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Running tests with macOS leaks detection..."
+  )
+endif()
 
 # =============================================================================
 # INSTALLATION (Optional)
