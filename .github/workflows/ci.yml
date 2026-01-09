@@ -280,7 +280,7 @@ jobs:
         run: npm install --ignore-scripts
 
       - name: Download prebuilt artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: platform-pkg-${{ matrix.platform }}
 

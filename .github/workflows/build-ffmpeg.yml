@@ -263,7 +263,7 @@ jobs:
       - run: npm install --ignore-scripts
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: ffmpeg-*
           path: artifacts
@@ -308,7 +308,7 @@ jobs:
       - run: npm install --ignore-scripts
 
       - name: Download npm packages
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: npm-packages
           path: packages
@@ -337,7 +337,7 @@ jobs:
           node-version: '22'
       - run: npm install --ignore-scripts
       - name: Download all artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: ffmpeg-*
           path: artifacts
@@ -346,7 +346,7 @@ jobs:
         run: npx tsx scripts/ci/build-ffmpeg-workflow.ts prepare-release-assets --artifacts artifacts --release release
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2.2.1
+        uses: softprops/action-gh-release@v2.5.0
         with:
           files: release/*
           generate_release_notes: true
@@ -398,7 +398,7 @@ jobs:
           node-version: '22'
       - run: npm install --ignore-scripts
       - name: Download all artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           pattern: ffmpeg-*
           path: artifacts
@@ -411,7 +411,7 @@ jobs:
         run: npx tsx scripts/ci/build-ffmpeg-workflow.ts prepare-deps-assets --artifacts artifacts --release release
 
       - name: Create Dependencies Release
-        uses: softprops/action-gh-release@v2.2.1
+        uses: softprops/action-gh-release@v2.5.0
         with:
           tag_name: deps-${{ steps.version.outputs.version }}
           name: FFmpeg Dependencies ${{ steps.version.outputs.version }}
