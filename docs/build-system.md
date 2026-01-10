@@ -10,23 +10,29 @@
 
 This project uses **prebuildify** to distribute precompiled native addons with statically-linked FFmpeg libraries, eliminating the need for users to have FFmpeg or C++ build tools installed.
 
-### Two-Stage Build Pipeline
+### Build Pipeline
 
 ```
 ┌─────────────────────────────────────┐
-│ Stage 1: FFmpeg Static Libraries    │
-│ (.github/workflows/build-ffmpeg.yml)│
+│ FFmpeg Development Packages (npm)   │
+│ @pproenca/webcodecs-ffmpeg-dev-*    │
+│ (from pproenca/webcodecs-ffmpeg)    │
 └──────────────┬──────────────────────┘
-               │ Produces deps-vN releases
+               │ npm install (CI)
                ↓
 ┌─────────────────────────────────────┐
-│ Stage 2: Native Addon Prebuilds     │
+│ Native Addon Prebuilds              │
 │ (.github/workflows/ci.yml)          │
-│ - Downloads FFmpeg from deps-vN     │
+│ - Installs FFmpeg from npm          │
 │ - Runs prebuildify (static linking) │
 │ - Creates platform npm packages     │
 └─────────────────────────────────────┘
 ```
+
+FFmpeg static libraries are built and published as npm packages by the [pproenca/webcodecs-ffmpeg](https://github.com/pproenca/webcodecs-ffmpeg) repository. This separation allows:
+- Independent FFmpeg version updates
+- Simpler CI in this repository
+- Shared FFmpeg packages across projects
 
 ---
 
@@ -42,14 +48,16 @@ This project uses **prebuildify** to distribute precompiled native addons with s
 
 | Platform | Toolchain | CI Runner | Status |
 |----------|-----------|-----------|--------|
-| **Linux** | GCC (via `build-essential`) | ubuntu-24.04 | ✅ Compliant |
+| **Linux glibc** | GCC (via `build-essential`) | ubuntu-24.04 | ✅ Compliant |
+| **Linux musl** | GCC (via `build-base`) | node:22-alpine container | ✅ Compliant |
 | **macOS x64** | Xcode command-line tools | macos-15-intel | ✅ Compliant |
 | **macOS arm64** | Xcode command-line tools | macos-15 | ✅ Compliant |
 | **Windows** | Not implemented | — | ❌ Gap |
 
 **Validation:**
-- Linux: `docker/Dockerfile.linux-x64-glibc:28-47` installs `build-essential` (includes GCC, make, g++)
-- macOS: `.github/workflows/ci.yml:187-188` calls `install-build-tools --os macos` (installs pkg-config via Homebrew)
+- Linux glibc: `.github/workflows/ci.yml` installs `build-essential` via apt-get
+- Linux musl: `.github/workflows/ci.yml` installs `build-base` via apk in Alpine container
+- macOS: `.github/workflows/ci.yml` calls `install-build-tools --os macos` (installs pkg-config via Homebrew)
 - GitHub-hosted macOS runners include Xcode command-line tools by default
 
 ---
@@ -63,14 +71,14 @@ This project uses **prebuildify** to distribute precompiled native addons with s
 > This is a build tool based on the gyp-next fork of Google's GYP (Generate Your Projects) tool and comes bundled with npm. It has been the tool of choice for building native addons for some time. It is widely adopted and well-documented. However, some developers have run into limitations in node-gyp.
 
 **Our Implementation:**
-- ✅ Uses node-gyp 12.1.0 (`package.json:96`)
+- ✅ Uses node-gyp 12.1.0 (`package.json`)
 - ✅ Standard `binding.gyp` configuration format
 - ✅ Custom FFmpeg path resolution (`gyp/ffmpeg-paths-lib.js`) using `pkg-config --static`
 
 **Why Custom Path Resolution?**
 
 The `gyp/ffmpeg-paths-lib.js` script resolves FFmpeg libraries in priority order:
-1. `FFMPEG_ROOT` env var (CI: from deps-vN release)
+1. `FFMPEG_ROOT` env var (CI: set by `install-ffmpeg` command)
 2. `./ffmpeg-install/` directory (local development)
 3. System `pkg-config` (fallback)
 
@@ -88,7 +96,7 @@ This ensures **hermetic builds** in CI while supporting local development with s
 
 All FFmpeg codec libraries are built with **Position Independent Code (PIC)**, which is **critical** for static linking into shared objects (`.node` files).
 
-#### Linux (binding.gyp:86)
+#### Linux (binding.gyp)
 ```gyp
 "libraries": [
   "pkg-config --libs --static libavcodec libavformat libavutil libswscale libswresample libavfilter",
@@ -96,33 +104,7 @@ All FFmpeg codec libraries are built with **Position Independent Code (PIC)**, w
 ]
 ```
 
-#### Docker Build Environment (Dockerfile.linux-x64-glibc:50-56)
-```dockerfile
-ENV CFLAGS="-fPIC"
-ENV CXXFLAGS="-fPIC"
-```
-
-**Every codec library** (x264, x265, libvpx, libaom, opus, lame, vorbis) is built with:
-- `-fPIC` compiler flag
-- `--enable-pic` or `CMAKE_POSITION_INDEPENDENT_CODE=ON` configure flag
-
-#### PIC Verification (Dockerfile.linux-x64-glibc:253-265)
-
-The Docker build **automatically verifies** that static libraries contain PIC code:
-```dockerfile
-# Check that object files in .a archives have PIC relocations
-for lib in $PREFIX/lib/*.a; do
-  echo "Checking $lib for PIC...";
-  # Detect non-PIC relocations (R_X86_64_32 or R_X86_64_32S)
-  # These would fail when linking into a shared object
-  if ar -t "$lib" 2>/dev/null | head -1 | xargs -I{} sh -c \
-    "ar -p '$lib' {} 2>/dev/null | readelf -r - 2>/dev/null | grep -q 'R_X86_64_32'"; then
-    echo "WARNING: $lib may have non-PIC code";
-  else
-    echo "OK: $lib";
-  fi;
-done
-```
+The FFmpeg development packages from `@pproenca/webcodecs-ffmpeg-dev-*` include pre-built static libraries with PIC enabled, ensuring they can be linked into the native addon.
 
 This ensures the `.node` binary is **self-contained** with no external FFmpeg dependencies.
 
@@ -157,7 +139,7 @@ We use a **hybrid approach** combining prebuildify's strengths with `optionalDep
 
 ### Prebuildify CLI Usage
 
-**Implementation** (`scripts/ci/ci-workflow.ts:142-145`):
+**Implementation** (`scripts/ci/ci-workflow.ts`):
 ```typescript
 runner.runOrThrow('npx', [
   'prebuildify',
@@ -171,7 +153,7 @@ runner.runOrThrow('npx', [
 - ✅ `--napi` flag: Enables N-API version-agnostic builds
 - ✅ `--strip` flag: Reduces binary size (~30-40% reduction)
 - ✅ `--arch` handling: Targets correct architecture (x64, arm64)
-- ⚠️ **Missing `--tag-libc`**: No glibc/musl distinction (see Limitations below)
+- ✅ `--tag-libc`: Used for glibc/musl distinction on Linux
 
 ### Platform Package Structure
 
@@ -196,7 +178,7 @@ packages/@pproenca/node-webcodecs-{platform}/
 const binding = require('node-gyp-build')(__dirname);
 ```
 
-**Our Custom Loader** (`lib/binding.ts:22-56`):
+**Our Custom Loader** (`lib/binding.ts`):
 ```typescript
 // 1. Try platform-specific package first (production)
 const pkg = PLATFORMS[platform];
@@ -223,15 +205,21 @@ return nodeGypBuild(rootDir);
 
 ### Multi-Platform Build Matrix
 
-**Implementation** (`.github/workflows/ci.yml:158-169`):
+**Implementation** (`.github/workflows/ci.yml`):
 ```yaml
 strategy:
   fail-fast: false
   matrix:
     include:
       - os: ubuntu-24.04
-        platform: linux-x64
+        platform: linux-x64-glibc
         arch: x64
+        libc: glibc
+      - os: ubuntu-24.04
+        platform: linux-x64-musl
+        arch: x64
+        libc: musl
+        container: node:22-alpine
       - os: macos-15-intel  # Last Intel runner (available until Aug 2027)
         platform: darwin-x64
         arch: x64
@@ -245,41 +233,29 @@ strategy:
 - True platform compatibility
 - Accurate performance characteristics
 
-### FFmpeg Dependency Download
+### FFmpeg Dependency Installation
 
-**Hermetic Build Strategy** (`.github/workflows/ci.yml:194-205`):
+**Hermetic Build Strategy** (`.github/workflows/ci.yml`):
 
-1. **Resolve latest deps version:**
-   ```yaml
-   - name: Find latest deps release
-     run: npx tsx scripts/ci/ci-workflow.ts latest-deps-release
-   ```
+FFmpeg development packages are installed from npm:
+```yaml
+- name: Install FFmpeg development package
+  run: npx tsx scripts/ci/ci-workflow.ts install-ffmpeg --platform "${{ matrix.platform }}" --variant non-free
+```
 
-2. **Download from GitHub release:**
-   ```yaml
-   - uses: dsaltares/fetch-gh-release-asset@v1.1.2
-     with:
-       repo: ${{ github.repository }}
-       version: tags/deps-${{ needs.resolve-deps.outputs.deps_version }}
-       # Use glibc variant for Linux (musl libs can't link into glibc shared objects)
-       file: ffmpeg-${{ matrix.platform }}${{ runner.os == 'Linux' && '-glibc' || '' }}.tar.gz
-   ```
-
-3. **Extract and set environment:**
-   ```yaml
-   - name: Extract FFmpeg and Set Environment
-     run: npx tsx scripts/ci/ci-workflow.ts extract-ffmpeg --archive "ffmpeg-${{ matrix.platform }}.tar.gz" --out ffmpeg-install
-   ```
-   Sets `FFMPEG_ROOT=/path/to/ffmpeg-install` for `gyp/ffmpeg-paths-lib.js` to consume.
+This command:
+1. Installs `@pproenca/webcodecs-ffmpeg-dev-{platform}-non-free` from npm
+2. Sets `FFMPEG_ROOT` environment variable to the package location
+3. Verifies lib/, include/, and pkgconfig/ directories exist
 
 **Benefits:**
-- ✅ **Reproducible builds:** FFmpeg version pinned via deps-vN release
-- ✅ **No system dependencies:** Doesn't rely on runner's pkg-config
-- ✅ **Offline-capable:** GitHub release artifacts cached
+- ✅ **Reproducible builds:** FFmpeg version pinned via npm package version
+- ✅ **No external dependencies:** Uses npm registry (no GitHub release API limits)
+- ✅ **Fast downloads:** npm CDN is highly optimized
 
 ### Binary Packaging & Publishing
 
-**Workflow** (`.github/workflows/ci.yml:216-229` → `.github/workflows/release.yml`):
+**Workflow** (`.github/workflows/ci.yml` → `.github/workflows/release.yml`):
 
 1. **Package as platform npm package:**
    ```yaml
@@ -297,7 +273,7 @@ strategy:
        path: packages/@pproenca-node-webcodecs-${{ matrix.platform }}.tar
    ```
 
-3. **Publish to npm** (separate workflow: `release.yml:89-133`):
+3. **Publish to npm** (separate workflow: `release.yml`):
    ```yaml
    - name: Publish to npm
      run: npm publish --provenance --access public
@@ -316,10 +292,11 @@ strategy:
 | Platform | Architecture | libc | Package Name | Binary Size | Status |
 |----------|-------------|------|--------------|-------------|--------|
 | Linux | x64 | glibc | `@pproenca/node-webcodecs-linux-x64-glibc` | ~65MB | ✅ Supported |
+| Linux | x64 | musl | `@pproenca/node-webcodecs-linux-x64-musl` | ~65MB | ✅ Supported |
 | macOS | x64 (Intel) | — | `@pproenca/node-webcodecs-darwin-x64` | ~60MB | ✅ Supported |
 | macOS | arm64 (Apple Silicon) | — | `@pproenca/node-webcodecs-darwin-arm64` | ~60MB | ✅ Supported |
 
-**Total package size (all platforms):** ~185MB (well within npm's 500MB unpacked limit)
+**Total package size (all platforms):** ~250MB (well within npm's 500MB unpacked limit)
 
 ### Gaps & Limitations ⚠️
 
@@ -330,51 +307,14 @@ strategy:
 > On Windows, all the required items can be installed with Visual Studio. However, it is not necessary to install the full Visual Studio. [...] Alternatively: `npm install --global windows-build-tools`
 
 **Status:** Not implemented
-- `build-ffmpeg.yml` doesn't include Windows FFmpeg build
 - `ci.yml` build matrix doesn't include `windows-latest`
+- webcodecs-ffmpeg doesn't publish Windows packages yet
 
 **To add Windows support:**
-1. Add Windows to `build-ffmpeg.yml` (requires cross-compilation or Windows runner)
+1. Add Windows packages to pproenca/webcodecs-ffmpeg
 2. Add Windows to `ci.yml` build matrix
 3. Update `binding.gyp` with Windows-specific library paths
 4. Create `@pproenca/node-webcodecs-win32-x64` package
-
-#### 2. libc Tagging for Linux (glibc only)
-
-**Status:** ✅ **Implemented** for glibc
-
-**Current implementation:**
-- Linux package uses `--tag-libc glibc` flag
-- Package name: `@pproenca/node-webcodecs-linux-x64-glibc`
-- Targets Ubuntu, Debian, RHEL, and other glibc-based distributions
-
-**Missing:** musl variant for Alpine Linux
-
-**To add musl support:**
-1. Update `build-ffmpeg.yml` to produce musl variant artifacts
-2. Add musl build to `ci.yml` matrix
-3. Create `@pproenca/node-webcodecs-linux-x64-musl` package
-4. Update `lib/binding.ts` with musl package resolution
-
-#### 3. macOS Static Linking Verification
-
-**Question from plan:** Does macOS build use `--static` flag like Linux?
-
-**Current (`binding.gyp:50`):**
-```gyp
-"pkg-config --libs libavcodec libavformat libavutil libswscale libswresample libavfilter"
-```
-
-**Missing:** Explicit `--static` flag (present on Linux but not macOS)
-
-**Verification needed:**
-```bash
-# On macOS build, check for external FFmpeg dependencies:
-otool -L build/Release/node_webcodecs.node | grep -i ffmpeg
-# Should return NOTHING (static linking)
-```
-
-**Recommendation:** Add `--static` to macOS pkg-config command for consistency.
 
 ---
 
@@ -384,7 +324,8 @@ otool -L build/Release/node_webcodecs.node | grep -i ffmpeg
 
 ```bash
 $ ls -lh prebuilds/*/node.napi.node
--rw-r--r-- 1 runner docker 65M Jan 4 12:00 prebuilds/linux-x64/node.napi.node
+-rw-r--r-- 1 runner docker 65M Jan 4 12:00 prebuilds/linux-x64-glibc/node.napi.node
+-rw-r--r-- 1 runner docker 65M Jan 4 12:00 prebuilds/linux-x64-musl/node.napi.node
 -rw-r--r-- 1 runner docker 60M Jan 4 12:00 prebuilds/darwin-x64/node.napi.node
 -rw-r--r-- 1 runner docker 62M Jan 4 12:00 prebuilds/darwin-arm64/node.napi.node
 ```
@@ -403,7 +344,7 @@ $ ls -lh prebuilds/*/node.napi.node
 **Official limit:** 500MB unpacked size ([npm policies](https://docs.npmjs.com/policies/packages))
 
 **Our usage:**
-- All platforms bundled: ~185MB
+- All platforms bundled: ~250MB
 - Single platform: ~60-65MB
 - **Well within limits** ✅
 
@@ -417,7 +358,7 @@ $ ls -lh prebuilds/*/node.napi.node
 
 #### Linux
 ```bash
-ldd prebuilds/linux-x64/node.napi.node | grep -i ffmpeg
+ldd prebuilds/linux-x64-glibc/node.napi.node | grep -i ffmpeg
 # Should return NOTHING (static linking)
 
 # Expected output (only system libs):
@@ -441,7 +382,7 @@ otool -L prebuilds/darwin-x64/node.napi.node | grep -i ffmpeg
 
 ### Node Version Compatibility
 
-**Test matrix** (`.github/workflows/ci.yml:241-257`):
+**Test matrix** (`.github/workflows/ci.yml`):
 
 Prebuilds are built with Node 22, then tested against:
 - Node 20 (LTS)
@@ -452,75 +393,12 @@ Prebuilds are built with Node 22, then tested against:
 
 ---
 
-## Optimization Opportunities
-
-### 1. Migrate to Standard Prebuildify Structure
-
-**Current:** Custom `bin/node.napi.node` + custom loader
-**Standard:** `prebuilds/{platform}/node.napi.node` + standard node-gyp-build
-
-**Benefits:**
-- Simpler code (remove custom loader)
-- Standard tooling compatibility
-- Better community support
-
-**Trade-off:** Would need to bundle all platforms in main package (~200MB) or keep optionalDependencies (requires custom loader).
-
-### 2. Add CI Validation Jobs
-
-**Recommended additions to `.github/workflows/ci.yml`:**
-
-```yaml
-- name: Verify self-contained binaries
-  run: |
-    # Linux
-    if ldd prebuilds/linux-x64/node.napi.node | grep -qi ffmpeg; then
-      echo "ERROR: Binary has external FFmpeg dependencies"
-      exit 1
-    fi
-
-    # macOS
-    if otool -L prebuilds/darwin-x64/node.napi.node | grep -qi ffmpeg; then
-      echo "ERROR: Binary has external FFmpeg dependencies"
-      exit 1
-    fi
-
-- name: Check binary sizes
-  run: |
-    ls -lh prebuilds/*/node.napi.node
-    # Fail if any binary > 100MB (sanity check)
-    find prebuilds -name "*.node" -size +100M -exec echo "ERROR: Binary too large: {}" \; -quit -exit 1
-```
-
-### 3. Document Python Requirement
-
-**Missing:** Documentation that node-gyp requires Python
-
-**Official N-API guidance ([Building](https://nodejs.org/api/n-api.html#building)):**
-
-> node-gyp [...] requires that users installing the native addon have a C/C++ toolchain installed.
-
-node-gyp specifically requires **Python 3** (node-gyp 10+).
-
-**Add to README:**
-```markdown
-## Building from Source
-
-If prebuilt binaries aren't available for your platform, you'll need:
-- Node.js 20.17+, 22.9+, or 24+
-- Python 3.x (required by node-gyp)
-- C++ compiler toolchain (GCC on Linux, Xcode on macOS)
-- FFmpeg development libraries
-```
-
----
-
 ## Summary: Compliance with Official Guidance
 
 | Aspect | N-API Guidance | Our Implementation | Status |
 |--------|---------------|-------------------|--------|
 | **Build tool** | node-gyp (recommended) | node-gyp 12.1.0 | ✅ Compliant |
-| **Toolchain (Linux)** | GCC or LLVM | GCC via build-essential | ✅ Compliant |
+| **Toolchain (Linux)** | GCC or LLVM | GCC via build-essential/build-base | ✅ Compliant |
 | **Toolchain (macOS)** | Xcode CLI tools | Xcode CLI tools | ✅ Compliant |
 | **Toolchain (Windows)** | Visual Studio | Not implemented | ❌ Gap |
 | **Distribution tool** | prebuildify (recommended) | prebuildify 6.0.1 | ✅ Compliant |
@@ -528,7 +406,7 @@ If prebuilt binaries aren't available for your platform, you'll need:
 | **Static linking** | Recommended for deps | ✅ FFmpeg static + PIC | ✅ Compliant |
 | **CI integration** | Travis/AppVeyor pattern | GitHub Actions | ✅ Compliant |
 | **Multi-platform** | Native runners preferred | ✅ Native runners | ✅ Compliant |
-| **libc tagging** | `--tag-libc` for Linux | ✅ glibc tagged | ✅ Compliant |
+| **libc tagging** | `--tag-libc` for Linux | ✅ glibc and musl tagged | ✅ Compliant |
 
 **Overall:** ✅ **Excellent compliance with official N-API best practices**
 
@@ -548,10 +426,10 @@ If prebuilt binaries aren't available for your platform, you'll need:
 - [npm Package Policies](https://docs.npmjs.com/policies/packages)
 
 ### Project-Specific
-- FFmpeg build: `.github/workflows/build-ffmpeg.yml`
 - Prebuild CI: `.github/workflows/ci.yml`
 - Release workflow: `.github/workflows/release.yml`
 - Prebuildify wrapper: `scripts/ci/ci-workflow.ts`
 - Platform packaging: `scripts/ci/platform-package.ts`
 - FFmpeg path resolution: `gyp/ffmpeg-paths-lib.js`
 - Runtime loader: `lib/binding.ts`
+- FFmpeg packages: [pproenca/webcodecs-ffmpeg](https://github.com/pproenca/webcodecs-ffmpeg)

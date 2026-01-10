@@ -1,10 +1,10 @@
 #!/usr/bin/env tsx
-import {existsSync, mkdirSync, readFileSync, renameSync} from 'node:fs';
-import {basename, join, resolve} from 'node:path';
+import {existsSync, readFileSync, renameSync} from 'node:fs';
+import {basename, dirname, join, resolve} from 'node:path';
 import {isMainModule} from '../shared/runtime';
 import {parseArgs, requireFlag} from '../shared/args';
 import {findFirstFile} from './fs-utils';
-import {writeGithubEnv, writeGithubOutput} from './github';
+import {writeGithubEnv} from './github';
 import {DEFAULT_RUNNER, type CommandRunner} from './runner';
 
 interface PrebuildifyOptions {
@@ -31,36 +31,24 @@ interface ExtractPrebuiltOptions {
   readonly prebuildsDir: string;
 }
 
-const VERSION_PATTERN = /^[0-9]+\.[0-9]+\.[0-9]+/;
-
-function ensureDir(pathname: string): void {
-  mkdirSync(pathname, {recursive: true});
+interface InstallFfmpegOptions {
+  readonly platform: string;
+  readonly variant: 'lgpl' | 'non-free';
 }
 
-export function resolveLatestDepsTag(runner: CommandRunner, repo: string): string {
-  const result = runner.run('gh', [
-    'release',
-    'list',
-    '--repo',
-    repo,
-    '--limit',
-    '200',
-    '--json',
-    'tagName',
-    '--jq',
-    '[.[] | select(.tagName | startswith("deps-"))][0].tagName',
-  ]);
+const VERSION_PATTERN = /^[0-9]+\.[0-9]+\.[0-9]+/;
 
-  if (result.exitCode !== 0) {
-    throw new Error('Failed to resolve latest deps-* tag from GitHub releases.');
+/**
+ * Maps node-webcodecs platform names to webcodecs-ffmpeg package platform names.
+ * Note: webcodecs-ffmpeg uses different platform names for libc variants.
+ */
+function mapPlatformToFfmpegPackage(platform: string): string {
+  // linux-x64-glibc and linux-x64-musl both map to linux-x64 in webcodecs-ffmpeg
+  // The webcodecs-ffmpeg packages handle libc detection internally
+  if (platform === 'linux-x64-glibc' || platform === 'linux-x64-musl') {
+    return 'linux-x64';
   }
-
-  const tag = result.stdout.trim();
-  if (!tag) {
-    throw new Error('No deps-* release found in repository.');
-  }
-
-  return tag;
+  return platform;
 }
 
 export function resolvePackageVersion(rootDir: string): string {
@@ -73,15 +61,55 @@ export function resolvePackageVersion(rootDir: string): string {
   return version;
 }
 
-export function resolveDeps(
+/**
+ * Installs FFmpeg development package from npm (@pproenca/webcodecs-ffmpeg-dev-*)
+ * and sets FFMPEG_ROOT environment variable for the build.
+ */
+export function installFfmpeg(
   runner: CommandRunner,
   env: NodeJS.ProcessEnv,
-  repo: string,
+  options: InstallFfmpegOptions,
 ): void {
-  const latestTag = resolveLatestDepsTag(runner, repo);
-  const version = latestTag.startsWith('deps-') ? latestTag.slice('deps-'.length) : latestTag;
-  console.log(`Detected latest dependencies: ${latestTag} (version: ${version})`);
-  writeGithubOutput(env, 'version', version);
+  const ffmpegPlatform = mapPlatformToFfmpegPackage(options.platform);
+  const suffix = options.variant === 'non-free' ? '-non-free' : '';
+  const packageName = `@pproenca/webcodecs-ffmpeg-dev-${ffmpegPlatform}${suffix}`;
+
+  console.log(`Installing FFmpeg development package: ${packageName}`);
+  runner.runOrThrow('npm', ['install', '--no-save', packageName], {stdio: 'inherit'});
+
+  // Resolve the installed package path and set FFMPEG_ROOT
+  const result = runner.run('node', [
+    '-e',
+    `console.log(require.resolve('${packageName}/package.json'))`,
+  ]);
+
+  if (result.exitCode !== 0) {
+    throw new Error(`Failed to resolve installed package ${packageName}`);
+  }
+
+  const pkgJsonPath = result.stdout.trim();
+  const ffmpegRoot = dirname(pkgJsonPath);
+
+  // Verify the expected directories exist
+  const libDir = join(ffmpegRoot, 'lib');
+  const pkgConfigDir = join(libDir, 'pkgconfig');
+  const includeDir = join(ffmpegRoot, 'include');
+
+  if (!existsSync(libDir)) {
+    throw new Error(`Missing lib directory in FFmpeg package: ${libDir}`);
+  }
+  if (!existsSync(pkgConfigDir)) {
+    throw new Error(`Missing pkgconfig directory in FFmpeg package: ${pkgConfigDir}`);
+  }
+  if (!existsSync(includeDir)) {
+    throw new Error(`Missing include directory in FFmpeg package: ${includeDir}`);
+  }
+
+  console.log(`FFmpeg installed at: ${ffmpegRoot}`);
+  writeGithubEnv(env, 'FFMPEG_ROOT', ffmpegRoot);
+
+  runner.runOrThrow('ls', ['-la', libDir], {stdio: 'inherit'});
+  runner.runOrThrow('ls', ['-la', pkgConfigDir], {stdio: 'inherit'});
 }
 
 export function fixMacosPowerServices(runner: CommandRunner): void {
@@ -125,32 +153,6 @@ export function installBuildTools(runner: CommandRunner, osName: string): void {
     return;
   }
   throw new Error(`Unsupported OS: ${osName}`);
-}
-
-export function extractFfmpegArchive(
-  runner: CommandRunner,
-  env: NodeJS.ProcessEnv,
-  archivePath: string,
-  outDir: string,
-): void {
-  if (!existsSync(archivePath)) {
-    throw new Error(`Archive not found: ${archivePath}`);
-  }
-  ensureDir(outDir);
-  runner.runOrThrow('tar', ['-xzvf', archivePath, '-C', outDir], {stdio: 'inherit'});
-
-  const libDir = join(outDir, 'lib');
-  const pkgConfigDir = join(libDir, 'pkgconfig');
-  if (!existsSync(libDir)) {
-    throw new Error(`Missing lib directory after extract: ${libDir}`);
-  }
-  if (!existsSync(pkgConfigDir)) {
-    throw new Error(`Missing pkgconfig directory after extract: ${pkgConfigDir}`);
-  }
-
-  writeGithubEnv(env, 'FFMPEG_ROOT', outDir);
-  runner.runOrThrow('ls', ['-la', libDir], {stdio: 'inherit'});
-  runner.runOrThrow('ls', ['-la', pkgConfigDir], {stdio: 'inherit'});
 }
 
 export function runPrebuildify(runner: CommandRunner, options: PrebuildifyOptions): void {
@@ -242,9 +244,13 @@ export function main(
   const command = positional[0];
 
   try {
-    if (command === 'resolve-deps') {
-      const repo = requireFlag(flags, 'repo');
-      resolveDeps(runner, env, repo);
+    if (command === 'install-ffmpeg') {
+      const platform = requireFlag(flags, 'platform');
+      const variant = (flags.variant ?? 'non-free') as 'lgpl' | 'non-free';
+      if (variant !== 'lgpl' && variant !== 'non-free') {
+        throw new Error(`Invalid variant: ${variant}. Must be 'lgpl' or 'non-free'.`);
+      }
+      installFfmpeg(runner, env, {platform, variant});
       return 0;
     }
 
@@ -256,13 +262,6 @@ export function main(
     if (command === 'install-build-tools') {
       const osName = requireFlag(flags, 'os');
       installBuildTools(runner, osName);
-      return 0;
-    }
-
-    if (command === 'extract-ffmpeg') {
-      const archive = resolve(requireFlag(flags, 'archive'));
-      const outDir = resolve(flags.out ?? 'ffmpeg-install');
-      extractFfmpegArchive(runner, env, archive, outDir);
       return 0;
     }
 

@@ -7,9 +7,7 @@ import type {CommandResult} from '../../scripts/shared/exec';
 import type {CommandRunner} from '../../scripts/ci/runner';
 import {writeGithubEnv, writeGithubOutput} from '../../scripts/ci/github';
 import {
-  extractFfmpegArchive,
-  resolveDeps,
-  resolveLatestDepsTag,
+  installFfmpeg,
   resolvePackageVersion,
   runPrebuildify,
 } from '../../scripts/ci/ci-workflow';
@@ -19,12 +17,6 @@ import {
   resolveReleaseVersion,
   verifyCiCompleted,
 } from '../../scripts/ci/release-workflow';
-import {
-  createMainNpmPackage,
-  extractAndPackageNpm,
-  resolveDepsVersion,
-  verifyAndStripMacosBinaries,
-} from '../../scripts/ci/build-ffmpeg-workflow';
 
 interface RecordedCall {
   readonly command: string;
@@ -83,21 +75,6 @@ test('writeGithubEnv throws when env var missing', () => {
   assert.throws(() => writeGithubEnv({}, 'FFMPEG_ROOT', '/tmp/ffmpeg'));
 });
 
-test('resolveLatestDepsTag returns the latest deps tag', () => {
-  const {runner} = createRunner([okResult('deps-v12\n')]);
-  const tag = resolveLatestDepsTag(runner, 'pproenca/node-webcodecs');
-  assert.strictEqual(tag, 'deps-v12');
-});
-
-test('resolveDeps writes version output', () => {
-  const root = createTempRoot();
-  const outputFile = join(root, 'out.txt');
-  const {runner} = createRunner([okResult('deps-v10\n')]);
-  resolveDeps(runner, {GITHUB_OUTPUT: outputFile}, 'pproenca/node-webcodecs');
-  const contents = readFileSync(outputFile, 'utf8');
-  assert.strictEqual(contents, 'version=v10\n');
-});
-
 test('resolvePackageVersion rejects invalid package.json versions', () => {
   const root = createTempRoot();
   writeFileSync(join(root, 'package.json'), JSON.stringify({version: 'not-a-version'}));
@@ -122,18 +99,52 @@ test('runPrebuildify renames the scoped prebuild when needed', () => {
   }
 });
 
-test('extractFfmpegArchive writes FFMPEG_ROOT on success', () => {
+test('installFfmpeg installs correct package for linux-x64-glibc', () => {
   const root = createTempRoot();
-  const archive = join(root, 'ffmpeg-linux-x64.tar.gz');
-  const outputEnv = join(root, 'env.txt');
-  writeFileSync(archive, 'archive');
-  mkdirSync(join(root, 'ffmpeg-install', 'lib', 'pkgconfig'), {recursive: true});
+  const envFile = join(root, 'env.txt');
+  const ffmpegDir = join(root, 'node_modules', '@pproenca', 'webcodecs-ffmpeg-dev-linux-x64-non-free');
+  mkdirSync(join(ffmpegDir, 'lib', 'pkgconfig'), {recursive: true});
+  mkdirSync(join(ffmpegDir, 'include'), {recursive: true});
+  writeFileSync(join(ffmpegDir, 'package.json'), '{}');
 
-  const {runner} = createRunner([okResult(), okResult(), okResult()]);
-  extractFfmpegArchive(runner, {GITHUB_ENV: outputEnv}, archive, join(root, 'ffmpeg-install'));
+  const {runner, calls} = createRunner([
+    okResult(), // npm install
+    okResult(join(ffmpegDir, 'package.json')), // node -e resolve
+    okResult(), // ls lib
+    okResult(), // ls pkgconfig
+  ]);
 
-  const contents = readFileSync(outputEnv, 'utf8');
+  installFfmpeg(runner, {GITHUB_ENV: envFile}, {platform: 'linux-x64-glibc', variant: 'non-free'});
+
+  // Verify npm install was called with correct package (linux-x64 not linux-x64-glibc)
+  assert.strictEqual(calls[0].command, 'npm');
+  assert.ok(calls[0].args.includes('@pproenca/webcodecs-ffmpeg-dev-linux-x64-non-free'));
+
+  const contents = readFileSync(envFile, 'utf8');
   assert.ok(contents.includes('FFMPEG_ROOT='));
+});
+
+test('installFfmpeg installs lgpl variant when specified', () => {
+  const root = createTempRoot();
+  const envFile = join(root, 'env.txt');
+  const ffmpegDir = join(root, 'node_modules', '@pproenca', 'webcodecs-ffmpeg-dev-darwin-arm64');
+  mkdirSync(join(ffmpegDir, 'lib', 'pkgconfig'), {recursive: true});
+  mkdirSync(join(ffmpegDir, 'include'), {recursive: true});
+  writeFileSync(join(ffmpegDir, 'package.json'), '{}');
+
+  const {runner, calls} = createRunner([
+    okResult(), // npm install
+    okResult(join(ffmpegDir, 'package.json')), // node -e resolve
+    okResult(), // ls lib
+    okResult(), // ls pkgconfig
+  ]);
+
+  installFfmpeg(runner, {GITHUB_ENV: envFile}, {platform: 'darwin-arm64', variant: 'lgpl'});
+
+  // Verify npm install was called with LGPL package (no -non-free suffix)
+  assert.strictEqual(calls[0].command, 'npm');
+  assert.ok(calls[0].args.includes('@pproenca/webcodecs-ffmpeg-dev-darwin-arm64'));
+  assert.ok(!calls[0].args.some(arg => arg.includes('-non-free')));
 });
 
 test('verifyCiCompleted throws when CI did not succeed', () => {
@@ -190,44 +201,4 @@ test('resolveReleaseVersion extracts tag versions', () => {
 
 test('resolveReleaseVersion rejects non-tag refs', () => {
   assert.throws(() => resolveReleaseVersion({GITHUB_REF: 'refs/heads/main'}));
-});
-
-test('resolveDepsVersion prefers explicit input', () => {
-  assert.strictEqual(resolveDepsVersion('v5', 'deps-v3'), 'v5');
-  assert.strictEqual(resolveDepsVersion(undefined, 'deps-v3'), 'v3');
-});
-
-test('verifyAndStripMacosBinaries fails without TARGET', () => {
-  const {runner} = createRunner([]);
-  assert.throws(() => verifyAndStripMacosBinaries(runner, {}));
-});
-
-test('extractAndPackageNpm writes platform packages', () => {
-  const root = createTempRoot();
-  const artifactsDir = join(root, 'artifacts');
-  const packagesDir = join(root, 'packages');
-  const artifactDir = join(artifactsDir, 'ffmpeg-linux-x64');
-  const srcDir = join(artifactDir, 'linux-x64', 'bin');
-  mkdirSync(srcDir, {recursive: true});
-  writeFileSync(join(artifactDir, 'bundle.tar'), 'tar');
-  writeFileSync(join(srcDir, 'ffmpeg'), 'bin');
-  writeFileSync(join(srcDir, 'ffprobe'), 'bin');
-
-  const {runner} = createRunner([okResult()]);
-  extractAndPackageNpm(runner, {NPM_SCOPE: '@pproenca/ffmpeg', GITHUB_REF_NAME: 'v1.2.3'}, artifactsDir, packagesDir);
-
-  const pkgJson = readFileSync(
-    join(packagesDir, '@pproenca/ffmpeg-linux-x64', 'package.json'),
-    'utf8',
-  );
-  assert.ok(pkgJson.includes('"name": "@pproenca/ffmpeg-linux-x64"'));
-});
-
-test('createMainNpmPackage writes main package files', () => {
-  const root = createTempRoot();
-  const packagesDir = join(root, 'packages');
-  createMainNpmPackage({NPM_SCOPE: '@pproenca/ffmpeg', GITHUB_REF_NAME: 'v1.2.3'}, packagesDir);
-
-  const pkgPath = join(packagesDir, '@pproenca/ffmpeg', 'package.json');
-  assert.ok(readFileSync(pkgPath, 'utf8').includes('"name": "@pproenca/ffmpeg"'));
 });

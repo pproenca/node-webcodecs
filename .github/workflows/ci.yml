@@ -15,32 +15,10 @@ on:
 
 permissions: {}
 
-# DEPS_VERSION is resolved dynamically in the resolve-deps job
-# No hardcoded version here - always uses latest deps-* release
+# FFmpeg dependencies are installed from npm packages (@pproenca/webcodecs-ffmpeg-*)
+# from the pproenca/webcodecs-ffmpeg repository
 
 jobs:
-  # ============================================================================
-  # Resolve latest FFmpeg dependencies release
-  # This eliminates the need to manually bump DEPS_VERSION
-  # ============================================================================
-  resolve-deps:
-    name: "Resolve Dependencies"
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-    outputs:
-      deps_version: ${{ steps.deps.outputs.version }}
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-      - run: npm install --ignore-scripts
-      - name: Find latest deps release
-        id: deps
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: npx tsx scripts/ci/ci-workflow.ts resolve-deps --repo "${{ github.repository }}"
 
 
   # ============================================================================
@@ -66,7 +44,7 @@ jobs:
   test-native:
     permissions:
       contents: read
-    needs: [lint, resolve-deps]
+    needs: [lint]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -88,17 +66,8 @@ jobs:
             pkg-config \
             lcov
 
-      - name: Download FFmpeg from Release
-        uses: dsaltares/fetch-gh-release-asset@aa2ab1243d6e0d5b405b973c89fa4d06a2d0fff7 # v1.1.2
-        with:
-          repo: ${{ github.repository }}
-          version: tags/deps-${{ needs.resolve-deps.outputs.deps_version }}
-          file: ffmpeg-linux-x64-glibc.tar.gz
-          target: ffmpeg-linux-x64.tar.gz
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract FFmpeg and Set Environment
-        run: npx tsx scripts/ci/ci-workflow.ts extract-ffmpeg --archive "ffmpeg-linux-x64.tar.gz" --out ffmpeg-install
+      - name: Install FFmpeg development package
+        run: npx tsx scripts/ci/ci-workflow.ts install-ffmpeg --platform linux-x64-glibc --variant non-free
 
       - name: Build and test with sanitizers
         run: |
@@ -151,7 +120,7 @@ jobs:
       contents: read
       id-token: write # For OIDC attestation
       attestations: write # For build provenance
-    needs: [lint, resolve-deps]
+    needs: [lint]
     name: "build-${{ matrix.platform }}"
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
@@ -198,21 +167,8 @@ jobs:
         if: runner.os == 'Linux'
         run: npx tsx scripts/ci/ci-workflow.ts install-build-tools --os linux
 
-      - name: Download FFmpeg from Release
-        uses: dsaltares/fetch-gh-release-asset@aa2ab1243d6e0d5b405b973c89fa4d06a2d0fff7 # v1.1.2
-        with:
-          repo: ${{ github.repository }}
-          version: tags/deps-${{ needs.resolve-deps.outputs.deps_version }}
-          # Map platform to FFmpeg asset name:
-          # - linux-x64-musl → ffmpeg-linux-x64.tar.gz (musl build)
-          # - linux-x64-glibc → ffmpeg-linux-x64-glibc.tar.gz
-          # - darwin-* → ffmpeg-darwin-*.tar.gz
-          file: ffmpeg-${{ matrix.platform == 'linux-x64-musl' && 'linux-x64' || matrix.platform }}.tar.gz
-          target: ffmpeg-${{ matrix.platform }}.tar.gz
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract FFmpeg and Set Environment
-        run: npx tsx scripts/ci/ci-workflow.ts extract-ffmpeg --archive "ffmpeg-${{ matrix.platform }}.tar.gz" --out ffmpeg-install
+      - name: Install FFmpeg development package
+        run: npx tsx scripts/ci/ci-workflow.ts install-ffmpeg --platform "${{ matrix.platform }}" --variant non-free
 
       - name: Build with prebuildify
         run: npx tsx scripts/ci/ci-workflow.ts prebuildify --arch "${{ matrix.arch }}" --platform "${{ matrix.platform }}"${{ matrix.libc && format(' --libc {0}', matrix.libc) || '' }}
@@ -258,9 +214,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Linux - Node 20/24 (Node 22 already tested in build-native)
-          - { os: ubuntu-24.04, platform: linux-x64, node: "20" }
-          - { os: ubuntu-24.04, platform: linux-x64, node: "24" }
+          # Linux glibc - Node 20/24 (Node 22 already tested in build-native)
+          - { os: ubuntu-24.04, platform: linux-x64-glibc, node: "20" }
+          - { os: ubuntu-24.04, platform: linux-x64-glibc, node: "24" }
           # macOS Intel - Node 20/24
           - { os: macos-15-intel, platform: darwin-x64, node: "20" }
           - { os: macos-15-intel, platform: darwin-x64, node: "24" }
