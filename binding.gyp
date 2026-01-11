@@ -107,7 +107,7 @@
             "<!@(node gyp/ffmpeg-paths.js include 2>/dev/null || pkg-config --cflags-only-I libavcodec libavutil libswscale libswresample libavfilter 2>/dev/null | sed s/-I//g || echo '/usr/include /usr/local/include')"
           ],
           "libraries": [
-            "<!@(node gyp/ffmpeg-paths.js lib 2>/dev/null || pkg-config --libs libavcodec libavformat libavutil libswscale libswresample libavfilter 2>/dev/null || echo '-L/usr/lib -L/usr/local/lib -lavcodec -lavformat -lavutil -lswscale -lswresample -lavfilter')",
+            "<!@(node gyp/ffmpeg-paths.js lib 2>/dev/null || pkg-config --libs --static libavcodec libavformat libavutil libswscale libswresample libavfilter 2>/dev/null || pkg-config --libs libavcodec libavformat libavutil libswscale libswresample libavfilter 2>/dev/null || echo '-L/usr/lib -L/usr/local/lib -lavcodec -lavformat -lavutil -lswscale -lswresample -lavfilter')",
             "-lpthread",
             "-lm",
             "-ldl",
