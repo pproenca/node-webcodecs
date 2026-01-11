@@ -82,7 +82,8 @@
     "@pproenca/node-webcodecs-linux-x64-musl": "0.1.1-alpha.8",
     "@pproenca/webcodecs-ffmpeg-darwin-arm64": "^0.1.0",
     "@pproenca/webcodecs-ffmpeg-darwin-x64": "^0.1.0",
-    "@pproenca/webcodecs-ffmpeg-linux-x64": "^0.1.0"
+    "@pproenca/webcodecs-ffmpeg-linux-x64": "^0.1.0",
+    "@pproenca/webcodecs-ffmpeg-linux-x64-musl": "^0.1.0"
   },
   "dependencies": {
     "detect-libc": "^2.1.2",

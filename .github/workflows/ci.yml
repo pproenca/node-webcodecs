@@ -111,10 +111,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: npm install --omit=optional
-
-      - name: Install FFmpeg musl package
-        run: npm install @pproenca/webcodecs-ffmpeg-linux-x64-musl
+        run: npm install
 
       - name: Build
         run: npm run build
