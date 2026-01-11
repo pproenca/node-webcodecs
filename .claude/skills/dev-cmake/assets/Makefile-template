@@ -1,0 +1,122 @@
+# ============================================================================
+# Project Configuration
+# ============================================================================
+PROJECT  := myproject
+VERSION  := 1.0.0
+
+# ============================================================================
+# Directories
+# ============================================================================
+SRCDIR   := src
+INCDIR   := include
+BUILDDIR := build
+BINDIR   := bin
+
+# ============================================================================
+# Toolchain (overridable)
+# ============================================================================
+CC       ?= gcc
+CXX      ?= g++
+AR       ?= ar
+LD        = $(CXX)
+
+# ============================================================================
+# Flags (overridable, then extended)
+# ============================================================================
+CFLAGS   ?= -Wall -Wextra -pedantic
+CXXFLAGS ?= -Wall -Wextra -pedantic
+CPPFLAGS ?=
+LDFLAGS  ?=
+LDLIBS   ?=
+
+# Project additions (always applied)
+CPPFLAGS += -I$(INCDIR)
+CXXFLAGS += -std=c++17 -MMD -MP
+
+# ============================================================================
+# Build Configuration
+# ============================================================================
+BUILD    ?= release
+
+ifeq ($(BUILD),debug)
+    CXXFLAGS += -g -O0 -DDEBUG
+    BUILDDIR := $(BUILDDIR)/debug
+else
+    CXXFLAGS += -O2 -DNDEBUG
+    BUILDDIR := $(BUILDDIR)/release
+endif
+
+# ============================================================================
+# Sources and Objects
+# ============================================================================
+SRCS     := $(wildcard $(SRCDIR)/*.cpp)
+OBJS     := $(SRCS:$(SRCDIR)/%.cpp=$(BUILDDIR)/%.o)
+DEPS     := $(OBJS:.o=.d)
+
+# ============================================================================
+# Targets
+# ============================================================================
+.PHONY: all clean install uninstall help debug release
+
+all: $(BINDIR)/$(PROJECT)
+
+debug:
+	$(MAKE) BUILD=debug
+
+release:
+	$(MAKE) BUILD=release
+
+# Link executable
+$(BINDIR)/$(PROJECT): $(OBJS) | $(BINDIR)
+	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+
+# Compile sources
+$(BUILDDIR)/%.o: $(SRCDIR)/%.cpp | $(BUILDDIR)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ $<
+
+# Create directories
+$(BUILDDIR) $(BINDIR):
+	mkdir -p $@
+
+# Include auto-generated dependencies
+-include $(DEPS)
+
+# ============================================================================
+# Installation
+# ============================================================================
+PREFIX   ?= /usr/local
+
+install: $(BINDIR)/$(PROJECT)
+	install -d $(DESTDIR)$(PREFIX)/bin
+	install -m 755 $(BINDIR)/$(PROJECT) $(DESTDIR)$(PREFIX)/bin/
+
+uninstall:
+	$(RM) $(DESTDIR)$(PREFIX)/bin/$(PROJECT)
+
+# ============================================================================
+# Maintenance
+# ============================================================================
+clean:
+	$(RM) -r $(BUILDDIR) $(BINDIR)
+
+help:
+	@echo "$(PROJECT) v$(VERSION)"
+	@echo ""
+	@echo "Targets:"
+	@echo "  all        Build $(PROJECT) (default)"
+	@echo "  debug      Build with debug symbols"
+	@echo "  release    Build optimized"
+	@echo "  clean      Remove build artifacts"
+	@echo "  install    Install to PREFIX"
+	@echo "  uninstall  Remove installed files"
+	@echo ""
+	@echo "Variables:"
+	@echo "  BUILD=$(BUILD)    (debug|release)"
+	@echo "  PREFIX=$(PREFIX)"
+	@echo "  CXX=$(CXX)"
+
+# ============================================================================
+# Safety
+# ============================================================================
+.DELETE_ON_ERROR:
+.SECONDARY:

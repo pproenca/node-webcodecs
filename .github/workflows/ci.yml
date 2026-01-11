@@ -1,0 +1,195 @@
+# CI workflow for node-webcodecs
+# Runs linting, building, and testing on all supported platforms
+#
+# Platforms:
+# - Linux x64 glibc (Rocky Linux 9 container - FFmpeg 6+, glibc 2.34)
+# - Linux x64 musl (Alpine 3.20 container - FFmpeg 6+, musl libc)
+# - macOS ARM64 (macos-14 runner)
+# - macOS x64 (macos-13 runner)
+#
+# Node.js versions: 20, 22 (matching engines field)
+
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install cpplint
+        run: pip install cpplint
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build TypeScript
+        run: npm run build:ts
+
+      - name: Lint C++
+        run: cpplint --quiet src/*.h src/*.cc
+
+      - name: Lint TypeScript
+        run: npm run lint:ts
+
+      - name: Lint types
+        run: npm run lint:types
+
+      - name: Lint markdown
+        run: npm run lint:md
+
+  build-linux-glibc:
+    name: Linux glibc (Node ${{ matrix.node }})
+    runs-on: ubuntu-24.04
+    container: rockylinux:9
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - name: Install system dependencies
+        run: |
+          # Enable EPEL and CRB repositories for FFmpeg
+          dnf install -y epel-release
+          dnf config-manager --set-enabled crb
+          # Install RPMFusion for FFmpeg 6+ (EPEL has ffmpeg-free but missing some libs)
+          dnf install -y https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-9.noarch.rpm
+          # Install build tools and FFmpeg
+          dnf install -y gcc-c++ make python3 git pkgconfig ffmpeg-devel
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Install dependencies
+        run: npm install --omit=optional
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+  build-linux-musl:
+    name: Linux musl (Node ${{ matrix.node }})
+    runs-on: ubuntu-24.04
+    container: alpine:3.20
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - name: Install system dependencies
+        run: |
+          # Install build tools and Node.js
+          # zlib-dev and bzip2-dev required for linking FFmpeg
+          apk add --no-cache build-base python3 pkgconf git nodejs npm zlib-dev bzip2-dev
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+  build-macos-arm64:
+    name: macOS ARM64 (Node ${{ matrix.node }})
+    runs-on: macos-14
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install FFmpeg
+        run: brew install ffmpeg
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Cache node-gyp
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/node-gyp
+            ~/Library/Caches/node-gyp
+          key: node-gyp-macos-arm64-node${{ matrix.node }}-${{ hashFiles('binding.gyp') }}
+          restore-keys: |
+            node-gyp-macos-arm64-node${{ matrix.node }}-
+
+      - name: Install dependencies
+        run: npm install --omit=optional
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+  build-macos-x64:
+    name: macOS x64 (Node ${{ matrix.node }})
+    runs-on: macos-13
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install FFmpeg
+        run: brew install ffmpeg
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Cache node-gyp
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/node-gyp
+            ~/Library/Caches/node-gyp
+          key: node-gyp-macos-x64-node${{ matrix.node }}-${{ hashFiles('binding.gyp') }}
+          restore-keys: |
+            node-gyp-macos-x64-node${{ matrix.node }}-
+
+      - name: Install dependencies
+        run: npm install --omit=optional
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test

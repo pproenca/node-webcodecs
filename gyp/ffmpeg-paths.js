@@ -21,7 +21,12 @@ if (mode === 'include') {
     process.exit(1);
 }
 if (mode === 'rpath') {
-    process.exit(0);
+    const result = (0, ffmpeg_paths_lib_1.resolveRpath)(projectRoot, process.env);
+    if (result) {
+        console.log(result);
+        process.exit(0);
+    }
+    process.exit(1);
 }
 console.error(`Unknown mode: ${mode}`);
 process.exit(1);

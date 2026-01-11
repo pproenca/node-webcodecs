@@ -4,6 +4,7 @@ import {
   resolveProjectRoot,
   resolveLibFlags,
   resolveIncludeFlags,
+  resolveRpath,
 } from './ffmpeg-paths-lib';
 
 const mode = process.argv[2] ?? 'lib';
@@ -28,7 +29,12 @@ if (mode === 'include') {
 }
 
 if (mode === 'rpath') {
-  process.exit(0);
+  const result = resolveRpath(projectRoot, process.env);
+  if (result) {
+    console.log(result);
+    process.exit(0);
+  }
+  process.exit(1);
 }
 
 console.error(`Unknown mode: ${mode}`);
