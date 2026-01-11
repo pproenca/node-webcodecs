@@ -70,7 +70,7 @@
 ## 9. Validation
 
 - [x] 9.1 Run workflow locally with `act` to validate syntax (if available)
-- [ ] 9.2 Push to branch and verify workflow triggers on PR
+- [x] 9.2 Push to branch and verify workflow triggers on PR (https://github.com/pproenca/node-webcodecs/pull/10)
 - [ ] 9.3 Verify lint job completes in under 2 minutes
 - [ ] 9.4 Verify all matrix entries build and test successfully
 - [x] 9.5 Test `npm install` locally includes FFmpeg optional dependency

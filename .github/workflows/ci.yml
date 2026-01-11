@@ -34,7 +34,7 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        run: npm ci --omit=optional
+        run: npm install --omit=optional
 
       - name: Lint C++
         run: npm run lint:cpp
@@ -70,7 +70,7 @@ jobs:
           node-version: ${{ matrix.node }}
 
       - name: Install dependencies
-        run: npm ci --omit=optional
+        run: npm install --omit=optional
 
       - name: Build
         run: npm run build
@@ -93,7 +93,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: npm ci --omit=optional
+        run: npm install --omit=optional
 
       - name: Build
         run: npm run build
@@ -120,7 +120,7 @@ jobs:
           node-version: ${{ matrix.node }}
 
       - name: Install dependencies
-        run: npm ci --omit=optional
+        run: npm install --omit=optional
 
       - name: Build
         run: npm run build
@@ -147,7 +147,7 @@ jobs:
           node-version: ${{ matrix.node }}
 
       - name: Install dependencies
-        run: npm ci --omit=optional
+        run: npm install --omit=optional
 
       - name: Build
         run: npm run build
