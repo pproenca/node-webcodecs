@@ -44,6 +44,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Build TypeScript
+        run: npm run build:ts
+
       - name: Lint C++
         run: cpplint --quiet src/*.h src/*.cc
 
@@ -69,15 +72,12 @@ jobs:
           # Enable EPEL and CRB (PowerTools) repositories
           dnf install -y epel-release
           dnf config-manager --set-enabled powertools || dnf config-manager --set-enabled crb || true
-          # Install build tools and FFmpeg
-          dnf install -y gcc-c++ make python3 git pkgconfig
-          # Install FFmpeg development packages from EPEL
-          dnf install -y ffmpeg-free-devel || dnf install -y --enablerepo=epel ffmpeg-devel || echo "FFmpeg not in EPEL, using RPMFusion"
-          # If FFmpeg not available, try RPMFusion
-          if ! pkg-config --exists libavcodec; then
-            dnf install -y https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-8.noarch.rpm || true
-            dnf install -y ffmpeg-devel || true
-          fi
+          # Install build tools (Python 3.9 for node-gyp compatibility)
+          dnf install -y gcc-c++ make python39 git pkgconfig
+          alternatives --set python3 /usr/bin/python3.9 || true
+          # Install FFmpeg via RPMFusion (EPEL doesn't have ffmpeg-devel for Rocky 8)
+          dnf install -y https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-8.noarch.rpm || true
+          dnf install -y ffmpeg-devel || true
 
       - name: Checkout
         uses: actions/checkout@v4
