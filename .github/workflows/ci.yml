@@ -42,7 +42,7 @@ jobs:
         run: pip install cpplint
 
       - name: Install dependencies
-        run: npm install --omit=optional
+        run: npm install
 
       - name: Lint C++
         run: cpplint --quiet src/*.h src/*.cc
