@@ -1,0 +1,156 @@
+# CI workflow for node-webcodecs
+# Runs linting, building, and testing on all supported platforms
+#
+# Platforms:
+# - Linux x64 glibc (Rocky Linux 8 container)
+# - Linux x64 musl (Alpine 3.20 container)
+# - macOS ARM64 (macos-14 runner)
+# - macOS x64 (macos-13 runner)
+#
+# Node.js versions: 20, 22 (matching engines field)
+
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci --omit=optional
+
+      - name: Lint C++
+        run: npm run lint:cpp
+
+      - name: Lint TypeScript
+        run: npm run lint:ts
+
+      - name: Lint types
+        run: npm run lint:types
+
+      - name: Lint markdown
+        run: npm run lint:md
+
+  build-linux-glibc:
+    name: Linux glibc (Node ${{ matrix.node }})
+    runs-on: ubuntu-24.04
+    container: rockylinux:8
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - name: Install system dependencies
+        run: |
+          dnf install -y --enablerepo=devel gcc-c++ make python3 git
+          dnf install -y --enablerepo=epel,crb ffmpeg-free-devel
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Install dependencies
+        run: npm ci --omit=optional
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+  build-linux-musl:
+    name: Linux musl (Node ${{ matrix.node }})
+    runs-on: ubuntu-24.04
+    container: alpine:3.20
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - name: Install system dependencies
+        run: apk add --no-cache ffmpeg-dev build-base python3 pkgconfig git nodejs npm
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm ci --omit=optional
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+  build-macos-arm64:
+    name: macOS ARM64 (Node ${{ matrix.node }})
+    runs-on: macos-14
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install FFmpeg
+        run: brew install ffmpeg
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Install dependencies
+        run: npm ci --omit=optional
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+  build-macos-x64:
+    name: macOS x64 (Node ${{ matrix.node }})
+    runs-on: macos-13
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install FFmpeg
+        run: brew install ffmpeg
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Install dependencies
+        run: npm ci --omit=optional
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test

@@ -4,9 +4,10 @@
 // Resolve FFmpeg paths for node-gyp binding.
 //
 // Resolution order:
-// 1. FFMPEG_ROOT env var (set by CI from deps-v* release artifacts)
-// 2. ./ffmpeg-install directory (local development)
-// 3. System pkg-config (fallback)
+// 1. FFMPEG_ROOT env var (explicit override)
+// 2. @pproenca/webcodecs-ffmpeg npm package (if installed)
+// 3. ./ffmpeg-install directory (local development)
+// 4. System pkg-config (fallback)
 //
 // The FFmpeg static libraries are built from:
 // - Linux: docker/Dockerfile.linux-x64 (Alpine musl, fully static)
@@ -25,7 +26,8 @@
 
 import {existsSync} from 'node:fs';
 import {execSync} from 'node:child_process';
-import {join, resolve} from 'node:path';
+import {join, resolve, dirname} from 'node:path';
+import {platform, arch} from 'node:os';
 
 const FFMPEG_LIBS = 'libavcodec libavformat libavutil libswscale libswresample libavfilter';
 
@@ -47,7 +49,29 @@ export function filterFrameworkFlags(flags: string): string {
   return result.join(' ');
 }
 
+function tryResolveFromNpmPackage(): FfmpegRoot | null {
+  // Build platform-specific package name (e.g., @pproenca/webcodecs-ffmpeg-darwin-arm64)
+  const pkgName = `@pproenca/webcodecs-ffmpeg-${platform()}-${arch()}`;
+
+  try {
+    // Resolve the pkgconfig export from the platform package
+    // The package exports "./pkgconfig" pointing to "./lib/pkgconfig/index.js"
+    const pkgconfigIndex = require.resolve(`${pkgName}/pkgconfig`);
+    const pkgconfig = dirname(pkgconfigIndex);
+
+    if (existsSync(pkgconfig)) {
+      // The root is two levels up from lib/pkgconfig
+      const root = dirname(dirname(pkgconfig));
+      return {root, pkgconfig};
+    }
+  } catch {
+    // Package not installed - continue to next fallback
+  }
+  return null;
+}
+
 export function getFfmpegRoot(projectRoot: string, env: NodeJS.ProcessEnv): FfmpegRoot | null {
+  // 1. FFMPEG_ROOT env var (explicit override)
   if (env.FFMPEG_ROOT) {
     const root = env.FFMPEG_ROOT;
     const pkgconfig = join(root, 'lib', 'pkgconfig');
@@ -56,12 +80,20 @@ export function getFfmpegRoot(projectRoot: string, env: NodeJS.ProcessEnv): Ffmp
     }
   }
 
+  // 2. @pproenca/webcodecs-ffmpeg npm package (if installed)
+  const npmPackage = tryResolveFromNpmPackage();
+  if (npmPackage) {
+    return npmPackage;
+  }
+
+  // 3. ./ffmpeg-install directory (local development)
   const ffmpegInstall = join(projectRoot, 'ffmpeg-install');
   const pkgconfig = join(ffmpegInstall, 'lib', 'pkgconfig');
   if (existsSync(pkgconfig)) {
     return {root: ffmpegInstall, pkgconfig};
   }
 
+  // 4. System pkg-config will be used as fallback by the caller
   return null;
 }
 
