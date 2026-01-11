@@ -106,17 +106,15 @@ jobs:
         run: |
           # Install build tools and Node.js
           apk add --no-cache build-base python3 pkgconf git nodejs npm
-          # Install FFmpeg development files - Alpine uses split packages
-          # ffmpeg-dev pulls in the core libs, ffmpeg-libavcodec etc for runtime
-          apk add --no-cache ffmpeg-dev
-          # Verify pkg-config can find FFmpeg
-          pkg-config --exists libavcodec libavformat libavutil libswscale libswresample libavfilter
 
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Install dependencies
         run: npm install --omit=optional
+
+      - name: Install FFmpeg musl package
+        run: npm install @pproenca/webcodecs-ffmpeg-linux-x64-musl
 
       - name: Build
         run: npm run build

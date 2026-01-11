@@ -71,22 +71,45 @@ function filterFrameworkFlags(flags) {
     }
     return result.join(' ');
 }
-function tryResolveFromNpmPackage() {
-    // Build platform-specific package name (e.g., @pproenca/webcodecs-ffmpeg-darwin-arm64)
-    const pkgName = `@pproenca/webcodecs-ffmpeg-${(0, node_os_1.platform)()}-${(0, node_os_1.arch)()}`;
+function isMuslLibc() {
+    // Check if we're running on musl libc (Alpine Linux, etc.)
+    if ((0, node_os_1.platform)() !== 'linux') {
+        return false;
+    }
     try {
-        // Resolve the pkgconfig export from the platform package
-        // The package exports "./pkgconfig" pointing to "./lib/pkgconfig/index.js"
-        const pkgconfigIndex = require.resolve(`${pkgName}/pkgconfig`);
-        const pkgconfig = (0, node_path_1.dirname)(pkgconfigIndex);
-        if ((0, node_fs_1.existsSync)(pkgconfig)) {
-            // The root is two levels up from lib/pkgconfig
-            const root = (0, node_path_1.dirname)((0, node_path_1.dirname)(pkgconfig));
-            return { root, pkgconfig };
-        }
+        // ldd --version outputs "musl libc" on musl systems
+        const result = (0, node_child_process_1.execSync)('ldd --version 2>&1 || true', {
+            encoding: 'utf8',
+            stdio: ['pipe', 'pipe', 'pipe'],
+        });
+        return result.toLowerCase().includes('musl');
     }
     catch {
-        // Package not installed - continue to next fallback
+        return false;
+    }
+}
+function tryResolveFromNpmPackage() {
+    // Build platform-specific package name (e.g., @pproenca/webcodecs-ffmpeg-darwin-arm64)
+    // On musl systems, try the musl-specific package first
+    const basePlatform = `${(0, node_os_1.platform)()}-${(0, node_os_1.arch)()}`;
+    const pkgNames = isMuslLibc()
+        ? [`@pproenca/webcodecs-ffmpeg-${basePlatform}-musl`, `@pproenca/webcodecs-ffmpeg-${basePlatform}`]
+        : [`@pproenca/webcodecs-ffmpeg-${basePlatform}`];
+    for (const pkgName of pkgNames) {
+        try {
+            // Resolve the pkgconfig export from the platform package
+            // The package exports "./pkgconfig" pointing to "./lib/pkgconfig/index.js"
+            const pkgconfigIndex = require.resolve(`${pkgName}/pkgconfig`);
+            const pkgconfig = (0, node_path_1.dirname)(pkgconfigIndex);
+            if ((0, node_fs_1.existsSync)(pkgconfig)) {
+                // The root is two levels up from lib/pkgconfig
+                const root = (0, node_path_1.dirname)((0, node_path_1.dirname)(pkgconfig));
+                return { root, pkgconfig };
+            }
+        }
+        catch {
+            // Package not installed - try next one
+        }
     }
     return null;
 }

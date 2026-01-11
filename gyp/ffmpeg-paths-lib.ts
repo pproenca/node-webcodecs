@@ -73,23 +73,46 @@ export function filterFrameworkFlags(flags: string): string {
   return result.join(' ');
 }
 
+function isMuslLibc(): boolean {
+  // Check if we're running on musl libc (Alpine Linux, etc.)
+  if (platform() !== 'linux') {
+    return false;
+  }
+  try {
+    // ldd --version outputs "musl libc" on musl systems
+    const result = execSync('ldd --version 2>&1 || true', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    return result.toLowerCase().includes('musl');
+  } catch {
+    return false;
+  }
+}
+
 function tryResolveFromNpmPackage(): FfmpegRoot | null {
   // Build platform-specific package name (e.g., @pproenca/webcodecs-ffmpeg-darwin-arm64)
-  const pkgName = `@pproenca/webcodecs-ffmpeg-${platform()}-${arch()}`;
+  // On musl systems, try the musl-specific package first
+  const basePlatform = `${platform()}-${arch()}`;
+  const pkgNames = isMuslLibc()
+    ? [`@pproenca/webcodecs-ffmpeg-${basePlatform}-musl`, `@pproenca/webcodecs-ffmpeg-${basePlatform}`]
+    : [`@pproenca/webcodecs-ffmpeg-${basePlatform}`];
 
-  try {
-    // Resolve the pkgconfig export from the platform package
-    // The package exports "./pkgconfig" pointing to "./lib/pkgconfig/index.js"
-    const pkgconfigIndex = require.resolve(`${pkgName}/pkgconfig`);
-    const pkgconfig = dirname(pkgconfigIndex);
+  for (const pkgName of pkgNames) {
+    try {
+      // Resolve the pkgconfig export from the platform package
+      // The package exports "./pkgconfig" pointing to "./lib/pkgconfig/index.js"
+      const pkgconfigIndex = require.resolve(`${pkgName}/pkgconfig`);
+      const pkgconfig = dirname(pkgconfigIndex);
 
-    if (existsSync(pkgconfig)) {
-      // The root is two levels up from lib/pkgconfig
-      const root = dirname(dirname(pkgconfig));
-      return {root, pkgconfig};
+      if (existsSync(pkgconfig)) {
+        // The root is two levels up from lib/pkgconfig
+        const root = dirname(dirname(pkgconfig));
+        return {root, pkgconfig};
+      }
+    } catch {
+      // Package not installed - try next one
     }
-  } catch {
-    // Package not installed - continue to next fallback
   }
   return null;
 }
