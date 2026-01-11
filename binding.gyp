@@ -115,7 +115,8 @@
           ],
           "ldflags": [
             "-Wl,-Bsymbolic",
-            "-Wl,-rpath,$ORIGIN/../lib"
+            "-Wl,-rpath,$ORIGIN/../lib",
+            "-fno-lto"
           ],
           "cflags_cc": [
             "-std=c++20",
@@ -125,7 +126,8 @@
             "-Wpedantic",
             "-Wshadow",
             "-Wno-unused-parameter",
-            "-fPIC"
+            "-fPIC",
+            "-fno-lto"
           ]
         }],
         ["enable_sanitizers==1", {
