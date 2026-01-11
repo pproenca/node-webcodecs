@@ -2,6 +2,27 @@
   "variables": {
     "enable_sanitizers%": 0
   },
+  "target_defaults": {
+    "default_configuration": "Release",
+    "configurations": {
+      "Debug": {
+        "defines": ["DEBUG", "_DEBUG"],
+        "cflags_cc": ["-g", "-O0"],
+        "xcode_settings": {
+          "GCC_OPTIMIZATION_LEVEL": "0",
+          "GCC_GENERATE_DEBUGGING_SYMBOLS": "YES"
+        }
+      },
+      "Release": {
+        "defines": ["NDEBUG"],
+        "cflags_cc": ["-O3"],
+        "xcode_settings": {
+          "GCC_OPTIMIZATION_LEVEL": "3",
+          "GCC_GENERATE_DEBUGGING_SYMBOLS": "NO"
+        }
+      }
+    }
+  },
   "targets": [
     {
       "target_name": "node_webcodecs",
@@ -44,10 +65,10 @@
       "conditions": [
         ["OS=='mac'", {
           "include_dirs": [
-            "<!@(node gyp/ffmpeg-paths.js include 2>/dev/null || pkg-config --cflags-only-I libavcodec libavutil libswscale libswresample libavfilter 2>/dev/null | sed s/-I//g || echo '/opt/homebrew/include /usr/local/include')"
+            "<!@(node gyp/ffmpeg-paths.js include 2>/dev/null || pkg-config --cflags-only-I libavcodec libavutil libswscale libswresample libavfilter 2>/dev/null | sed s/-I//g || echo '/opt/homebrew/include /usr/local/include /opt/local/include')"
           ],
           "libraries": [
-            "<!@(node gyp/ffmpeg-paths.js lib 2>/dev/null || (pkg-config --libs libavcodec libavformat libavutil libswscale libswresample libavfilter 2>/dev/null | sed 's/-framework [^ ]*//g') || echo '-L/opt/homebrew/lib -L/usr/local/lib -lavcodec -lavformat -lavutil -lswscale -lswresample -lavfilter')",
+            "<!@(node gyp/ffmpeg-paths.js lib 2>/dev/null || (pkg-config --libs libavcodec libavformat libavutil libswscale libswresample libavfilter 2>/dev/null | sed 's/-framework [^ ]*//g') || echo '-L/opt/homebrew/lib -L/usr/local/lib -L/opt/local/lib -lavcodec -lavformat -lavutil -lswscale -lswresample -lavfilter')",
             "-framework VideoToolbox",
             "-framework AudioToolbox",
             "-framework CoreMedia",
@@ -71,32 +92,38 @@
               "-fexceptions",
               "-Wall",
               "-Wextra",
+              "-Wpedantic",
+              "-Wshadow",
               "-Wno-unused-parameter"
             ],
             "OTHER_LDFLAGS": [
-              "-mmacosx-version-min=11.0"
+              "-mmacosx-version-min=11.0",
+              "-Wl,-rpath,@loader_path/../lib"
             ]
           }
         }],
         ["OS=='linux'", {
           "include_dirs": [
-            "<!@(node gyp/ffmpeg-paths.js include 2>/dev/null || pkg-config --cflags-only-I libavcodec libavutil libswscale libswresample libavfilter | sed s/-I//g)"
+            "<!@(node gyp/ffmpeg-paths.js include 2>/dev/null || pkg-config --cflags-only-I libavcodec libavutil libswscale libswresample libavfilter 2>/dev/null | sed s/-I//g || echo '/usr/include /usr/local/include')"
           ],
           "libraries": [
-            "<!@(node gyp/ffmpeg-paths.js lib 2>/dev/null || pkg-config --libs --static libavcodec libavformat libavutil libswscale libswresample libavfilter)",
+            "<!@(node gyp/ffmpeg-paths.js lib 2>/dev/null || pkg-config --libs --static libavcodec libavformat libavutil libswscale libswresample libavfilter 2>/dev/null || pkg-config --libs libavcodec libavformat libavutil libswscale libswresample libavfilter 2>/dev/null || echo '-L/usr/lib -L/usr/local/lib -lavcodec -lavformat -lavutil -lswscale -lswresample -lavfilter')",
             "-lpthread",
             "-lm",
             "-ldl",
             "-lz"
           ],
           "ldflags": [
-            "-Wl,-Bsymbolic"
+            "-Wl,-Bsymbolic",
+            "-Wl,-rpath,$ORIGIN/../lib"
           ],
           "cflags_cc": [
             "-std=c++20",
             "-fexceptions",
             "-Wall",
             "-Wextra",
+            "-Wpedantic",
+            "-Wshadow",
             "-Wno-unused-parameter",
             "-fPIC"
           ]

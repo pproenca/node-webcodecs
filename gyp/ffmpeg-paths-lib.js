@@ -25,17 +25,40 @@
 // node-gyp's <!@()> splits output by whitespace, breaking "-framework Metal" into
 // two tokens. binding.gyp already explicitly adds required frameworks.
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.isPkgConfigAvailable = isPkgConfigAvailable;
 exports.filterFrameworkFlags = filterFrameworkFlags;
 exports.getFfmpegRoot = getFfmpegRoot;
 exports.runPkgConfig = runPkgConfig;
 exports.resolveLibFlags = resolveLibFlags;
 exports.resolveIncludeFlags = resolveIncludeFlags;
+exports.resolveRpath = resolveRpath;
 exports.resolveProjectRoot = resolveProjectRoot;
 const node_fs_1 = require("node:fs");
 const node_child_process_1 = require("node:child_process");
 const node_path_1 = require("node:path");
 const node_os_1 = require("node:os");
 const FFMPEG_LIBS = 'libavcodec libavformat libavutil libswscale libswresample libavfilter';
+const LOG_PREFIX = '[node-webcodecs]';
+function logError(message) {
+    console.error(`${LOG_PREFIX} ${message}`);
+}
+function logDebug(message, env) {
+    if (env.DEBUG) {
+        console.error(`${LOG_PREFIX} [DEBUG] ${message}`);
+    }
+}
+function isPkgConfigAvailable() {
+    try {
+        (0, node_child_process_1.execSync)('pkg-config --version', {
+            encoding: 'utf8',
+            stdio: ['pipe', 'pipe', 'pipe'],
+        });
+        return true;
+    }
+    catch {
+        return false;
+    }
+}
 function filterFrameworkFlags(flags) {
     const tokens = flags.split(/\s+/);
     const result = [];
@@ -99,13 +122,20 @@ function runPkgConfig(args, ffmpegRoot, pkgConfigPath, env) {
             env: mergedEnv,
             stdio: ['pipe', 'pipe', 'pipe'],
         });
-        return result.trim();
+        const trimmed = result.trim();
+        if (!trimmed) {
+            logError(`pkg-config returned empty output for: ${args}`);
+            logError('Ensure FFmpeg 5.0+ development files are installed.');
+            return null;
+        }
+        logDebug(`pkg-config ${args} -> ${trimmed}`, env);
+        return trimmed;
     }
     catch (error) {
-        if (env.DEBUG) {
-            const message = error instanceof Error ? error.message : String(error);
-            console.error(`pkg-config failed: ${message}`);
-        }
+        const message = error instanceof Error ? error.message : String(error);
+        logError(`pkg-config failed: ${message}`);
+        logError('Ensure FFmpeg 5.0+ development files are installed.');
+        logError('Install with: brew install ffmpeg (macOS), apt install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev (Debian/Ubuntu)');
         return null;
     }
 }
@@ -130,6 +160,19 @@ function resolveIncludeFlags(projectRoot, env) {
         return null;
     }
     return result.replace(/-I/g, '').trim();
+}
+function resolveRpath(projectRoot, env) {
+    const ffmpeg = getFfmpegRoot(projectRoot, env);
+    if (!ffmpeg) {
+        return null;
+    }
+    // Return the lib directory path for RPATH configuration
+    const libDir = (0, node_path_1.join)(ffmpeg.root, 'lib');
+    if ((0, node_fs_1.existsSync)(libDir)) {
+        logDebug(`rpath -> ${libDir}`, env);
+        return libDir;
+    }
+    return null;
 }
 function resolveProjectRoot() {
     return (0, node_path_1.resolve)(__dirname, '..');

@@ -31,6 +31,30 @@ import {platform, arch} from 'node:os';
 
 const FFMPEG_LIBS = 'libavcodec libavformat libavutil libswscale libswresample libavfilter';
 
+const LOG_PREFIX = '[node-webcodecs]';
+
+function logError(message: string): void {
+  console.error(`${LOG_PREFIX} ${message}`);
+}
+
+function logDebug(message: string, env: NodeJS.ProcessEnv): void {
+  if (env.DEBUG) {
+    console.error(`${LOG_PREFIX} [DEBUG] ${message}`);
+  }
+}
+
+export function isPkgConfigAvailable(): boolean {
+  try {
+    execSync('pkg-config --version', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export interface FfmpegRoot {
   readonly root: string;
   readonly pkgconfig: string;
@@ -112,12 +136,19 @@ export function runPkgConfig(
       env: mergedEnv,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
-    return result.trim();
-  } catch (error) {
-    if (env.DEBUG) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`pkg-config failed: ${message}`);
+    const trimmed = result.trim();
+    if (!trimmed) {
+      logError(`pkg-config returned empty output for: ${args}`);
+      logError('Ensure FFmpeg 5.0+ development files are installed.');
+      return null;
     }
+    logDebug(`pkg-config ${args} -> ${trimmed}`, env);
+    return trimmed;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logError(`pkg-config failed: ${message}`);
+    logError('Ensure FFmpeg 5.0+ development files are installed.');
+    logError('Install with: brew install ffmpeg (macOS), apt install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev (Debian/Ubuntu)');
     return null;
   }
 }
@@ -151,6 +182,23 @@ export function resolveIncludeFlags(
     return null;
   }
   return result.replace(/-I/g, '').trim();
+}
+
+export function resolveRpath(
+  projectRoot: string,
+  env: NodeJS.ProcessEnv,
+): string | null {
+  const ffmpeg = getFfmpegRoot(projectRoot, env);
+  if (!ffmpeg) {
+    return null;
+  }
+  // Return the lib directory path for RPATH configuration
+  const libDir = join(ffmpeg.root, 'lib');
+  if (existsSync(libDir)) {
+    logDebug(`rpath -> ${libDir}`, env);
+    return libDir;
+  }
+  return null;
 }
 
 export function resolveProjectRoot(): string {

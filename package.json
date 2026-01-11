@@ -12,11 +12,11 @@
     "url": "https://github.com/pproenca/node-webcodecs/issues"
   },
   "scripts": {
-    "build": "npm run build:scripts && node-gyp rebuild && tsc",
-    "build:native": "npm run build:scripts && node-gyp rebuild",
+    "build": "npm run build:scripts && node-gyp rebuild -j max && tsc",
+    "build:native": "npm run build:scripts && node-gyp rebuild -j max",
     "build:scripts": "tsc -p tsconfig.gyp.json",
     "build:ts": "tsc",
-    "build:debug": "npm run build:scripts && node-gyp rebuild --debug && tsc",
+    "build:debug": "npm run build:scripts && node-gyp rebuild -j max --debug && tsc",
     "rebuild": "npm run clean && npm run build",
     "clean": "rm -rf src/build/ .nyc_output/ coverage/ test/fixtures/output.*",
     "check": "npm run lint && npm test",
