@@ -105,7 +105,8 @@ jobs:
       - name: Install system dependencies
         run: |
           # Install build tools and Node.js
-          apk add --no-cache build-base python3 pkgconf git nodejs npm
+          # zlib-dev and bzip2-dev required for linking FFmpeg
+          apk add --no-cache build-base python3 pkgconf git nodejs npm zlib-dev bzip2-dev
 
       - name: Checkout
         uses: actions/checkout@v4
