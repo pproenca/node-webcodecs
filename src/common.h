@@ -26,6 +26,16 @@ extern "C" {
 #error "FFmpeg 5.0+ (libavcodec 59+) is required"
 #endif
 
+// AVFrame::duration was added in FFmpeg 5.1 (libavutil 57.28.100)
+// Before that, use pkt_duration (deprecated in 5.1+)
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(57, 28, 100)
+#define AV_FRAME_DURATION(frame) ((frame)->duration)
+#define AV_FRAME_SET_DURATION(frame, val) ((frame)->duration = (val))
+#else
+#define AV_FRAME_DURATION(frame) ((frame)->pkt_duration)
+#define AV_FRAME_SET_DURATION(frame, val) ((frame)->pkt_duration = (val))
+#endif
+
 namespace webcodecs {
 
 //==============================================================================
