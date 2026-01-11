@@ -33,11 +33,19 @@ jobs:
         with:
           node-version: 22
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install cpplint
+        run: pip install cpplint
+
       - name: Install dependencies
         run: npm install --omit=optional
 
       - name: Lint C++
-        run: npm run lint:cpp
+        run: cpplint --quiet src/*.h src/*.cc
 
       - name: Lint TypeScript
         run: npm run lint:ts
@@ -58,8 +66,18 @@ jobs:
     steps:
       - name: Install system dependencies
         run: |
-          dnf install -y --enablerepo=devel gcc-c++ make python3 git
-          dnf install -y --enablerepo=epel,crb ffmpeg-free-devel
+          # Enable EPEL and CRB (PowerTools) repositories
+          dnf install -y epel-release
+          dnf config-manager --set-enabled powertools || dnf config-manager --set-enabled crb || true
+          # Install build tools and FFmpeg
+          dnf install -y gcc-c++ make python3 git pkgconfig
+          # Install FFmpeg development packages from EPEL
+          dnf install -y ffmpeg-free-devel || dnf install -y --enablerepo=epel ffmpeg-devel || echo "FFmpeg not in EPEL, using RPMFusion"
+          # If FFmpeg not available, try RPMFusion
+          if ! pkg-config --exists libavcodec; then
+            dnf install -y https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-8.noarch.rpm || true
+            dnf install -y ffmpeg-devel || true
+          fi
 
       - name: Checkout
         uses: actions/checkout@v4
