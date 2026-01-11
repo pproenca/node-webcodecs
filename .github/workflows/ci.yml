@@ -2,8 +2,8 @@
 # Runs linting, building, and testing on all supported platforms
 #
 # Platforms:
-# - Linux x64 glibc (Rocky Linux 8 container)
-# - Linux x64 musl (Alpine 3.20 container)
+# - Linux x64 glibc (Rocky Linux 9 container - FFmpeg 6+, glibc 2.34)
+# - Linux x64 musl (Alpine 3.20 container - FFmpeg 6+, musl libc)
 # - macOS ARM64 (macos-14 runner)
 # - macOS x64 (macos-13 runner)
 #
@@ -62,22 +62,20 @@ jobs:
   build-linux-glibc:
     name: Linux glibc (Node ${{ matrix.node }})
     runs-on: ubuntu-24.04
-    container: rockylinux:8
+    container: rockylinux:9
     strategy:
       matrix:
         node: [20, 22]
     steps:
       - name: Install system dependencies
         run: |
-          # Enable EPEL and CRB (PowerTools) repositories
+          # Enable EPEL and CRB repositories for FFmpeg
           dnf install -y epel-release
-          dnf config-manager --set-enabled powertools || dnf config-manager --set-enabled crb || true
-          # Install GCC Toolset 12 for C++20 support (Rocky 8 default GCC is 8.x)
-          dnf install -y gcc-toolset-12 make python39 git pkgconfig
-          alternatives --set python3 /usr/bin/python3.9 || true
-          # Install FFmpeg via RPMFusion (EPEL doesn't have ffmpeg-devel for Rocky 8)
-          dnf install -y https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-8.noarch.rpm || true
-          dnf install -y ffmpeg-devel || true
+          dnf config-manager --set-enabled crb
+          # Install RPMFusion for FFmpeg 6+ (EPEL has ffmpeg-free but missing some libs)
+          dnf install -y https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-9.noarch.rpm
+          # Install build tools and FFmpeg
+          dnf install -y gcc-c++ make python3 git pkgconfig ffmpeg-devel
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -91,10 +89,7 @@ jobs:
         run: npm install --omit=optional
 
       - name: Build
-        run: |
-          # Enable GCC Toolset 12 for C++20 support
-          source /opt/rh/gcc-toolset-12/enable
-          npm run build
+        run: npm run build
 
       - name: Test
         run: npm test
@@ -110,21 +105,12 @@ jobs:
       - name: Install system dependencies
         run: |
           # Install build tools and Node.js
-          apk add --no-cache build-base python3 pkgconfig git nodejs npm
-          # Install FFmpeg and all transitive dependencies required by pkg-config
-          # Alpine's FFmpeg is compiled with many optional features, all need their dev packages
-          apk add --no-cache \
-            ffmpeg-dev ffmpeg-libs \
-            x264-dev x265-dev libvpx-dev opus-dev libvorbis-dev lame-dev \
-            dav1d-dev aom-dev libtheora-dev libwebp-dev svt-av1-dev rav1e-dev \
-            libjxl-dev libogg-dev \
-            harfbuzz-dev fribidi-dev fontconfig-dev freetype-dev libass-dev \
-            zlib-dev bzip2-dev openssl-dev libxml2-dev \
-            soxr-dev libdrm-dev \
-            lilv-dev libplacebo-dev vidstab-dev zeromq-dev zimg-dev \
-            libva-dev vdpau-dev libX11-dev \
-            librist-dev srt-dev libssh-dev libbluray-dev openmpt-dev \
-            onevpl-dev || true
+          apk add --no-cache build-base python3 pkgconf git nodejs npm
+          # Install FFmpeg development files - Alpine uses split packages
+          # ffmpeg-dev pulls in the core libs, ffmpeg-libavcodec etc for runtime
+          apk add --no-cache ffmpeg-dev
+          # Verify pkg-config can find FFmpeg
+          pkg-config --exists libavcodec libavformat libavutil libswscale libswresample libavfilter
 
       - name: Checkout
         uses: actions/checkout@v4
