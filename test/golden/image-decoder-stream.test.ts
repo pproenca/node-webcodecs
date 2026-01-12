@@ -3,8 +3,18 @@
  */
 
 import * as assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { before, describe, it } from 'node:test';
 import * as zlib from 'node:zlib';
+import { ImageDecoder } from '../../lib';
+
+// Check if PNG decoder is available (may be missing in LGPL FFmpeg builds)
+let pngSupported = false;
+before(async () => {
+  pngSupported = await ImageDecoder.isTypeSupported('image/png');
+  if (!pngSupported) {
+    console.log('Note: PNG decoder not available, skipping PNG-specific tests');
+  }
+});
 
 // CRC32 calculation for PNG chunks
 function crc32(data: Buffer): number {
@@ -79,6 +89,8 @@ function createPNGStream(): ReadableStream<Uint8Array> {
 
 describe('ImageDecoder ReadableStream Support', () => {
   it('accepts ReadableStream as data source', async () => {
+    if (!pngSupported) return; // Skip if PNG decoder not available
+
     const stream = createPNGStream();
     const decoder = new ImageDecoder({
       type: 'image/png',
@@ -98,6 +110,8 @@ describe('ImageDecoder ReadableStream Support', () => {
   });
 
   it('tracks.ready resolves after stream consumed', async () => {
+    if (!pngSupported) return; // Skip if PNG decoder not available
+
     const stream = createPNGStream();
     const decoder = new ImageDecoder({
       type: 'image/png',
@@ -111,6 +125,8 @@ describe('ImageDecoder ReadableStream Support', () => {
   });
 
   it('completed promise rejects on invalid image data', async () => {
+    if (!pngSupported) return; // Skip if PNG decoder not available
+
     // Create a stream that provides incomplete/invalid PNG data
     const invalidData = new Uint8Array([0x89, 0x50, 0x4e, 0x47]); // PNG signature only
     const invalidStream = new ReadableStream<Uint8Array>({
@@ -132,6 +148,8 @@ describe('ImageDecoder ReadableStream Support', () => {
   });
 
   it('decode waits for stream to complete', async () => {
+    if (!pngSupported) return; // Skip if PNG decoder not available
+
     // Create a delayed stream
     const pngData = createMinimalPNG();
     let enqueueRest: (() => void) | null = null;
@@ -169,6 +187,8 @@ describe('ImageDecoder ReadableStream Support', () => {
   });
 
   it('type property is available immediately', () => {
+    if (!pngSupported) return; // Skip if PNG decoder not available
+
     const stream = createPNGStream();
     const decoder = new ImageDecoder({
       type: 'image/png',

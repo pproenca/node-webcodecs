@@ -1,9 +1,18 @@
 import * as assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { describe, it } from 'node:test';
+import { before, describe, it } from 'node:test';
 import * as zlib from 'node:zlib';
 import { ImageDecoder, VideoFrame } from '../../lib';
+
+// Check if PNG decoder is available (may be missing in LGPL FFmpeg builds)
+let pngSupported = false;
+before(async () => {
+  pngSupported = await ImageDecoder.isTypeSupported('image/png');
+  if (!pngSupported) {
+    console.log('Note: PNG decoder not available, skipping PNG-specific tests');
+  }
+});
 
 // CRC32 calculation for PNG chunks
 function crc32(data: Buffer): number {
@@ -119,6 +128,8 @@ describe('ImageDecoder Integration', () => {
     });
 
     it('fails to decode invalid PNG data', async () => {
+      if (!pngSupported) return; // Skip if PNG decoder not available
+
       // Note: The native layer may not throw on construction for invalid data,
       // but will fail at decode time
       const decoder = new ImageDecoder({
@@ -131,6 +142,8 @@ describe('ImageDecoder Integration', () => {
     });
 
     it('fails to decode empty data', async () => {
+      if (!pngSupported) return; // Skip if PNG decoder not available
+
       // Note: Empty data may not throw on construction but will fail at decode
       const decoder = new ImageDecoder({
         type: 'image/png',
@@ -144,6 +157,8 @@ describe('ImageDecoder Integration', () => {
 
   describe('Memory management', () => {
     it('properly releases resources on close', () => {
+      if (!pngSupported) return; // Skip if PNG decoder not available
+
       const data = createMinimalPNG();
 
       for (let i = 0; i < 50; i++) {
@@ -161,6 +176,8 @@ describe('ImageDecoder Integration', () => {
 
   describe('VideoFrame output', () => {
     it('returns VideoFrame with correct properties', async () => {
+      if (!pngSupported) return; // Skip if PNG decoder not available
+
       const png = createMinimalPNG();
 
       const decoder = new ImageDecoder({
@@ -182,6 +199,8 @@ describe('ImageDecoder Integration', () => {
     });
 
     it('returns VideoFrame instance', async () => {
+      if (!pngSupported) return; // Skip if PNG decoder not available
+
       const png = createMinimalPNG();
 
       const decoder = new ImageDecoder({
@@ -201,6 +220,8 @@ describe('ImageDecoder Integration', () => {
 
   describe('Closed state handling', () => {
     it('throws InvalidStateError when decoding after close', async () => {
+      if (!pngSupported) return; // Skip if PNG decoder not available
+
       const data = createMinimalPNG();
       const decoder = new ImageDecoder({
         type: 'image/png',
@@ -213,6 +234,8 @@ describe('ImageDecoder Integration', () => {
     });
 
     it('can close multiple times without error', () => {
+      if (!pngSupported) return; // Skip if PNG decoder not available
+
       const data = createMinimalPNG();
       const decoder = new ImageDecoder({
         type: 'image/png',

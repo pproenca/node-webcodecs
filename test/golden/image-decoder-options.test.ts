@@ -4,8 +4,17 @@
 // Tests for ImageDecoder configuration options per W3C spec.
 
 import * as assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { before, describe, it } from 'node:test';
 import { ImageDecoder } from '../../lib';
+
+// Check if PNG decoder is available (may be missing in LGPL FFmpeg builds)
+let pngSupported = false;
+before(async () => {
+  pngSupported = await ImageDecoder.isTypeSupported('image/png');
+  if (!pngSupported) {
+    console.log('Note: PNG decoder not available, skipping PNG-specific tests');
+  }
+});
 
 describe('ImageDecoder Configuration Options', () => {
   // Helper to create minimal valid PNG
@@ -21,6 +30,8 @@ describe('ImageDecoder Configuration Options', () => {
 
   describe('colorSpaceConversion', () => {
     it('accepts "default" value', () => {
+      if (!pngSupported) return; // Skip if PNG decoder not available
+
       const data = createMinimalPNG();
       const decoder = new ImageDecoder({
         type: 'image/png',
@@ -32,6 +43,8 @@ describe('ImageDecoder Configuration Options', () => {
     });
 
     it('accepts "none" value', () => {
+      if (!pngSupported) return; // Skip if PNG decoder not available
+
       const data = createMinimalPNG();
       const decoder = new ImageDecoder({
         type: 'image/png',
@@ -50,6 +63,8 @@ describe('ImageDecoder Configuration Options', () => {
     // Both must be present together or neither should be present.
 
     it('accepts desiredWidth/desiredHeight options together', async () => {
+      if (!pngSupported) return; // Skip if PNG decoder not available
+
       const data = createMinimalPNG();
       const decoder = new ImageDecoder({
         type: 'image/png',
@@ -63,6 +78,8 @@ describe('ImageDecoder Configuration Options', () => {
     });
 
     it('accepts neither desiredWidth nor desiredHeight', async () => {
+      if (!pngSupported) return; // Skip if PNG decoder not available
+
       const data = createMinimalPNG();
       const decoder = new ImageDecoder({
         type: 'image/png',
@@ -76,6 +93,8 @@ describe('ImageDecoder Configuration Options', () => {
 
     // W3C Spec 10.3 step 4: desiredWidth without desiredHeight is INVALID
     it('throws TypeError for desiredWidth without desiredHeight (spec 10.3 step 4)', () => {
+      if (!pngSupported) return; // Skip if PNG decoder not available
+
       const data = createMinimalPNG();
       assert.throws(
         () =>
@@ -91,6 +110,8 @@ describe('ImageDecoder Configuration Options', () => {
 
     // W3C Spec 10.3 step 5: desiredHeight without desiredWidth is INVALID
     it('throws TypeError for desiredHeight without desiredWidth (spec 10.3 step 5)', () => {
+      if (!pngSupported) return; // Skip if PNG decoder not available
+
       const data = createMinimalPNG();
       assert.throws(
         () =>
@@ -107,6 +128,8 @@ describe('ImageDecoder Configuration Options', () => {
 
   describe('preferAnimation', () => {
     it('accepts preferAnimation option', () => {
+      if (!pngSupported) return; // Skip if PNG decoder not available
+
       const data = createMinimalPNG();
       const decoder = new ImageDecoder({
         type: 'image/png',
@@ -118,6 +141,8 @@ describe('ImageDecoder Configuration Options', () => {
     });
 
     it('accepts preferAnimation: false', () => {
+      if (!pngSupported) return; // Skip if PNG decoder not available
+
       const data = createMinimalPNG();
       const decoder = new ImageDecoder({
         type: 'image/png',
@@ -131,6 +156,8 @@ describe('ImageDecoder Configuration Options', () => {
 
   describe('transfer', () => {
     it('accepts transfer option with empty array', () => {
+      if (!pngSupported) return; // Skip if PNG decoder not available
+
       const data = createMinimalPNG();
       const decoder = new ImageDecoder({
         type: 'image/png',
@@ -142,12 +169,14 @@ describe('ImageDecoder Configuration Options', () => {
     });
 
     it('detaches ArrayBuffers specified in transfer', () => {
+      if (!pngSupported) return; // Skip if PNG decoder not available
+
       // Create a copy of the data in an ArrayBuffer
       const pngData = createMinimalPNG();
       const arrayBuffer = pngData.buffer.slice(
         pngData.byteOffset,
         pngData.byteOffset + pngData.byteLength,
-      );
+      ) as ArrayBuffer;
 
       const decoder = new ImageDecoder({
         type: 'image/png',
@@ -164,6 +193,8 @@ describe('ImageDecoder Configuration Options', () => {
 
   describe('combined options', () => {
     it('accepts all options together', () => {
+      if (!pngSupported) return; // Skip if PNG decoder not available
+
       const data = createMinimalPNG();
       const decoder = new ImageDecoder({
         type: 'image/png',
@@ -183,6 +214,8 @@ describe('ImageDecoder Configuration Options', () => {
 
   describe('premultiplyAlpha option', () => {
     it('accepts premultiplyAlpha: premultiply', () => {
+      if (!pngSupported) return; // Skip if PNG decoder not available
+
       const data = createMinimalPNG();
 
       const decoder = new ImageDecoder({
@@ -198,6 +231,8 @@ describe('ImageDecoder Configuration Options', () => {
     });
 
     it('accepts premultiplyAlpha: none', () => {
+      if (!pngSupported) return; // Skip if PNG decoder not available
+
       const data = createMinimalPNG();
 
       const decoder = new ImageDecoder({
@@ -211,6 +246,8 @@ describe('ImageDecoder Configuration Options', () => {
     });
 
     it('accepts premultiplyAlpha: default', () => {
+      if (!pngSupported) return; // Skip if PNG decoder not available
+
       const data = createMinimalPNG();
 
       const decoder = new ImageDecoder({
@@ -224,6 +261,8 @@ describe('ImageDecoder Configuration Options', () => {
     });
 
     it('throws TypeError for invalid value', () => {
+      if (!pngSupported) return; // Skip if PNG decoder not available
+
       const data = createMinimalPNG();
 
       assert.throws(

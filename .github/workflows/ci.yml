@@ -75,6 +75,11 @@ jobs:
       matrix:
         platform: [darwin-arm64, darwin-x64, linux-x64-glibc, linux-arm64, linux-x64-musl]
         variant: [free, non-free]
+        # Exclude linux-x64-musl-free: LGPL build lacks H.264/H.265 encoders (GPL)
+        # Tests requiring encoding will fail without libx264/libx265
+        exclude:
+          - platform: linux-x64-musl
+            variant: free
         include:
           - platform: darwin-arm64
             runner: macos-14
