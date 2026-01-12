@@ -11,8 +11,8 @@ project(node_webcodecs_tests CXX)
 # C++ STANDARD
 # =============================================================================
 
-# C++17 required (matches binding.gyp)
-set(CMAKE_CXX_STANDARD 17)
+# C++20 required (matches binding.gyp for ABI compatibility)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -33,17 +33,17 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
 # =============================================================================
-# FFMPEG
+# FFMPEG (5.0+ required per CLAUDE.md)
 # =============================================================================
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(FFMPEG REQUIRED
-  libavcodec>=58.0
-  libavformat>=58.0
-  libavutil>=56.0
-  libswscale>=5.0
-  libswresample>=3.0
-  libavfilter>=7.0
+pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
+  libavcodec>=59.0      # FFmpeg 5.0+
+  libavformat>=59.0     # FFmpeg 5.0+
+  libavutil>=57.0       # FFmpeg 5.0+
+  libswscale>=6.0       # FFmpeg 5.0+
+  libswresample>=4.0    # FFmpeg 5.0+
+  libavfilter>=8.0      # FFmpeg 5.0+
 )
 
 # =============================================================================
@@ -61,30 +61,61 @@ set(SOURCE_FILES
 )
 
 # =============================================================================
-# TEST FILES
+# TEST FILES (explicit list - CMake best practice)
 # =============================================================================
 
-# Existing test
+# Core test files
 set(TEST_SOURCES
   ffmpeg_raii_test.cc
   test_main.cpp
 )
 
 # Unit tests (no FFmpeg codec operations required)
-file(GLOB UNIT_TEST_SOURCES "unit/*.cpp")
-list(APPEND TEST_SOURCES ${UNIT_TEST_SOURCES})
-
-# Integration tests (require FFmpeg codec operations)
-file(GLOB INTEGRATION_TEST_SOURCES "integration/*.cpp")
-list(APPEND TEST_SOURCES ${INTEGRATION_TEST_SOURCES})
+set(UNIT_TEST_SOURCES
+  unit/test_control_message_queue.cpp
+)
 
 # Spec compliance tests
-file(GLOB SPEC_TEST_SOURCES "spec/*.cpp")
-list(APPEND TEST_SOURCES ${SPEC_TEST_SOURCES})
+set(SPEC_TEST_SOURCES
+  spec/test_flush_semantics.cpp
+  spec/test_queue_semantics.cpp
+  spec/test_reset_semantics.cpp
+  spec/test_saturation_detection.cpp
+  spec/test_state_machine.cpp
+)
 
 # Stress tests (thread safety, memory)
-file(GLOB STRESS_TEST_SOURCES "stress/*.cpp")
-list(APPEND TEST_SOURCES ${STRESS_TEST_SOURCES})
+set(STRESS_TEST_SOURCES
+  stress/test_concurrent_operations.cpp
+  stress/test_memory_leaks.cpp
+)
+
+# Combine all test sources
+list(APPEND TEST_SOURCES
+  ${UNIT_TEST_SOURCES}
+  ${SPEC_TEST_SOURCES}
+  ${STRESS_TEST_SOURCES}
+)
+
+# =============================================================================
+# COMPILER OPTIONS HELPER (reusable for tests and benchmarks)
+# =============================================================================
+
+function(webcodecs_set_compile_options target)
+  if(APPLE)
+    target_compile_options(${target} PRIVATE
+      -Wall -Wextra -Wno-unused-parameter
+      -Werror=return-type -Werror=uninitialized
+    )
+  elseif(UNIX)
+    target_compile_options(${target} PRIVATE
+      -Wall -Wextra -Wno-unused-parameter
+      -Werror=return-type -Werror=uninitialized -fPIC
+    )
+  elseif(WIN32)
+    target_compile_options(${target} PRIVATE /W4 /WX)
+  endif()
+endfunction()
 
 # =============================================================================
 # TEST EXECUTABLE
@@ -94,53 +125,24 @@ add_executable(webcodecs_tests
   ${TEST_SOURCES}
   ${SOURCE_FILES}
 )
+add_executable(WebCodecs::tests ALIAS webcodecs_tests)
 
 target_include_directories(webcodecs_tests PRIVATE
   ${CMAKE_SOURCE_DIR}/../..  # Project root (for #include "src/...")
-  ${FFMPEG_INCLUDE_DIRS}
   ${CMAKE_CURRENT_SOURCE_DIR}/mocks
   ${CMAKE_CURRENT_SOURCE_DIR}/helpers
 )
 
-target_link_directories(webcodecs_tests PRIVATE
-  ${FFMPEG_LIBRARY_DIRS}
-)
-
+# Use imported target - no target_link_directories needed
 target_link_libraries(webcodecs_tests PRIVATE
   GTest::gtest
   GTest::gtest_main
   GTest::gmock
-  ${FFMPEG_LIBRARIES}
+  PkgConfig::FFMPEG
 )
 
-# =============================================================================
-# COMPILER FLAGS (Google C++ Style Guide)
-# =============================================================================
-
-# Platform-specific warnings
-if(APPLE)
-  target_compile_options(webcodecs_tests PRIVATE
-    -Wall
-    -Wextra
-    -Wno-unused-parameter
-    -Werror=return-type
-    -Werror=uninitialized
-  )
-elseif(UNIX)
-  target_compile_options(webcodecs_tests PRIVATE
-    -Wall
-    -Wextra
-    -Wno-unused-parameter
-    -Werror=return-type
-    -Werror=uninitialized
-    -fPIC
-  )
-elseif(WIN32)
-  target_compile_options(webcodecs_tests PRIVATE
-    /W4
-    /WX  # Warnings as errors
-  )
-endif()
+# Apply common compiler options
+webcodecs_set_compile_options(webcodecs_tests)
 
 # =============================================================================
 # SANITIZERS (Optional)
@@ -227,41 +229,36 @@ if(BUILD_BENCHMARKS)
 
   FetchContent_MakeAvailable(benchmark)
 
-  # Benchmark executable
-  file(GLOB BENCHMARK_SOURCES "benchmark/*.cpp")
+  # Benchmark sources (explicit list - CMake best practice)
+  set(BENCHMARK_SOURCES
+    benchmark/codec_throughput.cpp
+    benchmark/queue_performance.cpp
+    benchmark/raii_overhead.cpp
+  )
 
   add_executable(webcodecs_benchmarks
     ${BENCHMARK_SOURCES}
     ${SOURCE_FILES}
   )
+  add_executable(WebCodecs::benchmarks ALIAS webcodecs_benchmarks)
 
   target_include_directories(webcodecs_benchmarks PRIVATE
     ${CMAKE_SOURCE_DIR}/../..
-    ${FFMPEG_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}/mocks
     ${CMAKE_CURRENT_SOURCE_DIR}/helpers
   )
 
-  target_link_directories(webcodecs_benchmarks PRIVATE
-    ${FFMPEG_LIBRARY_DIRS}
-  )
-
+  # Use imported target - no target_link_directories needed
   target_link_libraries(webcodecs_benchmarks PRIVATE
     benchmark::benchmark
     benchmark::benchmark_main
-    ${FFMPEG_LIBRARIES}
+    PkgConfig::FFMPEG
   )
 
-  # Platform-specific flags
-  if(APPLE)
-    target_compile_options(webcodecs_benchmarks PRIVATE
-      -Wall -Wextra -O3 -DNDEBUG
-    )
-  elseif(UNIX)
-    target_compile_options(webcodecs_benchmarks PRIVATE
-      -Wall -Wextra -O3 -DNDEBUG -fPIC
-    )
-  endif()
+  # Apply common compiler options + benchmark-specific optimization
+  webcodecs_set_compile_options(webcodecs_benchmarks)
+  target_compile_options(webcodecs_benchmarks PRIVATE -O3)
+  target_compile_definitions(webcodecs_benchmarks PRIVATE NDEBUG)
 
   add_custom_target(run_benchmarks
     COMMAND webcodecs_benchmarks
