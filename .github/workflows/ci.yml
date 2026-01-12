@@ -117,7 +117,7 @@ jobs:
           dnf install -y epel-release
           dnf config-manager --set-enabled crb
           dnf install -y https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-9.noarch.rpm
-          dnf install -y gcc-c++ make python3 git pkgconfig
+          dnf install -y gcc-c++ make python3 git pkgconfig zlib-devel bzip2-devel
 
       # System dependencies for Alpine container
       - name: Install system dependencies (Alpine)
@@ -212,7 +212,7 @@ jobs:
               dnf install -y epel-release
               dnf config-manager --set-enabled crb
               dnf install -y https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-9.noarch.rpm
-              dnf install -y gcc-c++ make python3 git pkgconfig
+              dnf install -y gcc-c++ make python3 git pkgconfig zlib-devel bzip2-devel
               curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
               dnf install -y nodejs
               npm install --no-save \"$FFMPEG_PKG\"
