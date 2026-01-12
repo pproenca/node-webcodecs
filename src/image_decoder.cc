@@ -546,8 +546,8 @@ bool ImageDecoder::ParseAnimatedImageMetadata() {
 
             // Duration from packet or frame
             int64_t duration = pkt->duration;
-            if (duration <= 0 && frm->duration > 0) {
-              duration = frm->duration;
+            if (duration <= 0 && AV_FRAME_DURATION(frm.get()) > 0) {
+              duration = AV_FRAME_DURATION(frm.get());
             }
             if (duration > 0) {
               decoded_frame.duration =

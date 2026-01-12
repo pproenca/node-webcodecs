@@ -341,7 +341,7 @@ void VideoEncoderWorker::OnEncode(const EncodeMessage& msg) {
   int src_width = src_frame->width;
   int src_height = src_frame->height;
   int64_t timestamp = src_frame->pts;
-  int64_t duration = src_frame->duration;
+  int64_t duration = AV_FRAME_DURATION(src_frame);
 
   // For RGBA input, convert to YUV420P
   // The source frame contains RGBA data packed in data[0]

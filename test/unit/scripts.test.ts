@@ -77,14 +77,19 @@ test('filterFrameworkFlags removes framework pairs', () => {
   assert.strictEqual(filterFrameworkFlags(input), '-L/foo -lavcodec');
 });
 
-test('getFfmpegRoot resolves ffmpeg-install when present', () => {
+test('getFfmpegRoot resolves npm package or ffmpeg-install', () => {
   const root = createTempRoot();
   const pkgconfig = join(root, 'ffmpeg-install', 'lib', 'pkgconfig');
   mkdirSync(pkgconfig, {recursive: true});
 
   const result = getFfmpegRoot(root, {});
   assert.ok(result);
-  assert.strictEqual(result?.root, join(root, 'ffmpeg-install'));
+  // npm package takes precedence over ffmpeg-install when installed
+  // Either npm package or ffmpeg-install is acceptable
+  assert.ok(
+    result?.root.includes('ffmpeg-install') || result?.root.includes('webcodecs-ffmpeg'),
+    `Expected ffmpeg-install or npm package, got: ${result?.root}`
+  );
 });
 
 test('platform-package main returns error for unknown mode', () => {

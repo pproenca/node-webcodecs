@@ -526,7 +526,7 @@ Napi::Value VideoEncoder::Encode(const Napi::CallbackInfo& info) {
   frame->height = video_frame->GetHeight();
   frame->format = AV_PIX_FMT_RGBA;
   frame->pts = video_frame->GetTimestampValue();
-  frame->duration = video_frame->GetDurationValue();
+  AV_FRAME_SET_DURATION(frame.get(), video_frame->GetDurationValue());
 
   // Copy RGBA data
   size_t data_size = frame->width * frame->height * kBytesPerPixelRgba;
