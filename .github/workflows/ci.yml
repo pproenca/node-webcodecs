@@ -74,8 +74,8 @@ jobs:
           dnf config-manager --set-enabled crb
           # Install RPMFusion for FFmpeg 6+ (EPEL has ffmpeg-free but missing some libs)
           dnf install -y https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-9.noarch.rpm
-          # Install build tools and FFmpeg
-          dnf install -y gcc-c++ make python3 git pkgconfig ffmpeg-devel
+          # Install build tools (FFmpeg comes from npm packages)
+          dnf install -y gcc-c++ make python3 git pkgconfig
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -86,7 +86,7 @@ jobs:
           node-version: ${{ matrix.node }}
 
       - name: Install dependencies
-        run: npm install --omit=optional
+        run: npm install
 
       - name: Build
         run: npm run build
