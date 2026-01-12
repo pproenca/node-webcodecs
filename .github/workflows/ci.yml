@@ -160,6 +160,7 @@ jobs:
       - name: Install FFmpeg (macOS npm - free)
         if: matrix.os == 'darwin' && matrix.variant == 'free'
         run: |
+          npm cache clean --force
           PKG="@pproenca/webcodecs-ffmpeg-${{ matrix.ffmpeg_pkg }}"
           echo "Installing FFmpeg package: $PKG"
           npm install --no-save "$PKG"
@@ -177,6 +178,7 @@ jobs:
       - name: Install FFmpeg (Linux npm)
         if: matrix.os == 'linux' && matrix.qemu != true
         run: |
+          npm cache clean --force
           PKG="@pproenca/webcodecs-ffmpeg-${{ matrix.ffmpeg_pkg }}"
           if [ "${{ matrix.variant }}" = "non-free" ]; then
             PKG="${PKG}-non-free"
@@ -215,6 +217,7 @@ jobs:
               dnf install -y gcc-c++ make python3 git pkgconfig zlib-devel bzip2-devel
               curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
               dnf install -y nodejs
+              npm cache clean --force
               npm install --no-save \"$FFMPEG_PKG\"
               npm install
               npm run build
