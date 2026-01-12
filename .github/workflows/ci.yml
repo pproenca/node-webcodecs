@@ -24,6 +24,8 @@ on:
 
 permissions:
   contents: read
+  checks: write
+  pull-requests: write
 
 jobs:
   lint:
@@ -232,4 +234,18 @@ jobs:
       # Test for non-ARM64 platforms
       - name: Test
         if: matrix.qemu != true
-        run: npm test
+        run: npm run test:ci
+
+      # Run native C++ tests with JUnit output (macOS only for now)
+      - name: Native Tests
+        if: matrix.qemu != true && matrix.os == 'darwin'
+        continue-on-error: true
+        run: npm run test:native:ci
+
+      # Publish test results with annotations
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always() && matrix.qemu != true && matrix.os == 'darwin'
+        with:
+          files: test/native/build/native-results.xml
+          check_name: "Test Results (${{ matrix.platform }}-${{ matrix.variant }})"
